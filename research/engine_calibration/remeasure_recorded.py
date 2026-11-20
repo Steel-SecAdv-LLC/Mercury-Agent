@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Re-measure the domains whose loaders read a recorded archive directly.
 
-``results.json`` backs the README's per-domain hazard table. Most of its rows
-come from a cache of fetched events (``build_cache.py`` then
+``results.json`` backs the README's per-domain hazard table. Its rows come
+from a cache of fetched events (``build_cache.py``, ``score_events.py``, then
 ``measure_cached.py``). The tsunami and energy loaders changed from
 constructed series to recorded ones (NDBC DART, NASA OMNI2, EIA-930, DOE
 OE-417), so their rows are measured here from the loaders themselves, with
@@ -11,6 +11,11 @@ synthetic stand-ins refused, and spliced into the artifact. FEMA is measured
 the same way since its label rule was corrected (individual assistance is
 recorded as ``ihProgramDeclared`` on declarations since about 2007). Every
 other row is left exactly as committed.
+
+Since ``build_cache.py`` caches ``fema_activity`` as well, this step is a
+cross-check and no longer the only source of any row: on the same archives it
+writes the same figures the three-step sequence does, from a cache directory
+of its own that starts empty.
 
 Usage::
 
@@ -36,6 +41,9 @@ import numpy as np
 
 _HERE = Path(__file__).resolve().parent
 _RESULTS = _HERE / "results.json"
+sys.path.insert(0, str(_HERE))
+from _proxy_fallback import install_from_env
+from _summary import MEASURED, auroc_status, summarise, write_json
 
 #: Domain -> (loader module, loader class).
 RECORDED = {
@@ -45,17 +53,6 @@ RECORDED = {
     "tsunami": ("tsunami_loader", "TsunamiLoader"),
 }
 
-_METRICS = (
-    "auroc",
-    "auprc",
-    "f1_before",
-    "f1_after",
-    "prec_before",
-    "prec_after",
-    "rec_before",
-    "rec_after",
-)
-
 
 def _measure_event(loader: Any, domain: str, event_id: str) -> dict[str, Any] | None:
     """Score one event with the shipped detector, exactly as ``measure.py`` does.
@@ -63,7 +60,6 @@ def _measure_event(loader: Any, domain: str, event_id: str) -> dict[str, Any] | 
     Returns ``None`` for an event whose labels hold a single class: no ranking
     metric exists for it.
     """
-    sys.path.insert(0, str(_HERE))
     measure = importlib.import_module("measure")
     statistical = importlib.import_module("omni_mercury_engine.detectors.statistical")
 
@@ -82,13 +78,16 @@ def _measure_event(loader: Any, domain: str, event_id: str) -> dict[str, Any] | 
     before = (scores > 0.5).astype(int)
     f1_b, prec_b, rec_b = measure.prf(labels, before)
     f1_a, prec_a, rec_a = measure.prf(labels, after)
+    status = auroc_status(labels, scores)
     return {
         "dom": domain,
         "event": event_id,
         "n": int(labels.size),
+        "n_total": int(labels.size),
         "pos": int(labels.sum()),
         "subsampled": False,
-        "auroc": measure.auc(labels, scores),
+        "auroc": measure.auc(labels, scores) if status == MEASURED else None,
+        "auroc_status": status,
         "auprc": measure.ap(labels, scores),
         "f1_before": f1_b,
         "prec_before": prec_b,
@@ -99,20 +98,10 @@ def _measure_event(loader: Any, domain: str, event_id: str) -> dict[str, Any] | 
     }
 
 
-def _mean(rows: list[dict[str, Any]], key: str, domain: str | None = None) -> float:
-    values = [
-        float(row[key])
-        for row in rows
-        if (domain is None or row["dom"] == domain)
-        and isinstance(row.get(key), (int, float))
-        and row[key] == row[key]
-    ]
-    return round(float(np.mean(values)), 4) if values else float("nan")
-
-
 def remeasure() -> dict[str, Any]:
     """Return ``results.json`` with the recorded domains measured afresh."""
     os.environ["MERCURY_ALLOW_SYNTHETIC"] = "0"
+    install_from_env()
     artifact: dict[str, Any] = json.loads(_RESULTS.read_text(encoding="utf-8"))
     rows = [row for row in artifact["per_event"] if row["dom"] not in RECORDED]
     for domain, (module, cls) in RECORDED.items():
@@ -124,19 +113,13 @@ def remeasure() -> dict[str, Any]:
                 if row is None:
                     print(f"{domain:8s} {event['event_id']:20s} not scorable: one class only")
                     continue
+                shown = row["auroc_status"] if row["auroc"] is None else f"{row['auroc']:.4f}"
                 print(
                     f"{domain:8s} {row['event']:20s} n={row['n']:5d} pos={row['pos']:4d} "
-                    f"auroc={row['auroc']:.4f}"
+                    f"auroc={shown}"
                 )
                 rows.append(row)
-    rows.sort(key=lambda row: (row["dom"], row["event"]))
-    artifact["per_event"] = rows
-    artifact["events"] = len(rows)
-    artifact["domains"] = sorted({row["dom"] for row in rows})
-    artifact["overall"] = {key: _mean(rows, key) for key in _METRICS}
-    for domain in RECORDED:
-        artifact["per_domain"][domain] = {key: _mean(rows, key, domain) for key in _METRICS}
-    return artifact
+    return summarise(rows)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -153,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{domain}: AUROC {artifact['per_domain'][domain]['auroc']}")
     print(f"overall: AUROC {artifact['overall']['auroc']} over {artifact['events']} events")
     if not args.dry_run:
-        _RESULTS.write_text(json.dumps(artifact, indent=2, default=float) + "\n", encoding="utf-8")
+        write_json(_RESULTS, artifact)
     return 0
 
 

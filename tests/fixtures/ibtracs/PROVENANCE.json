@@ -1,0 +1,13 @@
+{
+  "description": "Storm identifiers of the hurricane loader's twelve catalogue events, read from NOAA NCEI's IBTrACS North Atlantic file by storm name and season. Nothing is synthetic: every row is the archive's own NAME, SEASON and SID for that storm, with the first and last fix time and the number of fixes it holds.",
+  "source": "NOAA National Centers for Environmental Information, International Best Track Archive for Climate Stewardship (IBTrACS) version 4 revision 01, https://www.ncei.noaa.gov/products/international-best-track-archive. US Government work, public domain.",
+  "notes": "Used by tests/test_loader_defect_fixes.py (TestHurricaneCatalogueIdentifiers). Seven of the catalogue's identifiers (Harvey, Maria, Ian, Michael, Dorian, Ida, Matthew) were not IBTrACS identifiers at all, so those events returned no track; the test holds the catalogue to this file. An identifier is the year, the day of year, and the hemisphere, latitude and longitude of the storm's first fix; IBTrACS does not reissue them, but a later revision of the archive may add fixes to a storm, so the fix counts and times are a record of this reading, not something the test asserts.",
+  "fixtures": {
+    "catalogue_storm_ids.csv": {
+      "url": "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.NA.list.v04r01.csv",
+      "recorded_utc": "2026-11-20",
+      "method": "GET by HurricaneLoader._download_ibtracs_csv (file Last-Modified: Tue, 17 Nov 2026 10:11:03 GMT, Content-Length 57593323); rows selected where NAME and SEASON equal the catalogue storm's, one distinct SID per storm; columns NAME, SEASON, SID plus min/max ISO_TIME and the row count. Not verbatim bytes: a twelve-row extract of a 57 MB file.",
+      "content": "Twelve North Atlantic storms: KATRINA 2005, SANDY 2012, MATTHEW 2016, HARVEY, IRMA and MARIA 2017, MICHAEL 2018, DORIAN 2019, IDA 2021, IAN 2022, HELENE and MILTON 2024."
+    }
+  }
+}

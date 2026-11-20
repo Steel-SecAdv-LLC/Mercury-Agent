@@ -16,9 +16,24 @@ re-measure the figures the README quotes. This script is that way. Domains
 whose events cannot be re-fetched are carried over from the previous artifact
 unchanged and listed under ``carried_over`` so the provenance stays explicit.
 
+An AUROC that does not exist is not 0.5. When a view's scores are constant
+(the cholera event has no non-zero column left once its case columns are
+excluded) or the labels hold one class, that view's AUROC is recorded as
+``null`` with ``undefined`` saying why. A domain's two means and its delta are
+taken over the events where **both** views have an AUROC, so the delta
+compares like with like; ``n_events_scored`` and ``undefined_events`` say
+which those are. This is the convention of ``results.json`` (``_summary.py``)
+and of ``benchmarks/domain_benchmark_base.py``. Before 2026-11-20 this script
+scored such an event as 0.5 and averaged it in (pandemic read 0.7741).
+
+``fetch`` writes an archive for every event it can read and goes on past one
+it cannot (an event marked not-benchmarkable, a source that is gone), saying
+which and why; it used to stop at the first.
+
 Build the cache for a domain with::
 
     python research/engine_calibration/deleak_impact.py --fetch earthquake
+    python research/engine_calibration/deleak_impact.py --fetch all
 
 and re-measure every cached domain with::
 
@@ -41,6 +56,8 @@ from typing import Any
 warnings.filterwarnings("ignore")
 
 import numpy as np
+from _proxy_fallback import install_from_env
+from _summary import MEASURED, auroc_status
 from _workspace import cache_dir
 
 from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
@@ -72,49 +89,67 @@ CONTROL_DOMAINS = ("marine", "network_security", "tsunami")
 
 
 def fetch(domain: str) -> None:
-    """Fetch every event of ``domain`` into the de-leak cache."""
+    """Fetch every readable event of ``domain`` into the de-leak cache."""
+    install_from_env()
     mod, cls = LOADERS[domain]
     loader = getattr(importlib.import_module(f"omni_mercury_engine.loaders.{mod}"), cls)()
     for event in loader.list_events():
         eid = event["event_id"]
-        started = time.time()
-        raw = loader.fetch_historical(eid)
-        # A grid event's full view is the grid matrix: the space-weather
-        # matrix is not what its scored columns are a subset of.
-        is_grid = getattr(loader, "is_grid_frame", None)
-        if is_grid is not None and is_grid(raw):
-            x_full = np.asarray(loader.engineer_grid_features(raw), float)
-        else:
-            x_full = np.asarray(loader.engineer_features(raw), float)
-        try:
-            x_scored = np.asarray(loader.engineer_scored_features(raw), float)
-        except SyntheticDataNotDeleakable as exc:
-            # A synthetic frame has no label-disjoint view (every channel is
-            # built from the label profile); it is kept out of the measurement
-            # rather than written as a "de-leaked" archive.
-            print(f"{domain}/{eid}: quarantined, synthetic frame ({exc})")
+        archive = CACHE / f"{domain}__{eid}.deleak.npz"
+        if event.get("not_benchmarkable"):
+            archive.unlink(missing_ok=True)
+            print(f"{domain}/{eid}: not benchmarkable (catalogue)")
             continue
-        y = np.asarray(loader.get_ground_truth(eid)).astype(int).reshape(-1)
-        m = min(len(x_full), len(y))
-        np.savez_compressed(
-            CACHE / f"{domain}__{eid}.deleak.npz",
-            X_full=x_full[:m],
-            X_scored=x_scored[:m],
-            y=y[:m],
-        )
-        print(
-            f"{domain}/{eid}: full{x_full.shape} scored{x_scored.shape} {time.time() - started:.1f}s"
-        )
+        try:
+            _fetch_event(loader, domain, eid, archive)
+        except Exception as exc:
+            # An archive of an event that can no longer be read is not evidence.
+            archive.unlink(missing_ok=True)
+            print(f"{domain}/{eid}: not fetched, {type(exc).__name__}: {str(exc)[:200]}")
 
 
-def _auroc(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> float:
+def _fetch_event(loader: Any, domain: str, eid: str, archive: Path) -> None:
+    """Write one event's ``X_full`` / ``X_scored`` / ``y`` archive, if it has both classes."""
+    started = time.time()
+    raw = loader.fetch_historical(eid)
+    # A grid event's full view is the grid matrix: the space-weather
+    # matrix is not what its scored columns are a subset of.
+    is_grid = getattr(loader, "is_grid_frame", None)
+    if is_grid is not None and is_grid(raw):
+        x_full = np.asarray(loader.engineer_grid_features(raw), float)
+    else:
+        x_full = np.asarray(loader.engineer_features(raw), float)
+    try:
+        x_scored = np.asarray(loader.engineer_scored_features(raw), float)
+    except SyntheticDataNotDeleakable as exc:
+        # A synthetic frame has no label-disjoint view (every channel is
+        # built from the label profile); it is kept out of the measurement
+        # rather than written as a "de-leaked" archive.
+        archive.unlink(missing_ok=True)
+        print(f"{domain}/{eid}: quarantined, synthetic frame ({exc})")
+        return
+    y = np.asarray(loader.get_ground_truth(eid)).astype(int).reshape(-1)
+    m = min(len(x_full), len(y))
+    if m == 0 or y[:m].min() == y[:m].max():
+        archive.unlink(missing_ok=True)
+        print(f"{domain}/{eid}: not written, {'no rows' if m == 0 else 'one class only'} (n={m})")
+        return
+    np.savez_compressed(archive, X_full=x_full[:m], X_scored=x_scored[:m], y=y[:m])
+    print(f"{domain}/{eid}: full{x_full.shape} scored{x_scored.shape} {time.time() - started:.1f}s")
+
+
+def _auroc(x: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> tuple[float | None, str]:
+    """AUROC of the detector's scores on ``x``, or ``None`` and why it does not exist."""
     stat = importlib.import_module("omni_mercury_engine.detectors.statistical")
     detector = stat.MercuryAnomalyDetector()
     if x.ndim == 1:
         x = x.reshape(-1, 1)
     detector.fit(x, unlabeled_reference=True)
     scores = np.asarray(detector.detect(x)["scores"], float).reshape(-1)
-    return float(roc_auc_score(y, scores))
+    status = auroc_status(y, scores)
+    if status != MEASURED:
+        return None, status
+    return round(float(roc_auc_score(y, scores)), 4), status
 
 
 def measure() -> dict[str, Any]:
@@ -128,17 +163,25 @@ def measure() -> dict[str, Any]:
         y = data["y"].astype(int)
         if y.min() == y.max():
             continue
-        circular = _auroc(data["X_full"], y)
-        deleaked = _auroc(data["X_scored"], y)
-        per_event.append(
-            {
-                "domain": domain,
-                "event": event,
-                "auroc_circular": round(circular, 4),
-                "auroc_deleaked": round(deleaked, 4),
-                "delta": round(deleaked - circular, 4),
-            }
-        )
+        circular, circular_status = _auroc(data["X_full"], y)
+        deleaked, deleaked_status = _auroc(data["X_scored"], y)
+        row: dict[str, Any] = {
+            "domain": domain,
+            "event": event,
+            "auroc_circular": circular,
+            "auroc_deleaked": deleaked,
+            "delta": (
+                None if circular is None or deleaked is None else round(deleaked - circular, 4)
+            ),
+        }
+        undefined = {
+            view: status
+            for view, status in (("circular", circular_status), ("deleaked", deleaked_status))
+            if status != MEASURED
+        }
+        if undefined:
+            row["undefined"] = undefined
+        per_event.append(row)
         measured_domains.add(domain)
 
     carried: list[str] = []
@@ -151,8 +194,10 @@ def measure() -> dict[str, Any]:
     per_domain: dict[str, Any] = {}
     for domain in sorted({r["domain"] for r in per_event}):
         rows = [r for r in per_event if r["domain"] == domain]
-        circ = float(np.mean([r["auroc_circular"] for r in rows]))
-        dele = float(np.mean([r["auroc_deleaked"] for r in rows]))
+        # Both means over the same events: those with an AUROC in both views.
+        scored = [r for r in rows if r.get("delta") is not None]
+        circ = float(np.mean([r["auroc_circular"] for r in scored])) if scored else None
+        dele = float(np.mean([r["auroc_deleaked"] for r in scored])) if scored else None
         mod, cls = LOADERS[domain]
         excluded = list(
             getattr(
@@ -161,15 +206,21 @@ def measure() -> dict[str, Any]:
         )
         per_domain[domain] = {
             "n_events": len(rows),
-            "auroc_circular": round(circ, 4),
-            "auroc_deleaked": round(dele, 4),
-            "delta": round(dele - circ, 4),
+            "n_events_scored": len(scored),
+            "undefined_events": [r["event"] for r in rows if r.get("delta") is None],
+            "auroc_circular": None if circ is None else round(circ, 4),
+            "auroc_deleaked": None if dele is None else round(dele, 4),
+            "delta": None if circ is None or dele is None else round(dele - circ, 4),
             "excluded_features": excluded,
         }
 
     # The band is the largest per-domain mean drift among the domains that
     # exclude nothing: the number the README compares every de-leak delta to.
-    control = [abs(per_domain[d]["delta"]) for d in CONTROL_DOMAINS if d in per_domain]
+    control = [
+        abs(per_domain[d]["delta"])
+        for d in CONTROL_DOMAINS
+        if d in per_domain and per_domain[d]["delta"] is not None
+    ]
     git = shutil.which("git")
     commit = (
         subprocess.run(  # noqa: S603 - fixed argv, resolved executable, no user input
@@ -201,14 +252,23 @@ def measure() -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("--fetch", metavar="DOMAIN", help="fetch one domain into the cache")
+    parser.add_argument(
+        "--fetch", metavar="DOMAIN", help="fetch one domain (or 'all') into the cache"
+    )
     parser.add_argument("--check", action="store_true", help="exit 1 if the artifact is stale")
     args = parser.parse_args(argv)
     if args.fetch:
-        fetch(args.fetch)
+        domains = list(LOADERS) if args.fetch == "all" else [args.fetch]
+        for domain in domains:
+            try:
+                fetch(domain)
+            except Exception as exc:
+                if args.fetch != "all":
+                    raise
+                print(f"{domain}: loader not usable, {type(exc).__name__}: {str(exc)[:200]}")
         return 0
     artifact = measure()
-    text = json.dumps(artifact, indent=2) + "\n"
+    text = json.dumps(artifact, indent=2, allow_nan=False) + "\n"
     if args.check:
         current = ARTIFACT.read_text(encoding="utf-8") if ARTIFACT.exists() else ""
         same = json.loads(current)["per_domain"] == artifact["per_domain"] if current else False
@@ -218,8 +278,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if same else 1
     ARTIFACT.write_text(text, encoding="utf-8")
     for domain, row in artifact["per_domain"].items():
+        if row["delta"] is None:
+            print(f"{domain:18s} n={row['n_events']} no event has an AUROC in both views")
+            continue
         print(
-            f"{domain:18s} n={row['n_events']} circular={row['auroc_circular']:.4f} deleaked={row['auroc_deleaked']:.4f} delta={row['delta']:+.4f}"
+            f"{domain:18s} n={row['n_events_scored']} of {row['n_events']} "
+            f"circular={row['auroc_circular']:.4f} deleaked={row['auroc_deleaked']:.4f} "
+            f"delta={row['delta']:+.4f}"
+            + (
+                f"  (no AUROC: {', '.join(row['undefined_events'])})"
+                if row["undefined_events"]
+                else ""
+            )
         )
     return 0
 

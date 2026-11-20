@@ -1,10 +1,11 @@
 # Reproducing the Governed Fusion Substrate measurements (PR #278)
 
-Last updated: 2026-07-11.
+Last updated: 2026-11-20.
 
 Every figure in `FINDINGS.md` (and the PR body) is reproduced **in this branch
 from committed code** on the **real reachable suite**: a **live headline suite of
-39 real events / 10 domains** (as measured 2026-11-16) plus a separately-reported
+38 real events / 10 domains** (as measured 2026-11-20, on the corrected loaders;
+39 as measured 2026-11-16) plus a separately-reported
 **reconstructed-from-live group** (`ebola_2014` only, and empty unless
 `MERCURY_ALLOW_SYNTHETIC=1`), always labelled reconstruction and never folded
 into the headline mean. This file is the exact
@@ -104,7 +105,9 @@ different data is not a gate.
 
 ## 4. Notes on the suite
 
-- `pandemic/ebola_2014` has no live WHO GHO feed (it 404s), so the loader
+- `pandemic/ebola_2014` has no live WHO GHO feed (it 404s, and the event is
+  marked not benchmarkable in the loader's catalogue); under the synthetic
+  opt-in the loader
   reconstructs the documented 2014 epidemic curve. It is reported in the
   **reconstructed-from-live group** and **never folded into the live headline
   mean** — it is labelled, not excluded. With `MERCURY_ALLOW_SYNTHETIC=0` (what
@@ -112,12 +115,14 @@ different data is not a gate.
   live/reconstructed split is explicit in code
   (`suite.py: RECONSTRUCTED_DOMAINS / RECONSTRUCTED_EVENTS`); tsunami and energy
   left it when their loaders began reading recorded archives.
-- Unreachable domains (wildfire, flood, volcanic, landslide, financial, sepsis)
+- Domains outside the suite's table (wildfire, flood, volcanic, landslide,
+  financial, sepsis)
   never enter the suite; their loaders fetch live or raise
   `DataSourceUnavailableError` — none synthesise.
 - `network_security/cicids_2017` is unavailable (all download sources 404 /
   refuse redirects); the domain uses `nsl_kdd` + `batadal`. The seeded stratified
-  cap (`cap=6000`, `seed=42`) applies only to `nsl_kdd`, `mpox_2022`, `batadal`,
-  and `fema/hurricane_2024`; every other event is used in full.
+  cap (`cap=6000`, `seed=42`) applies only to `nsl_kdd` and `batadal` (and
+  applied to `mpox_2022`, which is no longer an event); every other event is
+  used in full.
 - Metrics come from `ml/mercury_ml` only — **no scikit-learn** in any reachable
   path.

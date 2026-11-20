@@ -1,8 +1,129 @@
 # Governed Fusion Substrate — Phase 2 correction pass (PR #278)
 
-Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-16.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-20.
 
-## Re-measurement of 2026-11-16 (read first; supersedes the figures below)
+## Re-measurement of 2026-11-20 (read first; supersedes the 2026-11-16 figures)
+
+Every file under `results/` and `manifest.json` was regenerated on 2026-11-20,
+and a record was appended to `ablation_ledger.json`, after the hazard loaders
+were corrected (`7b422c7`, `5ee1f06`, `f024595`, and the catalogue corrections
+of the same day). `input_pin.py --check` against the manifest of 2026-11-16 had
+reported 19 of 38 events drifted and one gone; the manifest is re-pinned and
+all 38 match. The section after this one is the record of 2026-11-16 and is
+kept as written; **its figures no longer match `results/`**.
+
+**What changed in the inputs.**
+
+- `earthquake` (5): the historical query had no spatial filter, so each event
+  was every M2.5+ earthquake in the world during its window. Each is now its
+  own region (Haiti 216 rows to 70).
+- `hurricane` (4): 24 h deltas are taken on the 6-hourly synoptic main track,
+  not over mixed 3- and 6-hourly rows and spur tracks. Seven of the twelve
+  catalogue events carried storm identifiers IBTrACS does not hold; with the
+  archive's own, the suite's four (the first four the catalogue lists that
+  load) are Katrina, Harvey, Maria and Ian. They were Katrina, Helene, Milton
+  and Irma, because Harvey, Maria and Ian returned no track.
+- `tsunami` (3): the rolling mean and deviation are trailing windows; they
+  were centred and read later samples.
+- `fema` (3) and `pandemic`: feature rows are aligned with their labels (an
+  unstable re-sort had shifted tied rows).
+- `pandemic` (4, was 5): `mpox_2022` was the COVID file under another name and
+  is no longer an event. `cholera_yemen_2017` is 132 rows where it was 168
+  (years WHO reports no value for are no longer rows). `ebola_2014` is marked
+  not benchmarkable (WHO GHO serves no Ebola series); the reconstructed class
+  stays empty.
+- `tornado` (2): same-day reports keep their order. The suite takes the first
+  two events, so `midwest_2024`, readable now that the loader names SPC's
+  1950 to 2024 file, is not in it.
+- The suite is **38 live events / 10 domains**: fema_activity 8, earthquake 5,
+  energy 5, hurricane 4, pandemic 4, fema 3, tsunami 3, marine 2,
+  network_security 2, tornado 2. Ten carry externally audited labels, 28 are
+  self-labelled. `energy`, `fema_activity`, `marine`, `batadal` and the three
+  COVID events are the rows they were on 2026-11-16 (their hashes match that
+  manifest's). `nsl_kdd`'s does not (the same 148,517 rows and 71,463
+  positives, a different hash), with the loaders before the fixes as well as
+  after; why was not established here.
+
+**Two things moved the figures, and a control separates them.** The loaders
+changed, and so did the code under `core/` and the detector since 2026-11-16.
+The middle column is the whole suite run on 2026-11-20 with the loaders as they
+were before `7b422c7` and everything else as it is now; its inputs match the
+2026-11-16 manifest for 38 of 39 events (`nsl_kdd` is the one that does not),
+so where it differs from the first column the cause is the code, and where the
+third differs from it the cause is the loaders.
+
+| Measurement | 2026-11-16 (39 events) | Control: loaders before the fixes, code as of 2026-11-20 (39) | 2026-11-20, corrected loaders (38) |
+|---|---|---|---|
+| Baseline AUROC, all live | 0.8457 | 0.8458 | 0.8436 |
+| Baseline AUROC, external-label (n=10) | 0.8627 | 0.8627 | 0.8627 |
+| Baseline AUPRC, external-label (n=10) | 0.8138 | 0.7705 | 0.7705 |
+| Baseline AUROC, self-label | 0.8399 (n=29) | 0.8399 (n=29) | 0.8368 (n=28) |
+| Conformal F1 vs Youden F1 | −0.0557 (35 usable) | −0.0544 (35) | −0.0165 (34) |
+| Reliability fusion, gap to best single | −0.0216 | −0.0216 | −0.0266 |
+| Survivability, clean → worst case at k/2 | 0.850 → 0.701 | 0.850 → 0.702 | 0.886 → 0.682 |
+| Beta-MCA Brier / ECE | 0.0851 / 0.0510 | 0.0853 / 0.0512 | 0.1068 / 0.0753 |
+| Isotonic Brier / ECE | 0.1114 / 0.0840 | 0.0840 / 0.0385 | 0.1006 / 0.0545 |
+| Beta-MCA − isotonic, Brier | −0.0263 [−0.055, −0.003] | +0.0013 [−0.004, +0.007] | +0.0062 [−0.001, +0.014] |
+| Beta-MCA − isotonic, ECE | −0.033 [−0.081, +0.007] | +0.0127 [−0.001, +0.028] | +0.0208 [+0.006, +0.038] |
+| Decorrelation, stack4_temporal − best single | +0.0024 [−0.033, +0.043] | +0.0024 [−0.033, +0.043] | +0.0040 [−0.030, +0.042] |
+
+Per domain, baseline AUROC (2026-11-16 → 2026-11-20): earthquake 0.9146 →
+0.9871, hurricane 0.7844 → 0.7335, tsunami 0.8771 → 0.8110, pandemic 0.9311 →
+0.9375 (five events → four), tornado 0.9582 → 0.9631, fema 0.6852 → 0.6884;
+energy 0.8959, fema_activity 0.8464, marine 0.4537 and network_security 0.9280
+are unchanged. This suite scores each loader's full matrix
+(`engineer_features`), label-derived columns included, which is why its
+earthquake figure rises where the README's de-leaked one is 0.6321
+(`research/engine_calibration/deleak_impact.json` has the same 0.9871 for the
+full matrix and 0.6320 without the magnitude columns).
+
+**Conclusions that hold.**
+
+- The conformal operating point still loses F1 to the Youden point it would
+  displace, by less (−0.0165 over 34 events, −0.0557 before). The control
+  reads −0.0544, so the narrowing came with the corrected events.
+- Reliability-weighted fusion still cannot reach the best single component
+  (−0.0266; regressions in fema −0.125, hurricane −0.093, marine −0.140 and
+  tornado −0.046). "Best single" is the per-event oracle described below; over
+  the 34 decorrelation events the winner is `info_geometry` on 13, `kinematic`
+  on 13 and `resonance` on 8.
+- The calibration lever probe is still a conclusive negative: no lever's
+  paired intervals lie below zero on both Brier and ECE.
+- Decorrelation is still INCONCLUSIVE and fusion stays unpromoted.
+- The external-label headline, which the promotion gate reads, is 0.8627 over
+  the same ten events in all three columns. Its AUPRC is 0.7705 where the
+  2026-11-16 record had 0.8138, and so is the ledger's (full fusion AUROC
+  0.8563 and F1 0.7770 unchanged, AUPRC 0.8042 → 0.7556): that is `nsl_kdd`,
+  and it is not the loader fixes, since the control shows it too.
+
+**A conclusion that does not hold: Beta-MCA no longer beats isotonic.** The
+2026-11-16 record had Beta-MCA with the lower Brier (interval below zero) and
+"Stage 2" below is headed "MCA lands". On the same inputs with the code as it
+is now (the control), isotonic's Brier is 0.0840 where it was 0.1114 and its
+ECE 0.0385 where it was 0.0840, Beta-MCA's are where they were, and the paired
+Brier difference is +0.0013 with an interval that contains zero. The largest
+single movement is `fema_activity`, where isotonic's Brier is 0.1271 and was
+0.2469. So what changed is `IsotonicCalibration`, not the data. On the
+corrected loaders Beta-MCA's Brier is higher by 0.0062 (interval [−0.001,
++0.014], contains zero), its ECE is higher by 0.0208 with an interval above
+zero ([+0.006, +0.038]), its AUROC is not distinguishable (+0.0053, [−0.014,
++0.026]) and neither is its net benefit (−0.0063, [−0.015, +0.001]). The
+statement that stands on this measurement is that isotonic has the lower ECE
+and nothing separates the two on Brier. Beta-MCA remains the shipped default;
+whether it should is a decision this measurement reopens and does not make.
+The gated variant's `beta_gated_domain_regressions` now lists three domains
+(hurricane dBrier +0.0017; pandemic dAUROC −0.0008; tsunami dAUROC −0.0020),
+where the record and the control list none.
+
+**Survivability is not one number across the two dates.** The representative
+event per domain is chosen by the suite, and it changed for hurricane (Milton →
+Maria) and pandemic (`mpox_2022` → `covid_india_delta`). Earthquake's event is
+the same (`turkey_syria_2023`) and its worst case at k/2 fell from 0.503 to
+0.113 while its clean AUROC rose from 0.975 to 0.994: cut to its region the
+event has 316 rows and two positives. fema's `hurricane_2024` reads 0.971 → 0.868 where it
+read 0.724 → 0.745, with its rows aligned to their labels.
+
+## Re-measurement of 2026-11-16 (superseded by the section above where they differ)
 
 Every file under `results/` and `manifest.json` was regenerated on 2026-11-16
 from live sources with `MERCURY_ALLOW_SYNTHETIC=0`. The sections after this one

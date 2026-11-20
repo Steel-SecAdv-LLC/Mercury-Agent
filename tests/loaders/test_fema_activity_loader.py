@@ -3,17 +3,19 @@
 """Surges in FEMA's declaration stream, labelled by NOAA's catalogue.
 
 ``FEMALoader`` labels a declaration by its own programme flags. With those
-flags kept out of the scored matrix its five events average AUROC 0.4930, and
-no column independent of the label tracks it in one direction (designated
-areas: 0.71 on one event, 0.23 on another). The label is an administrative
-category, not an anomaly.
+flags kept out of the scored matrix its five events average AUROC 0.4832
+(measured 2026-11-20 with feature rows aligned to their labels; 0.4930 before
+that alignment), and no column independent of the label tracks it in one
+direction (designated areas: 0.71 on one event, 0.23 on another, as measured
+2026-11-16). The label is an administrative category, not an anomaly.
 
 ``FEMAActivityLoader`` asks what a monitor of that stream asks, whether
 declaration activity is surging, and takes its labels from outside FEMA's
 record: NOAA NCEI's billion-dollar tropical cyclones, each from its first day
 to thirty days after its last (the period a governor has to request a major
-disaster declaration, 44 CFR 206.36(a)). Measured live on 2026-11-16, fitted
-and scored in place: 0.70 to 0.95 per year, mean 0.8583 over 2017 to 2024.
+disaster declaration, 44 CFR 206.36(a)). Measured live on 2026-11-16 and again
+on 2026-11-20, fitted and scored in place: 0.70 to 0.95 per year, mean 0.8583
+over 2017 to 2024 both times.
 
 Offline: the transport serves files recorded from OpenFEMA and NOAA
 (``tests/fixtures/fema``).

@@ -95,11 +95,17 @@ LOADERS = {
     "landslide": ("landslide_loader", "LandslideLoader"),
     "energy": ("energy_loader", "EnergyLoader"),
     "fema": ("fema_loader", "FEMALoader"),
+    "fema_activity": ("fema_activity_loader", "FEMAActivityLoader"),
     "financial": ("financial_loader", "FinancialLoader"),
     "network_security": ("network_security_loader", "NetworkSecurityLoader"),
     "pandemic": ("pandemic_loader", "PandemicLoader"),
     "sepsis": ("sepsis_loader", "SepsisLoader"),
 }
+#: Label sources that are independent of what is scored: the values of
+#: ``omni_mercury_engine.datasets.metadata.GENUINE_LABEL_SOURCES``. FEMA
+#: declaration activity (``expert_annotated``: NOAA NCEI's billion-dollar
+#: catalogue) is one, beside the two ``ground_truth`` hazards.
+INDEPENDENT_LABELS = ("ground_truth", "expert_annotated")
 Scored = dict[str, dict[str, dict[str, Any]]]
 
 
@@ -356,7 +362,7 @@ def summary(evidence: dict[str, Any]) -> list[str]:
         f"({least.replace('_', ' ')}) to {abstained[most]:.1%} ({most.replace('_', ' ')}).",
     ]
     for hazard, told in sorted(measured.items()):
-        if told["label_source"] != "ground_truth":
+        if told["label_source"] not in INDEPENDENT_LABELS:
             continue
         decision, calls = told["decision"], told["decision"]["anomaly_call_precision"]
         lines.append(

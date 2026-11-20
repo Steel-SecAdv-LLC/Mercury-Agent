@@ -229,21 +229,22 @@ Results" block.
 Phase 1 of the governed recursive self-improvement work (see
 `docs/SELF_IMPROVEMENT_LOOP.md`) extends the same label-provenance
 discipline that already gates the `datasets/` side to the live-API
-`loaders/` path that feeds `research/governed_fusion/`. Of the 39 events
-in the live headline manifest (re-measured 2026-11-16), **10** have audited
+`loaders/` path that feeds `research/governed_fusion/`. Of the 38 events
+in the live headline manifest (re-measured 2026-11-20 on the corrected
+loaders; 39 on 2026-11-16, when `mpox_2022` was still an event), **10** have audited
 labels independent of any scored feature: two from `network_security`
 (`batadal`, `nsl_kdd`) and eight from `fema_activity` (FEMA declaration
 activity labelled by NOAA NCEI's billion-dollar disaster catalogue). The
-other 29 are self-labelled and are reported separately as leakage-flagged. The tsunami and energy events are
+other 28 are self-labelled and are reported separately as leakage-flagged. The tsunami and energy events are
 recorded series (NDBC DART archive; NASA OMNI2, EIA-930 and DOE OE-417) and
 are part of the live suite; no event is reconstructed.
 
 | Bucket | n_events | Mean AUROC | Mean F1 | Notes |
 |---|---:|---:|---:|---|
 | `external_label` (FITNESS) | 10 | 0.8627 | 0.6198 | The transparent fitness signal Phase 2's promotion gate reads from. Each event is fitted on a normal reference and scored on the rest. It was 0.7704 over two events fitted in place when measured on 2026-06-18; what changed and why is in `research/governed_fusion/FINDINGS.md`. |
-| `self_label` (leakage-flagged) | 29 | 0.8399 | 0.2347 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. |
-| `reconstructed` | 0 | n/a | n/a | Empty: `ebola_2014` is refused without the synthetic opt-in. |
-| Mixed (historical) | 39 | 0.8457 | 0.3334 | The pre-Phase-1 form of the headline; superseded by the provenance split above. |
+| `self_label` (leakage-flagged) | 28 | 0.8368 | 0.2759 | Reported for pipeline transparency; never folded into the headline that grades self-improvement. It was 0.8399 / 0.2347 over 29 events on 2026-11-16, before the loader fixes (earthquake events cut to their regions, hurricane deltas on the 6-hourly track, tsunami windows trailing, `mpox_2022` gone). |
+| `reconstructed` | 0 | n/a | n/a | Empty: `ebola_2014` is marked not benchmarkable and its stand-in is refused without the synthetic opt-in. |
+| Mixed (historical) | 38 | 0.8436 | 0.3664 | The pre-Phase-1 form of the headline; superseded by the provenance split above. 0.8457 / 0.3334 over 39 events on 2026-11-16. |
 
 The audit is committed in
 `src/omni_mercury_engine/loaders/label_provenance.py`

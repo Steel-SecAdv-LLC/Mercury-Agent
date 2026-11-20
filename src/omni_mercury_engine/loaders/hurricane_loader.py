@@ -73,6 +73,18 @@ _STEPS_24H = 4
 # ---------------------------------------------------------------------------
 # Ground truth event catalog
 # ---------------------------------------------------------------------------
+# ``sid`` is the IBTrACS storm identifier (``SID`` column of
+# ``ibtracs.NA.list.v04r01.csv``): year, day of year, and the hemisphere,
+# latitude and longitude of the first fix. Seven of these (Harvey, Maria, Ian,
+# Michael, Dorian, Ida, Matthew) were identifiers IBTrACS does not hold, so
+# the events returned no track and were never measured. Every identifier here
+# was read from the archive by storm name and season on 2026-11-20 and is
+# pinned by ``tests/fixtures/ibtracs/catalogue_storm_ids.csv``; a storm is
+# looked up by its identifier and the name the archive gives it is checked
+# against the catalogue's (:meth:`HurricaneLoader._fetch_storm_track`).
+# Helene and Milton (2024) were matched by name in the last-3-years file,
+# which stops holding a season once it is three years old; they are read from
+# the basin archive by identifier like the rest (the same rows, measured).
 _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "katrina_2005": {
         "name": "Hurricane Katrina (2005)",
@@ -92,7 +104,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "description": (
             "Category 4 hurricane that caused catastrophic flooding in " "southeastern Texas."
         ),
-        "sid": "2017232N14283",
+        "sid": "2017228N14314",
         "basin": "NA",
         "source": "historical",
     },
@@ -103,7 +115,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane that devastated Dominica and Puerto Rico "
             "with rapid intensification in the Caribbean Sea."
         ),
-        "sid": "2017253N12318",
+        "sid": "2017260N12310",
         "basin": "NA",
         "source": "historical",
     },
@@ -114,7 +126,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 4 hurricane that caused extreme damage in Florida "
             "after rapid intensification in the Caribbean."
         ),
-        "sid": "2022266N14279",
+        "sid": "2022266N12294",
         "basin": "NA",
         "source": "historical",
     },
@@ -125,9 +137,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Major hurricane that impacted the southeastern United States "
             "causing significant inland flooding."
         ),
-        "sid": None,
+        "sid": "2024268N17278",
         "basin": "NA",
-        "source": "last3years",
+        "source": "historical",
     },
     "milton_2024": {
         "name": "Hurricane Milton (2024)",
@@ -136,9 +148,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Rapidly intensifying hurricane in the Gulf of Mexico that "
             "made landfall on Florida's west coast."
         ),
-        "sid": None,
+        "sid": "2024279N21265",
         "basin": "NA",
-        "source": "last3years",
+        "source": "historical",
     },
     # --- Additional storms for larger sample size ---
     "irma_2017": {
@@ -159,7 +171,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane that rapidly intensified before making "
             "landfall on the Florida Panhandle."
         ),
-        "sid": "2018280N18082",
+        "sid": "2018280N18273",
         "basin": "NA",
         "source": "historical",
     },
@@ -170,7 +182,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane that devastated the Bahamas after "
             "extreme rapid intensification."
         ),
-        "sid": "2019236N10340",
+        "sid": "2019236N10314",
         "basin": "NA",
         "source": "historical",
     },
@@ -181,7 +193,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 4 hurricane that rapidly intensified in the "
             "Gulf of Mexico before striking Louisiana."
         ),
-        "sid": "2021238N17279",
+        "sid": "2021239N17281",
         "basin": "NA",
         "source": "historical",
     },
@@ -202,7 +214,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane in the Caribbean that caused "
             "devastating impacts in Haiti and the southeastern US."
         ),
-        "sid": "2016272N13318",
+        "sid": "2016273N13300",
         "basin": "NA",
         "source": "historical",
     },
@@ -281,10 +293,12 @@ class HurricaneLoader(BaseDomainLoader):
             ConnectionError: If the IBTrACS server is unreachable
                 after retries.
         """
-        # Cache schema v2: the frame is now filtered to synoptic main-track
-        # rows before caching, so pre-fix (unfiltered) entries must not be
-        # read back.
-        cache_key = "hurricane_realtime_last3years_v2"
+        # Cache schema v3. v2 frames were filtered to rows whose track type
+        # was exactly ``main``, which dropped every PROVISIONAL /
+        # US-PROVISIONAL (current-season) storm; the filter now drops only
+        # spur rows, and a v2 entry written before that would keep serving
+        # the main-only frame. (v1 was unfiltered.)
+        cache_key = "hurricane_realtime_last3years_v3"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -329,9 +343,10 @@ class HurricaneLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        # Cache schema v2: now synoptic main-track filtered before caching;
-        # pre-fix entries held every (mixed-spacing, spur) row.
-        cache_key = f"hurricane_historical_v2_{event_id}"
+        # Cache schema v3. v1 entries held every (mixed-spacing, spur) row;
+        # v2 entries were filtered to rows whose track type was exactly
+        # ``main``, which dropped provisional tracks. Neither is read back.
+        cache_key = f"hurricane_historical_v3_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -598,25 +613,42 @@ class HurricaneLoader(BaseDomainLoader):
 
         # Filter by SID if available
         sid = event.get("sid")
+        storm_name = self._catalogue_storm_name(event)
         if sid is not None:
             storm_df = basin_df[basin_df["sid"] == sid].copy()
+            # An identifier that resolves to a different storm is a catalogue
+            # defect, not data: refuse it rather than score another storm's
+            # track under this event's name.
+            if not storm_df.empty and "name" in storm_df.columns:
+                found = sorted(set(storm_df["name"].astype(str).str.strip().str.upper()))
+                if found != [storm_name]:
+                    raise ValueError(
+                        f"hurricane catalogue: storm identifier {sid!r} is "
+                        f"{', '.join(found)} in IBTrACS, not {storm_name}."
+                    )
         else:
-            # Match by name and approximate date for storms without SID
-            name = event["name"]
-            # Extract the short storm name from "Hurricane Katrina (2005)"
-            storm_name = name.split("(")[0].strip()
-            if storm_name.startswith("Hurricane "):
-                storm_name = storm_name[len("Hurricane ") :]
-            storm_name = storm_name.strip().upper()
-
-            date_str = event["date"]
-            year = int(date_str[:4])
-
+            # Match by name and season for storms without an identifier
+            year = int(event["date"][:4])
             storm_df = basin_df[
                 (basin_df["name"].str.upper() == storm_name) & (basin_df["season"] == year)
             ].copy()
 
         return storm_df.reset_index(drop=True)
+
+    @staticmethod
+    def _catalogue_storm_name(event: dict[str, Any]) -> str:
+        """The storm's IBTrACS name from a catalogue entry's display name.
+
+        Args:
+            event: Event metadata dict from ``_EVENT_CATALOG``.
+
+        Returns:
+            ``"KATRINA"`` for ``"Hurricane Katrina (2005)"``.
+        """
+        storm_name = str(event["name"]).split("(")[0].strip()
+        if storm_name.startswith("Hurricane "):
+            storm_name = storm_name[len("Hurricane ") :]
+        return storm_name.strip().upper()
 
     @staticmethod
     def _standardize_ibtracs(df: pd.DataFrame) -> pd.DataFrame:

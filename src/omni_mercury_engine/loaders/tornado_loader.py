@@ -24,7 +24,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # SPC data endpoints
 # ---------------------------------------------------------------------------
-_ARCHIVE_URL = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+# SPC names the archive by its last year. The 1950-2023 file this loader named
+# holds nothing for the ``midwest_2024`` event; 1950-2024 does, and its rows
+# for the two older events are the same as the 2023 file's (compared
+# 2026-11-20). 1950-2025, which SPC links now, re-keys ``om`` and revises
+# earlier rows (the 2011 outbreak window holds 355 rows, not 349): moving to
+# it is a re-measurement of every event, not a rename.
+_ARCHIVE_URL = "https://www.spc.noaa.gov/wcm/data/1950-2024_actual_tornadoes.csv"
+#: The archive's code for a rating that was not assigned ("EFU").
+_ARCHIVE_UNKNOWN_MAG = -9
 _DAILY_REPORTS_URL = "https://www.spc.noaa.gov/climo/reports/today.csv"
 
 #: An (enhanced) Fujita rating as a daily report spells it: ``3``, ``F3`` or
@@ -121,7 +129,7 @@ class TornadoLoader(BaseDomainLoader):
     Uses two SPC data sources:
 
     * **Tornado archive CSV** -- comprehensive record of all US tornadoes
-      from 1950 to 2023 with EF-scale ratings, path geometry, and
+      from 1950 to 2024 with EF-scale ratings, path geometry, and
       casualty data.
     * **Daily storm reports** -- today's preliminary severe weather
       reports including tornado sightings.
@@ -439,12 +447,14 @@ class TornadoLoader(BaseDomainLoader):
         """Load the full SPC tornado archive CSV with caching.
 
         Returns:
-            DataFrame containing the complete 1950-2023 tornado archive.
+            DataFrame containing the complete SPC tornado archive.
 
         Raises:
             ConnectionError: If the SPC archive URL is unreachable.
         """
-        cache_key = "tornado_archive_full"
+        # Keyed by the file: an archive cached from the 1950-2023 file must
+        # not be read back as the 1950-2024 one.
+        cache_key = f"tornado_archive_full_{_ARCHIVE_URL.rsplit('/', 1)[-1]}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -474,6 +484,12 @@ class TornadoLoader(BaseDomainLoader):
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        # An unassigned rating is coded -9 (37 of the 179 rows of the 2024
+        # event). It is not a magnitude: left as a number it became an
+        # ``ef_scale`` of -9. It is missing, as "UNK" is in a daily report.
+        if "mag" in df.columns:
+            df["mag"] = df["mag"].where(df["mag"] != _ARCHIVE_UNKNOWN_MAG)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Loaded %d records from SPC tornado archive.", len(df))

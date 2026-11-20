@@ -42,7 +42,7 @@ def test_what_the_document_says_plainly_is_made_from_the_evidence() -> None:
     plain = " ".join(DOC.split())
     lines = measure.summary(EVIDENCE)
 
-    assert len(lines) == 5  # three questions, and the two hazards with independent labels
+    assert len(lines) == 6  # three questions, and the three hazards with independent labels
     for line in lines:
         assert " ".join(line.split()) in plain, line
 
@@ -55,50 +55,80 @@ def test_a_certificate_is_said_to_hold_only_where_both_halves_agree() -> None:
         over = [split["coverage"] >= target for split in told["by_split"]]
         assert len(over) == 2
         assert verdicts[hazard] == ("held" if all(over) else "near" if any(over) else "fell short")
-    assert sorted(h for h, v in verdicts.items() if v == "fell short") == [
-        "network_security",
-        "pandemic",
-    ]
-    assert sum(v == "held" for v in verdicts.values()) == 5
-    # One judging alone would have said "held" of a hazard the other says fell short.
-    assert any(v == "near" for v in verdicts.values())
+    assert sorted(h for h, v in verdicts.items() if v == "fell short") == ["network_security"]
+    assert sum(v == "held" for v in verdicts.values()) == 10
+    assert not [h for h, v in verdicts.items() if v == "near"]
 
 
-def test_the_readme_and_the_changelog_give_the_same_account() -> None:
+def test_halves_that_disagree_are_near_and_neither_held_nor_short() -> None:
+    """One judging alone would have said "held" of a hazard the other says fell short."""
+
+    def told(first: float, second: float) -> dict[str, Any]:
+        return {
+            "certificate": {"target": 0.9},
+            "by_split": [{"coverage": first}, {"coverage": second}],
+        }
+
+    assert measure.verdict(told(0.913, 0.860)) == "near"  # energy, as recorded 2026-11-18
+    assert measure.verdict(told(0.906, 0.940)) == "held"
+    assert measure.verdict(told(0.729, 0.720)) == "fell short"
+
+
+_COUNT = ("none", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+_COUNT += ("eleven", "twelve", "thirteen")
+
+
+def test_the_readme_gives_the_same_account() -> None:
+    """The README's sentence is made of the evidence's counts, spelled out.
+
+    The changelog is not held to the evidence here: an entry records what was
+    measured when it was written, and the evidence has been recorded again
+    since (2026-11-20, on the corrected loaders).
+    """
     readme = " ".join((_REPO_ROOT / "README.md").read_text(encoding="utf-8").split())
-    changelog = " ".join((_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8").split())
     verdicts = [measure.verdict(told) for told in MEASURED.values()]
     more = [h for h, told in MEASURED.items() if told["probability"]["skill"] > 0.05]
+    independent = [
+        h for h, told in MEASURED.items() if told["label_source"] in measure.INDEPENDENT_LABELS
+    ]
 
-    assert (len(MEASURED), verdicts.count("held"), verdicts.count("fell short")) == (10, 5, 2)
+    assert (len(MEASURED), verdicts.count("held"), verdicts.count("fell short")) == (11, 10, 1)
     assert (
-        "held for five of the ten hazards that could be measured and fell short for two" in readme
+        f"held for {_COUNT[verdicts.count('held')]} of the {_COUNT[len(MEASURED)]} hazards that "
+        f"could be measured and fell short for {_COUNT[verdicts.count('fell short')]}" in readme
     )
-    assert len(more) == 3 and "says more than the base rate for three" in readme
-    for hazard, name in (("network_security", "network security"), ("pandemic", "pandemic")):
-        assert f"{name} {MEASURED[hazard]['certificate']['coverage']:.1%}" in changelog
-    attacks, sepsis = MEASURED["network_security"]["decision"], MEASURED["sepsis"]["decision"]
-    assert f"{attacks['anomalies_called_normal']:.1%} of true attacks called normal" in changelog
-    assert f"{sepsis['anomaly_call_precision']:.1%} of anomaly calls right" in changelog
-    abstained = sorted(told["decision"]["abstained"] for told in MEASURED.values())
-    assert f"from {abstained[0]:.1%} of rows (tornado) to {abstained[-1]:.1%} (marine)" in changelog
+    assert len(more) == 6
+    assert f"says more than the base rate for {_COUNT[len(more)]}" in readme
+    assert independent == ["fema_activity", "network_security", "sepsis"]
+    assert f"the {_COUNT[len(independent)]} hazards whose labels are independent" in readme
+    attacks = MEASURED["network_security"]
+    assert f"network security {attacks['certificate']['coverage']:.1%}" in readme
+    assert f"measured {EVIDENCE['measured_on']}" in readme
 
 
 def test_the_hazards_it_could_not_measure_are_named() -> None:
     plain = " ".join(DOC.split())
 
-    assert EVIDENCE["not_fetched"] == ["financial", "flood", "volcanic", "wildfire"]
-    assert "Financial, flood, volcanic and wildfire could not be fetched" in plain
-    assert "not_measured" in EVIDENCE["hazards"]["landslide"] and "Landslide has one event" in plain
+    assert EVIDENCE["not_fetched"] == ["financial", "volcanic", "wildfire"]
+    assert "Financial, volcanic and wildfire could not be fetched" in plain
+    one_event = sorted(h for h, told in EVIDENCE["hazards"].items() if "not_measured" in told)
+    assert one_event == ["flood", "landslide"]
+    assert "Landslide and flood have one event" in plain
 
 
 def test_each_hazards_labels_are_what_its_loader_declares() -> None:
     for hazard, told in EVIDENCE["hazards"].items():
         assert told["label_source"] == measure.label_source(hazard), hazard
+    from omni_mercury_engine.datasets.metadata import GENUINE_LABEL_SOURCES
+
+    assert set(measure.INDEPENDENT_LABELS) == set(GENUINE_LABEL_SOURCES)
     independent = sorted(
-        h for h, told in EVIDENCE["hazards"].items() if told["label_source"] == "ground_truth"
+        h
+        for h, told in EVIDENCE["hazards"].items()
+        if told["label_source"] in measure.INDEPENDENT_LABELS
     )
-    assert independent == ["network_security", "sepsis"]
+    assert independent == ["fema_activity", "network_security", "sepsis"]
+    assert EVIDENCE["hazards"]["fema_activity"]["label_source"] == "expert_annotated"
 
 
 def test_the_evidence_adds_up() -> None:

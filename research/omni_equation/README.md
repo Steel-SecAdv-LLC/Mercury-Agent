@@ -45,10 +45,19 @@ scikit-learn — `src/` and `research/` are guarded against any `sklearn` import
 USGS/NOAA endpoints.
 
 ## Headline
-Ensemble AUC **0.836** vs best-single **0.909** (fusion *dilutes*); streams
+Re-measured 2026-11-20 on the corrected hazard loaders (22 events / 7
+domains): ensemble AUC **0.8122** vs best-single **0.8661** (an oracle, see
+below); streams |corr| **0.6363**; equation inert (**+0.004**); η^Φ gate inert
+(**0.0001** rank flip). The best label-free fixed stream (`isolation_forest`,
+0.8123) is level with the ensemble. See `FINDINGS.md`.
+
+The figures below are the earlier record's, measured on 15 events before the
+loader fixes of 2026-11-20, and are not current: ensemble AUC **0.836** vs
+best-single **0.909** (fusion *dilutes*); streams
 |corr| **0.66**; equation inert (**−0.002**); η^Φ gate inert (**0.003** flip);
-earthquake AUC **0.94** / F1 **0.09** (calibration is the bottleneck). See
-`FINDINGS.md`.
+earthquake AUC **0.94** / F1 **0.09** (calibration is the bottleneck). The
+earthquake figure scored `magnitude`, which its label is a threshold on; the
+benchmark now reads AUC 0.6321 / F1 0.105 without it.
 
 > **best-single 0.909 is an ORACLE** — picked per event by `max()` over
 > per-stream AUROCs computed against the evaluation labels

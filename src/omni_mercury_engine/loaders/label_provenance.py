@@ -27,8 +27,8 @@ reconstruct the entire series from documented event statistics:
 * ``marine``      -- (baseline_richness - event_richness) / baseline > 0.70,
   while ``richness_loss`` is a scored feature.
 * ``pandemic``    -- 7-day rolling new_cases > 2 * 30-day baseline mean, on
-  the same 7d-smoothed feature; ``ebola_2014`` additionally reconstructs the
-  series (no live WHO GHO feed).
+  the same 7d-smoothed feature; ``ebola_2014`` has no recorded series at all
+  (WHO GHO serves none) and is marked not-benchmarkable.
 * ``energy``      -- ``kp >= 7`` on feature[0] (storms), served demand 20%
   below forecast (grid event); recorded series (OMNI2, EIA-930).
 * ``tsunami``     -- a catalogued window per event (origin time to a fixed
@@ -146,7 +146,7 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
     "pandemic_loader.PandemicLoader": (
         "statistical",
         "Labels = 7d rolling > 2x 30d baseline on the same 7d-smoothed new_cases feature; "
-        "ebola_2014 additionally reconstructs the series.",
+        "ebola_2014 has no recorded series (WHO GHO serves none) and is not benchmarkable.",
     ),
     "energy_loader.EnergyLoader": (
         "statistical",

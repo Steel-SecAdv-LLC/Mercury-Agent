@@ -58,13 +58,13 @@ Reported as of this PR, computed from the committed
 `research/governed_fusion/results/baseline_results.json`:
 
 * **ADBench (47 datasets, externally labelled, comparable to published baselines):** Mean AUC **0.8571**, Mean F1 **0.6443** (committed run of 2026-10-26). *(`docs/BENCHMARKS.md`, README.md § "Label provenance and comparability")*
-* **Governed-fusion live suite (39 events as re-measured 2026-11-16, mixed regime — historical form).** Macro-mean AUROC **0.8457**, F1 **0.3334**. This number is the headline before Phase 1's leakage-split: it blends 10 externally labelled events with 29 statistical-labelled ones.
+* **Governed-fusion live suite (38 events as re-measured 2026-11-20 on the corrected loaders, mixed regime — historical form).** Macro-mean AUROC **0.8436**, F1 **0.3664** (0.8457 / 0.3334 over 39 events on 2026-11-16). This number is the headline before Phase 1's leakage-split: it blends 10 externally labelled events with 28 statistical-labelled ones.
 * **Governed-fusion live suite, provenance split (Phase 1 result):**
 
 | Bucket | n_events | mean AUROC | mean F1 | source |
 |---|---:|---:|---:|---|
 | `external_label` (FITNESS) | **10** | **0.8627** | **0.6198** | `network_security/{batadal, nsl_kdd}`, `fema_activity/tropical_declarations_{2017..2024}` |
-| `self_label` (leakage-flagged) | 29 | 0.8399 | 0.2347 | every other live loader |
+| `self_label` (leakage-flagged) | 28 | 0.8368 | 0.2759 | every other live loader |
 | `reconstructed` | 0 | n/a (reported separately by design) | | `pandemic/ebola_2014`, refused without the synthetic opt-in |
 
 The `external_label` row above is the transparent fitness signal Phase 2's
@@ -222,7 +222,7 @@ The two findings that *moved* and must be surfaced transparently:
 
 1. The governed-fusion live headline's external-label subset was **2 events from
    one domain** when Phase 1 measured it (10 from two since 2026-11-16), not
-   39 across ten. Every public Mercury claim of "live
+   38 across ten. Every public Mercury claim of "live
    AUROC ~0.82 on real-world events" had been silently averaging two
    externally-labelled events with the leakage-contaminated rest. Phase 1
    stops doing that.

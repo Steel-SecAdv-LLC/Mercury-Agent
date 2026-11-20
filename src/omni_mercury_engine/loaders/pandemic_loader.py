@@ -121,9 +121,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2014 West Africa Ebola Outbreak",
         "date": "2014-03-23",
         "description": (
-            "2014 West Africa Ebola outbreak (limited data via WHO GHO). "
-            "The largest Ebola epidemic in history, primarily affecting "
-            "Guinea, Liberia, and Sierra Leone."
+            "2014 West Africa Ebola outbreak. The largest Ebola epidemic in "
+            "history, primarily affecting Guinea, Liberia, and Sierra Leone. "
+            "Marked not-benchmarkable: the WHO Global Health Observatory "
+            "serves no Ebola series, so there is no recorded data to score."
         ),
         "location": "West Africa",
         "start": "2014-03-01",
@@ -131,6 +132,20 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "source": "who_gho",
         "pathogen_class": "virus",
         "pathogen": "Ebolavirus",
+        # Honest exclusion. The loader asked WHO GHO for the indicator
+        # ``EBOLA_CASESDEATHS``, which the OData API answers with HTTP 404,
+        # and the indicator catalogue (3,092 entries, read 2026-11-20) holds
+        # none whose code or name mentions Ebola. What the event served was a
+        # series built from monthly situation-report totals
+        # (``_synthetic_ebola_2014``); that stand-in stays available behind
+        # the synthetic opt-in, marked as such, and is never a benchmark.
+        "not_benchmarkable": True,
+        "_not_benchmarkable_reason": (
+            "WHO GHO serves no Ebola indicator (EBOLA_CASESDEATHS answers "
+            "HTTP 404 and no indicator in its catalogue names Ebola); the "
+            "only series this loader can produce for the event is one it "
+            "constructs from situation-report totals, which is not data."
+        ),
     },
     "mpox_2022": {
         "name": "2022 Mpox Outbreak",
@@ -281,7 +296,9 @@ class PandemicLoader(BaseDomainLoader):
       datasets updated daily, providing case counts, death counts,
       testing rates, positivity rates, and policy stringency indices.
     * **WHO Global Health Observatory (GHO)** -- OData API for non-COVID
-      disease data including cholera, Ebola, and malaria surveillance.
+      disease data (cholera). It serves no Ebola series, and its malaria
+      indicator returns nothing for the catalogue's country: ``ebola_2014``
+      is marked not-benchmarkable and the malaria event is a stub.
     * **WHO Emergencies Hub** -- API for health emergency alerts,
       used for biosurveillance alert frequency analysis.
 
@@ -393,6 +410,24 @@ class PandemicLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
+        event = _EVENT_CATALOG[event_id]
+        source = event["source"]
+
+        # Events with no data source are answered before the cache is read:
+        # a frame cached for one of them while it was still wired to a source
+        # (the constructed Ebola series, COVID rows filed as mpox) must not
+        # come back as that event's data.
+        if source == "stub":
+            logger.warning(
+                "Data source for '%s' is a stub — no live API available. " "Reason: %s",
+                event_id,
+                event.get("_stub_reason", "unknown"),
+            )
+            return pd.DataFrame()
+
+        if event.get("not_benchmarkable", False):
+            return self._not_benchmarkable_frame(event_id, event)
+
         # Cache schema v2: Ebola now parses TimeDim years into real in-window
         # rows (was empty), the OWID "World" aggregate is filtered to a single
         # series, and missing NumericValue years are dropped — so cached
@@ -403,17 +438,6 @@ class PandemicLoader(BaseDomainLoader):
         if cached_frame is not None:
             logger.debug("Returning cached historical data for '%s'.", event_id)
             return cached_frame
-
-        event = _EVENT_CATALOG[event_id]
-        source = event["source"]
-
-        if source == "stub":
-            logger.warning(
-                "Data source for '%s' is a stub — no live API available. " "Reason: %s",
-                event_id,
-                event.get("_stub_reason", "unknown"),
-            )
-            return pd.DataFrame()
 
         if source == "owid":
             df = self._fetch_owid_event(event)
@@ -464,23 +488,57 @@ class PandemicLoader(BaseDomainLoader):
         logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
+    def _not_benchmarkable_frame(self, event_id: str, event: dict[str, Any]) -> pd.DataFrame:
+        """Answer for an event the catalogue marks not-benchmarkable.
+
+        No request is made: the source the event named does not exist. The
+        answer is an empty frame, so the event is skipped rather than scored.
+        For ``ebola_2014`` the constructed series is still returned when the
+        synthetic opt-in (``MERCURY_ALLOW_SYNTHETIC=1``) is set, carrying the
+        synthetic mark, which ``engineer_scored_features`` refuses.
+
+        Args:
+            event_id: Key into the event catalogue.
+            event: The catalogue entry.
+
+        Returns:
+            An empty frame, or the marked stand-in under the synthetic opt-in.
+        """
+        reason = str(event.get("_not_benchmarkable_reason", "no recorded data source"))
+        if event_id == "ebola_2014":
+            try:
+                check_synthetic_allowed("PandemicLoader", reason)
+            except DataSourceUnavailableError:
+                pass
+            else:
+                return self.mark_synthetic(self._synthetic_ebola_2014())
+        logger.warning("Event '%s' is not benchmarkable: %s", event_id, reason)
+        return pd.DataFrame()
+
     def list_events(self) -> list[dict[str, Any]]:
         """Return the catalog of ground truth pandemic events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
-            and *description* keys.
+            and *description* keys. An event with no recorded data source
+            (a stub, or one marked not-benchmarkable) also carries
+            ``not_benchmarkable: True`` and the catalogue's ``reason``, so a
+            caller can tell it from a measurable event without fetching it.
         """
         events: list[dict[str, Any]] = []
         for event_id, meta in _EVENT_CATALOG.items():
-            events.append(
-                {
-                    "event_id": event_id,
-                    "name": meta["name"],
-                    "date": meta["date"],
-                    "description": meta["description"],
-                }
-            )
+            entry: dict[str, Any] = {
+                "event_id": event_id,
+                "name": meta["name"],
+                "date": meta["date"],
+                "description": meta["description"],
+            }
+            if meta.get("source") == "stub" or meta.get("not_benchmarkable", False):
+                entry["not_benchmarkable"] = True
+                entry["reason"] = meta.get("_not_benchmarkable_reason") or meta.get(
+                    "_stub_reason", "no recorded data source"
+                )
+            events.append(entry)
         return events
 
     def list_pathogen_classes(self) -> list[str]:

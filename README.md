@@ -403,7 +403,7 @@ several values — including a Flood row — that matched no committed artifact)
 > catalogued time windows, and the two Energy grid events by the disturbances
 > reported to DOE. The other rows are `statistical` — the label is a
 > threshold on a column the detector was also handed, unless the Labels column
-> says that column is excluded. `Overall` pools every regime over all 46 events,
+> says that column is excluded. `Overall` pools every regime over all 54 events,
 > which is exactly what
 > the leakage-flagged section below says is never done. The loaders declared this
 > at source the whole time; this table did not carry it. Measured impact and the
@@ -418,26 +418,30 @@ several values — including a Flood row — that matched no committed artifact)
 | Pandemic | 0.8654 | self-labelled, case columns excluded | 7d rolling cases > 2x 30d baseline; scored on deaths, reproduction rate, testing, positivity and stringency only; the three COVID events (the cholera event has no AUROC, see below) |
 | Energy | 0.7808 | mixed, recorded series | storms: `kp >= 7`, scored on the recorded solar wind and flare class only (Kp columns excluded); Texas 2021 and Texas 2023: **independent** — the disturbances reported to DOE on Form OE-417, to the hour (EIA Electric Power Monthly), scored on the EIA-930 grid series |
 | Tsunami | 0.8110 | catalogued windows, recorded series | origin time to a fixed end per event; 15-minute BPR series from the NDBC DART archive, rolling statistics over trailing windows |
-| Tornado | 0.9328 | self-labelled, `ef_scale` excluded | `mag >= 3` (EF3+); scored on path length and width, injuries, fatalities, location and time, which covary with the EF scale |
-| Hurricane | 0.6204 | self-labelled, wind-change columns excluded | 24h wind delta >= 30 kt on the 6-hourly synoptic main track; scored on the 6h and 12h pressure change only |
+| Tornado | 0.9355 | self-labelled, `ef_scale` excluded | `mag >= 3` (EF3+); scored on path length and width, injuries, fatalities, location and time, which covary with the EF scale |
+| Hurricane | 0.7044 | self-labelled, wind-change columns excluded | 24h wind delta >= 30 kt on the 6-hourly synoptic main track; scored on the 6h and 12h pressure change only |
 | FEMA declaration activity | 0.8583 | **independent** | days inside a NOAA NCEI billion-dollar tropical cyclone's window (event dates plus the 30-day request window); scored on daily counts of FEMA designations, 2017 to 2024 |
 | FEMA declaration flags | 0.4832 | self-labelled, flags excluded | major disaster with individual assistance (IA, or IH since about 2007) and public assistance; scored on state, month, declaration counts and spacing only |
 | Marine | 0.6314 | self-labelled | richness-decline threshold on scored `richness_loss` |
 | Flood | 0.7907 | self-labelled | gauge height >= the NWS flood stage, and `gauge_height_ft` is scored; one event (Helene 2024) |
 | Landslide | 0.6190 | self-labelled, fatality and size columns excluded | fatal, or large and above; one event (Oso 2014: 24 rows, 3 positives) |
-| *Overall* | *0.7227* | *mixed* | *pools all thirteen; not a comparable figure* |
+| *Overall* | *0.7324* | *mixed* | *pools all thirteen; not a comparable figure* |
 
 **Re-measured 2026-11-20, after the loader fixes** (`7b422c7`, `5ee1f06`,
-`f024595`; loaders and detector as of `41fd2fe`, loader cache empty at the
-start). Every row above is from that run and is scored on the de-leaked matrix
-(`engineer_scored_features`), which is what `build_cache.py` writes. Six rows
+`f024595`) **and the catalogue corrections that followed them the same day**
+(detector as of `f733327`, loader cache empty at the start). Every row above is
+from one run and is scored on the de-leaked matrix
+(`engineer_scored_features`), which is what `build_cache.py` writes;
+`score_events.py` and `measure_cached.py` make the table from that cache, and
+`score_events.py` gives the whole sequence. Six rows
 (Network Security, Earthquake, Pandemic, Tornado, Hurricane, Marine) had been
 carried from a cache older than the exclusion, so they moved for more than one
 reason. A control run of the same pipeline on the same day, with the loaders as
 they were before `7b422c7`, separates the reasons; "before" below is that
 control unless it says "published".
 
-- *Lower because of a fix.* Hurricane 0.7835 → 0.6204: the 24 h deltas had
+- *Lower because of a fix.* Hurricane 0.7835 → 0.6204 on the events the
+  catalogue could then read: the 24 h deltas had
   been taken over rows of mixed 3- and 6-hourly spacing and over spur tracks.
   On the 6-hourly synoptic main track Irma falls 0.8288 → 0.5672, Milton
   0.7731 → 0.5707, Helene 0.6974 → 0.5938 and Katrina 0.8346 → 0.7807, and
@@ -456,6 +460,17 @@ control unless it says "published".
   Turkey–Syria 0.3621 → 0.3551. With one or two positives per event that
   figure is the rank of one or two rows. Tornado 0.9231 → 0.9328 (same-day
   reports keep their order; the 2011 super outbreak 0.8462 → 0.8656).
+- *Events the catalogue could not read.* Seven of the twelve hurricane events
+  carried storm identifiers IBTrACS does not hold, and returned no track.
+  With the archive's own identifiers, looked up by storm
+  name and season, Hurricane is 0.7044 over twelve events where it was 0.6204
+  over five: Dorian 0.8654, Harvey 0.8213, Ian 0.7585, Ida 0.7538, Michael
+  0.7424, Maria 0.7255 and Matthew 0.6838 enter, and the five already read are
+  unchanged to four places. The tornado loader named SPC's 1950 to 2023 file,
+  which holds nothing for `midwest_2024`. On the 1950 to 2024 file, whose rows
+  for the two older events are the same, that event is 179 tornadoes, 10 of
+  them EF3 or stronger, and scores 0.9408; Tornado is 0.9355 over three events
+  where it was 0.9328 over two.
 - *Not the fixes.* The 0.9367 published for Earthquake was measured with
   `magnitude` in the scored matrix; excluding it is what took it to 0.3537.
   Network Security (published 0.7925; NSL-KDD 0.6674 → 0.5155 on its
@@ -466,13 +481,13 @@ control unless it says "published".
   before and after. Energy and FEMA declaration activity are unchanged to four
   places.
 - *Not measured.* `ebola_2014` (published 0.9699) was a series the loader
-  constructed: WHO GHO answers HTTP 404 for `EBOLA_CASESDEATHS` and the
-  stand-in is refused. `cholera_yemen_2017` is fetched, but WHO reports only
+  constructed: WHO GHO answers HTTP 404 for `EBOLA_CASESDEATHS`, none of the
+  3,092 indicators in its catalogue names Ebola, and the event is now marked
+  not benchmarkable. `cholera_yemen_2017` is fetched, but WHO reports only
   its case counts, every column left after the exclusion is zero, the score is
-  constant and no AUROC exists; it is not counted as 0.5. Seven of the twelve
-  hurricane events are catalogued under storm identifiers IBTrACS does not
-  hold and return no track; `midwest_2024` is later than the SPC archive file
-  (1950 to 2023); CICIDS-2017's sources answer 404 or redirect; wildfire and
+  constant and no AUROC exists; it is written as `null` with its reason and is
+  not counted as 0.5. CICIDS-2017's wired sources answer 404 or redirect to a
+  registration form; wildfire and
   financial need keys that were not set. Flood `european_2021`, pandemic
   `mpox_2022` and the four volcanic events are marked not benchmarkable by
   their loaders. Flood's Vermont 2023 and two landslide events hold one class.
@@ -483,16 +498,23 @@ control unless it says "published".
 orders the rows of one event. It does not say that a score of 0.8 means four
 times in five, that a "90%" certificate is right nine times in ten on the next
 event, or how often the decision layer declines to decide. Those are measured
-per hazard, each event judged by a calibration fitted on
-the hazard's others ([`docs/HAZARD_CALIBRATION.md`](docs/HAZARD_CALIBRATION.md)):
-the certificate held for five of the ten hazards that could be measured and fell
-short for two; the calibrated probability says more than the base rate for
-three; and for the two hazards whose labels are independent (network security,
-sepsis) the result is poor. A decision record about a measured hazard carries
-that hazard's record with it. That record is of 2026-11-18, on the events as
-the loaders built them before the fixes above, and has not been recorded again;
-the note at the head of that document gives what the same measurement prints
-on the events as they are fetched now.
+per hazard on these same events, each event judged by a calibration fitted on
+the hazard's others ([`docs/HAZARD_CALIBRATION.md`](docs/HAZARD_CALIBRATION.md),
+measured 2026-11-20):
+the certificate held for ten of the eleven hazards that could be measured and fell
+short for one (network security 72.5% against 90%); the calibrated probability
+says more than the base rate for six; and of the three hazards whose labels are
+independent, the result is poor for network security and sepsis (more than half
+of the true attacks are called normal; 4.7% of the sepsis anomaly calls are
+right) and good for FEMA declaration activity (two thirds of its anomaly calls
+are right). Holding is mostly paid for by abstaining: more than half of the rows
+are abstained on for eight of the ten hazards where the certificate held. The
+record of 2026-11-18 said five of ten, short for two. That document sets out
+what moved it: seven of ten with the loaders as they were and the code as it is
+now, nine of ten on the fixed loaders, and ten of eleven with the hurricane and
+tornado events the catalogue could not read and FEMA declaration activity
+added. A decision record about a measured hazard carries that hazard's record
+with it.
 
 **What the leak was worth, measured.** Every loader now declares its
 label-derived columns and the scored matrix excludes them
@@ -509,11 +531,14 @@ control is exact in this run: domains with *no* exclusions moved by up to
 detector is deterministic. The 0.119 quoted here before compared a figure
 carried over from an older run with a fresh one, and measured the drift
 between two runs. FEMA's declaration flags (−0.243 over five events), Energy
-(−0.115) and Tornado (−0.030) fall with their columns excluded; Hurricane does
-not move (+0.004). Pandemic reads −0.1635 in the artifact, but that mean counts
-the cholera event at 0.5, where the remaining columns are all zero and no
-AUROC exists; over the three COVID events it is −0.0545. Exclusion also removes
-identity, not correlation: Tornado still ranks at 0.93 with `ef_scale`
+(−0.115), Pandemic (−0.0545 over its three COVID events) and Tornado (−0.032
+over three) fall with their columns excluded; Hurricane does not fall (+0.0225
+over twelve). The cholera event has both classes and no de-leaked AUROC, its
+remaining columns being all zero: it is recorded as undefined and left out of
+both of Pandemic's means. Until 2026-11-20 this script scored it as 0.5 and
+averaged it in, and Pandemic read −0.1635, which was not a measurement.
+Exclusion also removes
+identity, not correlation: Tornado still ranks at 0.94 with `ef_scale`
 dropped, because path length, injuries and
 fatalities covary with EF scale — distinct measurements, still physically
 downstream of the labelled quantity.
@@ -560,7 +585,7 @@ monitor of the declaration stream asks, whether activity is surging, and takes
 its labels from outside FEMA's record: a day is positive when it falls inside
 a NOAA NCEI billion-dollar tropical cyclone's window. The rule was fixed
 before it was measured and was measured once: 0.70 to 0.95 per year, 0.8583
-over 2017 to 2024. `Overall` pools 46 events, 45 of which have an AUROC.
+over 2017 to 2024. `Overall` pools 54 events, 53 of which have an AUROC.
 
 ### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 

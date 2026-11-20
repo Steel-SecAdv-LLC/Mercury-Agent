@@ -32,6 +32,13 @@ Coverage:
   normalise to UTC before dropping the tz.
 * M7 -- the network-security BATADAL path refuses an all-normal set when the
   attack file is missing and fills gaps with the column median, not ``0``.
+* Catalogue defects -- every hurricane event carries the storm identifier
+  IBTrACS holds for it (seven did not, and returned no track), pinned to a
+  committed extract of the archive; hurricane frames cached while only
+  ``main`` rows were kept are not read back; ``ebola_2014`` and the pandemic
+  stubs are listed as not benchmarkable and return nothing; the tornado
+  archive file covers the 2024 event, and an unassigned rating is missing,
+  not ``-9``.
 """
 
 from __future__ import annotations
@@ -1299,3 +1306,334 @@ class TestRealtimeReadIsNotCachedLikeHistory:
             loader._read_frame_cache("tsunami_realtime", max_age=loader.REALTIME_CACHE_TTL) is None
         )
         assert loader._read_frame_cache("tsunami_realtime") is not None
+
+
+# ======================================================================
+# Catalogue defects: events that could not be read, and why
+# ======================================================================
+def _ibtracs_rows() -> list[dict[str, str]]:
+    """IBTrACS's name, season and identifier for each catalogue storm (committed extract)."""
+    import csv
+    from pathlib import Path as _Path
+
+    recorded = _Path(__file__).parent / "fixtures" / "ibtracs" / "catalogue_storm_ids.csv"
+    with recorded.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _storm_name(meta: dict[str, Any]) -> str:
+    """``"KATRINA"`` for the catalogue's ``"Hurricane Katrina (2005)"``."""
+    return str(meta["name"]).split("(")[0].replace("Hurricane", "").strip().upper()
+
+
+def _basin_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
+    """A basin frame in the loader's schema: five 6-hourly fixes per storm."""
+    fixes: list[dict[str, Any]] = []
+    for row in rows:
+        first = pd.Timestamp(row["first_fix_utc"]).ceil("6h")
+        for step in range(5):
+            fixes.append(
+                {
+                    "sid": row["sid"],
+                    "season": int(row["season"]),
+                    "name": row["name"],
+                    "iso_time": str(first + pd.Timedelta(hours=6 * step)),
+                    "lat": 20.0,
+                    "lon": -70.0,
+                    "wind_kt": 40 + 10 * step,
+                    "pressure_mb": 1000 - 5 * step,
+                    "nature": "TS",
+                    "track_type": "main",
+                }
+            )
+    return pd.DataFrame(fixes)
+
+
+class TestHurricaneCatalogueIdentifiers:
+    """Every catalogue event names a storm IBTrACS holds, by its own identifier.
+
+    Seven events (Harvey, Maria, Ian, Michael, Dorian, Ida, Matthew) carried
+    identifiers that are not in IBTrACS, so they returned no track and were
+    never measured. The fixture is the archive's own name, season and
+    identifier for each catalogue storm (``tests/fixtures/ibtracs``).
+    """
+
+    def test_the_fixture_holds_one_identifier_per_catalogue_storm(self) -> None:
+        from omni_mercury_engine.loaders.hurricane_loader import _EVENT_CATALOG
+
+        recorded = {(row["name"], int(row["season"])) for row in _ibtracs_rows()}
+        catalogued = {
+            (_storm_name(meta), int(meta["date"][:4])) for meta in _EVENT_CATALOG.values()
+        }
+        assert recorded == catalogued
+        assert len(recorded) == len(_EVENT_CATALOG) == 12
+
+    def test_each_identifier_is_the_archives(self) -> None:
+        from omni_mercury_engine.loaders.hurricane_loader import _EVENT_CATALOG
+
+        archive = {(row["name"], int(row["season"])): row for row in _ibtracs_rows()}
+        wrong = {}
+        for event_id, meta in _EVENT_CATALOG.items():
+            row = archive[(_storm_name(meta), int(meta["date"][:4]))]
+            if meta["sid"] != row["sid"] or meta["basin"] != row["basin"]:
+                wrong[event_id] = (meta["sid"], row["sid"])
+        assert not wrong, f"catalogue identifiers that are not the archive's: {wrong}"
+
+    def test_the_landfall_date_falls_inside_the_storms_track(self) -> None:
+        from omni_mercury_engine.loaders.hurricane_loader import _EVENT_CATALOG
+
+        archive = {(row["name"], int(row["season"])): row for row in _ibtracs_rows()}
+        for event_id, meta in _EVENT_CATALOG.items():
+            row = archive[(_storm_name(meta), int(meta["date"][:4]))]
+            first = pd.Timestamp(row["first_fix_utc"]).normalize()
+            last = pd.Timestamp(row["last_fix_utc"])
+            assert first <= pd.Timestamp(meta["date"]) <= last, event_id
+
+    @pytest.mark.parametrize(
+        "event_id",
+        [
+            "katrina_2005",
+            "harvey_2017",
+            "maria_2017",
+            "ian_2022",
+            "helene_2024",
+            "milton_2024",
+            "irma_2017",
+            "michael_2018",
+            "dorian_2019",
+            "ida_2021",
+            "sandy_2012",
+            "matthew_2016",
+        ],
+    )
+    def test_every_event_reads_its_own_storm(self, event_id: str, tmp_path: Path) -> None:
+        """From a basin file holding the archive's identifiers, no event is empty."""
+        from omni_mercury_engine.loaders.hurricane_loader import _EVENT_CATALOG, HurricaneLoader
+
+        loader = HurricaneLoader(cache_dir=tmp_path / "hur", max_retries=0)
+        basin = _basin_frame(_ibtracs_rows())
+        with patch.object(loader, "_download_ibtracs_csv", return_value=basin) as download:
+            track = loader.fetch_historical(event_id)
+        assert download.call_args.args[0].endswith("ibtracs.NA.list.v04r01.csv")
+        assert len(track) == 5
+        assert set(track["name"]) == {_storm_name(_EVENT_CATALOG[event_id])}
+
+    def test_an_identifier_that_is_another_storm_is_refused(self, tmp_path: Path) -> None:
+        """A catalogue identifier resolving to a different name is a defect, not data."""
+        from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
+
+        loader = HurricaneLoader(cache_dir=tmp_path / "hur", max_retries=0)
+        basin = _basin_frame(_ibtracs_rows())
+        basin.loc[basin["name"] == "KATRINA", "name"] = "OPHELIA"
+        with (
+            patch.object(loader, "_download_ibtracs_csv", return_value=basin),
+            pytest.raises(ValueError, match="OPHELIA"),
+        ):
+            loader.fetch_historical("katrina_2005")
+
+
+class TestHurricaneCacheKeysRetireMainOnlyFrames:
+    """A frame cached while only ``main`` rows were kept is not read back.
+
+    The filter that kept only ``main`` dropped every provisional storm; when it
+    was corrected the basin key was versioned but the event key and the
+    realtime key were not, so such a cache went on serving the main-only frame.
+    """
+
+    @staticmethod
+    def _stale() -> dict[str, list[Any]]:
+        return {
+            "sid": ["STALE"],
+            "season": [2005],
+            "name": ["STALE_MAIN_ONLY"],
+            "iso_time": ["2005-08-25 00:00:00"],
+            "lat": [0.0],
+            "lon": [0.0],
+            "wind_kt": [10],
+            "pressure_mb": [1010],
+            "nature": ["TS"],
+            "track_type": ["main"],
+        }
+
+    def test_event_frame_under_the_v2_key_is_not_served(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
+
+        loader = HurricaneLoader(cache_dir=tmp_path / "hur", max_retries=0)
+        loader._write_cache("hurricane_historical_v2_katrina_2005", self._stale())
+        basin = _basin_frame(_ibtracs_rows())
+        with patch.object(loader, "_download_ibtracs_csv", return_value=basin) as download:
+            track = loader.fetch_historical("katrina_2005")
+        assert download.called, "the main-only frame was served from the v2 key"
+        assert set(track["name"]) == {"KATRINA"}
+
+    def test_realtime_frame_under_the_v2_key_is_not_served(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
+
+        loader = HurricaneLoader(cache_dir=tmp_path / "hur", max_retries=0)
+        loader._write_cache("hurricane_realtime_last3years_v2", self._stale())
+        fresh = _basin_frame(_ibtracs_rows())
+        fresh.loc[fresh["name"] == "MILTON", "track_type"] = "PROVISIONAL"
+        with patch.object(loader, "_download_ibtracs_csv", return_value=fresh) as download:
+            recent = loader.fetch_realtime()
+        assert download.called, "the main-only frame was served from the v2 key"
+        assert "STALE_MAIN_ONLY" not in set(recent["name"])
+        assert "PROVISIONAL" in set(recent["track_type"])
+
+
+class TestEbolaIsNotBenchmarkable:
+    """WHO GHO serves no Ebola series, so the event has no data to score.
+
+    The loader asked for the indicator ``EBOLA_CASESDEATHS``, which the API
+    answers with HTTP 404; what the event served was a series the loader built.
+    """
+
+    def test_it_is_marked_with_its_reason(self) -> None:
+        from omni_mercury_engine.loaders.pandemic_loader import _EVENT_CATALOG, PandemicLoader
+
+        entry = _EVENT_CATALOG["ebola_2014"]
+        assert entry["not_benchmarkable"] is True
+        assert "404" in entry["_not_benchmarkable_reason"]
+        listed = {event["event_id"]: event for event in PandemicLoader.list_events(MagicMock())}
+        assert listed["ebola_2014"]["not_benchmarkable"] is True
+        assert listed["ebola_2014"]["reason"] == entry["_not_benchmarkable_reason"]
+
+    def test_no_request_is_made_and_nothing_is_returned(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
+
+        monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+        loader = PandemicLoader(cache_dir=tmp_path / "pand", max_retries=0)
+        with patch.object(loader, "_fetch_json", side_effect=AssertionError("no request")):
+            frame = loader.fetch_historical("ebola_2014")
+            labels = loader.get_ground_truth("ebola_2014")
+        assert frame.empty
+        assert labels.size == 0
+
+    def test_a_frame_cached_while_it_was_wired_is_not_served(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
+
+        monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "0")
+        loader = PandemicLoader(cache_dir=tmp_path / "pand", max_retries=0)
+        constructed = PandemicLoader._synthetic_ebola_2014()
+        loader._write_frame_cache("pandemic_historical_v2_ebola_2014", constructed)
+        assert loader.fetch_historical("ebola_2014").empty
+
+    def test_the_constructed_series_needs_the_opt_in_and_carries_the_mark(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omni_mercury_engine.loaders.base import SyntheticDataNotDeleakable
+        from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
+
+        monkeypatch.setenv("MERCURY_ALLOW_SYNTHETIC", "1")
+        loader = PandemicLoader(cache_dir=tmp_path / "pand", max_retries=0)
+        with patch.object(loader, "_fetch_json", side_effect=AssertionError("no request")):
+            frame = loader.fetch_historical("ebola_2014")
+        assert len(frame) == 306
+        assert loader.is_synthetic(frame)
+        with pytest.raises(SyntheticDataNotDeleakable):
+            loader.engineer_scored_features(frame)
+
+
+class TestPandemicStubsCannotBeTakenForData:
+    """An event with no source says so when listed, and returns nothing."""
+
+    STUBS = (
+        "mpox_2022",
+        "candida_auris_us_tracking",
+        "malaria_subsaharan_2019_2022",
+        "cjd_us_surveillance",
+    )
+
+    def test_each_is_listed_as_not_benchmarkable_with_a_reason(self) -> None:
+        from omni_mercury_engine.loaders.pandemic_loader import _EVENT_CATALOG, PandemicLoader
+
+        listed = {event["event_id"]: event for event in PandemicLoader.list_events(MagicMock())}
+        for event_id in self.STUBS:
+            assert _EVENT_CATALOG[event_id]["source"] == "stub"
+            assert listed[event_id]["not_benchmarkable"] is True
+            assert listed[event_id]["reason"] == _EVENT_CATALOG[event_id]["_stub_reason"]
+        measurable = set(listed) - set(self.STUBS) - {"ebola_2014"}
+        assert all("not_benchmarkable" not in listed[event_id] for event_id in measurable)
+
+    @pytest.mark.parametrize("event_id", STUBS)
+    def test_each_returns_nothing_and_asks_no_source(self, event_id: str, tmp_path: Path) -> None:
+        from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
+
+        loader = PandemicLoader(cache_dir=tmp_path / "pand", max_retries=0)
+        # A frame left in the cache from before the event was a stub is not data either.
+        loader._write_frame_cache(
+            f"pandemic_historical_v2_{event_id}",
+            pd.DataFrame({"date": ["2022-05-01"], "new_cases": [1.0]}),
+        )
+        with (
+            patch.object(loader, "_fetch_json", side_effect=AssertionError("no request")),
+            patch.object(loader, "_load_owid_data", side_effect=AssertionError("no request")),
+        ):
+            assert loader.fetch_historical(event_id).empty
+            assert loader.get_ground_truth(event_id).size == 0
+
+
+class TestTornadoArchiveCoversItsCatalogue:
+    """The archive file the loader names holds every catalogue event's year.
+
+    SPC names the file by its last year. The loader named
+    ``1950-2023_actual_tornadoes.csv``, which has no row for ``midwest_2024``.
+    """
+
+    COLUMNS = ("om", "yr", "mo", "dy", "date", "time", "tz", "st", "mag", "inj", "fat")
+
+    def _archive(self, last_year: int) -> pd.DataFrame:
+        rows = [
+            (1, 2011, 4, 27, "2011-04-27", "15:00:00", 3, "AL", 4, 10, 2),
+            (2, 2013, 5, 20, "2013-05-20", "14:56:00", 3, "OK", 5, 200, 24),
+            (3, 2024, 4, 26, "2024-04-26", "15:30:00", 3, "NE", 3, 4, 0),
+            (4, 2024, 4, 26, "2024-04-26", "16:10:00", 3, "IA", 1, 0, 0),
+            (5, 2024, 4, 27, "2024-04-27", "17:45:00", 3, "OK", -9, 0, 0),
+        ]
+        frame = pd.DataFrame(rows, columns=list(self.COLUMNS))
+        for column, value in (("len", 1.0), ("wid", 50), ("slat", 36.0), ("slon", -97.0)):
+            frame[column] = value
+        frame["sg"] = 1
+        return frame[frame["yr"] <= last_year].reset_index(drop=True)
+
+    def _served(self, url: str, **_: Any) -> pd.DataFrame:
+        """What SPC serves at ``url``: the archive up to the year in its name."""
+        import re
+
+        found = re.search(r"/1950-(\d{4})_actual_tornadoes\.csv$", url)
+        assert found is not None, url
+        return self._archive(int(found.group(1)))
+
+    def test_the_2024_event_has_rows(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.loaders.tornado_loader import TornadoLoader
+
+        loader = TornadoLoader(cache_dir=tmp_path / "tor", max_retries=0)
+        with patch.object(loader, "_fetch_csv", side_effect=self._served):
+            frame = loader.fetch_historical("midwest_2024")
+            labels = loader.get_ground_truth("midwest_2024")
+        assert len(frame) == 3
+        assert labels.tolist() == [1, 0, 0]
+
+    def test_an_unassigned_rating_is_missing_not_minus_nine(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.loaders.tornado_loader import TornadoLoader
+
+        loader = TornadoLoader(cache_dir=tmp_path / "tor", max_retries=0)
+        with patch.object(loader, "_fetch_csv", side_effect=self._served):
+            frame = loader.fetch_historical("midwest_2024")
+        assert pd.isna(frame["mag"].iloc[2])
+        features = loader.engineer_features(frame)
+        ef_scale = features[:, loader.FEATURE_COLUMNS.index("ef_scale")]
+        assert ef_scale.min() >= 0.0
+
+    def test_an_archive_cached_from_the_older_file_is_not_read_back(self, tmp_path: Path) -> None:
+        from omni_mercury_engine.loaders.tornado_loader import TornadoLoader
+
+        loader = TornadoLoader(cache_dir=tmp_path / "tor", max_retries=0)
+        loader._write_cache("tornado_archive_full", self._archive(2023).to_dict(orient="list"))
+        with patch.object(loader, "_fetch_csv", side_effect=self._served) as fetch:
+            frame = loader.fetch_historical("midwest_2024")
+        assert fetch.called, "the 1950-2023 archive was served from the cache"
+        assert len(frame) == 3
