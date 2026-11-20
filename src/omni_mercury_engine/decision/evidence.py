@@ -144,6 +144,36 @@ def _ig_summary(explanation: Any) -> dict[str, float] | None:
     return _bounded_contributions(collected)
 
 
+def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
+    """Bounded self-critique summary of a ``cognitive_analysis`` payload.
+
+    Carries the orchestrator's critique of the detection — reliability,
+    calibrated confidence, the measured uncertainties — and its historical
+    analogs (case ids and recommended actions, at most five each, truncated),
+    never the full analysis: the reasoning chain, knowledge updates and raw
+    feedback signals stay at the detection result's top level.
+    """
+    if not isinstance(analysis, Mapping):
+        return None
+
+    def strings(value: Any, limit: int) -> list[str]:
+        if not isinstance(value, (list, tuple)):
+            return []
+        return [str(item)[:160] for item in value if str(item).strip()][:limit]
+
+    return {
+        "is_reliable": (bool(analysis["is_reliable"]) if "is_reliable" in analysis else None),
+        "confidence": _as_float(analysis.get("confidence")),
+        "epistemic_uncertainty": _as_float(analysis.get("epistemic_uncertainty")),
+        "aleatoric_uncertainty": _as_float(analysis.get("aleatoric_uncertainty")),
+        "ethical_permissible": (
+            bool(analysis["ethical_permissible"]) if "ethical_permissible" in analysis else None
+        ),
+        "similar_cases": strings(analysis.get("similar_cases"), 5),
+        "recommendations": strings(analysis.get("recommendations"), 5),
+    }
+
+
 def _shapley_summary(report: Any) -> dict[str, float] | None:
     """Bounded Shapley summary of a GDPR ``gdpr_report`` payload.
 
@@ -221,6 +251,11 @@ class Evidence:
             probability (checkpoint name/sha256, temperature, conformal
             coverage, trained groups) -- the result's ``model_provenance``
             mapping, or ``None`` when the result carried none.
+        cognitive: Bounded self-critique summary of the orchestrator's
+            ``cognitive_analysis`` (reliability, calibrated confidence, the
+            measured uncertainties, historical analogs and recommended
+            actions, truncated), or ``None`` when the orchestrator did not
+            run.
         contributions: Bounded causal-contribution summary under a stable
             key: ``{"detector_importance", "integrated_gradients",
             "shapley"}``, each a top-k (at most 16 entries) ``name -> weight``
@@ -253,6 +288,7 @@ class Evidence:
     out_of_support_rows: tuple[int, ...] = ()
     model_provenance: Mapping[str, Any] | None = None
     contributions: Mapping[str, Any] | None = None
+    cognitive: Mapping[str, Any] | None = None
 
     @property
     def calibrated(self) -> bool:
@@ -439,6 +475,7 @@ class Evidence:
             out_of_support_rows=_as_int_tuple(result.get("out_of_support_rows")) or (),
             model_provenance=model_provenance,
             contributions=contributions,
+            cognitive=_cognitive_summary(result.get("cognitive_analysis")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -471,6 +508,7 @@ class Evidence:
                 dict(self.model_provenance) if self.model_provenance is not None else None
             ),
             "contributions": dict(self.contributions) if self.contributions is not None else None,
+            "cognitive": dict(self.cognitive) if self.cognitive is not None else None,
             "domain": self.domain,
         }
 

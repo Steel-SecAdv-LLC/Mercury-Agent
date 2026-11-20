@@ -1153,6 +1153,51 @@ class KnowledgeGraph:
 
             return node
 
+    def remove_node(self, node_id: str) -> bool:
+        """Remove a node and every edge and triple incident to it.
+
+        The orchestrator's serving path adds one observation node per
+        detected anomaly; without removal a long-lived served engine grew
+        without bound. Removal purges the node from the core storage, the
+        type index, both edge directions (including the other endpoint's
+        lists), the edge-type index and the triple store, and invalidates
+        the cached pagerank/embeddings exactly as an addition does.
+
+        Args:
+            node_id: The node to remove.
+
+        Returns:
+            Whether the node existed.
+        """
+        with self._lock:
+            node = self._nodes.pop(node_id, None)
+            if node is None:
+                return False
+            self._type_index[node.node_type].discard(node_id)
+
+            incident: list[KnowledgeEdge] = []
+            for edge in self._edges.pop(node_id, []):
+                incident.append(edge)
+                others = self._reverse_edges.get(edge.target_id)
+                if others is not None:
+                    self._reverse_edges[edge.target_id] = [e for e in others if e is not edge]
+            for edge in self._reverse_edges.pop(node_id, []):
+                incident.append(edge)
+                others = self._edges.get(edge.source_id)
+                if others is not None:
+                    self._edges[edge.source_id] = [e for e in others if e is not edge]
+            if incident:
+                dropped = set(map(id, incident))
+                for edge_type in {e.edge_type for e in incident}:
+                    self._edge_type_index[edge_type] = [
+                        e for e in self._edge_type_index[edge_type] if id(e) not in dropped
+                    ]
+            self._triples = [t for t in self._triples if t[0] != node_id and t[2] != node_id]
+
+            self._pagerank_computed = False
+            self._embeddings_computed = False
+            return True
+
     def add_edge(
         self,
         source_id: str,

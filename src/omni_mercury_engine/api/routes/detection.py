@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import threading
 from collections.abc import Mapping
 from typing import Any
@@ -191,6 +192,23 @@ def _served_flagship_engine() -> Any:
         # existing consumers see one extra key. The core engine's own default
         # stays opt-in (``OmniMercuryEngine.enable_decision_layer``).
         engine.enable_decision_layer()
+        # Cognitive self-critique on the served flagship, on by default:
+        # every detection also carries ``cognitive_analysis`` (reliability,
+        # calibrated confidence, measured uncertainties, historical analogs),
+        # and the decision record's signals keep a bounded summary of it.
+        # Measured cost on single-row serving with the shipped checkpoint:
+        # 29.4 -> 164 ms per call. Operators who need the latency back set
+        # MERCURY_FLAGSHIP_COGNITIVE=off (the k6/locust load lanes exercise
+        # /detect/univariate and are unaffected). The orchestrator's working
+        # memory is bounded (OBSERVATION_MEMORY_LIMIT observation nodes,
+        # oldest evicted), so a long-lived served engine does not grow per
+        # anomalous request.
+        if os.environ.get("MERCURY_FLAGSHIP_COGNITIVE", "on").strip().lower() not in (
+            "off",
+            "false",
+            "0",
+        ):
+            engine.enable_cognitive_analysis()
         _flagship_engine = engine
     return _flagship_engine
 

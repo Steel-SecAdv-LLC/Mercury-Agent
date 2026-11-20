@@ -28,9 +28,9 @@ from __future__ import annotations
 
 import logging
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 
@@ -220,6 +220,9 @@ class CognitiveOrchestrator(LoggerMixin):
     #: ``analyze`` call keeps a small record of the plasticity connections and
     #: indicators it touched; the oldest record is dropped past this many.
     FEEDBACK_MEMORY_LIMIT: int = 4096
+    #: Most observation nodes the orchestrator keeps in its knowledge graph
+    #: (oldest evicted first). Bounds the served engine's working memory.
+    OBSERVATION_MEMORY_LIMIT: ClassVar[int] = 512
 
     def __init__(
         self,
@@ -321,6 +324,12 @@ class CognitiveOrchestrator(LoggerMixin):
         # State
         self._analysis_count = 0
         self._anomaly_history: list[dict[str, Any]] = []
+        # Observation nodes this orchestrator added to the knowledge graph,
+        # oldest first. One is added per detected anomaly; past
+        # OBSERVATION_MEMORY_LIMIT the oldest is removed from the graph, so a
+        # long-lived served engine holds a bounded working memory instead of
+        # growing one node per anomalous request without limit.
+        self._observation_nodes: deque[str] = deque()
         # analysis id -> what that analysis created (bounded, oldest first out).
         self._feedback_records: OrderedDict[int, _FeedbackRecord] = OrderedDict()
 
@@ -534,6 +543,9 @@ class CognitiveOrchestrator(LoggerMixin):
         if anomaly_detected:
             # Store anomaly as observation in knowledge graph
             obs_id = f"obs_{self._analysis_count}"
+            self._observation_nodes.append(obs_id)
+            while len(self._observation_nodes) > self.OBSERVATION_MEMORY_LIMIT:
+                self.knowledge_graph.remove_node(self._observation_nodes.popleft())
             self.knowledge_graph.add_node(
                 node_id=obs_id,
                 node_type=NodeType.OBSERVATION,
