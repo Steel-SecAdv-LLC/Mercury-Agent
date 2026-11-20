@@ -908,3 +908,311 @@ class TestM1Financial:
         # first real value (20.0) backward into them.
         assert pd.isna(merged["vix"].iloc[0])
         assert pd.isna(merged["vix"].iloc[1])
+
+
+# ======================================================================
+# Follow-up item 1 -- tsunami: no future leakage in fill / rolling, and
+# OfflineModeError propagation + realtime caching
+# ======================================================================
+class TestTsunamiLeakage:
+    """Leading gaps fill from the first (not last) value; windows are trailing."""
+
+    def test_fill_non_finite_leading_uses_first_value(self) -> None:
+        """Leading NaNs take the FIRST valid value, not the last (future)."""
+        from omni_mercury_engine.loaders.tsunami_loader import _fill_non_finite
+
+        arr = np.array([np.nan, np.nan, 10.0, 11.0, 12.0, 99.0])
+        out = _fill_non_finite(arr.copy())
+        # First-valid is 10.0; the old end-scan filled these with 99.0.
+        assert out[0] == 10.0
+        assert out[1] == 10.0
+
+    def test_rolling_mean_is_trailing(self) -> None:
+        """A rolling mean must not see a future impulse."""
+        from omni_mercury_engine.loaders.tsunami_loader import _rolling_mean
+
+        x = np.zeros(11)
+        x[5] = 10.0
+        rm = _rolling_mean(x.copy(), 5)
+        # Index 3 is before the impulse -> trailing window sees only zeros.
+        assert rm[3] == 0.0
+        # Index 5 includes the impulse (5 trailing samples -> 10/5).
+        assert rm[5] == pytest.approx(2.0)
+
+    def test_rolling_std_is_trailing(self) -> None:
+        """A rolling std must not see a future impulse."""
+        from omni_mercury_engine.loaders.tsunami_loader import _rolling_std
+
+        x = np.zeros(11)
+        x[5] = 10.0
+        rs = _rolling_std(x.copy(), 5)
+        assert rs[3] == 0.0
+        assert rs[5] > 0.0
+
+    def test_fetch_realtime_propagates_offline_and_caches(self, tmp_path: Path) -> None:
+        """OfflineModeError propagates unchanged; a successful fetch is cached."""
+        from omni_mercury_engine.datasets.exceptions import OfflineModeError
+        from omni_mercury_engine.loaders.tsunami_loader import TsunamiLoader
+
+        loader = TsunamiLoader(cache_dir=tmp_path / "tsu", max_retries=0)
+        with (
+            patch.object(loader, "_fetch_station", side_effect=OfflineModeError("offline")),
+            pytest.raises(OfflineModeError),
+        ):
+            loader.fetch_realtime()
+
+        # A successful fetch should be cached (second call does not re-fetch).
+        good = pd.DataFrame(
+            {
+                "station_id": ["21418"] * 3,
+                "timestamp": pd.to_datetime(
+                    ["2024-01-01T00:00:00Z", "2024-01-01T00:15:00Z", "2024-01-01T00:30:00Z"]
+                ),
+                "bpr": [1000.0, 1000.1, 1000.2],
+            }
+        )
+        loader2 = TsunamiLoader(cache_dir=tmp_path / "tsu2", max_retries=0)
+        calls = {"n": 0}
+
+        def one_station(station_id: str) -> pd.DataFrame:
+            calls["n"] += 1
+            return good if station_id == "21418" else good.iloc[0:0]
+
+        with patch.object(loader2, "_fetch_station", side_effect=one_station):
+            first = loader2.fetch_realtime()
+            after_first = calls["n"]
+            second = loader2.fetch_realtime()  # should hit cache, no new fetches
+        assert not first.empty
+        assert len(second) == len(first)
+        assert calls["n"] == after_first, "realtime was not cached (re-fetched)"
+
+
+# ======================================================================
+# Follow-up item 2 -- landslide: no worldwide stand-in, paginate, no empty cache
+# ======================================================================
+class TestLandslideNoStandin:
+    """An empty area result raises; exceededTransferLimit is paged; empty is
+    never cached."""
+
+    def test_empty_area_raises_no_worldwide_fallback(self, tmp_path: Path) -> None:
+        """An empty area query raises instead of substituting worldwide rows."""
+        from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
+        from omni_mercury_engine.loaders.landslide_loader import _EVENT_CATALOG, LandslideLoader
+
+        evt = next(iter(_EVENT_CATALOG))
+        loader = LandslideLoader(cache_dir=tmp_path / "ls", max_retries=0)
+        with (
+            patch.object(loader, "_fetch_json", return_value={"features": []}) as m,
+            pytest.raises(DataSourceUnavailableError),
+        ):
+            loader.fetch_historical(evt)
+        # Exactly one query: no second worldwide date-only fallback request.
+        assert m.call_count == 1
+
+    def test_empty_result_not_cached(self, tmp_path: Path) -> None:
+        """An empty area result must not be frozen into the cache."""
+        from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
+        from omni_mercury_engine.loaders.landslide_loader import _EVENT_CATALOG, LandslideLoader
+
+        evt = next(iter(_EVENT_CATALOG))
+        loader = LandslideLoader(cache_dir=tmp_path / "ls2", max_retries=0)
+        with (
+            patch.object(loader, "_fetch_json", return_value={"features": []}),
+            pytest.raises(DataSourceUnavailableError),
+        ):
+            loader.fetch_historical(evt)
+        # A second attempt must query again (nothing cached), not serve empty.
+        with (
+            patch.object(loader, "_fetch_json", return_value={"features": []}) as m2,
+            pytest.raises(DataSourceUnavailableError),
+        ):
+            loader.fetch_historical(evt)
+        assert m2.call_count == 1
+
+    def test_pagination_follows_transfer_limit(self, tmp_path: Path) -> None:
+        """exceededTransferLimit pages are followed and concatenated."""
+        from omni_mercury_engine.loaders.landslide_loader import _EVENT_CATALOG, LandslideLoader
+
+        evt = next(iter(_EVENT_CATALOG))
+
+        def feat(i: int) -> dict[str, Any]:
+            return {
+                "attributes": {
+                    "event_id": i,
+                    "event_date": 1500000000000 + i,
+                    "fatality_count": 0,
+                    "landslide_size": "small",
+                    "latitude": 1.0,
+                    "longitude": 2.0,
+                }
+            }
+
+        pages: list[dict[str, Any]] = [
+            {"features": [feat(i) for i in range(2000)], "exceededTransferLimit": True},
+            {"features": [feat(i) for i in range(2000, 2500)]},
+        ]
+        seq = {"n": 0}
+
+        def fake(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
+            r = pages[seq["n"]]
+            seq["n"] += 1
+            return r
+
+        loader = LandslideLoader(cache_dir=tmp_path / "ls3", max_retries=0)
+        with patch.object(loader, "_fetch_json", side_effect=fake):
+            df = loader.fetch_historical(evt)
+        assert len(df) == 2500
+
+    def test_a_service_that_ignores_the_offset_does_not_duplicate_rows(
+        self, tmp_path: Path
+    ) -> None:
+        """Every page answered with the same rows yields each row exactly once.
+
+        The recorded mirror fixture carries ``exceededTransferLimit: true``, and
+        a replayed response answers the offset request with the same page; the
+        first paging implementation appended it before its stop condition ran
+        and returned every row twice.
+        """
+        from omni_mercury_engine.loaders.landslide_loader import _EVENT_CATALOG, LandslideLoader
+
+        evt = next(iter(_EVENT_CATALOG))
+        page = {
+            "features": [
+                {
+                    "attributes": {
+                        "FID": i,
+                        "event_id": 100 + i,
+                        "event_date": 1500000000000 + i,
+                        "fatality_count": 0,
+                        "landslide_size": "small",
+                        "latitude": 1.0,
+                        "longitude": 2.0,
+                    }
+                }
+                for i in range(9)
+            ],
+            "exceededTransferLimit": True,
+        }
+        calls = {"n": 0}
+
+        def same_page(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
+            calls["n"] += 1
+            return page
+
+        loader = LandslideLoader(cache_dir=tmp_path / "ls4", max_retries=0)
+        with patch.object(loader, "_fetch_json", side_effect=same_page):
+            df = loader.fetch_historical(evt)
+        assert len(df) == 9
+        assert calls["n"] == 2, "one repeat is enough to see the service is not paging"
+
+
+# ======================================================================
+# Follow-up item 3 -- pandemic: outage distinguishable from no-data
+# ======================================================================
+class TestPandemicOutageDistinguishable:
+    """fetch_historical raises on an outage but returns empty on true no-data."""
+
+    def test_outage_raises(self, tmp_path: Path) -> None:
+        """A WHO fetch failure surfaces as data-source-unavailable, not empty."""
+        from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
+        from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
+
+        loader = PandemicLoader(cache_dir=tmp_path / "pm", max_retries=0)
+        with (
+            patch.object(loader, "_fetch_json", side_effect=ConnectionError("500")),
+            pytest.raises(DataSourceUnavailableError),
+        ):
+            loader.fetch_historical("cholera_yemen_2017")
+
+    def test_genuine_no_records_returns_empty(self, tmp_path: Path) -> None:
+        """A genuine empty API response is still returned as an empty frame."""
+        from omni_mercury_engine.loaders.pandemic_loader import PandemicLoader
+
+        loader = PandemicLoader(cache_dir=tmp_path / "pm2", max_retries=0)
+        with patch.object(loader, "_fetch_json", return_value={"value": []}):
+            df = loader.fetch_historical("cholera_yemen_2017")
+        assert df.empty
+
+    def test_helper_keeps_graceful_empty_with_marker(self, tmp_path: Path) -> None:
+        """The low-level helper still returns empty, now flagged as a failure."""
+        from omni_mercury_engine.loaders.pandemic_loader import _FETCH_FAILED_ATTR, PandemicLoader
+
+        loader = PandemicLoader(cache_dir=tmp_path / "pm3", max_retries=0)
+        with patch.object(loader, "_fetch_json", side_effect=ConnectionError("500")):
+            df = loader._fetch_who_gho("WHS3_41", "YEM", "2017-01-01", "2018-12-31")
+        assert df.empty
+        assert df.attrs.get(_FETCH_FAILED_ATTR) is True
+
+
+# ======================================================================
+# Follow-up item 4 -- stale cache: versioned keys retire pre-fix payloads
+# ======================================================================
+class TestCacheSchemaBump:
+    """A frame cached under the pre-fix key is never read back after the fix."""
+
+    def test_earthquake_old_cache_not_served(self, tmp_path: Path) -> None:
+        """A stale worldwide-quake frame under the old key is not returned."""
+        from omni_mercury_engine.loaders.earthquake_loader import EarthquakeLoader
+
+        loader = EarthquakeLoader(cache_dir=tmp_path / "eq", max_retries=0)
+        # Plant a stale entry under the PRE-FIX key (no spatial filter era).
+        stale = pd.DataFrame(
+            {
+                "time": [1_000_000],
+                "latitude": [0.0],
+                "longitude": [0.0],
+                "depth": [10.0],
+                "magnitude": [2.5],
+                "place": ["STALE_WORLDWIDE"],
+                "event_id": ["stale"],
+            }
+        )
+        loader._write_cache("earthquake_historical_turkey_syria_2023", stale.to_dict(orient="list"))
+
+        fresh = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"time": 1_700_000_000_000, "mag": 7.8, "place": "FRESH"},
+                    "geometry": {"type": "Point", "coordinates": [37.0, 37.1, 10.0]},
+                    "id": "fresh",
+                }
+            ],
+        }
+        with patch.object(loader, "_fetch_json", return_value=fresh) as m:
+            df = loader.fetch_historical("turkey_syria_2023")
+        assert m.called, "stale cache was served under the old key"
+        assert "STALE_WORLDWIDE" not in df.get("place", pd.Series([], dtype=str)).tolist()
+
+    def test_volcanic_old_cache_not_served(self, tmp_path: Path) -> None:
+        """A stale current-alert frame cached as the 2018 event is not returned."""
+        from omni_mercury_engine.datasets.exceptions import DataSourceUnavailableError
+        from omni_mercury_engine.loaders.volcanic_loader import VolcanicLoader
+
+        loader = VolcanicLoader(cache_dir=tmp_path / "volc", max_retries=0)
+        # Plant a stale entry under the PRE-FIX key (today's alert mislabeled).
+        stale = pd.DataFrame(
+            {
+                "volcano_name": ["Kilauea"],
+                "alert_level": ["WATCH"],
+                "color_code": ["ORANGE"],
+                "alert_level_numeric": [2],
+                "color_code_numeric": [2],
+                "alert_date": ["2099-01-01T00:00:00Z"],
+                "volcano_number": ["332010"],
+                "observatory": [""],
+                "notice_id": [""],
+            }
+        )
+        loader._write_cache("volcanic_historical_kilauea_2018", stale.to_dict(orient="list"))
+
+        # With the old cache ignored, the current-alert guard now controls:
+        # a present-day alert must raise rather than be served as 2018.
+        today = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        alerts = {"alerts": [{"volcanoName": "Kilauea", "alertLevel": "WATCH", "alertDate": today}]}
+        with (
+            patch.object(loader, "_fetch_json", return_value=alerts),
+            pytest.raises(DataSourceUnavailableError),
+        ):
+            loader.fetch_historical("kilauea_2018")

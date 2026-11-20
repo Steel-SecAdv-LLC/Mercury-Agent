@@ -17,7 +17,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.datasets.exceptions import OfflineModeError
+from omni_mercury_engine.datasets.exceptions import (
+    DataSourceUnavailableError,
+    OfflineModeError,
+)
 from omni_mercury_engine.loaders.base import BaseDomainLoader, FetchHTTPError
 
 logger = logging.getLogger(__name__)
@@ -312,7 +315,10 @@ class LandslideLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"landslide_historical_{event_id}"
+        # Cache schema v2: pre-fix entries could be a worldwide date-only
+        # stand-in (unrelated events) or an empty result cached as data.
+        # Versioning the key retires both so the corrected logic always runs.
+        cache_key = f"landslide_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -337,31 +343,31 @@ class LandslideLoader(BaseDomainLoader):
             "resultRecordCount": "2000",
         }
 
-        response, source = self._query(params)
-        df = self._arcgis_to_dataframe(response, source)
+        features, source = self._query_all_pages(params)
+        df = self._arcgis_to_dataframe({"features": features}, source)
 
         if df.empty:
-            logger.warning(
-                "The catalog (%s) returned no features for event '%s'. "
-                "Falling back to full catalog query.",
-                source,
-                event_id,
+            # The spatial/temporal query for THIS event returned nothing.
+            # The previous behaviour fell back to a worldwide, date-only query
+            # capped at 2,000 unordered rows, so unrelated landslides from
+            # anywhere on Earth stood in for the target event -- a fabricated
+            # benchmark. An empty area result is an honest "no catalogued
+            # landslide for this event"; raise rather than substitute, and do
+            # NOT cache the empty frame (a transient gap must not be frozen in
+            # for the whole cache TTL).
+            raise DataSourceUnavailableError(
+                "LandslideLoader",
+                source_url=dict(_SOURCES).get(source, _QUERY_URL),
+                reason=(
+                    f"NASA landslide catalog returned no event within "
+                    f"{event['search_radius_km']} km of "
+                    f"({event['latitude']}, {event['longitude']}) for "
+                    f"{event['start']}..{event['end']} (event '{event_id}'). "
+                    f"No worldwide stand-in is substituted."
+                ),
             )
-            # Fallback: try a broader temporal-only query
-            fallback_where = (
-                f"event_date >= '{event['start']}' " f"AND event_date <= '{event['end']}'"
-            )
-            fallback_params: dict[str, str] = {
-                "where": fallback_where,
-                "outFields": "*",
-                "f": "json",
-                "resultRecordCount": "2000",
-            }
-            response, source = self._query(fallback_params)
-            df = self._arcgis_to_dataframe(response, source)
 
-        if not df.empty:
-            df = df.sort_values("event_date").reset_index(drop=True)
+        df = df.sort_values("event_date").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -634,6 +640,106 @@ class LandslideLoader(BaseDomainLoader):
         raise FetchHTTPError(
             "landslide: no catalog source could be read (" + "; ".join(failures) + ")"
         )
+
+    def _query_all_pages(self, params: dict[str, str]) -> tuple[list[dict[str, Any]], str]:
+        """Query a catalog source and follow ``exceededTransferLimit`` paging.
+
+        ArcGIS caps a response at ``resultRecordCount`` rows and sets
+        ``exceededTransferLimit: true`` when more match. The previous code
+        read only the first page and silently dropped the rest, so a dense
+        event was scored on an arbitrary 2,000-row slice. This pages the SAME
+        source with ``resultOffset`` until the service stops flagging more
+        rows, concatenating the features.
+
+        Args:
+            params: Base ArcGIS query parameters (``resultOffset`` is added).
+
+        Returns:
+            Tuple of (all feature dicts across pages, the source that answered).
+
+        Raises:
+            OfflineModeError: Propagated unchanged from the first query.
+            FetchHTTPError: If no source could answer the first query.
+        """
+        first, source = self._query(params)
+        features: list[dict[str, Any]] = list(first.get("features", []))
+
+        if not first.get("exceededTransferLimit"):
+            return features, source
+
+        seen = {key for key in map(self._feature_key, features) if key is not None}
+
+        # Stay on the source that answered page one.
+        url = dict(_SOURCES).get(source)
+        if url is None:
+            return features, source
+        try:
+            page_size = int(params.get("resultRecordCount", "2000"))
+        except (TypeError, ValueError):
+            page_size = 2000
+
+        offset = len(features)
+        while True:
+            page_params = dict(params)
+            page_params["resultOffset"] = str(offset)
+            try:
+                resp = self._fetch_json(url, params=page_params)
+            except OfflineModeError:
+                raise
+            except (ConnectionError, OSError, ValueError) as exc:
+                logger.warning(
+                    "landslide: pagination stopped at offset %d (%s); "
+                    "returning %d rows gathered so far.",
+                    offset,
+                    type(exc).__name__,
+                    len(features),
+                )
+                break
+            if not isinstance(resp, dict) or "error" in resp:
+                logger.warning(
+                    "landslide: pagination error body at offset %d; "
+                    "returning %d rows gathered so far.",
+                    offset,
+                    len(features),
+                )
+                break
+            page_features = resp.get("features", [])
+            if not page_features:
+                break
+            # A service that ignores ``resultOffset`` answers every page with
+            # the same rows. Only rows not seen before are kept, and a page
+            # that adds none ends the paging -- so such a service can neither
+            # duplicate the catalog nor loop forever.
+            fresh = []
+            for feature in page_features:
+                key = self._feature_key(feature)
+                if key is not None and key in seen:
+                    continue
+                if key is not None:
+                    seen.add(key)
+                fresh.append(feature)
+            if not fresh:
+                break
+            features.extend(fresh)
+            offset += len(page_features)
+            if not resp.get("exceededTransferLimit"):
+                break
+            if len(page_features) < page_size:
+                break
+
+        return features, source
+
+    @staticmethod
+    def _feature_key(feature: dict[str, Any]) -> Any | None:
+        """Stable identity of a catalog row: the first id field it carries, else ``None``."""
+        attributes = feature.get("attributes") if isinstance(feature, dict) else None
+        if not isinstance(attributes, dict):
+            return None
+        for name in ("FID", "OBJECTID", "objectid", "event_id"):
+            value = attributes.get(name)
+            if value is not None:
+                return (name, value)
+        return None
 
     @staticmethod
     def _build_where_clause(

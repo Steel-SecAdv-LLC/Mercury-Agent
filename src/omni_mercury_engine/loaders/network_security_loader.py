@@ -259,7 +259,9 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}"
             )
 
-        cache_key = f"network_security_historical_{event_id}"
+        # Cache schema v2: BATADAL gaps are now filled with the column median
+        # (not a fabricated 0.0), so a pre-fix cached BATADAL frame differs.
+        cache_key = f"network_security_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:

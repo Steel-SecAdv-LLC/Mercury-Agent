@@ -197,9 +197,20 @@ class TsunamiLoader(BaseDomainLoader):
             the raw measurement columns provided by NDBC.
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and no cached
+                real-time frame exists. Offline mode is a deterministic
+                fail-closed, not a transient network fault, so it is
+                propagated unchanged rather than collapsed into
+                ``ConnectionError``.
             ConnectionError: If no station data could be retrieved after
                 exhausting retries.
         """
+        cache_key = "tsunami_realtime"
+        cached = self._read_frame_cache(cache_key)
+        if cached is not None:
+            logger.debug("tsunami: returning cached real-time data.")
+            return cached
+
         frames: list[pd.DataFrame] = []
         errors: list[str] = []
 
@@ -208,6 +219,12 @@ class TsunamiLoader(BaseDomainLoader):
                 df = self._fetch_station(station_id)
                 if not df.empty:
                     frames.append(df)
+            except OfflineModeError:
+                # Deterministic fail-closed (MERCURY_OFFLINE with nothing
+                # cached). Propagate unchanged: wrapping it in the generic
+                # handler below would mislabel an offline refusal as a
+                # network outage (ConnectionError) and bury the signal.
+                raise
             except Exception as exc:
                 msg = f"Station {station_id}: {exc}"
                 logger.warning("tsunami: failed to fetch %s", msg)
@@ -219,6 +236,10 @@ class TsunamiLoader(BaseDomainLoader):
             )
 
         combined = pd.concat(frames, ignore_index=True)
+        # Cache like the other loaders, so a repeat call inside the TTL does
+        # not re-hit every DART station (and so an offline follow-up call has
+        # a frame to serve).
+        self._write_frame_cache(cache_key, combined)
         logger.info(
             "tsunami: fetched real-time data — %d rows from %d stations",
             len(combined),
@@ -743,9 +764,14 @@ class TsunamiLoader(BaseDomainLoader):
 
 
 def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
-    """Compute a rolling mean over *arr* with the given *window* size.
+    """Compute a TRAILING rolling mean over *arr* with the given *window*.
 
-    Edge values are filled with the nearest valid mean to avoid NaNs.
+    Each output uses only the current sample and the ``window - 1`` samples
+    before it, so no future sample enters a feature. The window shrinks at
+    the start of the array (first sample is its own mean). The previous
+    implementation used a centred window (``i - window//2`` .. ``i +
+    window//2``), which pulled future samples into every output -- look-ahead
+    leakage in the engineered features.
 
     Args:
         arr: 1-D numpy array.
@@ -759,21 +785,22 @@ def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any
     cumsum = np.cumsum(arr)
     cumsum = np.insert(cumsum, 0, 0.0)
     result = np.empty_like(arr)
-    half = window // 2
 
     for i in range(len(arr)):
-        lo = max(0, i - half)
-        hi = min(len(arr), i + window - half)
+        lo = max(0, i - window + 1)
+        hi = i + 1
         result[i] = (cumsum[hi] - cumsum[lo]) / (hi - lo)
 
     return result
 
 
 def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
-    """Compute a rolling standard deviation over *arr*.
+    """Compute a TRAILING rolling standard deviation over *arr*.
 
-    Uses the two-pass algorithm (mean then variance) for numerical
-    stability.  Edge samples use a shrunk window.
+    Each output uses only the current sample and the ``window - 1`` samples
+    before it, so no future sample enters a feature (the previous centred
+    window did, leaking look-ahead information). Edge samples at the start use
+    the shrunk trailing window available to them.
 
     Args:
         arr: 1-D numpy array.
@@ -784,11 +811,10 @@ def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]
     """
     n = len(arr)
     result = np.empty(n, dtype=np.float64)
-    half = window // 2
 
     for i in range(n):
-        lo = max(0, i - half)
-        hi = min(n, i + window - half)
+        lo = max(0, i - window + 1)
+        hi = i + 1
         segment = arr[lo:hi]
         result[i] = np.std(segment) if len(segment) > 1 else 0.0
 
@@ -796,7 +822,21 @@ def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]
 
 
 def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Replace non-finite values with forward-fill then backward-fill.
+    """Replace non-finite values, forward-filling gaps from PAST data only.
+
+    A non-leading gap takes the last valid value that precedes it (a past
+    reading -- no look-ahead).  A *leading* gap has no past reading; it is
+    filled with the **first** valid value in the series.
+
+    Honesty note on leading gaps: the previous implementation scanned from
+    the end of the array and so filled the leading edge with the series'
+    *last* sample -- far-future data, maximal leakage (e.g. a post-tsunami
+    reading standing in for the window's opening). We cannot drop the leading
+    rows here instead, because ``engineer_features`` must return one feature
+    row per input sample to stay aligned with the labels. The first valid
+    value is the earliest real reading; for a DART window that opens ~2 days
+    before the event it is pre-event background carrying no tsunami signal,
+    so it is the nearest-in-time honest stand-in rather than a leaking one.
 
     If the entire array is non-finite, fills with ``0.0``.
 
@@ -810,7 +850,7 @@ def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     if not mask.any():
         return arr
 
-    # Forward fill.
+    # Forward fill: each gap inherits the last PAST valid value.
     last_valid = np.nan
     for i in range(len(arr)):
         if mask[i]:
@@ -819,9 +859,11 @@ def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         else:
             last_valid = arr[i]
 
-    # Backward fill any remaining leading NaNs.
+    # Leading gap(s): fill with the FIRST valid value, found by scanning
+    # forward from the start (NOT backward from the end, which took the last
+    # sample in the window and leaked future data into t=0).
     first_valid = np.nan
-    for i in range(len(arr) - 1, -1, -1):
+    for i in range(len(arr)):
         if np.isfinite(arr[i]):
             first_valid = arr[i]
             break

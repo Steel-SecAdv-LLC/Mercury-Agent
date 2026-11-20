@@ -205,7 +205,11 @@ class EarthquakeLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"earthquake_historical_{event_id}"
+        # Cache schema v2: pre-fix entries were fetched WITHOUT the spatial
+        # filter (every M2.5+ quake worldwide) and with an exclusive end date.
+        # The query now differs, so the cached payload differs — version the
+        # key so stale worldwide frames are never read back.
+        cache_key = f"earthquake_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:

@@ -198,7 +198,10 @@ class FinancialLoader(BaseDomainLoader):
                 retries (every series request failed).
         """
         self._require_api_key()
-        cache_key = "financial_realtime"
+        # Cache schema v2: the merged series is now business-day only,
+        # forward-filled (no bfill leakage), with funding_rate sourced from
+        # DFF pre-2018 — so stored payloads differ from pre-fix entries.
+        cache_key = "financial_realtime_v2"
         cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
@@ -244,7 +247,9 @@ class FinancialLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"financial_historical_{event_id}"
+        # Cache schema v2: see fetch_realtime — merged-series definition
+        # changed (business-day only, ffill-only, DFF funding-rate fallback).
+        cache_key = f"financial_historical_v2_{event_id}"
         cached = self._read_frame_cache(cache_key)
 
         if cached is not None:

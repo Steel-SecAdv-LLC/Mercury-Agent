@@ -218,7 +218,9 @@ class TornadoLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"tornado_historical_{event_id}"
+        # Cache schema v2: now deduplicated to whole-track (sg==1) rows before
+        # caching; pre-fix entries double-counted multi-state segment rows.
+        cache_key = f"tornado_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:

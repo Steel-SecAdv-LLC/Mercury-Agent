@@ -178,7 +178,10 @@ class FloodLoader(BaseDomainLoader):
             ConnectionError: If the USGS Water Services API is
                 unreachable after retries.
         """
-        cache_key = "flood_realtime"
+        # Cache schema v2: USGS datetimes are now parsed with utc=True
+        # (tz-aware UTC) rather than the old mixed/naive parse, so stored
+        # payloads differ.
+        cache_key = "flood_realtime_v2"
         cached = self._read_frame_cache(cache_key)
 
         if cached is not None:
@@ -230,7 +233,11 @@ class FloodLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"flood_historical_{event_id}"
+        # Cache schema v2: USGS datetimes now parsed utc=True; also the cache
+        # read sits ahead of the not-benchmarkable guard, so versioning the
+        # key keeps a pre-fix european_2021 (US FEMA stand-in) frame from
+        # being served.
+        cache_key = f"flood_historical_v2_{event_id}"
         cached = self._read_frame_cache(cache_key)
 
         if cached is not None:

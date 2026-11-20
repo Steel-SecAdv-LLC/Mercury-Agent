@@ -281,7 +281,10 @@ class VolcanicLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"volcanic_historical_{event_id}"
+        # Cache schema v2: the cache read precedes the new event-window guard,
+        # so a pre-fix entry (a CURRENT alert cached as the past eruption)
+        # would otherwise still be served. Versioning retires those.
+        cache_key = f"volcanic_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:

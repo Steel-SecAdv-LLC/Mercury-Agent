@@ -21,7 +21,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
+from omni_mercury_engine.datasets.exceptions import (
+    DataSourceUnavailableError,
+    check_synthetic_allowed,
+)
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -257,6 +260,14 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 # Number of days used as the reference baseline for anomaly labeling
 _BASELINE_WINDOW_DAYS = 30
 
+#: Set on an empty frame returned by a WHO helper when the emptiness is caused
+#: by a *fetch failure* (outage / unparseable response), as opposed to the API
+#: genuinely reporting no records. ``fetch_historical`` reads it to tell an
+#: outage apart from true "no data" and raise instead of returning the empty
+#: frame as if it were data. The low-level helpers still return an empty frame
+#: (their sanctioned graceful contract); this attribute only annotates it.
+_FETCH_FAILED_ATTR = "mercury_fetch_failed"
+
 
 class PandemicLoader(BaseDomainLoader):
     """Loader for pandemic and outbreak data from OWID and WHO.
@@ -382,7 +393,11 @@ class PandemicLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"pandemic_historical_{event_id}"
+        # Cache schema v2: Ebola now parses TimeDim years into real in-window
+        # rows (was empty), the OWID "World" aggregate is filtered to a single
+        # series, and missing NumericValue years are dropped — so cached
+        # payloads differ from pre-fix entries.
+        cache_key = f"pandemic_historical_v2_{event_id}"
         cached_frame = self._read_frame_cache(cache_key)
 
         if cached_frame is not None:
@@ -421,6 +436,22 @@ class PandemicLoader(BaseDomainLoader):
             raise ValueError(f"Unknown data source '{source}' for event '{event_id}'.")
 
         if df.empty:
+            if df.attrs.get(_FETCH_FAILED_ATTR):
+                # The WHO helper returned empty because the fetch FAILED
+                # (outage / unparseable response), not because the API
+                # reported no records. Returning it here would make an outage
+                # indistinguishable from genuine "no data": get_ground_truth
+                # would hand back an empty label array and the event would be
+                # scored (or silently skipped) as if real but empty. Raise so
+                # the caller records the event as unavailable.
+                raise DataSourceUnavailableError(
+                    "PandemicLoader",
+                    source_url=_WHO_GHO_BASE_URL if source == "who_gho" else _WHO_EMERGENCIES_URL,
+                    reason=(
+                        f"WHO fetch for event '{event_id}' failed; no data "
+                        f"could be retrieved (an outage, not an empty result)."
+                    ),
+                )
             logger.warning("No data returned for event '%s'.", event_id)
             return df
 
@@ -749,17 +780,21 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(url, params=params)
         except (ConnectionError, ValueError) as exc:
-            # NB: this swallows a network outage to an empty frame, which
-            # conflates "unreachable" with "no data". That is a known wart,
-            # but it is the repo's sanctioned graceful-degradation contract
-            # (pinned by tests/test_pandemic_expansion.py::
-            # test_who_gho_graceful_failure), so it is left as-is here.
+            # The helper keeps its sanctioned graceful-empty contract (pinned
+            # by tests/test_pandemic_expansion.py::test_who_gho_graceful_
+            # failure): callers that want best-effort data still get an empty
+            # frame on an outage. But emptiness here means "fetch failed", not
+            # "no records" -- flag it so ``fetch_historical`` can raise a
+            # data-source-unavailable error instead of serving the empty frame
+            # as if the API had reported no cases.
             logger.warning(
                 "Failed to fetch WHO GHO indicator %s: %s",
                 indicator,
                 exc,
             )
-            return pd.DataFrame()
+            failed = pd.DataFrame()
+            failed.attrs[_FETCH_FAILED_ATTR] = True
+            return failed
 
         records = data.get("value", [])
         if not records:
@@ -865,10 +900,13 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(_WHO_EMERGENCIES_URL)
         except (ConnectionError, ValueError) as exc:
-            # Same sanctioned graceful-degradation contract as _fetch_who_gho:
-            # an outage returns an empty frame rather than propagating.
+            # Same sanctioned graceful-empty contract as _fetch_who_gho, with
+            # the same failure flag so fetch_historical can distinguish an
+            # outage from a genuine absence of alerts.
             logger.warning("Failed to fetch WHO Emergencies: %s", exc)
-            return pd.DataFrame()
+            failed = pd.DataFrame()
+            failed.attrs[_FETCH_FAILED_ATTR] = True
+            return failed
 
         emergencies = data.get("value", [])
         if not emergencies:

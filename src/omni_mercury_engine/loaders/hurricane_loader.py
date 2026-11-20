@@ -281,7 +281,10 @@ class HurricaneLoader(BaseDomainLoader):
             ConnectionError: If the IBTrACS server is unreachable
                 after retries.
         """
-        cache_key = "hurricane_realtime_last3years"
+        # Cache schema v2: the frame is now filtered to synoptic main-track
+        # rows before caching, so pre-fix (unfiltered) entries must not be
+        # read back.
+        cache_key = "hurricane_realtime_last3years_v2"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -326,7 +329,9 @@ class HurricaneLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"hurricane_historical_{event_id}"
+        # Cache schema v2: now synoptic main-track filtered before caching;
+        # pre-fix entries held every (mixed-spacing, spur) row.
+        cache_key = f"hurricane_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
