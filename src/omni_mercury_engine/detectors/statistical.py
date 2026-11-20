@@ -99,6 +99,22 @@ _TIKHONOV_LAMBDA: float = 1e-6
 # tests assert.
 _WEIGHT_MARGIN_POWER: float = 4.0
 
+# Image gate (see ``_looks_like_raster``): the smallest raster side considered,
+# the neighbour coherence a raster must show in BOTH directions, and the size
+# of the feature-pair / row samples the coherence is measured on.
+_IMAGE_MIN_SIDE: int = 8
+_IMAGE_NEIGHBOUR_COHERENCE: float = 0.5
+_IMAGE_COHERENCE_PAIRS: int = 96
+_IMAGE_MIN_PAIRS: int = 8
+_IMAGE_COHERENCE_ROWS: int = 512
+
+# Data types whose ROW ORDER carries no information: a batch of flattened images
+# is as unordered as a table, so the row-difference (kinematic) component is
+# zeroed on both.
+_UNORDERED_ROW_TYPES: frozenset[DataCharacteristics] = frozenset(
+    {DataCharacteristics.TABULAR, DataCharacteristics.IMAGE}
+)
+
 # Data-type gate thresholds (see ``_detect_data_characteristics``). Two
 # complementary temporal signals are measured: the per-feature lag-1
 # autocorrelation (does each channel evolve smoothly?) and the correlation
@@ -564,8 +580,24 @@ class MercuryAnomalyDetector(BaseDetector):
         self.q3 = np.percentile(arr, 75, axis=0)
 
         # --- Data type detection (Task 2) ---
-        self._data_type = self._detect_data_characteristics(arr)
-        logger.info("fit: detected data type=%s", self._data_type.value)
+        # ``data_type`` lets the caller DECLARE what row order means. It exists
+        # because that is not always inferable: a table sorted by class has
+        # real block autocorrelation and is statistically a piecewise-stationary
+        # series, so no test on the data alone separates it from a noisy
+        # stream (see ``_detect_data_characteristics``).
+        declared = str(self.config.get("data_type", "auto")).lower()
+        if declared == "auto":
+            self._data_type = self._detect_data_characteristics(arr)
+            logger.info("fit: detected data type=%s", self._data_type.value)
+        else:
+            try:
+                self._data_type = DataCharacteristics(declared)
+            except ValueError:
+                valid = sorted(["auto", *(m.value for m in DataCharacteristics)])
+                raise DetectorException(
+                    f"Unknown data_type {declared!r}; expected one of {valid}"
+                ) from None
+            logger.info("fit: declared data type=%s", self._data_type.value)
 
         # --- InfoGeometry: fit Gaussian manifold ---
         self._fit_info_geometry(arr)
@@ -1612,9 +1644,20 @@ class MercuryAnomalyDetector(BaseDetector):
         temporal residual-frequency filter on rows whose order is arbitrary.
 
         A very low adjacency (< 0.1) is an explicit shuffled-``TABULAR`` signal.
-        High dimensionality (``n_features > 100`` and ``~sqrt(n_samples)``)
-        classifies as ``IMAGE``. Falls back to ``TABULAR`` (the ADBench-common
-        case) for moderate dimensionality, else ``UNKNOWN``.
+        Wide data (``n_features > 100``) whose columns form a square 1- or
+        3-channel raster with neighbour coherence in both directions classifies
+        as ``IMAGE`` (:meth:`_looks_like_raster`). Falls back to ``TABULAR``
+        (the ADBench-common case), else ``UNKNOWN`` when no temporal signal
+        could be measured at all.
+
+        Known limit, measured: a table SORTED BY CLASS is read as ``TEMPORAL``.
+        Its block structure is real autocorrelation, so the Ljung-Box test
+        confirms it rather than rejecting it, and it is statistically a
+        piecewise-stationary series. A first-difference criterion that would
+        catch it (lag-1 autocorrelation of differences near -0.5) also flips
+        genuine noisy streams and cost a recorded NAB stream 0.017 AUROC, so it
+        is not applied. Callers who know their rows are unordered declare it:
+        ``MercuryAnomalyDetector({"data_type": "tabular"})``.
 
         Args:
             X: Training data of shape ``(n_samples, n_features)``.
@@ -1675,12 +1718,13 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # Real temporal-structure test: the magnitude thresholds are a fast
         # pre-filter; a white-noise-null (Ljung-Box) significance test then
-        # confirms genuine autocorrelation so class-/collection-ordered tabular
-        # data (high raw magnitude but white-noise under the chi-square null) is
-        # not mistaken for a time series. This only TIGHTENS the TEMPORAL
-        # decision (genuine AR/sine data rejects the null and stays TEMPORAL),
-        # so tabular results are unchanged. Opt-out via config for byte-identical
-        # legacy behaviour.
+        # confirms genuine autocorrelation, so data whose high raw magnitude is
+        # white noise under the chi-square null is not mistaken for a time
+        # series. It does NOT catch a table sorted by class: block order is
+        # real autocorrelation and rejects the null like any series (see the
+        # docstring). This only TIGHTENS the TEMPORAL decision (genuine AR/sine
+        # data rejects the null and stays TEMPORAL), so tabular results are
+        # unchanged. Opt-out via config for byte-identical legacy behaviour.
         gate_enabled = bool(self.config.get("kinematic_temporal_gate", True))
         sig = self._temporal_structure_test(X) if gate_enabled else {"is_temporal": None}
         self._temporal_diagnostics = {
@@ -1707,11 +1751,15 @@ class MercuryAnomalyDetector(BaseDetector):
         if adj_row_corr is not None and adj_row_corr < 0.1:
             return DataCharacteristics.TABULAR
 
-        # --- Image dimensionality ---
-        if n_features > 100:
-            sqrt_n = np.sqrt(n_samples)
-            if 0.3 * sqrt_n <= n_features <= 3.0 * sqrt_n:
-                return DataCharacteristics.IMAGE
+        # --- Image signature ---
+        # A flattened image is a raster: a square 1- or 3-channel layout whose
+        # neighbouring pixels move together both along a row and down a
+        # column. The former rule compared the feature count with
+        # sqrt(n_samples) -- a property of how many rows were collected, not of
+        # what a row is -- and its only hit across the 76 recorded benchmark
+        # sets was a 196-feature network-flow table (14 x 14 by coincidence).
+        if n_features > 100 and self._looks_like_raster(X):
+            return DataCharacteristics.IMAGE
 
         # Default: tabular is the most common case in ADBench-style datasets,
         # and KinematicScore underperforms on it.
@@ -1733,6 +1781,65 @@ class MercuryAnomalyDetector(BaseDetector):
             return DataCharacteristics.TABULAR
 
         return DataCharacteristics.UNKNOWN
+
+    @staticmethod
+    def _raster_layout(n_features: int) -> tuple[int, int] | None:
+        """Return ``(side, channels)`` for a square 1- or 3-channel raster, else ``None``."""
+        for channels in (1, 3):
+            if n_features % channels:
+                continue
+            side = math.isqrt(n_features // channels)
+            if side >= _IMAGE_MIN_SIDE and side * side * channels == n_features:
+                return side, channels
+        return None
+
+    @staticmethod
+    def _neighbour_coherence(sample: np.ndarray[Any, Any], offset: int) -> float | None:
+        """Median ``|corr|`` between feature ``j`` and feature ``j + offset``.
+
+        Constant features (image borders) carry no correlation and are skipped;
+        ``None`` when too few informative pairs remain to say anything.
+        """
+        n_features = sample.shape[1]
+        starts = np.unique(
+            np.linspace(0, n_features - offset - 1, _IMAGE_COHERENCE_PAIRS).astype(int)
+        )
+        left, right = sample[:, starts], sample[:, starts + offset]
+        left = left - left.mean(axis=0)
+        right = right - right.mean(axis=0)
+        norm = np.sqrt((left**2).sum(axis=0) * (right**2).sum(axis=0))
+        informative = norm > _MIN_VARIANCE
+        if int(informative.sum()) < _IMAGE_MIN_PAIRS:
+            return None
+        corr = np.abs((left * right).sum(axis=0)[informative] / norm[informative])
+        return float(np.median(corr))
+
+    def _looks_like_raster(self, X: np.ndarray[Any, Any]) -> bool:
+        """Whether the rows are flattened images: a raster layout that coheres in 2-D.
+
+        Horizontal coherence alone also describes a 1-D waveform stored one
+        window per row; requiring the vertical neighbour (one raster row down)
+        to cohere as well is what makes it an image.
+        """
+        layout = self._raster_layout(X.shape[1])
+        if layout is None:
+            return False
+        side, channels = layout
+        rows = np.linspace(0, len(X) - 1, min(len(X), _IMAGE_COHERENCE_ROWS)).astype(int)
+        sample = np.asarray(X[rows], dtype=np.float64)
+        # Channel-first puts the horizontal neighbour at +1 and the vertical one
+        # at +side; channel-last puts them at +channels and +side*channels.
+        candidates = {(1, side), (channels, side * channels)}
+        for horizontal, vertical in sorted(candidates):
+            along = self._neighbour_coherence(sample, horizontal)
+            down = self._neighbour_coherence(sample, vertical)
+            if (
+                along is not None
+                and down is not None
+                and min(along, down) >= _IMAGE_NEIGHBOUR_COHERENCE
+            ):
+                return True
+        return False
 
     # =====================================================================
     # Oracle domain auto-selection (Phase 11)
@@ -1939,7 +2046,7 @@ class MercuryAnomalyDetector(BaseDetector):
             )
             compat_vec = np.array([compat["resonance"], compat["kinematic"], compat["infogeo"]])
             # If TABULAR, force kinematic weight to near-zero
-            if self._data_type == DataCharacteristics.TABULAR:
+            if self._data_type in _UNORDERED_ROW_TYPES:
                 mean_aucs[1] = min(mean_aucs[1], 0.50)  # Cap at random
 
             # Zero out inverted components (AUC < 0.5). Gate the no-signal
@@ -1969,7 +2076,7 @@ class MercuryAnomalyDetector(BaseDetector):
             has_signal = mean_aucs > 0.5
             weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
             # Zero out kinematic on tabular data explicitly
-            if self._data_type == DataCharacteristics.TABULAR:
+            if self._data_type in _UNORDERED_ROW_TYPES:
                 weights[1] = 0.0
 
             wsum = weights.sum()
@@ -2009,7 +2116,7 @@ class MercuryAnomalyDetector(BaseDetector):
             ]
         )
         # Force kinematic to zero for tabular
-        if self._data_type == DataCharacteristics.TABULAR:
+        if self._data_type in _UNORDERED_ROW_TYPES:
             raw[1] = 0.0
         total = raw.sum()
         if total < 1e-6:
