@@ -118,6 +118,17 @@ def _build_sbom(root_name: str, serial_number: str | None = None) -> dict[str, A
         if c["name"].lower() == root_name.lower():
             root_purl = c["bom-ref"]
             break
+    if root_purl is None:
+        # Not silent: an unlinked root (bom-ref null) means the SBOM does not
+        # identify which component is the product. The usual cause is passing
+        # the import package name where the DISTRIBUTION name is needed
+        # (this repository's is mercury-agent-global).
+        logger.warning(
+            "sbom_emitter: root %r matches no installed distribution; the "
+            "SBOM's root component will be unlinked (bom-ref null). Pass the "
+            "distribution name via --root-name.",
+            root_name,
+        )
 
     # Deterministic serialNumber: UUIDv5 over the sorted component
     # digests so two runs with the same environment produce byte-

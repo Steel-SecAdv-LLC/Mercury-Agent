@@ -272,6 +272,30 @@ security:
 - **Security Advisories**: Watch the GitHub repository and its Security Advisories page
 - **Vulnerability Monitoring**: Use tools like Dependabot or Snyk
 
+### Verifying a Release
+
+A release's provenance and SBOMs can be checked locally, by anyone, without
+trusting the release workflow:
+
+```bash
+python scripts/verify_release.py v3.2.0 --download --image ghcr.io/steel-secadv-llc/mercury-agent
+```
+
+It checks that the wheel and sdist name the tag's version; that
+`provenance.json` and `SBOM.spdx.json` list exactly those files with their
+on-disk sha256; that the CycloneDX dependency SBOM's root component is
+`mercury-agent-global` at that version; that `gh attestation verify` accepts
+every artifact against this repository, the tag's ref and `release.yml` as the
+signing workflow; and (with `--image`) that the tagged image resolves to a
+digest carrying a provenance attestation. Each check reports PASS, FAIL or
+UNVERIFIED (a missing `gh`/`docker` is never reported as a pass); exit 0 means
+everything requested verified.
+
+**Releases that can pass:** only those built after the Sigstore attestation
+and dependency-SBOM steps were added to `release.yml`. v3.0.0 and earlier
+were never signed and carry no CycloneDX SBOM, so the tool reports them as
+FAIL on those checks — that is the accurate answer, not a tool defect.
+
 ## Ethical Security Considerations
 
 Mercury Agent includes security intelligence capabilities. Users must:

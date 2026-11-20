@@ -459,7 +459,13 @@ jobs:
           python -m pip install "uv==0.11.32"
           uv venv .sbom-venv --python "${{ env.PYTHON_VERSION }}"
           uv sync --locked --extra api --no-dev --inexact
+          # --root-name is the DISTRIBUTION name (pyproject [project].name),
+          # not the import package: the emitter's default
+          # (omni-mercury-engine) names no installed distribution, so the
+          # root component was emitted unlinked (bom-ref null) and the SBOM
+          # did not identify which component is the product.
           .sbom-venv/bin/python -m omni_mercury_engine.tools.sbom_emitter \
+            --root-name mercury-agent-global \
             --sbom-path dist/SBOM-api-closure.cdx.json
           test -s dist/SBOM-api-closure.cdx.json
 
@@ -475,10 +481,15 @@ jobs:
           from pathlib import Path
 
           dist = Path("dist")
-          generated = {"SBOM.spdx.json", "provenance.json"}
+          # Subjects are exactly the built distributions — the same set the
+          # Sigstore step attests (dist/*.whl, dist/*.tar.gz), so the signed
+          # and self-authored records cover identical subjects. An exclusion
+          # list ("everything but the files we generate") silently promoted
+          # any other file in dist/ to a build subject: the dependency SBOM
+          # written by the step above would have been listed as an artifact.
           artifacts = []
           for path in sorted(dist.iterdir()):
-              if path.name in generated or not path.is_file():
+              if not path.is_file() or not path.name.endswith((".whl", ".tar.gz")):
                   continue
               digest = hashlib.sha256(path.read_bytes()).hexdigest()
               artifacts.append(
