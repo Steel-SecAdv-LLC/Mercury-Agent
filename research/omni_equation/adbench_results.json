@@ -4,10 +4,10 @@
     "n_scored": 18,
     "mean_auroc": 0.7737,
     "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
-    "commit": "24549e637a96862a603464a1539732f753f54b69",
-    "detector_commit": "fdb4a5c7f934a9db28af8c7fdfd69e4431491f65",
-    "detector_blob": "dd42e3581a325eaeed837f35ad188555d008dd03",
-    "timestamp": "2026-11-19T08:45:36.611884+00:00",
+    "commit": "7b422c7fa9a4bd430b6fb5a8aa04157305ff22ed",
+    "detector_commit": "658f3f0bcbcda1c9e12376db9ff19708703c33aa",
+    "detector_blob": "6b1bd61365a4023140c81f5e3c6f020ade59cb7e",
+    "timestamp": "2026-11-20T04:30:24.323164+00:00",
     "versions": {
       "python": "3.13.18",
       "numpy": "2.5.4"
@@ -52,7 +52,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.806,
-      "secs": 0.2
+      "secs": 0.0
     },
     {
       "dataset": "Hepatitis",
@@ -62,7 +62,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.682,
-      "secs": 0.2
+      "secs": 0.0
     },
     {
       "dataset": "Ionosphere",
@@ -72,7 +72,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9179,
-      "secs": 0.1
+      "secs": 0.5
     },
     {
       "dataset": "Lymphography",
@@ -92,7 +92,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.865,
-      "secs": 0.4
+      "secs": 2.0
     },
     {
       "dataset": "optdigits",
@@ -102,7 +102,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.4548,
-      "secs": 1.5
+      "secs": 4.1
     },
     {
       "dataset": "PageBlocks",
@@ -112,7 +112,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9439,
-      "secs": 0.3
+      "secs": 0.4
     },
     {
       "dataset": "Pima",
@@ -162,7 +162,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.6768,
-      "secs": 0.7
+      "secs": 0.8
     },
     {
       "dataset": "WBC",
@@ -172,7 +172,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9911,
-      "secs": 0.1
+      "secs": 0.0
     },
     {
       "dataset": "wine",
@@ -182,7 +182,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.7185,
-      "secs": 0.1
+      "secs": 0.0
     },
     {
       "dataset": "WPBC",
@@ -192,7 +192,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.502,
-      "secs": 0.2
+      "secs": 0.6
     }
   ]
 }
