@@ -366,14 +366,15 @@ class OmniAvaEquation:
 
         if initial_variance > 0:
             ratio = variance / initial_variance
-            if ratio > 0:
-                # Variance of an exp(-lambda t) trajectory decays at 2*lambda.
-                estimated_lambda = -np.log(ratio) / (2.0 * elapsed)
-            else:
-                # Degenerate recent window (zero variance): no rate is
-                # measurable. Returning the configured target here reported
-                # the goal as the measurement.
-                return False, 0.0
+            # A recent window with NO spread, after an initial window that had
+            # some, is complete contraction -- the strongest case there is, not
+            # a degenerate one. Its rate has no upper measure, so the ratio is
+            # floored at the smallest positive float and the rate reported is
+            # the lower bound that implies. (This branch used to answer "not
+            # stable": a trajectory that had fully converged failed the check.)
+            ratio = max(float(ratio), float(np.finfo(float).tiny))
+            # Variance of an exp(-lambda t) trajectory decays at 2*lambda.
+            estimated_lambda = -np.log(ratio) / (2.0 * elapsed)
         else:
             # Degenerate initial window: nothing to measure against.
             return False, 0.0

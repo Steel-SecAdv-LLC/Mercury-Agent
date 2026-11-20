@@ -315,6 +315,43 @@ class TestDetectionRoutes:
         assert "resonance_score" in result
         assert "is_stable" in result
 
+    def test_three_r_stability_is_measured_or_declared_unmeasured(self, client: Any) -> None:
+        """``is_stable`` reflects a real score trajectory, or says it was not evaluated.
+
+        The route built a fresh equation, computed once and asked it for
+        stability, which needs more than ten scores: ``is_stable`` was False
+        for every request whatever the data held.
+        """
+        rng = np.random.default_rng(0)
+        steps = np.arange(640)
+
+        # A disturbance that gives way to an exactly periodic signal whose
+        # period divides the segment length: every later segment scores the
+        # same, so the trajectory has contracted completely.
+        settling = np.concatenate(
+            [
+                rng.normal(0.0, 2.0, 320) + np.sin(2 * np.pi * steps[:320] / 16.0),
+                np.sin(2 * np.pi * steps[320:] / 16.0),
+            ]
+        )
+        # One that keeps growing: they spread instead (measured lambda -0.092).
+        growing = np.sin(steps * 0.3) + 0.01 * np.exp(steps / 90.0) * rng.normal(size=640)
+
+        def ask(series: np.ndarray) -> dict[str, Any]:
+            response = client.post("/api/v1/detect/three-r", json={"data": series.tolist()})
+            assert response.status_code == 200, response.text
+            return dict(response.json())
+
+        settled, grown = ask(settling), ask(growing)
+        assert settled["stability_evaluated"] is True
+        assert grown["stability_evaluated"] is True
+        assert settled["is_stable"] is True
+        assert grown["is_stable"] is False
+
+        short = ask(np.sin(np.arange(50) * 0.5) + np.arange(50))
+        assert short["stability_evaluated"] is False
+        assert short["is_stable"] is False
+
     def test_three_r_invalid_recursion_depth(self, client: Any) -> None:
         """Test 3R with invalid recursion depth."""
         data = [1.0] * 50

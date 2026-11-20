@@ -234,6 +234,13 @@ class FusionRequest(BaseModel):
     )
 
 
+#: /three-r stability: the submitted series is cut into this many consecutive
+#: segments (the estimator compares its first and last 10 scores, so it needs
+#: more than 10), each at least this long for its own scores to mean anything.
+_STABILITY_SEGMENTS: int = 20
+_STABILITY_MIN_SEGMENT: int = 16
+
+
 class ThreeRRequest(BaseModel):
     """Request for 3R mechanism analysis (Recursion-Resonance-Refactoring)."""
 
@@ -307,7 +314,19 @@ class ThreeRResponse(BaseModel):
     optimization_score: float
     ethical_scaling: float
     lyapunov_bound: float
-    is_stable: bool
+    is_stable: bool = Field(
+        description=(
+            "Whether the fusion score contracted across the consecutive segments of the "
+            "submitted series. Meaningful only when stability_evaluated is true."
+        )
+    )
+    stability_evaluated: bool = Field(
+        default=False,
+        description=(
+            "False when the series is too short to form the score trajectory a stability "
+            "estimate needs; is_stable is then false because nothing was measured."
+        ),
+    )
     weights: dict[str, float]
     harmonic_analysis: dict[str, Any]
 
@@ -704,47 +723,70 @@ async def detect_three_r(
                 0.5 * (left_score + right_score) + 0.5 * np.std(x) / (np.mean(np.abs(x)) + 1e-8)
             )
 
-        recursion_score = compute_recursion_score(data, request.recursion_depth)
-        recursion_score = float(np.clip(recursion_score, 0.0, 1.0))
-
-        fft_result = np.fft.fft(data)
-        magnitudes = np.abs(fft_result)
-
-        n_bands = min(request.harmonic_bands, len(magnitudes) // 2)
-        band_size = len(magnitudes) // (2 * n_bands) if n_bands > 0 else 1
-
-        band_energies = []
-        for i in range(n_bands):
-            start = i * band_size
-            end = (i + 1) * band_size
-            band_energy = float(np.sum(magnitudes[start:end] ** 2))
-            band_energies.append(band_energy)
-
-        total_energy = sum(band_energies) + 1e-8
-        band_ratios = [e / total_energy for e in band_energies]
-
         phi = 1.618033988749895
-        expected_ratios = [1.0 / (phi**i) for i in range(n_bands)]
-        expected_sum = sum(expected_ratios)
-        expected_ratios = [r / expected_sum for r in expected_ratios]
 
-        harmonic_deviation = sum(abs(a - e) for a, e in zip(band_ratios, expected_ratios))
-        # Normalise by the maximum L1 distance between two probability vectors
-        # (2.0). Both band_ratios and expected_ratios sum to 1, so the raw
-        # deviation ranges over [0, 2] and ``1 - deviation`` is negative for any
-        # spectrum that is not already phi-shaped -- which clipped the score to
-        # a saturated 0 on real data. Measured on the four recorded NAB files
-        # (128-point windows, stride 16): the served form scored at chance,
-        # mean AUROC 0.511, and was a CONSTANT 0.0 across all 63 windows of
-        # realTraffic/speed_7578.csv, so the stream carried no signal at all
-        # while holding 27.6% of the OAE's weight. Dividing by 2 recovers it:
-        # mean AUROC 0.755, and 0.849 on the file where it had been constant.
-        resonance_score = float(np.clip(1.0 - harmonic_deviation / 2.0, 0.0, 1.0))
+        def three_r_scores(series: np.ndarray[Any, Any]) -> dict[str, Any]:
+            """R, H and O of one series, plus its band analysis."""
+            recursion_score = compute_recursion_score(series, request.recursion_depth)
+            recursion_score = float(np.clip(recursion_score, 0.0, 1.0))
 
-        signal_variance = np.var(data)
-        noise_estimate = np.var(np.diff(data)) / 2
-        snr = signal_variance / (noise_estimate + 1e-8)
-        optimization_score = float(np.clip(1.0 / (1.0 + np.exp(-np.log10(snr + 1))), 0.0, 1.0))
+            fft_result = np.fft.fft(series)
+            magnitudes = np.abs(fft_result)
+
+            n_bands = min(request.harmonic_bands, len(magnitudes) // 2)
+            band_size = len(magnitudes) // (2 * n_bands) if n_bands > 0 else 1
+
+            band_energies = []
+            for i in range(n_bands):
+                start = i * band_size
+                end = (i + 1) * band_size
+                band_energy = float(np.sum(magnitudes[start:end] ** 2))
+                band_energies.append(band_energy)
+
+            total_energy = sum(band_energies) + 1e-8
+            band_ratios = [e / total_energy for e in band_energies]
+
+            expected_ratios = [1.0 / (phi**i) for i in range(n_bands)]
+            expected_sum = sum(expected_ratios)
+            expected_ratios = [r / expected_sum for r in expected_ratios]
+
+            harmonic_deviation = sum(abs(a - e) for a, e in zip(band_ratios, expected_ratios))
+            # Normalise by the maximum L1 distance between two probability vectors
+            # (2.0). Both band_ratios and expected_ratios sum to 1, so the raw
+            # deviation ranges over [0, 2] and ``1 - deviation`` is negative for any
+            # spectrum that is not already phi-shaped -- which clipped the score to
+            # a saturated 0 on real data. Measured on the four recorded NAB files
+            # (128-point windows, stride 16): the served form scored at chance,
+            # mean AUROC 0.511, and was a CONSTANT 0.0 across all 63 windows of
+            # realTraffic/speed_7578.csv, so the stream carried no signal at all
+            # while holding 27.6% of the OAE's weight. Dividing by 2 recovers it:
+            # mean AUROC 0.755, and 0.849 on the file where it had been constant.
+            resonance_score = float(np.clip(1.0 - harmonic_deviation / 2.0, 0.0, 1.0))
+
+            signal_variance = np.var(series)
+            noise_estimate = np.var(np.diff(series)) / 2
+            snr = signal_variance / (noise_estimate + 1e-8)
+            optimization_score = float(np.clip(1.0 / (1.0 + np.exp(-np.log10(snr + 1))), 0.0, 1.0))
+            return {
+                "recursion": recursion_score,
+                "resonance": resonance_score,
+                "optimization": optimization_score,
+                "n_bands": n_bands,
+                "band_energies": band_energies,
+                "band_ratios": band_ratios,
+                "harmonic_deviation": harmonic_deviation,
+                "magnitudes": magnitudes,
+            }
+
+        scored = three_r_scores(data)
+        recursion_score = scored["recursion"]
+        resonance_score = scored["resonance"]
+        optimization_score = scored["optimization"]
+        n_bands = scored["n_bands"]
+        band_energies = scored["band_energies"]
+        band_ratios = scored["band_ratios"]
+        harmonic_deviation = scored["harmonic_deviation"]
+        magnitudes = scored["magnitudes"]
 
         aafe = OmniAvaEquation(
             ethical_compliance_threshold=request.ethical_threshold,
@@ -756,7 +798,25 @@ async def detect_three_r(
             optimization_score=optimization_score,
         )
 
-        is_stable, _ = aafe.verify_lyapunov_stability()
+        # Stability is a property of a TRAJECTORY of fusion scores, and one
+        # request yields one score: asking the equation after a single
+        # ``compute`` returned False for every input, whatever it contained.
+        # The trajectory is taken from the request itself -- the same scoring
+        # over its consecutive segments, in time order -- when the series is
+        # long enough to give the estimator the history it needs; otherwise
+        # the response says stability was not evaluated.
+        stability_evaluated = len(data) >= _STABILITY_SEGMENTS * _STABILITY_MIN_SEGMENT
+        is_stable = False
+        if stability_evaluated:
+            trajectory = OmniAvaEquation(ethical_compliance_threshold=request.ethical_threshold)
+            for segment in np.array_split(data, _STABILITY_SEGMENTS):
+                part = three_r_scores(segment)
+                trajectory.compute(
+                    recursion_score=part["recursion"],
+                    resonance_score=part["resonance"],
+                    optimization_score=part["optimization"],
+                )
+            is_stable = bool(trajectory.verify_lyapunov_stability()[0])
 
         user_id = user.id if user else "anonymous"
         await record_detection(
@@ -783,6 +843,7 @@ async def detect_three_r(
             ethical_scaling=request.ethical_threshold**phi,
             lyapunov_bound=result.lyapunov_bound,
             is_stable=is_stable,
+            stability_evaluated=stability_evaluated,
             weights=result.fusion_weights,
             harmonic_analysis={
                 "n_bands": n_bands,

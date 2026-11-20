@@ -132,3 +132,18 @@ def test_constant_variance_noise_is_not_stable() -> None:
     eq.time_step = 30
     is_stable, _rate = eq.verify_lyapunov_stability(window_size=10)
     assert is_stable is False
+
+
+def test_complete_contraction_is_stable() -> None:
+    """Scores that stop varying altogether have contracted; that is not a failure.
+
+    The estimator divided the recent variance by the initial one and treated a
+    zero ratio as "no rate is measurable", so a trajectory that had fully
+    converged was reported as not stable.
+    """
+    equation = OmniAvaEquation()
+    rng = np.random.default_rng(0)
+    equation.convergence_history = [*(0.5 + 0.1 * rng.normal(size=10)).tolist(), *([0.5] * 10)]
+    is_stable, rate = equation.verify_lyapunov_stability()
+    assert is_stable is True
+    assert np.isfinite(rate) and rate > 1.0  # a lower bound, well past the 0.125 bar
