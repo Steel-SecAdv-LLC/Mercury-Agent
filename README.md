@@ -125,12 +125,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8616 | 0.8616 | -0.0000 |
+| Mean ROC-AUC | 0.8616 | 0.8616 | +0.0000 |
 | Median ROC-AUC | 0.9038 | 0.9038 | +0.0000 |
-| Mean Oracle F1 | 0.6492 | 0.6493 | -0.0001 |
+| Mean Oracle F1 | 0.6492 | 0.6492 | +0.0000 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-11-20T05:55:51.492733+00:00 | 2026-11-19T08:59:54.520619+00:00 | — |
-| Commit | `f733327` | `caf6470` | — |
+| Run timestamp (UTC) | 2026-11-20T17:24:43.663147+00:00 | 2026-11-20T05:55:51.492733+00:00 | — |
+| Commit | `18ab64c` | `f733327` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
