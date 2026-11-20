@@ -87,10 +87,11 @@ class TestSignal:
         """The newest sample (index -1) -- the one streaming reports -- must
         not be suppressed relative to the same spike mid-series.
 
-        With a centred local baseline, ~half the local window around the final
-        index is the point's own saliency, halving its deviation. A trailing
-        baseline (SR paper) compares each point only against its history, so a
-        spike at the final index scores on par with one mid-series.
+        With an edge-padded local baseline that included the point, most of
+        the window at the final index was the point's own saliency, which
+        suppressed its deviation. The baseline is the mean of the point's
+        neighbours, itself left out, so a spike at the final index is compared
+        with its history and scores on par with one mid-series.
         """
         rng = np.random.default_rng(7)
         base = rng.normal(0.0, 1.0, 600)
@@ -105,10 +106,20 @@ class TestSignal:
         score_end = float(np.asarray(det.detect(end)["scores"])[-1])
 
         assert score_mid > 0.5, f"mid-series spike should score high: {score_mid:.3f}"
-        # Fails today: the centred baseline puts ~half the point's own saliency
-        # in its baseline at the final index, so the newest spike scores far
-        # below the mid-series one and may not even cross the 0.5 boundary.
+        # Failed with the point inside its own baseline: the newest spike
+        # scored far below the mid-series one (0.758 against 0.985).
         assert score_end > 0.5, f"final-index spike not flagged: {score_end:.3f}"
         assert (
             score_end >= 0.9 * score_mid
         ), f"final-index spike suppressed: end={score_end:.3f} vs mid={score_mid:.3f}"
+
+
+def test_a_point_is_not_part_of_its_own_baseline() -> None:
+    """The neighbours' mean leaves the point out and truncates at the ends."""
+    values = np.array([1.0, 2.0, 3.0, 40.0, 5.0])
+    baseline = SpectralResidualDetector._neighbour_average(values, 3)
+
+    np.testing.assert_allclose(baseline, [2.0, 2.0, 21.0, 4.0, 40.0])
+    # One sample has no neighbour: its baseline is itself, a zero deviation.
+    np.testing.assert_allclose(SpectralResidualDetector._neighbour_average(values[:1], 3), [1.0])
+    np.testing.assert_allclose(SpectralResidualDetector._neighbour_average(values, 1), values)
