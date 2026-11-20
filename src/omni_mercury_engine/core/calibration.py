@@ -36,10 +36,24 @@ class CalibrationResult:
     mce_after: float
     improvement_percent: float
     reliability_curve: dict[str, np.ndarray[Any, Any]] = field(default_factory=dict)
+    # How the "after" numbers relate to the rows the calibrator was fitted on:
+    #   "as_supplied"  - ``evaluate_calibration`` was handed the arrays and
+    #                    cannot know (the default);
+    #   "cross_fitted" - each row was calibrated by a calibrator fitted on the
+    #                    other folds, so the numbers are held-out;
+    #   "in_sample"    - the calibrator was fitted on the rows it is scored
+    #                    on, so the numbers are optimistic.
+    evaluation: str = "as_supplied"
+    # Folds used when ``evaluation == "cross_fitted"``; None otherwise.
+    n_folds: int | None = None
+    # The same metrics for the calibrator fitted on every row and scored on
+    # those rows. Set by ``calibrate_detector``; None when not computed.
+    brier_after_in_sample: float | None = None
+    ece_after_in_sample: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to serializable dictionary."""
-        return {
+        payload: dict[str, Any] = {
             "method": self.method,
             "brier_before": self.brier_before,
             "brier_after": self.brier_after,
@@ -49,7 +63,15 @@ class CalibrationResult:
             "mce_after": self.mce_after,
             "improvement_percent": self.improvement_percent,
             "meets_target": self.brier_after < 0.05,
+            "evaluation": self.evaluation,
         }
+        if self.n_folds is not None:
+            payload["n_folds"] = self.n_folds
+        if self.brier_after_in_sample is not None:
+            payload["brier_after_in_sample"] = self.brier_after_in_sample
+        if self.ece_after_in_sample is not None:
+            payload["ece_after_in_sample"] = self.ece_after_in_sample
+        return payload
 
 
 def compute_ece(
@@ -856,16 +878,130 @@ def evaluate_calibration(
     return result
 
 
+def _make_calibrator(
+    method: str, seed: int | None = None
+) -> (
+    CalibrationEnsemble
+    | PlattScaling
+    | IsotonicCalibration
+    | StrictIsotonicCalibration
+    | TemperatureScaling
+):
+    """Build an unfitted calibrator for ``method``.
+
+    Args:
+        method: "auto", "platt", "isotonic", "strict_isotonic" or "temperature".
+        seed: Seed for the ensemble's selection split ("auto" only).
+
+    Returns:
+        The unfitted calibrator.
+
+    Raises:
+        ValueError: If ``method`` is not one of the above.
+    """
+    if method == "auto":
+        return CalibrationEnsemble(seed=seed)
+    if method == "platt":
+        return PlattScaling()
+    if method == "isotonic":
+        return IsotonicCalibration()
+    if method == "strict_isotonic":
+        return StrictIsotonicCalibration()
+    if method == "temperature":
+        return TemperatureScaling()
+    raise ValueError(f"Unknown calibration method: {method}")
+
+
+def _stratified_folds(
+    y_true: np.ndarray[Any, Any], n_folds: int, seed: int
+) -> np.ndarray[Any, Any] | None:
+    """Assign each row a fold so that every fold's complement holds both classes.
+
+    Args:
+        y_true: Binary labels.
+        n_folds: Folds wanted; lowered to the size of the smaller class.
+        seed: Seed of the within-class shuffle.
+
+    Returns:
+        A fold index per row, or None when no split can leave both classes on
+        the fitting side (fewer than two rows of a class, or one class only).
+    """
+    labels = np.asarray(y_true).astype(int).ravel()
+    classes, counts = np.unique(labels, return_counts=True)
+    if len(classes) != 2:
+        return None
+    folds = min(int(n_folds), int(counts.min()))
+    if folds < 2:
+        return None
+
+    rng = np.random.default_rng(seed)
+    assignment = np.empty(len(labels), dtype=int)
+    for value in classes:
+        rows = rng.permutation(np.flatnonzero(labels == value))
+        assignment[rows] = np.arange(len(rows)) % folds
+    return assignment
+
+
+def _cross_fitted_scores(
+    method: str,
+    y_prob: np.ndarray[Any, Any],
+    y_true: np.ndarray[Any, Any],
+    n_folds: int,
+    seed: int,
+) -> tuple[np.ndarray[Any, Any], int] | None:
+    """Calibrate every row with a calibrator that never saw it.
+
+    Args:
+        method: Calibration method, as ``calibrate_detector`` takes it.
+        y_prob: Uncalibrated scores.
+        y_true: Binary labels.
+        n_folds: Number of folds wanted.
+        seed: Seed of the fold assignment (and of the "auto" selection splits).
+
+    Returns:
+        ``(out_of_fold_scores, folds_used)``, or None when the labels admit
+        no stratified split.
+    """
+    assignment = _stratified_folds(y_true, n_folds, seed)
+    if assignment is None:
+        return None
+
+    folds_used = int(assignment.max()) + 1
+    held_out = np.empty(len(y_prob), dtype=float)
+    for fold in range(folds_used):
+        test = assignment == fold
+        fold_calibrator = _make_calibrator(method, seed=seed + 1 + fold)
+        fold_calibrator.fit(y_prob[~test], y_true[~test])
+        held_out[test] = fold_calibrator.calibrate(y_prob[test])
+    return held_out, folds_used
+
+
 def calibrate_detector(
     detector: Any,
     X_cal: np.ndarray[Any, Any],
     y_cal: np.ndarray[Any, Any],
     method: str = "auto",
+    *,
+    n_folds: int = 5,
+    seed: int = 0,
 ) -> tuple[Any, CalibrationResult | None]:
     """Calibrate a detector's probability outputs.
 
     Implements a robust fallback cascade to obtain probability scores from
     any detector type, then applies calibration to improve probability estimates.
+
+    The returned calibrator is fitted on every calibration row. The returned
+    metrics are not measured on that fit: ``brier_after``, ``ece_after``,
+    ``mce_after``, ``improvement_percent``, the "after" reliability curve and
+    ``to_dict()["meets_target"]`` are **held-out**, from a stratified K-fold
+    cross-fit in which each row is calibrated by a calibrator of the same
+    method fitted on the other folds (``evaluation == "cross_fitted"``). They
+    were once computed on the rows the calibrator had just been fitted to,
+    which flatters any calibrator and a flexible one (isotonic) most of all;
+    that number is still reported, as ``brier_after_in_sample`` and
+    ``ece_after_in_sample``. When a class has fewer than two rows nothing can
+    be held out: the metrics are then the in-sample ones and say so
+    (``evaluation == "in_sample"``).
 
     Args:
         detector: Fitted anomaly detector (supports predict_proba, decision_function,
@@ -874,10 +1010,16 @@ def calibrate_detector(
         y_cal: Calibration set labels.
         method: Calibration method ("platt", "isotonic", "strict_isotonic",
             "temperature", "auto").
+        n_folds: Folds of the cross-fit behind the reported metrics (lowered
+            to the size of the smaller class when that is smaller).
+        seed: Seed of the fold assignment, so the report is reproducible.
 
     Returns:
         Tuple of (calibrator, CalibrationResult). Returns (None, None) only if
         all score extraction methods fail.
+
+    Raises:
+        ValueError: If ``method`` is not a known calibration method.
 
     Example:
         >>> from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
@@ -894,37 +1036,36 @@ def calibrate_detector(
 
     logger.info(f"Extracted scores using {score_source} for calibration")
 
-    # Select calibrator
-    calibrator: (
-        CalibrationEnsemble
-        | PlattScaling
-        | IsotonicCalibration
-        | StrictIsotonicCalibration
-        | TemperatureScaling
-    )
-    if method == "auto":
-        calibrator = CalibrationEnsemble()
-    elif method == "platt":
-        calibrator = PlattScaling()
-    elif method == "isotonic":
-        calibrator = IsotonicCalibration()
-    elif method == "strict_isotonic":
-        calibrator = StrictIsotonicCalibration()
-    elif method == "temperature":
-        calibrator = TemperatureScaling()
-    else:
-        raise ValueError(f"Unknown calibration method: {method}")
+    # Select calibrator. The ensemble keeps its unseeded selection split, as
+    # before; only the cross-fit below is seeded.
+    calibrator = _make_calibrator(method)
 
-    # Fit and evaluate
+    # Fit on every row: this is the calibrator that is returned and used.
     calibrator.fit(y_prob, y_cal)
-    y_prob_calibrated = calibrator.calibrate(y_prob)
+    in_sample_scores = calibrator.calibrate(y_prob)
+    method_label = method if method != "auto" else getattr(calibrator, "best_method", "auto")
 
-    result = evaluate_calibration(
-        y_cal,
-        y_prob,
-        y_prob_calibrated,
-        method=method if method != "auto" else getattr(calibrator, "best_method", "auto"),
-    )
+    # Measure on rows the measuring calibrator did not see.
+    y_true = np.asarray(y_cal)
+    cross_fit = _cross_fitted_scores(method, np.asarray(y_prob), y_true, n_folds, seed)
+
+    if cross_fit is None:
+        logger.warning(
+            "Calibration metrics are in-sample: the labels admit no held-out split "
+            "(a class has fewer than two rows)"
+        )
+        result = evaluate_calibration(y_cal, y_prob, in_sample_scores, method=method_label)
+        result.evaluation = "in_sample"
+        result.brier_after_in_sample = result.brier_after
+        result.ece_after_in_sample = result.ece_after
+        return calibrator, result
+
+    held_out_scores, folds_used = cross_fit
+    result = evaluate_calibration(y_cal, y_prob, held_out_scores, method=method_label)
+    result.evaluation = "cross_fitted"
+    result.n_folds = folds_used
+    result.brier_after_in_sample = float(np.mean((in_sample_scores - y_true) ** 2))
+    result.ece_after_in_sample = compute_ece(y_true, in_sample_scores)
 
     return calibrator, result
 

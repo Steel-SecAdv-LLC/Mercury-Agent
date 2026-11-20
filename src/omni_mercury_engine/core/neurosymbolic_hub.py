@@ -663,7 +663,11 @@ class NeuroSymbolicHub:
             domain: Domain for specialized processing ('medical', 'financial', 'infrastructure')
             enable_domain_features: Enable domain-specific feature extraction
             enable_adaptive_thresholding: Enable adaptive per-domain thresholding
-            enable_gosnn_3r: Enable GOSNN-3R bidirectional integration
+            enable_gosnn_3r: Construct the GOSNN-3R integration and the
+                sliding-window input normaliser that comes with it. The
+                integration takes no part in the fused score: its score
+                refinement is off and its stability is reported as not
+                evaluated (see ``_gosnn_3r_step``).
             enable_symbolic_veto: Allow an agreeing high-confidence hard rule to
                 override a low neural score (monotone "must-alert"; never bypasses
                 the gates)
@@ -1336,15 +1340,6 @@ class NeuroSymbolicHub:
                 symbolic_weight = self._symbolic_weight
                 fused_score = neural_weight * neural_score + symbolic_weight * symbolic_score
 
-            # Apply calibration
-            calibrated_score = None
-            if self._calibrator is not None:
-                try:
-                    calibrated_score = float(self._calibrator.calibrate(np.array([fused_score]))[0])
-                except Exception:
-                    # Calibration failed; use uncalibrated score
-                    calibrated_score = fused_score
-
             # Compute confidence
             # Higher agreement between neural and symbolic = higher confidence
             agreement = 1 - abs(neural_score - symbolic_score)
@@ -1356,6 +1351,23 @@ class NeuroSymbolicHub:
                 * 4
             )
             confidence = min(max(confidence, 0.0), 1.0)
+
+            # P2 Integration: GOSNN-3R step. It changes no score (see
+            # ``_gosnn_3r_step``). It is placed here, ahead of calibration and
+            # of the verdict, because that is the only place a score-changing
+            # step may ever go: the block it replaces ran after ``is_anomaly``
+            # had been derived, so a score it rewrote would have been reported
+            # beside a verdict taken from the score it replaced.
+            gosnn_3r_info = self._gosnn_3r_step()
+
+            # Apply calibration
+            calibrated_score = None
+            if self._calibrator is not None:
+                try:
+                    calibrated_score = float(self._calibrator.calibrate(np.array([fused_score]))[0])
+                except Exception:
+                    # Calibration failed; use uncalibrated score
+                    calibrated_score = fused_score
 
             # P2 Integration: Use adaptive domain thresholding if available
             if self._threshold_manager is not None:
@@ -1381,35 +1393,6 @@ class NeuroSymbolicHub:
             else:
                 # Fallback to centralized threshold
                 is_anomaly = fused_score > self._thresholds.anomaly_default
-
-            # P2 Integration: GOSNN-3R feedback loop
-            gosnn_3r_info: dict[str, Any] = {}
-            if self._gosnn_3r is not None:
-                try:
-                    # Get 3R-adjusted fusion weights based on confidence
-                    adjusted_weights = self._gosnn_3r.adjust_weights(
-                        neural_score=neural_score,
-                        symbolic_score=symbolic_score,
-                        confidence=confidence,
-                        domain=self.domain,
-                    )
-
-                    # Apply adjusted weights for potential score refinement
-                    if adjusted_weights:
-                        gosnn_3r_info = {
-                            "gosnn_3r_active": True,
-                            "adjusted_neural_weight": adjusted_weights.get("neural_weight"),
-                            "adjusted_symbolic_weight": adjusted_weights.get("symbolic_weight"),
-                            "lyapunov_stability": adjusted_weights.get("lyapunov_stability", 0.0),
-                        }
-
-                        # Optionally refine fused score with GOSNN-3R adjusted weights
-                        if adjusted_weights.get("refine_score", False):
-                            w_n = adjusted_weights["neural_weight"]
-                            w_s = adjusted_weights["symbolic_weight"]
-                            fused_score = w_n * neural_score + w_s * symbolic_score
-                except Exception as e:
-                    logger.warning(f"GOSNN-3R integration failed: {e}")
 
             # Hard gate at the decision boundary — the shared, fail-closed
             # harm-uplift choke point every public decision surface uses.
@@ -1592,6 +1575,57 @@ class NeuroSymbolicHub:
         self._total_processing_time += total_time
 
         return results
+
+    def _gosnn_3r_step(self) -> dict[str, Any]:
+        """Report the GOSNN-3R integration's part in a sample's score: none.
+
+        The hub used to ask ``GOSNN3RIntegration.adjust_weights`` for
+        "3R-adjusted" fusion weights on every sample, replace the fused score
+        with a blend under those weights when the integration set
+        ``refine_score``, and report ``lyapunov_stability`` beside it. Measured,
+        none of that could happen:
+
+        * ``adjust_weights`` holds the integration's non-reentrant lock while
+          calling ``verify_stability``, which takes the same lock: the call
+          never returns, so ``predict`` on a hub built with the default
+          ``enable_gosnn_3r=True`` hung on its first sample.
+        * With the lock made re-entrant, ``refine_score`` is still never
+          true. It requires the adjusted neural weight to sit more than 0.05
+          from ``PHI / (1 + PHI)``; over the whole input domain (41^3 grid of
+          neural, symbolic, confidence) the largest distance is 0.0468,
+          because ``adjust_weights`` never stores the weights it adjusts.
+          0 of 1,800 predicted rows asked for refinement.
+        * ``lyapunov_stability`` was the integration's verdict on a
+          trajectory the hub never fed (``convergence_history`` is filled by
+          ``OmniAvaEquation.compute`` only): a constant 0.0, reported as if
+          measured. Fed the fused scores, it measures the variance of ten
+          independent samples against the first ten, which says nothing about
+          the model and depends on the order of the batch.
+        * Forcing the blend wherever that check happened to pass changed 15
+          of 1,800 rows and no verdict, at a ROC AUC of 0.8435 against 0.8437
+          (conjunctive) and 0.8402 against 0.8403 (phi-weighted).
+
+        So the refinement stays off and the report says what is true: the
+        integration is enabled, it took no part in the score, and stability
+        was not evaluated (``None``, never a 0.0 that reads as a measurement).
+        ``adjust_weights`` is not called.
+
+        Returns:
+            The ``gosnn_3r_integration`` reasoning-chain entry, empty when the
+            integration is disabled or failed to initialise.
+        """
+        if self._gosnn_3r is None:
+            return {}
+
+        return {
+            "gosnn_3r_enabled": True,
+            "gosnn_3r_active": False,
+            "refinement_applied": False,
+            "adjusted_neural_weight": None,
+            "adjusted_symbolic_weight": None,
+            "lyapunov_stability": None,
+            "lyapunov_status": "not_evaluated",
+        }
 
     def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Get anomaly probabilities (for sklearn compatibility)."""

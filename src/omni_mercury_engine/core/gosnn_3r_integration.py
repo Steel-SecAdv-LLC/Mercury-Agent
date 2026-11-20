@@ -336,8 +336,10 @@ class GOSNN3RIntegration:
         self.momentum = 0.9
         self._velocity = np.zeros(3)  # For momentum-based updates
 
-        # Lock for thread safety
-        self._lock = threading.Lock()
+        # Re-entrant: ``adjust_weights`` holds this and calls
+        # ``verify_stability``, which takes it again. With a plain ``Lock``
+        # that call never returned.
+        self._lock = threading.RLock()
 
         logger.info(
             f"GOSNN-3R Integration initialized: direction={feedback_direction.value}, "

@@ -21,6 +21,7 @@ pinned triple (AUROC 0.749 / NAB standard score 33.7 / alarm rate 0.017 in
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -43,6 +44,10 @@ STABILITY_GRACE = 8
 #: stray sample above the envelope is noise, a run of them is a trajectory
 #: that is not contracting.
 STABILITY_PATIENCE = 4
+#: ``reason`` of a tick that was not scored because the reading was NaN or
+#: infinite, and of one whose fused-score trajectory is not contracting.
+REASON_NON_FINITE_INPUT = "non_finite_input"
+REASON_TRAJECTORY = "trajectory_not_contracting"
 
 
 class CausalMathArrest:
@@ -103,13 +108,26 @@ class CausalMathArrest:
         alarm threshold is the one-class split-conformal quantile of the
         warmup's own fused scores at ``alpha``.
 
+        Non-finite warmup samples are failed readings and are dropped before
+        anything is fitted, for the reason :meth:`update` refuses them: one
+        NaN in a 200-sample warmup moved the alarm cut from 0.498 to 0.067
+        and sat in the seeded history. A finite warmup is used as given.
+
         Args:
             warmup: The stream's leading, predominantly normal samples.
 
         Returns:
             ``self``.
+
+        Raises:
+            ValueError: If the warmup holds no finite sample.
         """
         series = np.asarray(warmup, dtype=np.float64).reshape(-1)
+        finite = np.isfinite(series)
+        if not finite.all():
+            series = series[finite]
+            if series.size == 0:
+                raise ValueError("warmup holds no finite sample to fit on")
         self._arrest.fit(series)
         fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
         fused = fused[np.isfinite(fused)]
@@ -157,28 +175,50 @@ class CausalMathArrest:
     def update(self, value: float) -> dict[str, Any]:
         """Score one arriving sample from its trailing window only.
 
+        A NaN or infinite ``value`` is a failed sensor reading, not a sample.
+        It is not scored and does not enter the trailing window, so it cannot
+        colour the scores of the ``window - 1`` points after it, and the
+        stability monitor is left exactly as it was. The tick is reported as
+        an abstention: ``is_anomaly`` is ``None`` (no verdict was reached),
+        ``score`` is NaN (no score exists), ``abstain`` is ``True`` and
+        ``reason`` says why. It used to be appended to the history and
+        scored like any reading, and came back ``is_anomaly: False``.
+
         Args:
             value: The newest sample.
 
         Returns:
             ``{"score", "is_anomaly", "threshold", "window_used",
-            "trajectory_stable", "abstain"}`` for this point. The score is
-            the fused score of the trailing window's last element — the
-            arriving point — under the fitted instrument; ``abstain`` is the
-            stability monitor's flag (see :meth:`_trajectory_check`).
+            "trajectory_stable", "abstain", "reason"}`` for this point. The
+            score is the fused score of the trailing window's last element —
+            the arriving point — under the fitted instrument; ``abstain`` is
+            the stability monitor's flag (see :meth:`_trajectory_check`), or
+            ``True`` for a non-finite reading; ``reason`` is ``None`` unless
+            ``abstain`` is set.
 
         Raises:
             RuntimeError: If :meth:`fit` has not been called.
         """
         if not self._is_fitted:
             raise RuntimeError("CausalMathArrest has not been fitted. Call fit() first.")
+        threshold = float(self._threshold) if self._threshold is not None else 0.5
+        if not math.isfinite(float(value)):
+            return {
+                "score": float("nan"),
+                "is_anomaly": None,
+                "threshold": threshold,
+                "window_used": len(self._history),
+                # Not evaluated: the monitor did not see this tick.
+                "trajectory_stable": None,
+                "abstain": True,
+                "reason": REASON_NON_FINITE_INPUT,
+            }
         self._history.append(float(value))
         if len(self._history) > self._window:
             del self._history[: len(self._history) - self._window]
         window = np.asarray(self._history, dtype=np.float64)
         fused = np.asarray(self._arrest.detect(window), dtype=np.float64).reshape(-1)
         score = float(fused[-1]) if fused.size else 0.0
-        threshold = float(self._threshold) if self._threshold is not None else 0.5
         stable = self._trajectory_check(score, threshold)
         return {
             "score": score,
@@ -191,6 +231,7 @@ class CausalMathArrest:
             # (ethical) gate consumes the verdict.
             "trajectory_stable": stable,
             "abstain": not stable,
+            "reason": None if stable else REASON_TRAJECTORY,
         }
 
     def score_stream(
@@ -203,7 +244,9 @@ class CausalMathArrest:
 
         Returns:
             ``(scores, alarms)`` with one entry per sample, each computed
-            from that sample's trailing window only.
+            from that sample's trailing window only. A non-finite sample has
+            a NaN score and no alarm; :meth:`score_stream_detailed` marks it
+            in ``abstain``.
         """
         details = self.score_stream_detailed(values)
         return (
@@ -222,7 +265,9 @@ class CausalMathArrest:
         Returns:
             ``{"scores", "alarms", "abstain"}`` arrays, one entry per
             sample; ``abstain`` is ``True`` where the fused-score trajectory
-            violated the decay envelope (:meth:`_trajectory_check`).
+            violated the decay envelope (:meth:`_trajectory_check`) and
+            where the sample was not finite (its score is NaN and its alarm
+            ``False``: no verdict was reached).
         """
         scores = np.empty(len(values), dtype=np.float64)
         alarms = np.empty(len(values), dtype=bool)
@@ -230,6 +275,6 @@ class CausalMathArrest:
         for i, value in enumerate(np.asarray(values, dtype=np.float64).reshape(-1)):
             result = self.update(float(value))
             scores[i] = result["score"]
-            alarms[i] = result["is_anomaly"]
+            alarms[i] = bool(result["is_anomaly"])
             abstain[i] = result["abstain"]
         return {"scores": scores, "alarms": alarms, "abstain": abstain}

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -117,6 +118,11 @@ class CognitiveAnalysisResult:
     # Timing
     analysis_time_ms: float = 0.0
 
+    # The id to hand back to ``CognitiveOrchestrator.learn_from_feedback``.
+    # None on a result that was not produced by ``analyze``. Not part of
+    # ``to_dict()``, whose schema is kept unchanged.
+    analysis_id: int | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """To dict.
 
@@ -169,6 +175,17 @@ class CognitiveAnalysisResult:
 _DEFAULT_DOMAIN: str = "general"
 
 
+@dataclass
+class _FeedbackRecord:
+    """What one ``analyze`` call created that later feedback can be credited to."""
+
+    # (source_pattern, target_pattern) of each plasticity connection adapted.
+    connections: list[tuple[str, str]] = field(default_factory=list)
+    # ``indicator_id`` of each indicator that raised a warning.
+    indicator_ids: list[str] = field(default_factory=list)
+    feedback_applied: bool = False
+
+
 class CognitiveOrchestrator(LoggerMixin):
     """Unified Cognitive Layer for Mercury-Agent.
 
@@ -198,6 +215,11 @@ class CognitiveOrchestrator(LoggerMixin):
         print(f"Causal factors: {result.causal_factors}")
         print(f"Similar cases: {result.similar_historical_cases}")
     """
+
+    #: How many analyses ``learn_from_feedback`` can still address. Each
+    #: ``analyze`` call keeps a small record of the plasticity connections and
+    #: indicators it touched; the oldest record is dropped past this many.
+    FEEDBACK_MEMORY_LIMIT: int = 4096
 
     def __init__(
         self,
@@ -299,6 +321,8 @@ class CognitiveOrchestrator(LoggerMixin):
         # State
         self._analysis_count = 0
         self._anomaly_history: list[dict[str, Any]] = []
+        # analysis id -> what that analysis created (bounded, oldest first out).
+        self._feedback_records: OrderedDict[int, _FeedbackRecord] = OrderedDict()
 
         # Initialize core knowledge
         self._initialize_core_knowledge()
@@ -478,6 +502,15 @@ class CognitiveOrchestrator(LoggerMixin):
             result.analysis_time_ms = (time.time() - start_time) * 1000
             raise
 
+        # Both gates passed. From here the analysis may write persistent
+        # state, and this record is where it notes what it wrote so that
+        # ``learn_from_feedback`` can find it again.
+        result.analysis_id = self._analysis_count
+        feedback_record = _FeedbackRecord()
+        self._feedback_records[self._analysis_count] = feedback_record
+        while len(self._feedback_records) > self.FEEDBACK_MEMORY_LIMIT:
+            self._feedback_records.popitem(last=False)
+
         # === STEP 1: UNCERTAINTY QUANTIFICATION ===
         if raw_data is not None:
             predictions = np.array([anomaly_score])
@@ -514,8 +547,7 @@ class CognitiveOrchestrator(LoggerMixin):
             # Link to domain if specified
             domain = context.get("domain")
             if domain:
-                self.knowledge_graph.add_edge(obs_id, f"domain_{domain}", EdgeType.INSTANCE_OF)
-                result.knowledge_updates.append(f"Added observation to {domain} domain")
+                result.knowledge_updates.append(self._link_observation_to_domain(obs_id, domain))
 
         # === STEP 3: MULTI-HOP REASONING ===
         if anomaly_detected and anomaly_score > 0.5:
@@ -584,14 +616,17 @@ class CognitiveOrchestrator(LoggerMixin):
         if self.plasticity and anomaly_detected:
             # Strengthen connections based on detection
             domain = context.get("domain", "general")
+            source_pattern = f"anomaly_type_{int(severity * 10)}"
+            target_pattern = f"domain_{domain}"
 
             self.plasticity.adapt(
-                source_pattern=f"anomaly_type_{int(severity * 10)}",
-                target_pattern=f"domain_{domain}",
+                source_pattern=source_pattern,
+                target_pattern=target_pattern,
                 strength=anomaly_score,
                 adaptation_type=AdaptationType.PARAMETRIC,
             )
             result.plasticity_adaptations = 1
+            feedback_record.connections.append((source_pattern, target_pattern))
 
         # === STEP 7: INDICATOR EVALUATION ===
         if self.indicators and anomaly_detected:
@@ -608,6 +643,7 @@ class CognitiveOrchestrator(LoggerMixin):
 
             result.warnings = [w.to_dict() for w in warnings]
             result.triggered_indicators = [w.indicator.name for w in warnings]
+            feedback_record.indicator_ids.extend(w.indicator.indicator_id for w in warnings)
 
         # === STEP 8: IPB CONTEXT ===
         if self.ipb and context.get("domain"):
@@ -752,35 +788,172 @@ class CognitiveOrchestrator(LoggerMixin):
             anomaly_prob=anomaly_prob,
         )
 
+    def _link_observation_to_domain(self, obs_id: str, domain: Any) -> str:
+        """Link an observation node to its domain node and say what happened.
+
+        The graph is seeded with five ``domain_*`` concepts. Any other known
+        domain label (the ``sanitize_domain`` whitelist, which includes the
+        default ``"general"``) gets its concept node the first time an
+        observation needs it, created the way the seeded ones are. A label
+        outside the whitelist is caller text, not a domain: no node is
+        created for it, and the observation stays unlinked.
+
+        Args:
+            obs_id: Node id of the stored observation
+            domain: The caller's ``context["domain"]`` value
+
+        Returns:
+            The ``knowledge_updates`` entry: "Added observation to ..." only
+            when the edge exists in the graph.
+        """
+        domain_node = f"domain_{domain}"
+        if self.knowledge_graph.get_node(domain_node) is None:
+            if not isinstance(domain, str) or sanitize_domain(domain) != domain:
+                return f"Observation not linked to a domain: {domain!r} is not a known domain"
+            self.knowledge_graph.add_node(
+                node_id=domain_node,
+                node_type=NodeType.CONCEPT,
+                label=domain.title(),
+                attributes={"description": f"{domain.title()} domain"},
+            )
+
+        edge = self.knowledge_graph.add_edge(obs_id, domain_node, EdgeType.INSTANCE_OF)
+        if edge is None:
+            return f"Observation not linked to a domain: no edge to {domain!r} could be added"
+        return f"Added observation to {domain} domain"
+
+    def _plasticity_state(
+        self, connections: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], tuple[float, float]]:
+        """``(weight, eligibility)`` of each named plasticity connection that still exists."""
+        if self.plasticity is None or not connections:
+            return {}
+        wanted = set(connections)
+        state: dict[tuple[str, str], tuple[float, float]] = {}
+        for edge in self.plasticity.export_graph()["edges"]:
+            key = (edge["source"], edge["target"])
+            if key in wanted:
+                state[key] = (float(edge["weight"]), float(edge["eligibility"]))
+        return state
+
     def learn_from_feedback(
         self,
         analysis_id: int,
         was_correct: bool,
         actual_outcome: str | None = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Learn from feedback on a previous analysis.
 
-        This closes the loop - updating CBR, plasticity, and indicators
-        based on real-world outcomes.
+        Feedback is credited to what that analysis created:
+
+        * the plasticity connections it adapted (``anomaly_type_<n> ->
+          domain_<x>``) receive the engine's reward signal, through
+          ``PlasticityEngine.feedback`` on the connection's source pattern;
+        * every indicator that raised a warning during it is validated as a
+          true or false positive (``IndicatorDevelopmentSystem.validate_indicator``).
+
+        The case base is not touched: ``was_correct`` judges the detection,
+        not the outcome of a reused solution. Resolved cases are added with
+        :meth:`add_case_from_resolution`.
+
+        Two limits are reported instead of hidden. ``analyze`` keeps the
+        record feedback needs for the last ``FEEDBACK_MEMORY_LIMIT`` analyses
+        only, and each analysis takes feedback once. And the plasticity
+        engine credits a connection only while its eligibility trace is above
+        0.1, a trace that decays in wall-clock time (about four seconds from
+        a strong detection): later feedback moves no weight, and the report
+        says so in ``plasticity_weights_changed`` and shows the trace it
+        found in each connection's ``eligibility``.
 
         Args:
-            analysis_id: Which analysis to provide feedback for
+            analysis_id: ``CognitiveAnalysisResult.analysis_id`` of the
+                analysis the feedback is about
             was_correct: Whether the detection was correct
-            actual_outcome: What actually happened
+            actual_outcome: What actually happened; passed to the indicator
+                validation as context
+
+        Returns:
+            What the feedback changed: ``analysis_id``, ``known`` (the
+            analysis is still in feedback memory), ``applied``, ``reason``
+            (why nothing was applied, else None), ``plasticity_connections``
+            (``source``, ``target``, ``eligibility``, ``weight_before``,
+            ``weight_after`` per connection the analysis adapted; the last
+            three are None for a connection the engine has since pruned),
+            ``plasticity_weights_changed`` and ``indicators_validated``.
         """
-        if self.plasticity:
-            self.plasticity.feedback(
-                pattern_id=f"analysis_{analysis_id}",
-                success=was_correct,
-                magnitude=1.0,
+        report: dict[str, Any] = {
+            "analysis_id": analysis_id,
+            "known": False,
+            "applied": False,
+            "reason": None,
+            "plasticity_connections": [],
+            "plasticity_weights_changed": 0,
+            "indicators_validated": [],
+        }
+
+        record = self._feedback_records.get(analysis_id)
+        if record is None:
+            report["reason"] = "unknown_analysis"
+            logger.warning(
+                "Feedback on analysis %s not applied: no such analysis in feedback memory "
+                "(never run, refused, or older than the last %d)",
+                analysis_id,
+                self.FEEDBACK_MEMORY_LIMIT,
             )
+            return report
 
-        # Update indicators
+        report["known"] = True
+        if record.feedback_applied:
+            report["reason"] = "feedback_already_applied"
+            return report
+
+        if self.plasticity and record.connections:
+            before = self._plasticity_state(record.connections)
+            # One reward per source pattern: the engine addresses feedback by
+            # pattern, and the source is the pattern this analysis activated.
+            for source_pattern in dict.fromkeys(source for source, _ in record.connections):
+                self.plasticity.feedback(
+                    pattern_id=source_pattern,
+                    success=was_correct,
+                    magnitude=1.0,
+                )
+            after = self._plasticity_state(record.connections)
+            for key in record.connections:
+                weight_before, eligibility = before.get(key, (None, None))
+                weight_after = after.get(key, (None, None))[0]
+                report["plasticity_connections"].append(
+                    {
+                        "source": key[0],
+                        "target": key[1],
+                        "eligibility": eligibility,
+                        "weight_before": weight_before,
+                        "weight_after": weight_after,
+                    }
+                )
+                if weight_before != weight_after:
+                    report["plasticity_weights_changed"] += 1
+
         if self.indicators:
-            # Mark triggered indicators as true/false positive
-            pass  # Would need to track which indicators fired
+            for indicator_id in dict.fromkeys(record.indicator_ids):
+                self.indicators.validate_indicator(
+                    indicator_id,
+                    is_true_positive=was_correct,
+                    feedback={"analysis_id": analysis_id, "actual_outcome": actual_outcome},
+                )
+                report["indicators_validated"].append(indicator_id)
 
-        logger.info(f"Learned from feedback on analysis {analysis_id}: correct={was_correct}")
+        record.feedback_applied = True
+        report["applied"] = True
+
+        logger.info(
+            "Learned from feedback on analysis %s: correct=%s, plasticity weights changed=%d, "
+            "indicators validated=%d",
+            analysis_id,
+            was_correct,
+            report["plasticity_weights_changed"],
+            len(report["indicators_validated"]),
+        )
+        return report
 
     def develop_indicators_from_history(
         self,

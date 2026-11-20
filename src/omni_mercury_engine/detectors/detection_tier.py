@@ -38,8 +38,10 @@ always importable (no PyTorch gate) and deterministic under a fixed seed.
 from __future__ import annotations
 
 import logging
+import math
+import numbers
 from collections import deque
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -61,9 +63,11 @@ __all__ = [
     "STREAMING_TIER",
     "TIER_PARADIGMS",
     "TORCH_TIER",
+    "PointScoreAlignment",
     "StreamingScoreEnsemble",
     "TierStreamingScorer",
     "align_point_scores",
+    "align_point_scores_detailed",
     "build_tier_detectors",
     "conformal_flags",
     "conformal_threshold",
@@ -305,6 +309,144 @@ def _to_1d_series(data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, 
     return arr
 
 
+@dataclass(frozen=True)
+class PointScoreAlignment:
+    """A detector's scores laid out one per input point, and how they got there.
+
+    Attributes:
+        scores: ``(n_points,)`` float64 scores in ``[0, 1]``.
+        localized: ``(n_points,)`` bool; True where the score is that point's
+            own (the detector scored the point, or a window ending at it).
+            False where the point only shares a coarser score, or has none.
+        alignment: How the detector's output maps to points:
+
+            * ``"per_point"`` - one score per point, used as given;
+            * ``"window_end"`` - fewer scores than points, each placed at the
+              point its window ends at; points no window ends at score 0.0;
+            * ``"series_level"`` - a single score for the whole series,
+              repeated at every point: coarse, it localises nothing;
+            * ``"resampled"`` - more scores than points, which has no sound
+              alignment; linearly resampled, as before, and coarse;
+            * ``"empty"`` - the detector returned an empty score vector.
+    """
+
+    scores: np.ndarray[Any, Any]
+    localized: np.ndarray[Any, Any]
+    alignment: str
+
+
+def _window_end_indices(
+    result: dict[str, Any], n_scores: int, n_points: int, member: str
+) -> np.ndarray[Any, Any]:
+    """Index of the point each of a windowed detector's scores belongs to.
+
+    A detector may say so itself, with a ``score_indices`` entry in its
+    result. Otherwise the scores are taken to be those of consecutive windows
+    (stride one), the last ending at the last point: ``n_scores`` windows over
+    ``n_points`` points are then ``n_points - n_scores + 1`` wide, and score
+    ``j`` ends at point ``j + n_points - n_scores``.
+    """
+    declared = result.get("score_indices")
+    if declared is not None:
+        indices = np.asarray(declared).ravel()
+        valid = (
+            indices.size == n_scores
+            and np.issubdtype(indices.dtype, np.integer)
+            and bool(np.all(indices >= 0))
+            and bool(np.all(indices < n_points))
+            and bool(np.all(np.diff(indices) > 0))
+        )
+        if valid:
+            return indices.astype(np.intp)
+        logger.warning(
+            "%s: score_indices does not name %d increasing points below %d; "
+            "aligning its scores to consecutive window ends instead",
+            member,
+            n_scores,
+            n_points,
+        )
+    return np.arange(n_points - n_scores, n_points, dtype=np.intp)
+
+
+def align_point_scores_detailed(
+    detector: BaseDetector,
+    series: np.ndarray[Any, Any] | torch.Tensor,
+) -> PointScoreAlignment:
+    """Lay a detector's scores out one per point of ``series``, keeping time.
+
+    Tier detectors emit a per-point ``scores`` vector, a shorter vector (one
+    score per window), or a single series-level score. Nothing is
+    interpolated across time: a window's score goes to the point the window
+    ends at, and a series-level score is repeated and marked coarse. The
+    shorter vector used to be stretched linearly over the series, which moved
+    every window score to a point its window did not end at.
+
+    Args:
+        detector: A fitted tier detector. Its ``detect`` result may carry
+            ``score_indices``, the point index each entry of ``scores``
+            belongs to.
+        series: 1-D input series.
+
+    Returns:
+        The aligned scores with their ``alignment`` and ``localized`` mask.
+    """
+    arr = _to_1d_series(series)
+    n_points = arr.size
+    # Attribute any non-finite correction to the *member* that produced it (not a
+    # generic "align" label), so ``omni_detector_nonfinite_corrected`` and the
+    # structured log name the misbehaving detector and stay actionable.
+    member = getattr(detector, "name", "align")
+    result = detector.detect(arr)
+    nowhere = np.zeros(n_points, dtype=bool)
+    raw = result.get("scores")
+    if raw is None:
+        fallback = float(result.get("anomaly_score", result.get("anomaly_prob", 0.0)))
+        return PointScoreAlignment(
+            scores=finite_scores(np.full(n_points, fallback, dtype=np.float64), detector=member),
+            localized=nowhere,
+            alignment="series_level",
+        )
+    scores = np.asarray(raw, dtype=np.float64).ravel()
+    if scores.size == 0:
+        return PointScoreAlignment(
+            scores=np.zeros(n_points, dtype=np.float64), localized=nowhere, alignment="empty"
+        )
+
+    localized = nowhere
+    if scores.size == n_points:
+        alignment = "per_point"
+        localized = np.ones(n_points, dtype=bool)
+    elif scores.size == 1:
+        alignment = "series_level"
+        scores = np.full(n_points, scores[0], dtype=np.float64)
+    elif scores.size < n_points:
+        alignment = "window_end"
+        ends = _window_end_indices(result, scores.size, n_points, member)
+        placed = np.zeros(n_points, dtype=np.float64)
+        placed[ends] = scores
+        localized = np.zeros(n_points, dtype=bool)
+        localized[ends] = True
+        scores = placed
+    else:
+        alignment = "resampled"
+        logger.warning(
+            "%s returned %d scores for %d points; resampling them, which does not keep time",
+            member,
+            scores.size,
+            n_points,
+        )
+        src = np.linspace(0.0, 1.0, scores.size)
+        dst = np.linspace(0.0, 1.0, n_points)
+        scores = np.interp(dst, src, scores)
+    # Defence in depth: a member that emits NaN/inf (np.clip does not scrub NaN)
+    # would otherwise poison the ensemble mean / stacking / BMA and crash
+    # calibrate_scores' np.histogram. finite_scores guarantees a finite [0, 1]
+    # column regardless of member behaviour.
+    return PointScoreAlignment(
+        scores=finite_scores(scores, detector=member), localized=localized, alignment=alignment
+    )
+
+
 def align_point_scores(
     detector: BaseDetector,
     series: np.ndarray[Any, Any] | torch.Tensor,
@@ -313,8 +455,12 @@ def align_point_scores(
 
     Tier detectors emit either a per-point ``scores`` vector or a scalar
     ``anomaly_score``; windowed detectors may emit a shorter vector. This
-    normalises all of them to one score in ``[0, 1]`` per input point via linear
-    interpolation, so heterogeneous detectors can be stacked column-wise.
+    normalises all of them to one score in ``[0, 1]`` per input point, so
+    heterogeneous detectors can be stacked column-wise, without interpolating
+    across time: a window's score sits at the point its window ends at (the
+    points before the first full window score 0.0), and a series-level score
+    is the same at every point. :func:`align_point_scores_detailed` returns
+    the same scores together with which of them are a point's own.
 
     Args:
         detector: A fitted tier detector.
@@ -323,28 +469,7 @@ def align_point_scores(
     Returns:
         ``(n_points,)`` float64 scores in ``[0, 1]``.
     """
-    arr = _to_1d_series(series)
-    # Attribute any non-finite correction to the *member* that produced it (not a
-    # generic "align" label), so ``omni_detector_nonfinite_corrected`` and the
-    # structured log name the misbehaving detector and stay actionable.
-    member = getattr(detector, "name", "align")
-    result = detector.detect(arr)
-    raw = result.get("scores")
-    if raw is None:
-        fallback = float(result.get("anomaly_score", result.get("anomaly_prob", 0.0)))
-        return finite_scores(np.full(arr.size, fallback, dtype=np.float64), detector=member)
-    scores = np.asarray(raw, dtype=np.float64).ravel()
-    if scores.size == 0:
-        return np.zeros(arr.size, dtype=np.float64)
-    if scores.size != arr.size:
-        src = np.linspace(0.0, 1.0, scores.size)
-        dst = np.linspace(0.0, 1.0, arr.size)
-        scores = np.interp(dst, src, scores)
-    # Defence in depth: a member that emits NaN/inf (np.clip does not scrub NaN)
-    # would otherwise poison the ensemble mean / stacking / BMA and crash
-    # calibrate_scores' np.histogram. finite_scores guarantees a finite [0, 1]
-    # column regardless of member behaviour.
-    return finite_scores(scores, detector=member)
+    return align_point_scores_detailed(detector, series).scores
 
 
 class StreamingScoreEnsemble:
@@ -1226,6 +1351,17 @@ class TierStreamingScorer:
     points to track drift, scores the newest point, and emits the score to the
     per-detector Prometheus histogram. It is directly usable as
     ``StreamingAnomalyPipeline(detector=TierStreamingScorer(det))``.
+
+    The detector is always fitted on the points *before* the one being scored.
+    It used to be refitted on a window that already held the newest point, so
+    on a refit tick a spike was part of the baseline it was judged against.
+    Scoring therefore starts with the first point that arrives once
+    ``min_samples`` points are buffered.
+
+    A message with no finite number in it is not scored and is not an
+    all-clear: the result carries ``is_anomaly: None``, ``abstain: True`` and
+    a ``reason``. (``score`` stays a float, 0.0, because the pipeline keeps
+    running statistics over it.)
     """
 
     def __init__(
@@ -1278,35 +1414,51 @@ class TierStreamingScorer:
         else:
             candidates = list(message.values())
         for value in candidates:
-            if isinstance(value, bool):
+            # bool is an int, and np.bool_ is not a number here either.
+            if isinstance(value, (bool, np.bool_)):
                 continue
-            if isinstance(value, (int, float)) and np.isfinite(value):
-                return float(value)
+            # numbers.Real covers int, float and np.float64; the NumPy integer
+            # and floating scalars (np.int64, np.float32, ...) are not
+            # registered as Real and used to be skipped as "not numeric".
+            if not isinstance(value, (numbers.Real, np.integer, np.floating)):
+                continue
+            try:
+                number = float(value)
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if math.isfinite(number):
+                return number
         return None
 
     def __call__(self, message: dict[str, Any]) -> dict[str, Any]:
         """Score one stream message; returns a detector-result dict."""
         value = self._extract_value(message)
         if value is None:
-            # No finite numeric value to score in this message. Report warm-up
+            # No finite numeric value to score in this message. That is a
+            # reading that was not taken, not a normal one: abstain, and say
+            # why, instead of answering ``is_anomaly: False``. Report warm-up
             # from the accumulated buffer state, not unconditionally: a scorer
             # that has already buffered ``min_samples`` points is *ready*, and a
             # single value-less message must not make downstream alerting think
             # it regressed to warm-up and suppress results.
             return {
-                "is_anomaly": False,
+                "is_anomaly": None,
                 "anomaly_score": 0.0,
                 "score": 0.0,
                 "warmup": len(self._buffer) < self.min_samples,
+                "abstain": True,
+                "reason": "no_finite_numeric_value",
             }
+        # The points before this one: what the detector may be fitted on.
+        history = np.asarray(self._buffer, dtype=np.float64)
         self._buffer.append(value)
-        if len(self._buffer) < self.min_samples:
+        if history.size < self.min_samples:
             return {"is_anomaly": False, "anomaly_score": 0.0, "score": 0.0, "warmup": True}
 
         window = np.asarray(self._buffer, dtype=np.float64)
         self._since_fit += 1
         if not self.detector.is_fitted() or self._since_fit >= self.refit_interval:
-            self.detector.fit(window)
+            self.detector.fit(history)
             self._since_fit = 0
 
         score = float(align_point_scores(self.detector, window)[-1])
@@ -1318,6 +1470,7 @@ class TierStreamingScorer:
             "anomaly_score": score,
             "score": score,
             "warmup": False,
+            "abstain": False,
         }
 
 
