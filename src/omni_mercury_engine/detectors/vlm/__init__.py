@@ -45,12 +45,13 @@ from omni_mercury_engine.detectors.vlm.blip_vlm import (
     create_blip_detector,
 )
 from omni_mercury_engine.detectors.vlm.context_providers import (
+    CombinedContextProvider,
     PositionContextProvider,
     TemporalContextProvider,
 )
 from omni_mercury_engine.detectors.vlm.context_providers_extended import (
     AppearanceContextProvider,
-    CombinedContextProvider,
+    CombinedContextProvider as ExtendedCombinedContextProvider,
     FrequencyContextProvider,
     SemanticContextProvider,
 )
@@ -59,6 +60,7 @@ from omni_mercury_engine.detectors.vlm.lvlm_backends import LVLMBackend, get_lvl
 from omni_mercury_engine.detectors.vlm.lvlm_cache import (
     LVLMBackendCache,
     get_cached_backend,
+    get_frozen_cached_backend,
     prewarm_backend,
 )
 from omni_mercury_engine.detectors.vlm.statistical_vlm import StatisticalVLMDetector
@@ -71,7 +73,13 @@ __all__ = [
     "BLIPConfig",
     "BLIPVLMDetector",
     "BaseVLMDetector",
+    # ``CombinedContextProvider`` is the basic provider the detectors
+    # actually use (AnyAnomalyDetector); the extended provider with the
+    # same class name is exported as ``ExtendedCombinedContextProvider``
+    # to resolve the former name collision, under which the package
+    # exported a class the detectors never used.
     "CombinedContextProvider",
+    "ExtendedCombinedContextProvider",
     "FrequencyContextProvider",
     "LAVADDetector",
     # Backends
@@ -86,6 +94,7 @@ __all__ = [
     "VLMConfig",
     "create_blip_detector",
     "get_cached_backend",
+    "get_frozen_cached_backend",
     "get_lvlm_backend",
     "prewarm_backend",
 ]

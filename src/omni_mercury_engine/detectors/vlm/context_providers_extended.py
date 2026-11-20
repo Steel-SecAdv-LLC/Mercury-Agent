@@ -210,23 +210,22 @@ class SemanticContextProvider(BaseContextProvider):
     def _compute_edge_density(
         self, gray: np.ndarray[Any, Any]
     ) -> tuple[float, np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-        """Compute edge density using gradient magnitude."""
-        # Sobel-like kernels
-        k = self.edge_kernel_size
-        pad = k // 2
+        """Compute edge density using gradient magnitude (vectorized)."""
+        # Central-difference stencil: at least one ring of reflect padding
+        # is needed for the j±1 / i±1 taps (the old per-pixel loop indexed
+        # out of bounds for kernel size 1).
+        pad = max(self.edge_kernel_size // 2, 1)
 
         # Pad image
         padded = np.pad(gray, pad, mode="reflect")
 
-        # Simple gradient computation
-        grad_x = np.zeros_like(gray)
-        grad_y = np.zeros_like(gray)
-
-        for i in range(gray.shape[0]):
-            for j in range(gray.shape[1]):
-                # Central difference
-                grad_x[i, j] = (padded[i + pad, j + pad + 1] - padded[i + pad, j + pad - 1]) / 2
-                grad_y[i, j] = (padded[i + pad + 1, j + pad] - padded[i + pad - 1, j + pad]) / 2
+        # Vectorized central differences, identical to the former per-pixel
+        # loop: grad_x[i, j] = (padded[i+pad, j+pad+1] - padded[i+pad, j+pad-1]) / 2.
+        h, w = gray.shape
+        rows = slice(pad, pad + h)
+        cols = slice(pad, pad + w)
+        grad_x = (padded[rows, pad + 1 : pad + 1 + w] - padded[rows, pad - 1 : pad - 1 + w]) / 2
+        grad_y = (padded[pad + 1 : pad + 1 + h, cols] - padded[pad - 1 : pad - 1 + h, cols]) / 2
 
         # Gradient magnitude
         mag = np.sqrt(grad_x**2 + grad_y**2)
@@ -270,44 +269,22 @@ class SemanticContextProvider(BaseContextProvider):
         # Threshold to binary
         binary = (mag > threshold).astype(np.uint8)
 
-        # Simple connected components (4-connectivity)
-        labels = np.zeros_like(binary, dtype=np.int32)
-        current_label = 0
+        # Connected components (4-connectivity), vectorized: scipy's
+        # labelling is equivalent to the former per-pixel flood fill.
+        from scipy import ndimage
 
-        for i in range(binary.shape[0]):
-            for j in range(binary.shape[1]):
-                if binary[i, j] == 1 and labels[i, j] == 0:
-                    current_label += 1
-                    self._flood_fill(binary, labels, i, j, current_label)
+        structure = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], dtype=np.int32)
+        labels, num_components = ndimage.label(binary, structure=structure)
 
         # Filter small components (noise)
-        unique, counts = np.unique(labels, return_counts=True)
         min_size = binary.size * 0.001  # At least 0.1% of image
-        significant_objects = sum(1 for c in counts[1:] if c > min_size)
+        if num_components:
+            component_sizes = np.bincount(labels.ravel())[1:]
+            significant_objects = int((component_sizes > min_size).sum())
+        else:
+            significant_objects = 0
 
         return min(significant_objects, 50)  # Cap at 50
-
-    def _flood_fill(
-        self,
-        binary: np.ndarray[Any, Any],
-        labels: np.ndarray[Any, Any],
-        start_i: int,
-        start_j: int,
-        label: int,
-    ) -> None:
-        """Simple flood fill for connected components."""
-        stack = [(start_i, start_j)]
-        h, w = binary.shape
-
-        while stack:
-            i, j = stack.pop()
-            if i < 0 or i >= h or j < 0 or j >= w:
-                continue
-            if binary[i, j] == 0 or labels[i, j] != 0:
-                continue
-
-            labels[i, j] = label
-            stack.extend([(i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)])
 
     def _compute_dominant_orientations(
         self, grad_x: np.ndarray[Any, Any], grad_y: np.ndarray[Any, Any], num_bins: int = 8
@@ -825,22 +802,17 @@ class AppearanceContextProvider(BaseContextProvider):
         c, h, w = frame.shape
 
         if c == 3:
-            # Quantize colors
-            quantized = (frame // (256 // self.color_bins)).astype(np.int32)
+            # Quantize colors, clamp to the last bin, and count all pixels
+            # at once (vectorized form of the former per-pixel loop).
+            quantized = (frame // (256 // self.color_bins)).astype(np.int64)
+            quantized = np.minimum(quantized, self.color_bins - 1)
 
-            # Build histogram
-            hist = np.zeros((self.color_bins, self.color_bins, self.color_bins))
-            for i in range(h):
-                for j in range(w):
-                    r, g, b = quantized[:, i, j]
-                    r = min(r, self.color_bins - 1)
-                    g = min(g, self.color_bins - 1)
-                    b = min(b, self.color_bins - 1)
-                    hist[r, g, b] += 1
+            r, g, b = quantized.reshape(3, -1)
+            flat_idx = (r * self.color_bins + g) * self.color_bins + b
+            hist = np.bincount(flat_idx, minlength=self.color_bins**3).astype(np.float64)
 
-            # Normalize
-            hist = hist / (h * w)
-            return hist.flatten()
+            # Normalize (the flattened C-order layout matches hist[r, g, b])
+            return hist / (h * w)
         else:
             # Grayscale histogram
             gray_hist: np.ndarray[Any, Any] = np.empty(self.color_bins, dtype=np.float64)
@@ -863,20 +835,21 @@ class AppearanceContextProvider(BaseContextProvider):
         bin_size = 32
         quantized = (frame // bin_size) * bin_size + bin_size // 2
 
-        # Count color occurrences
-        color_counts: dict[tuple[int, int, int], int] = {}
-        for i in range(h):
-            for j in range(w):
-                color = tuple(quantized[:, i, j].tolist())
-                color_counts[color] = color_counts.get(color, 0) + 1
+        # Count color occurrences at once (vectorized form of the former
+        # per-pixel dict loop; equally-frequent colors tie-break in packed
+        # RGB rather than scan order).  Each quantized channel fits 8 bits,
+        # so one packed integer per pixel feeds a single 1-D unique.
+        pixels = quantized.reshape(3, -1).astype(np.int64)
+        codes = (pixels[0] << 16) | (pixels[1] << 8) | pixels[2]
+        values, counts = np.unique(codes, return_counts=True)
+        order = np.argsort(counts, kind="stable")[::-1]
 
-        # Sort by count
         total = h * w
-        sorted_colors = sorted(color_counts.items(), key=lambda x: x[1], reverse=True)
-
         dominant = []
-        for color, count in sorted_colors[: self.num_dominant_colors]:
-            dominant.append((color, count / total))
+        for idx in order[: self.num_dominant_colors]:
+            code = int(values[idx])
+            color = ((code >> 16) & 0xFF, (code >> 8) & 0xFF, code & 0xFF)
+            dominant.append((color, int(counts[idx]) / total))
 
         return dominant
 
@@ -911,13 +884,17 @@ class AppearanceContextProvider(BaseContextProvider):
         quantized = (gray * (levels - 1)).astype(np.int32)
         quantized = np.clip(quantized, 0, levels - 1)
 
-        # Simple co-occurrence (horizontal pairs)
-        h, w = quantized.shape
-        glcm = np.zeros((levels, levels))
-
-        for i in range(h):
-            for j in range(w - 1):
-                glcm[quantized[i, j], quantized[i, j + 1]] += 1
+        # Simple co-occurrence (horizontal pairs), vectorized: bincount over
+        # the flattened (left, right) pair indices replaces the former
+        # per-pixel loop.
+        levels_sq = levels * levels
+        left = quantized[:, :-1].ravel().astype(np.int64)
+        right = quantized[:, 1:].ravel().astype(np.int64)
+        glcm = (
+            np.bincount(left * levels + right, minlength=levels_sq)
+            .reshape(levels, levels)
+            .astype(np.float64)
+        )
 
         # Normalize
         glcm = glcm / (glcm.sum() + 1e-8)

@@ -442,9 +442,11 @@ class BLIPVQABackend(LVLMBackend):
         frame while generation answers "no" on both).  The probability is
         the model's own — nothing is fabricated.
         """
+        # Encode the image+question pair once; only the candidate-answer
+        # labels differ between the two scored forwards.
+        encoding = self.processor(pil, question, return_tensors="pt").to(self.device)
         log_liks = []
         for answer in ("yes", "no"):
-            encoding = self.processor(pil, question, return_tensors="pt").to(self.device)
             labels = self.processor.tokenizer(answer, return_tensors="pt").input_ids.to(self.device)
             with torch.no_grad():
                 out = self.model(
@@ -465,19 +467,20 @@ class BLIPVQABackend(LVLMBackend):
 
         The segment's anomaly probability is the maximum per-frame "yes"
         probability (an anomaly visible in any key frame marks the
-        segment).  ``CONFIDENCE`` is the model's probability of the emitted
-        verdict, so the detectors' ``confidence if anomaly else
-        1 - confidence`` frame scoring resolves to the model's own
-        anomaly probability either way.
+        segment).  ``CONFIDENCE`` is that probability itself — the
+        probability THAT THE SCENE IS ANOMALOUS, for either verdict —
+        matching the detectors' parse contract where the stated number is
+        the anomaly score directly (the old "probability of the emitted
+        verdict" reading required the parser to invert NO answers, the
+        exact inversion class the B3 audit cured).
         """
         self._ensure_initialized()
         question = self._question_from_prompt(prompt)
         p_yes = max(self._yes_probability(self._to_pil(image), question) for image in images)
         verdict = "yes" if p_yes > 0.5 else "no"
-        confidence = p_yes if p_yes > 0.5 else 1.0 - p_yes
         return (
             f"ANOMALY: {verdict}\n"
-            f"CONFIDENCE: {confidence:.4f}\n"
+            f"CONFIDENCE: {p_yes:.4f}\n"
             f"EXPLANATION: BLIP VQA p(yes)={p_yes:.4f} for {question!r}"
         )
 

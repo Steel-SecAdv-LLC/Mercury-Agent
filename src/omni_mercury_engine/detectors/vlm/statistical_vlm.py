@@ -57,28 +57,47 @@ _SCORE_SLOPE = 8.0
 _FEATURE_DIM = 8
 
 # Parse patterns for ``_parse_response`` — deterministic, no model required.
-_YES_RE = re.compile(r"\b(yes|anomal|abnormal|detected|present)\b", re.IGNORECASE)
+# The leading-answer pattern is checked first, and the negative token set
+# before the affirmative one: a response that *begins* with a negation
+# ("No anomaly detected") embeds affirmative words ("detected") and must not
+# parse as an anomaly (B6 audit cure).
+_ANSWER_RE = re.compile(r"^\s*(?:answer\s*[:=]?\s*)?(yes|no)\b", re.IGNORECASE)
+_YES_RE = re.compile(r"\b(yes|anomaly|anomalous|abnormal|detected|present)\b", re.IGNORECASE)
 _NO_RE = re.compile(r"\b(no|normal|nominal|absent|none)\b", re.IGNORECASE)
 _CONF_RE = re.compile(r"confidence[:=\s]+([0-9]*\.?[0-9]+)", re.IGNORECASE)
 
 
 class StatisticalVLMDetector(BaseVLMDetector):
-    """Offline, deterministic concrete VLM detector (no network, no weights).
+    """Offline, deterministic statistical texture heuristic (not a language model).
 
     Implements all five :class:`BaseVLMDetector` contract methods using
-    reproducible image statistics instead of a Large Vision-Language Model.
-    Intended as the offline default / CI fallback for the ``detectors.vlm``
-    surface; production deployments should use a ``transformers``-backed
-    backend (see module docstring).
+    reproducible image statistics instead of a Large Vision-Language Model:
+    the anomaly score is a fixed logistic map of per-frame texture/intensity
+    salience, and ``anomaly_description`` does **not** influence the score —
+    there is no semantic understanding here.  Intended as the offline
+    default / CI fallback for the ``detectors.vlm`` surface; production
+    deployments should use a ``transformers``-backed backend (see module
+    docstring).
+
+    Decision calibration: unfitted, frames are flagged by the hand-set
+    ``confidence_threshold`` cut on the salience score (texture-rich but
+    perfectly normal imagery then flags — the score constants are unit
+    pins, not a calibration).  Calling :meth:`fit` with reference frames
+    calibrates the decision: the fitted interval holds the central
+    ``1 - contamination`` mass of the reference salience scores and frames
+    scoring outside it (in either direction) are flagged.
     """
 
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Frame salience, not a vision-language model: score = sigmoid(8 x (raw - 0.15)) with "
-            "raw = pixel std + 0.5 x (x-gradient + y-gradient) + 0.3 x brightness; is_anomaly at "
-            "confidence_threshold (default 0.5). It measures image texture, not semantic "
-            "anomalies. The constants are unit-pinned, not fitted or calibrated."
+            "Statistical texture heuristic, not a vision-language model: score = "
+            "sigmoid(8 x (raw - 0.15)) with raw = pixel std + 0.5 x (x-gradient + y-gradient) "
+            "+ 0.3 x brightness; anomaly_description does not influence the score. Unfitted, "
+            "is_anomaly cuts at confidence_threshold (default 0.5) — a hand-set cut under "
+            "which textured normal imagery flags. fit() calibrates the decision to a central "
+            "1 - contamination quantile interval of the reference scores; frames outside it "
+            "flag. The score constants themselves remain unit-pinned, not fitted."
         ),
     )
 
@@ -90,9 +109,37 @@ class StatisticalVLMDetector(BaseVLMDetector):
                 detector never loads an LVLM.
         """
         super().__init__(config)
+        # Decision interval calibrated by ``fit`` (None = unfitted: the
+        # hand-set confidence_threshold cut applies).
+        self._fitted_score_interval: tuple[float, float] | None = None
         # Eagerly build the (trivial) statistical "model" so ``.model`` /
         # ``.processor`` are non-None and never trigger a network load.
         self._initialize_model()
+
+    def fit(self, data: NDArray[Any] | torch.Tensor) -> StatisticalVLMDetector:
+        """Calibrate the salience decision interval from reference frames.
+
+        The score formula's constants stay fixed, but the *decision* becomes
+        calibrated: the fitted interval holds the central
+        ``1 - contamination`` mass (default 0.95) of the reference frames'
+        salience scores, and :meth:`detect` flags frames scoring outside it
+        in either direction — so texture-rich normal scenes stop flagging,
+        and frames meaningfully smoother *or* busier than the reference do.
+
+        Args:
+            data: Reference (normal) images/video, any supported layout.
+
+        Returns:
+            Self for method chaining.
+        """
+        scores = self._salience_scores(self.extract_features(data)).detach().cpu().numpy()
+        alpha = float(self._contamination)
+        self._fitted_score_interval = (
+            float(np.quantile(scores, alpha / 2)),
+            float(np.quantile(scores, 1 - alpha / 2)),
+        )
+        self._is_fitted = True
+        return self
 
     # ------------------------------------------------------------------ #
     # Contract method 1/5
@@ -148,12 +195,18 @@ class StatisticalVLMDetector(BaseVLMDetector):
         confidence = float(conf_match.group(1)) if conf_match else 0.0
         confidence = max(0.0, min(1.0, confidence))
 
-        # Decide anomaly from explicit yes/no first, then fall back to the
-        # parsed confidence vs the configured threshold.
-        if _YES_RE.search(response):
-            is_anomaly = True
+        # Decide anomaly from an anchored leading yes/no first; then from
+        # negative before affirmative tokens (a leading negation such as
+        # "No anomaly detected" embeds affirmative words and used to parse
+        # as an anomaly); last, fall back to the parsed confidence vs the
+        # configured threshold.
+        answer_match = _ANSWER_RE.match(response)
+        if answer_match:
+            is_anomaly = answer_match.group(1).lower() == "yes"
         elif _NO_RE.search(response):
             is_anomaly = False
+        elif _YES_RE.search(response):
+            is_anomaly = True
         else:
             is_anomaly = confidence >= self.vlm_config.confidence_threshold
 
@@ -258,6 +311,7 @@ class StatisticalVLMDetector(BaseVLMDetector):
         features = self.extract_features(data)
         scores = self._salience_scores(features)
         threshold = self.vlm_config.confidence_threshold
+        interval = self._fitted_score_interval
 
         # The prompt is created (and surfaced in the explanation) so the VQA
         # control flow is real, but it is NOT fed to ``_parse_response`` — the
@@ -266,13 +320,21 @@ class StatisticalVLMDetector(BaseVLMDetector):
         explanations: list[str] = []
         flags: list[bool] = []
         for score in scores.tolist():
-            verdict = "yes" if score >= threshold else "no"
+            if interval is not None:
+                # Calibrated decision (see ``fit``): outside the fitted
+                # central-quantile interval of the reference scores.
+                anomalous = score < interval[0] or score > interval[1]
+                range_text = "calibrated"
+            else:
+                anomalous = score >= threshold
+                range_text = "nominal"
+            verdict = "yes" if anomalous else "no"
             # Synthesise *only the answer* the VQA stage would have produced,
             # then parse it for real so ``_parse_response`` is on the live path.
             answer = (
                 f"Answer: {verdict}. Confidence: {score:.4f}. "
-                f"Frame salience {'exceeds' if score >= threshold else 'is within'} "
-                "the nominal range."
+                f"Frame salience {'is outside' if anomalous else 'is within'} "
+                f"the {range_text} range."
             )
             is_anomaly, _, parsed = self._parse_response(answer)
             flags.append(is_anomaly)

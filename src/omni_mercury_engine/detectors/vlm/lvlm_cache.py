@@ -346,6 +346,11 @@ class LVLMBackendCache:
                         logger.warning(f"Error callback error: {cb_e}")
 
                 logger.error(f"Failed to load model {key}: {e}")
+                if isinstance(e, NotImplementedError):
+                    # The anti-mock contract (Phase 2 audit cure): a mock
+                    # backend's hard-fail must keep its type through the
+                    # cache so callers pinned on NotImplementedError see it.
+                    raise
                 raise RuntimeError(f"Failed to load model {key}: {e}") from e
 
     def _estimate_memory(self, backend: LVLMBackend) -> int:
@@ -776,6 +781,66 @@ def get_cached_backend(
     """
     cache = LVLMBackendCache.get_instance()
     return cache.get(model_type, model_name, device, **kwargs)
+
+
+def get_frozen_cached_backend(
+    model_type: str,
+    model_name: str | None = None,
+    device: str = "cuda",
+    max_new_tokens: int = 256,
+    temperature: float = 0.1,
+    revision: str | None = None,
+) -> LVLMBackend:
+    """Reuse a cached backend only when its frozen configuration matches.
+
+    The cache key covers ``model_type:model_name@revision`` but not the
+    device or the generation settings, so a plain cache hit could hand a
+    detector a backend built with another instance's ``max_new_tokens`` /
+    ``temperature`` / device — leaking configuration across instances.
+    This wrapper reuses the cached backend only when every one of those
+    frozen attributes matches the request exactly; otherwise it builds and
+    initializes a dedicated, uncached backend with the requested settings.
+
+    Args:
+        model_type: Type of LVLM backend.
+        model_name: HuggingFace model identifier (``None`` for the
+            backend's shipped default).
+        device: Computation device.
+        max_new_tokens: Maximum generation tokens the caller requires.
+        temperature: Sampling temperature the caller requires.
+        revision: Pinned revision, part of the cache identity.
+
+    Returns:
+        An initialized LVLM backend honoring the requested configuration.
+    """
+    backend = get_cached_backend(
+        model_type,
+        model_name,
+        device,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        revision=revision,
+    )
+    matches = (
+        (model_name is None or backend.model_name == model_name)
+        and backend.device == torch.device(device)
+        and backend.max_new_tokens == max_new_tokens
+        and backend.temperature == temperature
+        and backend.revision == revision
+    )
+    if matches:
+        return backend
+
+    dedicated = get_lvlm_backend(
+        model_type=model_type,
+        model_name=model_name,
+        device=device,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        revision=revision,
+    )
+    dedicated.initialize()
+    return dedicated
 
 
 def prewarm_backend(

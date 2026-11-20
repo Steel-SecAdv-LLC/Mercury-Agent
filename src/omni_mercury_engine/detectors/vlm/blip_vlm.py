@@ -36,6 +36,7 @@ from omni_mercury_engine.detectors.vlm.base_vlm import (
     LVLMType,
     VLMConfig,
 )
+from omni_mercury_engine.detectors.vlm.text_match import content_words, count_word_matches
 from omni_mercury_engine.security.model_policy import SafeHFLoader, UnsafeModelError
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,74 @@ except ImportError:
 # Feature dimension for fusion pipeline normalization
 FEATURE_DIM = 128
 
+#: Documented neutral confidence for a caption carrying no keyword evidence
+#: (and for a failed caption).  A caption with evidence never receives this
+#: value silently: its confidence is the evidence ratio, and the evidence
+#: counts travel in ``detect``'s ``details`` so a genuine 1-vs-1 tie (also
+#: confidence 0.5) is distinguishable from no evidence at all.
+NO_EVIDENCE_CONFIDENCE = 0.5
+
+
+def caption_keyword_vote(
+    caption: str,
+    anomaly_keywords: list[str],
+    normal_keywords: list[str],
+    anomaly_description: str = "",
+) -> tuple[bool, float, str, dict[str, int]]:
+    """Vote on a caption with word-boundary keyword evidence.
+
+    Audit cure (B1).  Matching is case-insensitive and whole-word, so
+    ``"usual"`` no longer matches inside ``"unusual"`` nor ``"normal"``
+    inside ``"abnormal"``; the description contributes only stop-word-free
+    content words (``"or"`` never matches ``"floor"``), deduplicated against
+    the anomaly keywords.  The vote itself:
+
+    * ``confidence = anomaly_evidence / (anomaly_evidence + normal_evidence)``
+      when any evidence exists;
+    * with no evidence at all, the documented neutral
+      :data:`NO_EVIDENCE_CONFIDENCE` (0.5) and no alarm;
+    * ``is_anomaly`` iff there is strictly more anomaly than normal evidence,
+      so one genuine anomaly keyword with no normal keyword alarms (the old
+      ``total / (total + 1)`` formula pinned that case to exactly 0.5 and it
+      never alarmed).
+
+    Args:
+        caption: Generated caption text.
+        anomaly_keywords: Keywords counting as anomaly evidence.
+        normal_keywords: Keywords counting as normal evidence.
+        anomaly_description: Free-text anomaly description whose content
+            words also count as anomaly evidence.
+
+    Returns:
+        Tuple of ``(is_anomaly, confidence, explanation, evidence)`` where
+        ``evidence`` carries the raw ``anomaly_evidence`` / ``normal_evidence``
+        counts.
+    """
+    anomaly_terms = [kw.lower() for kw in anomaly_keywords]
+    description_terms = content_words(anomaly_description, exclude=anomaly_terms)
+
+    anomaly_matches = count_word_matches(caption, anomaly_terms)
+    description_matches = count_word_matches(caption, description_terms)
+    normal_matches = count_word_matches(caption, normal_keywords)
+
+    total_anomaly = anomaly_matches + description_matches
+    evidence = {"anomaly_evidence": total_anomaly, "normal_evidence": normal_matches}
+
+    if total_anomaly + normal_matches == 0:
+        confidence = NO_EVIDENCE_CONFIDENCE
+        is_anomaly = False
+    else:
+        confidence = total_anomaly / (total_anomaly + normal_matches)
+        is_anomaly = total_anomaly > normal_matches
+
+    explanation = (
+        f"Caption: {caption}. Anomaly evidence: {total_anomaly} "
+        f"(keywords: {anomaly_matches}, description terms: {description_matches}), "
+        f"Normal evidence: {normal_matches}"
+    )
+    return is_anomaly, confidence, explanation, evidence
+
+
 #: Seed of the fixed feature projection.  No trained weights exist for it, so it
 #: is a fixed random map of BLIP's pooled embedding; unseeded, every detector
 #: instance drew a different map (the same image gave unit vectors up to 0.39
@@ -103,7 +172,12 @@ class BLIPConfig(VLMConfig):
         anomaly_keywords: Keywords indicating anomaly in captions
         normal_keywords: Keywords indicating normal behavior
         feature_dim: Output feature dimension for fusion (default 128)
-        use_vqa: Use Visual Question Answering mode
+        use_vqa: When True, the prompt built by ``_create_prompt`` (the
+            anomaly description plus any context) is passed to the BLIP
+            processor as conditional text, steering caption generation
+            toward the anomaly question; the echoed prompt prefix is
+            stripped from the decoded caption before the keyword vote.
+            When False (default), captions are unconditional.
         caption_max_length: Maximum caption length
         revision: HuggingFace revision (commit SHA preferred) for the
             built-in ``Salesforce/blip-*`` Hub IDs. ``SafeHFLoader``
@@ -226,11 +300,12 @@ class BLIPVLMDetector(BaseVLMDetector):
     decision_source = DecisionSource(
         kind="experimental",
         description=(
-            "Caption keyword vote: confidence = anomaly-keyword and description-word matches / "
-            "(matches + normal-keyword matches + 1), alarming above confidence_threshold; a "
-            "caption with no keyword scores 0.5 and does not alarm. The caption comes from the "
-            "pinned BLIP captioner; the keyword lists and the cut are hand-set, with no published "
-            "threshold and no recorded calibration."
+            "Caption keyword vote with whole-word matching: confidence = anomaly evidence / "
+            "(anomaly + normal evidence), alarming on strictly more anomaly than normal "
+            "evidence; a caption with no evidence scores the documented neutral 0.5 and does "
+            "not alarm (evidence counts are reported in details, so a tie is distinguishable "
+            "from no evidence). The caption comes from the pinned BLIP captioner; the keyword "
+            "lists are hand-set, with no recorded calibration."
         ),
     )
 
@@ -358,40 +433,21 @@ class BLIPVLMDetector(BaseVLMDetector):
     def _parse_response(self, response: str) -> tuple[bool, float, str]:
         """Parse BLIP caption response to extract anomaly decision.
 
+        Delegates to :func:`caption_keyword_vote` (whole-word matching,
+        majority-evidence vote; see its docstring for the full rules).
+
         Args:
             response: Generated caption from BLIP
 
         Returns:
             Tuple of (is_anomaly, confidence, explanation)
         """
-        response_lower = response.lower()
-
-        # Count anomaly and normal keyword matches
-        anomaly_keywords = self.blip_config.anomaly_keywords or []
-        normal_keywords = self.blip_config.normal_keywords or []
-        anomaly_matches = sum(1 for kw in anomaly_keywords if kw.lower() in response_lower)
-        normal_matches = sum(1 for kw in normal_keywords if kw.lower() in response_lower)
-
-        # Also check for user-specified anomaly description
-        anomaly_desc_lower = self.blip_config.anomaly_description.lower()
-        desc_words = anomaly_desc_lower.split()
-        desc_matches = sum(1 for word in desc_words if word in response_lower)
-
-        # Compute confidence based on keyword matches
-        total_anomaly = anomaly_matches + desc_matches
-        total_normal = normal_matches
-
-        if total_anomaly + total_normal == 0:
-            # No keywords found - use neutral score
-            confidence = 0.5
-            is_anomaly = False
-        else:
-            # Compute anomaly probability
-            confidence = total_anomaly / (total_anomaly + total_normal + 1)
-            is_anomaly = confidence > self.blip_config.confidence_threshold
-
-        explanation = f"Caption: {response}. Anomaly keywords: {anomaly_matches}, Normal keywords: {normal_matches}"
-
+        is_anomaly, confidence, explanation, _ = caption_keyword_vote(
+            response,
+            self.blip_config.anomaly_keywords or [],
+            self.blip_config.normal_keywords or [],
+            self.blip_config.anomaly_description,
+        )
         return is_anomaly, confidence, explanation
 
     def _preprocess_image(self, data: np.ndarray[Any, Any] | torch.Tensor) -> list[Any]:
@@ -436,8 +492,77 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         return images
 
+    @staticmethod
+    def _strip_prompt_echo(caption: str, prompt: str) -> str:
+        """Remove the conditional-text prefix BLIP echoes into its output.
+
+        BLIP conditional generation completes the given text, so the decoded
+        string starts with the prompt itself.  The prompt names the anomaly
+        description, so leaving it in the caption would make the keyword
+        vote match the detector's own question.
+
+        Args:
+            caption: Decoded BLIP output.
+            prompt: The conditional text that was passed to the processor.
+
+        Returns:
+            The caption with a leading (case-insensitive) prompt echo removed.
+        """
+        stripped = caption.strip()
+        prompt_clean = prompt.strip()
+        if prompt_clean and stripped.lower().startswith(prompt_clean.lower()):
+            return stripped[len(prompt_clean) :].strip()
+        return stripped
+
+    def _encode_features(self, inputs: Any) -> torch.Tensor:
+        """Project one processed image's BLIP vision features to ``feature_dim``.
+
+        Args:
+            inputs: Processor output holding ``pixel_values`` for one image.
+
+        Returns:
+            Projected (un-normalized) feature tensor ``[1, feature_dim]``.
+
+        Raises:
+            RuntimeError: If the vision forward fails — a zero vector is
+                indistinguishable from a real feature downstream, so the
+                failure surfaces instead of fabricating one.
+        """
+        if self._model is None or self._feature_projection is None:
+            raise RuntimeError(
+                "BLIP model not loaded — cannot extract features. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
+        try:
+            with torch.no_grad():
+                outputs = self._model.vision_model(pixel_values=inputs["pixel_values"])
+                if hasattr(outputs, "pooler_output") and outputs.pooler_output is not None:
+                    feat = outputs.pooler_output
+                else:
+                    feat = outputs.last_hidden_state.mean(dim=1)
+                projected: torch.Tensor = self._feature_projection(feat)
+                return projected
+        except Exception as e:
+            raise RuntimeError(f"BLIP feature extraction failed: {e}") from e
+
     def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
         """Detect anomalies using BLIP image captioning.
+
+        Each image is preprocessed and encoded exactly once: the same
+        processor inputs drive caption generation and feature extraction
+        (previously ``detect`` called ``extract_features(data)``, re-encoding
+        every image a second time).
+
+        With ``use_vqa=True`` the prompt from :meth:`_create_prompt` is
+        passed as BLIP's conditional text, steering generation toward the
+        anomaly description; the echoed prompt prefix is stripped from the
+        decoded caption so the keyword vote never matches the question
+        itself.
+
+        A caption-generation failure is explicit, never a silent neutral:
+        the frame scores the documented neutral 0.5 and does not alarm (the
+        base contract's ``is_anomaly`` is a binary flag array with no
+        abstain value), and ``details[i]["caption_failed"]`` marks it.
 
         Args:
             data: Images [N, C, H, W] or single image [C, H, W]
@@ -447,59 +572,92 @@ class BLIPVLMDetector(BaseVLMDetector):
                 - scores: Anomaly confidence scores [N]
                 - is_anomaly: Binary anomaly flags [N]
                 - explanations: Natural language explanations
-                - captions: Raw BLIP captions
+                - captions: Raw BLIP captions ("" where generation failed)
+                - details: Per-image evidence counts and ``caption_failed``
                 - features: 128D features for fusion
         """
         # Ensure model is initialized
         if self._model is None and self._has_transformers:
             self._initialize_model()
+        if self._model is None or self._processor is None or self._feature_projection is None:
+            raise RuntimeError(
+                "BLIP model not loaded — cannot generate captions. "
+                "Silent mock degradation is not permitted (Phase 2 audit cure)."
+            )
 
         images = self._preprocess_image(data)
 
-        scores = []
-        is_anomaly_list = []
-        explanations = []
-        captions = []
+        vqa_prompt: str | None = None
+        if self.blip_config.use_vqa:
+            vqa_prompt = self._create_prompt(self.blip_config.anomaly_description)
+
+        scores: list[float] = []
+        is_anomaly_list: list[bool] = []
+        explanations: list[str] = []
+        captions: list[str] = []
+        details: list[dict[str, Any]] = []
+        feature_list: list[torch.Tensor] = []
 
         for img in images:
-            if self._model is not None and self._processor is not None:
-                # Use actual BLIP model
-                try:
+            # Encode once per image; the encoding feeds both the caption
+            # generation below and the feature extraction.
+            try:
+                if vqa_prompt is not None:
+                    inputs = self._processor(img, text=vqa_prompt, return_tensors="pt").to(
+                        self.device
+                    )
+                else:
                     inputs = self._processor(img, return_tensors="pt").to(self.device)
+            except Exception as e:
+                raise RuntimeError(f"BLIP preprocessing failed: {e}") from e
 
-                    with torch.no_grad():
-                        output_ids = self._model.generate(
-                            **inputs,
-                            max_length=self.blip_config.caption_max_length,
-                        )
-
-                    caption = self._processor.decode(output_ids[0], skip_special_tokens=True)
-
-                except Exception as e:
-                    logger.warning(f"BLIP inference failed: {e}")
-                    caption = "Unable to generate caption"
-            else:
-                raise RuntimeError(
-                    "BLIP model not loaded — cannot generate captions. "
-                    "Silent mock degradation is not permitted (Phase 2 audit cure)."
-                )
+            caption = ""
+            failure_reason: str | None = None
+            try:
+                with torch.no_grad():
+                    output_ids = self._model.generate(
+                        **inputs,
+                        max_length=self.blip_config.caption_max_length,
+                    )
+                caption = self._processor.decode(output_ids[0], skip_special_tokens=True)
+                if vqa_prompt is not None:
+                    caption = self._strip_prompt_echo(caption, vqa_prompt)
+            except Exception as e:
+                logger.warning(f"BLIP inference failed: {e}")
+                failure_reason = str(e)
 
             captions.append(caption)
+            feature_list.append(self._encode_features(inputs))
+
+            if failure_reason is not None:
+                scores.append(NO_EVIDENCE_CONFIDENCE)
+                is_anomaly_list.append(False)
+                explanations.append(f"BLIP caption generation failed: {failure_reason}")
+                details.append(
+                    {"caption_failed": True, "anomaly_evidence": 0, "normal_evidence": 0}
+                )
+                continue
 
             # Parse caption for anomaly detection
-            is_anom, conf, expl = self._parse_response(caption)
+            is_anom, conf, expl, evidence = caption_keyword_vote(
+                caption,
+                self.blip_config.anomaly_keywords or [],
+                self.blip_config.normal_keywords or [],
+                self.blip_config.anomaly_description,
+            )
             scores.append(conf)
             is_anomaly_list.append(is_anom)
             explanations.append(expl)
+            details.append({"caption_failed": False, **evidence})
 
-        # Extract features
-        features = self.extract_features(data)
+        features = torch.nn.functional.normalize(torch.cat(feature_list, dim=0), p=2, dim=-1)
 
         return {
             "scores": np.array(scores),
             "is_anomaly": np.array(is_anomaly_list),
             "explanations": explanations,
             "captions": captions,
+            "details": details,
             "features": features,
         }
 
@@ -529,24 +687,11 @@ class BLIPVLMDetector(BaseVLMDetector):
             for img in images:
                 try:
                     inputs = self._processor(img, return_tensors="pt").to(self.device)
-
-                    with torch.no_grad():
-                        # Get encoder outputs
-                        outputs = self._model.vision_model(**inputs)
-                        # Use pooled output or mean of last hidden state
-                        if hasattr(outputs, "pooler_output") and outputs.pooler_output is not None:
-                            feat = outputs.pooler_output
-                        else:
-                            feat = outputs.last_hidden_state.mean(dim=1)
-
-                        # Project to 128D
-                        feat = self._feature_projection(feat)
-                        features_list.append(feat)
-
                 except Exception as e:
                     # A zero vector is indistinguishable from a real feature
                     # downstream; surface the failure instead of fabricating one.
                     raise RuntimeError(f"BLIP feature extraction failed: {e}") from e
+                features_list.append(self._encode_features(inputs))
 
             features = torch.cat(features_list, dim=0)
 
