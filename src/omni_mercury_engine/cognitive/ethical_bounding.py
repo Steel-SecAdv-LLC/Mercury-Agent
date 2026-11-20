@@ -30,6 +30,7 @@ import functools
 import itertools
 import logging
 import re
+import threading
 import time
 from dataclasses import (
     dataclass,
@@ -1741,7 +1742,30 @@ class _UseShippedClassifier:
 #: Default for every ``harm_classifier`` parameter in this module.
 USE_SHIPPED_CLASSIFIER = _UseShippedClassifier()
 
-_SHIPPED_CLASSIFIER_CACHE: list[Any] = []
+
+class _ShippedClassifierNotTried:
+    """Sentinel: the shipped classifier's import has not been attempted yet."""
+
+    def __repr__(self) -> str:
+        return "<shipped classifier: not tried>"
+
+
+_SHIPPED_CLASSIFIER_NOT_TRIED = _ShippedClassifierNotTried()
+
+#: The one slot holding the shipped classifier's state: the "not tried"
+#: sentinel, ``None`` (the last import attempt failed) or the classifier
+#: itself.  It is only ever REBOUND, under :data:`_SHIPPED_CLASSIFIER_LOCK`,
+#: so a reader sees one of those three and never a half-updated container.
+#: The slot used to be a list that a retry ``clear()``-ed while other threads
+#: indexed ``[0]``: an ``IndexError`` out of the harm gate.
+_shipped_classifier: Any = _SHIPPED_CLASSIFIER_NOT_TRIED
+
+#: Serialises every transition of the slot and of the backoff counter, and
+#: the import attempt itself: one attempt at a time, counted exactly.
+#: Re-entrant, because the attempt runs foreign code while holding it (the
+#: import, and the logging handlers on failure): anything there that comes
+#: back through the harm gate on the same thread must not deadlock the gate.
+_SHIPPED_CLASSIFIER_LOCK = threading.RLock()
 
 #: Bounded backoff for a FAILED shipped-classifier import: after a failure the
 #: gate runs lexical-only, and every this-many calls the import is retried, so
@@ -1761,34 +1785,48 @@ def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
     import is NOT cached forever: it is logged at WARNING (the gate is running
     with meaning-level coverage missing) and retried on a bounded call-count
     backoff (:data:`_SHIPPED_CLASSIFIER_RETRY_EVERY`).
+
+    The backoff is only consulted when this is called with the
+    :data:`USE_SHIPPED_CLASSIFIER` sentinel, so a long-lived holder must keep
+    the *argument* it was given and resolve it here at each use.  Storing this
+    function's result stores a failed import's ``None`` for good, and passing
+    that on reads as an explicit request for the lexical-only posture.
     """
-    global _shipped_classifier_failed_calls
+    global _shipped_classifier, _shipped_classifier_failed_calls
     if harm_classifier is not USE_SHIPPED_CLASSIFIER:
         return harm_classifier
-    if _SHIPPED_CLASSIFIER_CACHE:
-        if _SHIPPED_CLASSIFIER_CACHE[0] is not None:
-            return _SHIPPED_CLASSIFIER_CACHE[0]
-        # Cached failure: stay lexical-only through the backoff window, then
-        # drop the cached ``None`` and try the import again below.
-        _shipped_classifier_failed_calls += 1
-        if _shipped_classifier_failed_calls % _SHIPPED_CLASSIFIER_RETRY_EVERY:
-            return None
-        _SHIPPED_CLASSIFIER_CACHE.clear()
-    try:
-        from omni_mercury_engine.cognitive.meaning_level import (
-            meaning_level_harm_classifier,
-        )
+    # Fast path, lock-free: one read of the slot. A resolved classifier is
+    # never replaced, so a stale read can only send the caller to the lock.
+    cached = _shipped_classifier
+    if cached is not None and cached is not _SHIPPED_CLASSIFIER_NOT_TRIED:
+        return cached
+    with _SHIPPED_CLASSIFIER_LOCK:
+        cached = _shipped_classifier
+        if cached is not None and cached is not _SHIPPED_CLASSIFIER_NOT_TRIED:
+            return cached
+        if cached is None:
+            # Cached failure: stay lexical-only through the backoff window,
+            # then try the import again below.
+            _shipped_classifier_failed_calls += 1
+            if _shipped_classifier_failed_calls % _SHIPPED_CLASSIFIER_RETRY_EVERY:
+                return None
+        try:
+            from omni_mercury_engine.cognitive.meaning_level import (
+                meaning_level_harm_classifier,
+            )
 
-        _SHIPPED_CLASSIFIER_CACHE.append(meaning_level_harm_classifier())
-    except Exception as exc:
-        logger.warning(
-            "shipped meaning-level classifier unavailable (%s: %s); the harm "
-            "gate is running lexical-only until a retried import succeeds",
-            type(exc).__name__,
-            exc,
-        )
-        _SHIPPED_CLASSIFIER_CACHE.append(None)
-    return _SHIPPED_CLASSIFIER_CACHE[0]
+            resolved = meaning_level_harm_classifier()
+        except Exception as exc:
+            logger.warning(
+                "shipped meaning-level classifier unavailable (%s: %s); the harm "
+                "gate is running lexical-only until a retried import succeeds",
+                type(exc).__name__,
+                exc,
+            )
+            _shipped_classifier = None
+            return None
+        _shipped_classifier = resolved
+        return resolved
 
 
 #: How much of a text the meaning-level classifier is asked about at once.
@@ -2474,7 +2512,8 @@ class HarmReducer:
                 scorer, or any other callable to supply your own.
         """
         self._evaluation_counter = 0
-        self._harm_classifier = _resolve_harm_classifier(harm_classifier)
+        # The ARGUMENT, not what it resolves to: see ``_harm_classifier``.
+        self._harm_classifier_argument = harm_classifier
         # Populated by evaluate_harm(); read back by BenevolenceScorer.score_action
         # so the two-axis weapons verdict rides along with the harm computation
         # instead of being assessed twice. Single-caller-per-instance-at-a-time
@@ -2486,6 +2525,22 @@ class HarmReducer:
         #: ``harm_score`` cannot carry, because averaging one floored category
         #: across eight dilutes it below any usable bar.
         self.last_grave_harm: bool = False
+
+    @property
+    def _harm_classifier(self) -> Any | None:
+        """The classifier for the evaluation being made now, or ``None``.
+
+        Resolved at each use from the constructor's argument.  This object
+        lives as long as its owner does (a ``BenevolenceScorer`` held by the
+        orchestrator lives as long as the process), and resolving once in
+        ``__init__`` froze whatever the import did at that moment: built
+        during a failed import it kept ``None`` for good and passed that
+        explicit ``None`` on, which reads as "lexical-only was asked for", so
+        the bounded retry in :func:`_resolve_harm_classifier` was never
+        consulted again.  An explicit ``None`` or callable still passes
+        through unchanged.
+        """
+        return _resolve_harm_classifier(self._harm_classifier_argument)
 
     def evaluate_harm(
         self,
@@ -2543,8 +2598,13 @@ class HarmReducer:
         # GeneralAssistant's general-capability gate -- inherits this signal
         # through the ordinary harm_score/EthicalScore path rather than a
         # second, divergent check.
+        #
+        # One resolution for the whole evaluation: both uses below see the
+        # same classifier, and a failing import is counted against its
+        # backoff once per evaluation.
+        harm_classifier = self._harm_classifier
         self.last_weapons_assessment = assess_weapons_uplift(
-            action, context, harm_classifier=self._harm_classifier
+            action, context, harm_classifier=harm_classifier
         )
         # A blocking weapons verdict floors both the relevant categories (so the
         # breakdown and the severity damping reflect it) AND the overall harm
@@ -2585,9 +2645,9 @@ class HarmReducer:
         # Optional semantic classifier: can only RAISE the overall harm. If it
         # errors we keep the deterministic lexical harm (never lower it for a
         # classifier failure), so an unavailable model is not a safety regression.
-        if self._harm_classifier is not None:
+        if harm_classifier is not None:
             try:
-                score = float(self._harm_classifier(combined))
+                score = float(harm_classifier(combined))
                 overall_harm = max(overall_harm, min(max(score, 0.0), 1.0))
             except Exception as exc:
                 logger.warning(

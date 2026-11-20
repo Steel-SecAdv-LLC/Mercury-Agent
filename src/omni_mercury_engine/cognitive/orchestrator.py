@@ -389,7 +389,6 @@ class CognitiveOrchestrator(LoggerMixin):
             Enhanced analysis result with cognitive insights
         """
         start_time = time.time()
-        self._analysis_count += 1
         context = context or {}
 
         # Extract core detection values
@@ -427,6 +426,9 @@ class CognitiveOrchestrator(LoggerMixin):
         # grew -- so a refused request still left durable traces (including
         # the refused text itself, in the graph).  They now run first: a
         # request the gate refuses leaves no trace in any persistent state.
+        # That includes ``_analysis_count``: it is advanced only once both
+        # gates have passed (below), so a refusal neither counts as an
+        # analysis nor leaves a gap in the ``obs_<n>`` ids of the ones that ran.
         #
         # Score on a controlled action description that reflects the
         # orchestrator's inherent safety posture.  ``sanitize_domain`` from
@@ -504,7 +506,9 @@ class CognitiveOrchestrator(LoggerMixin):
 
         # Both gates passed. From here the analysis may write persistent
         # state, and this record is where it notes what it wrote so that
-        # ``learn_from_feedback`` can find it again.
+        # ``learn_from_feedback`` can find it again. The counter is the first
+        # of those writes: nothing above this line touches orchestrator state.
+        self._analysis_count += 1
         result.analysis_id = self._analysis_count
         feedback_record = _FeedbackRecord()
         self._feedback_records[self._analysis_count] = feedback_record
@@ -846,11 +850,24 @@ class CognitiveOrchestrator(LoggerMixin):
 
         Feedback is credited to what that analysis created:
 
-        * the plasticity connections it adapted (``anomaly_type_<n> ->
-          domain_<x>``) receive the engine's reward signal, through
-          ``PlasticityEngine.feedback`` on the connection's source pattern;
+        * each plasticity connection it adapted (``anomaly_type_<n> ->
+          domain_<x>``) receives the engine's reward signal, addressed to
+          that connection by name through ``PlasticityEngine.reinforce``;
         * every indicator that raised a warning during it is validated as a
           true or false positive (``IndicatorDevelopmentSystem.validate_indicator``).
+
+        The reward is addressed, not trace-based, because of when feedback
+        arrives. ``PlasticityEngine.feedback`` credits a connection only
+        while its eligibility trace is above 0.1, and the trace decays in
+        wall-clock time: about four seconds after a strong detection it is
+        gone. Feedback from a person comes minutes or hours later, so through
+        the trace it moved no weight. ``analyze`` recorded which connection
+        the analysis made, so the reward goes to that connection whatever its
+        trace is by then, bounded by the engine's learning rate and weight
+        limits (one step of at most the global learning rate, weight kept in
+        ``[0, 1]``). It also goes to that connection only: a connection
+        another analysis made from the same source pattern is not judged by
+        this feedback. The trace found is still reported, as ``eligibility``.
 
         The case base is not touched: ``was_correct`` judges the detection,
         not the outcome of a reused solution. Resolved cases are added with
@@ -858,12 +875,9 @@ class CognitiveOrchestrator(LoggerMixin):
 
         Two limits are reported instead of hidden. ``analyze`` keeps the
         record feedback needs for the last ``FEEDBACK_MEMORY_LIMIT`` analyses
-        only, and each analysis takes feedback once. And the plasticity
-        engine credits a connection only while its eligibility trace is above
-        0.1, a trace that decays in wall-clock time (about four seconds from
-        a strong detection): later feedback moves no weight, and the report
-        says so in ``plasticity_weights_changed`` and shows the trace it
-        found in each connection's ``eligibility``.
+        only, and each analysis takes feedback once. A weight already at its
+        bound, or a connection the engine has since pruned, does not move,
+        and ``plasticity_weights_changed`` counts only weights that did.
 
         Args:
             analysis_id: ``CognitiveAnalysisResult.analysis_id`` of the
@@ -909,11 +923,13 @@ class CognitiveOrchestrator(LoggerMixin):
 
         if self.plasticity and record.connections:
             before = self._plasticity_state(record.connections)
-            # One reward per source pattern: the engine addresses feedback by
-            # pattern, and the source is the pattern this analysis activated.
-            for source_pattern in dict.fromkeys(source for source, _ in record.connections):
-                self.plasticity.feedback(
-                    pattern_id=source_pattern,
+            # One reward per connection this analysis adapted, addressed by
+            # name: ``reinforce`` does not consult the eligibility trace, so
+            # feedback that arrives hours after the detection still lands.
+            for source_pattern, target_pattern in dict.fromkeys(record.connections):
+                self.plasticity.reinforce(
+                    source_pattern,
+                    target_pattern,
                     success=was_correct,
                     magnitude=1.0,
                 )

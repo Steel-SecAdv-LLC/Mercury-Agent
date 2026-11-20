@@ -20,6 +20,7 @@ from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViol
 from omni_mercury_engine.cognitive.indicator_system import IndicatorType
 from omni_mercury_engine.cognitive.knowledge_graph import EdgeType
 from omni_mercury_engine.cognitive.orchestrator import CognitiveOrchestrator
+from omni_mercury_engine.cognitive.plasticity_engine import PlasticityEngine
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -96,27 +97,71 @@ class TestFeedbackReachesThePlasticityConnection:
 
         assert _weight(orchestrator, key) < before
 
-    def test_feedback_after_the_eligibility_window_is_reported_as_moving_nothing(
-        self, orchestrator: CognitiveOrchestrator
+    @pytest.mark.parametrize(
+        ("was_correct", "delay_s"),
+        [(True, 10.0), (False, 10.0), (True, 6 * 3600.0), (False, 6 * 3600.0)],
+        ids=["right-10s", "wrong-10s", "right-6h", "wrong-6h"],
+    )
+    def test_feedback_after_the_eligibility_window_still_moves_the_weight(
+        self, orchestrator: CognitiveOrchestrator, was_correct: bool, delay_s: float
     ) -> None:
-        """The engine credits a connection only while its trace is above 0.1.
+        """Human feedback arrives seconds to hours late, and it has to land.
 
-        The trace decays in wall-clock time; ten seconds on, nothing is
-        eligible. The feedback is still recorded, and the report says that no
-        weight moved instead of implying that one did.
+        The engine's eligibility trace decays in wall-clock time and is below
+        the 0.1 credit bar about four seconds after a strong detection, so
+        feedback routed through the trace moved no weight once a person had
+        read the alert. It is addressed to the connection the analysis made
+        instead, and the report says so.
         """
         result = orchestrator.analyze(_ANOMALY, context={"domain": "cyber"})
         assert orchestrator.plasticity is not None
         connection = orchestrator.plasticity._connections[_CONNECTION]
-        connection.eligibility.last_update -= 10.0
+        connection.eligibility.last_update -= delay_s
         before = _weight(orchestrator)
+
+        report = orchestrator.learn_from_feedback(_analysis_id(result), was_correct=was_correct)
+
+        assert report["applied"] is True
+        assert report["plasticity_connections"][0]["eligibility"] < 0.1
+        assert report["plasticity_weights_changed"] == 1
+        if was_correct:
+            assert _weight(orchestrator) > before
+        else:
+            assert _weight(orchestrator) < before
+        assert report["plasticity_connections"][0]["weight_after"] == pytest.approx(
+            _weight(orchestrator)
+        )
+
+    def test_late_feedback_is_still_applied_only_once(
+        self, orchestrator: CognitiveOrchestrator
+    ) -> None:
+        result = orchestrator.analyze(_ANOMALY, context={"domain": "cyber"})
+        assert orchestrator.plasticity is not None
+        orchestrator.plasticity._connections[_CONNECTION].eligibility.last_update -= 3600.0
+        orchestrator.learn_from_feedback(_analysis_id(result), was_correct=True)
+        after_first = _weight(orchestrator)
 
         report = orchestrator.learn_from_feedback(_analysis_id(result), was_correct=True)
 
-        assert report["applied"] is True
+        assert report["applied"] is False
+        assert report["reason"] == "feedback_already_applied"
         assert report["plasticity_weights_changed"] == 0
-        assert report["plasticity_connections"][0]["eligibility"] < 0.1
-        assert _weight(orchestrator) == before
+        assert _weight(orchestrator) == after_first
+
+    def test_feedback_moves_only_the_connection_the_analysis_made(
+        self, orchestrator: CognitiveOrchestrator
+    ) -> None:
+        """Same source pattern, another domain: that analysis was not judged."""
+        judged = orchestrator.analyze(_ANOMALY, context={"domain": "cyber"})
+        orchestrator.analyze(_ANOMALY, context={"domain": "medical"})
+        other = ("anomaly_type_8", "domain_medical")
+        other_before = _weight(orchestrator, other)
+        before = _weight(orchestrator)
+
+        orchestrator.learn_from_feedback(_analysis_id(judged), was_correct=False)
+
+        assert _weight(orchestrator) < before
+        assert _weight(orchestrator, other) == other_before
 
     def test_feedback_on_one_analysis_is_applied_once(
         self, orchestrator: CognitiveOrchestrator
@@ -158,6 +203,81 @@ class TestFeedbackReachesThePlasticityConnection:
         assert report["known"] is True
         assert report["plasticity_connections"] == []
         assert report["plasticity_weights_changed"] == 0
+
+
+class TestAddressedReward:
+    """``PlasticityEngine.reinforce``: a reward for one named connection."""
+
+    def _engine_with_cold_connection(self, weight: float = 0.5) -> PlasticityEngine:
+        engine = PlasticityEngine(learning_rate=0.1)
+        engine.adapt("source", "target", strength=0.9)
+        connection = engine._connections[("source", "target")]
+        connection.weight = weight
+        connection.eligibility.last_update -= 24 * 3600.0  # the trace is long gone
+        assert connection.eligibility.get_trace() < 0.1
+        return engine
+
+    def test_the_trace_based_path_ignores_a_cold_connection(self) -> None:
+        """What ``feedback`` does, and keeps doing: no trace, no credit."""
+        engine = self._engine_with_cold_connection()
+        engine.feedback("source", success=True, magnitude=1.0)
+        assert engine._connections[("source", "target")].weight == 0.5
+
+    def test_reward_moves_a_cold_connection_by_the_learning_rate(self) -> None:
+        engine = self._engine_with_cold_connection()
+        delta = engine.reinforce("source", "target", success=True)
+        assert delta == pytest.approx(0.1)
+        assert engine._connections[("source", "target")].weight == pytest.approx(0.6)
+
+    def test_penalty_is_half_the_reward_as_in_the_trace_based_path(self) -> None:
+        engine = self._engine_with_cold_connection()
+        delta = engine.reinforce("source", "target", success=False)
+        assert delta == pytest.approx(-0.05)
+
+    @pytest.mark.parametrize("magnitude", [5.0, 1e9, float("inf")])
+    def test_one_reward_never_moves_a_weight_by_more_than_the_learning_rate(
+        self, magnitude: float
+    ) -> None:
+        engine = self._engine_with_cold_connection()
+        delta = engine.reinforce("source", "target", success=True, magnitude=magnitude)
+        assert delta is not None
+        assert abs(delta) <= engine._global_learning_rate + 1e-12
+
+    @pytest.mark.parametrize("magnitude", [-1.0, float("nan"), float("-inf")])
+    def test_a_meaningless_magnitude_moves_nothing(self, magnitude: float) -> None:
+        engine = self._engine_with_cold_connection()
+        assert engine.reinforce("source", "target", success=True, magnitude=magnitude) == 0.0
+        assert engine._connections[("source", "target")].weight == 0.5
+
+    def test_the_weight_stays_inside_the_engine_bounds(self) -> None:
+        high = self._engine_with_cold_connection(weight=0.98)
+        low = self._engine_with_cold_connection(weight=0.02)
+        for _ in range(20):
+            high.reinforce("source", "target", success=True)
+            low.reinforce("source", "target", success=False)
+        assert high._connections[("source", "target")].weight == 1.0
+        assert low._connections[("source", "target")].weight == 0.0
+
+    def test_an_unknown_connection_is_reported_and_not_created(self) -> None:
+        engine = self._engine_with_cold_connection()
+        feedback_keys = set(engine._outcome_feedback)
+        assert engine.reinforce("source", "nowhere", success=True) is None
+        assert ("source", "nowhere") not in engine._connections
+        assert set(engine._outcome_feedback) == feedback_keys
+
+    def test_only_the_named_connection_moves(self) -> None:
+        engine = self._engine_with_cold_connection()
+        engine.adapt("source", "elsewhere", strength=0.9)
+        elsewhere = engine._connections[("source", "elsewhere")].weight
+        engine.reinforce("source", "target", success=True)
+        assert engine._connections[("source", "elsewhere")].weight == elsewhere
+
+    def test_the_outcome_feeds_metaplasticity_like_any_other_feedback(self) -> None:
+        engine = self._engine_with_cold_connection()
+        for _ in range(5):
+            engine.reinforce("source", "target", success=False)
+        assert engine._outcome_feedback["source"] == [(False, 1.0)] * 5
+        assert engine._recent_error_rate == 1.0
 
 
 class TestFeedbackValidatesTheIndicatorsThatFired:
