@@ -17,7 +17,7 @@
     "n_train": 1002,
     "n_cal": 334,
     "n_test": 334,
-    "commit": "ec32d5330c0a0f8c5d1e654f63555386bfb31873",
+    "commit": "9f2e9c5a6fb847d46d9cf6468251d53798e4e621",
     "python": "3.13.18",
     "margins": {
       "auc": 0.04,
@@ -25,31 +25,31 @@
       "coverage": 0.05
     }
   },
-  "auc": 0.996764705882353,
+  "auc": 0.9969607843137256,
   "f1": 0.9850746268656716,
   "conformal": {
     "target_coverage": 0.9,
     "empirical_coverage": 0.9221556886227545,
-    "average_set_size": 0.9221556886227545
+    "average_set_size": 0.9251497005988024
   },
   "realizations": [
     {
       "fit_seed": 0,
-      "auc": 0.9875490196078431,
+      "auc": 0.987843137254902,
       "f1": 0.8684210526315789,
-      "empirical_coverage": 0.907185628742515
+      "empirical_coverage": 0.8982035928143712
     },
     {
       "fit_seed": 1,
-      "auc": 0.987843137254902,
-      "f1": 0.8354430379746834,
-      "empirical_coverage": 0.9281437125748503
+      "auc": 0.9959803921568628,
+      "f1": 0.9428571428571428,
+      "empirical_coverage": 0.9221556886227545
     },
     {
       "fit_seed": 2,
-      "auc": 0.996764705882353,
+      "auc": 0.9969607843137256,
       "f1": 0.9850746268656716,
-      "empirical_coverage": 0.9101796407185628
+      "empirical_coverage": 0.9011976047904192
     },
     {
       "fit_seed": 3,
@@ -59,21 +59,21 @@
     },
     {
       "fit_seed": 4,
-      "auc": 0.9999019607843138,
+      "auc": 1.0,
       "f1": 0.9850746268656716,
-      "empirical_coverage": 0.9520958083832335
+      "empirical_coverage": 0.9491017964071856
     },
     {
       "fit_seed": 5,
       "auc": 0.9995098039215686,
       "f1": 0.9850746268656716,
-      "empirical_coverage": 0.9221556886227545
+      "empirical_coverage": 0.9251497005988024
     },
     {
       "fit_seed": 6,
       "auc": 1.0,
       "f1": 1.0,
-      "empirical_coverage": 0.8982035928143712
+      "empirical_coverage": 0.8952095808383234
     }
   ]
 }

@@ -275,11 +275,13 @@ def test_a_fit_the_caller_made_is_kept_across_fits() -> None:
     np.testing.assert_array_equal(_spatial_rows(engine), own)
 
 
-def test_tune_fusion_leaves_the_detectors_fit_on_the_full_data() -> None:
-    """The delivered engine's detectors are those of a plain full-data fit.
+def test_tune_fusion_leaves_the_detectors_of_its_final_full_data_fit() -> None:
+    """The delivered engine's detectors are those of a plain fit on the full data.
 
     They used to stay fitted on the first trial's 75% train split, contrary
-    to ``tune_fusion``'s "left fit on the full (X, y)".
+    to ``tune_fusion``'s "left fit on the full (X, y)": the final fit kept
+    the trial's detectors. A plain ``fit_fusion(X, y)`` under the search's
+    seed leaves the same detector references.
     """
     x, y = _data()
     tuned = _engine_built_under(4)
@@ -287,7 +289,7 @@ def test_tune_fusion_leaves_the_detectors_fit_on_the_full_data() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         tuned.tune_fusion(x, y, n_trials=1, tuning_epochs=1, sampler="random", seed=3)
-        plain.fit_fusion(x, y, epochs=1)
+        plain.fit_fusion(x, y, epochs=1, seed=3)
     np.testing.assert_array_equal(_spatial_rows(tuned), _spatial_rows(plain))
 
 
@@ -377,12 +379,12 @@ def test_pseudo_labels_of_training_rows_ignore_the_validation_rows(
     assert spy.labels[spy.train_rows].sum() > 0
 
 
-def test_the_served_detectors_are_fitted_on_all_of_the_training_data(
+def test_refit_detectors_refits_them_on_all_of_the_training_data(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """After the fit returns, the documented promise holds: detectors fit on X."""
+    """On request, the detectors are refitted on every row once the network is trained."""
     x = np.random.default_rng(34).normal(size=(100, WIDTH))
-    engine, spy = _spied_fit(x, monkeypatch)
+    engine, spy = _spied_fit(x, monkeypatch, refit_detectors=True)
     assert len(spy.spatial_rows_while_training) == 80
     np.testing.assert_array_equal(_spatial_rows(engine), x)
     stat = _fitted_state(engine, "statistical")
@@ -420,11 +422,12 @@ def test_pooled_sources_hold_their_validation_rows_out_of_their_detectors() -> N
         assert len(_spatial_rows(extractor)) == 80, "a source's detectors saw its validation rows"
 
 
-def test_refit_detectors_false_serves_the_validated_detectors(
+def test_the_served_detectors_are_the_validated_ones_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """What validation measured is what is served: no refit after training."""
     x = np.random.default_rng(37).normal(size=(100, WIDTH))
-    engine, spy = _spied_fit(x, monkeypatch, refit_detectors=False)
+    engine, spy = _spied_fit(x, monkeypatch)
     np.testing.assert_array_equal(_spatial_rows(engine), x[spy.train_rows])
 
 
@@ -605,3 +608,117 @@ def test_a_class_too_small_to_spare_keeps_the_five_row_slice() -> None:
         metrics = engine.fit_fusion(x, y, epochs=1)
     assert metrics["conformal"]["n_calibration"] == 20 + 5
     assert metrics["conformal"]["coverage_achieved"] == pytest.approx(5.0 / 6.0)
+
+
+# ---------------------------------------------------------------------------
+# The pre-extracted (.npz) training path is seeded like fit_fusion.
+# ---------------------------------------------------------------------------
+
+
+def _archive(tmp_path: Any, n: int = 160, n_positive: int = 24, data_seed: int = 5) -> str:
+    features, y = _feature_groups(n, n_positive, data_seed=data_seed)
+    features["statistical"][:, 0] = torch.arange(n, dtype=torch.float32)  # row marker
+    path = str(tmp_path / "features.npz")
+    arrays = {name: value.numpy() for name, value in features.items()}
+    np.savez(path, labels=y.astype(np.int64), **arrays)  # type: ignore[arg-type]
+    return path
+
+
+def _archive_engine(ambient_seed: int) -> OmniMercuryEngine:
+    """An engine in one RNG reality whose archive loader runs in-process."""
+    from omni_mercury_engine.core.config import EngineConfig
+
+    torch.manual_seed(ambient_seed)
+    np.random.seed(ambient_seed)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return OmniMercuryEngine(mode="fusion", device="cpu", config=EngineConfig(num_workers=0))
+
+
+def _train_archive(path: str, ambient_seed: int, **kwargs: Any) -> dict[str, torch.Tensor]:
+    engine = _archive_engine(ambient_seed)
+    torch.manual_seed(ambient_seed + 1)
+    torch.rand(ambient_seed % 17 + 1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        engine.train_fusion_model(path, epochs=3, batch_size=32, **kwargs)
+    return {name: value.clone() for name, value in engine.fusion_model.state_dict().items()}
+
+
+def _same_model(a: dict[str, torch.Tensor], b: dict[str, torch.Tensor]) -> bool:
+    return a.keys() == b.keys() and all(torch.equal(a[name], b[name]) for name in a)
+
+
+def test_archive_training_does_not_depend_on_process_history(tmp_path: Any) -> None:
+    """Same archive, same (default) seed, different RNG history: identical weights.
+
+    ``train_fusion_model`` shuffled its batches and drew dropout from torch's
+    global stream and trained whatever weights engine construction had left,
+    so two processes never produced the same model from one archive.
+    """
+    path = _archive(tmp_path)
+    assert _same_model(_train_archive(path, 0), _train_archive(path, 999))
+
+
+def test_the_seed_selects_the_archive_training_run(tmp_path: Any) -> None:
+    path = _archive(tmp_path)
+    assert _same_model(_train_archive(path, 0, seed=7), _train_archive(path, 999, seed=7))
+    assert not _same_model(_train_archive(path, 0, seed=7), _train_archive(path, 0, seed=8))
+
+
+def test_archive_training_leaves_the_callers_global_rng_untouched(tmp_path: Any) -> None:
+    path = _archive(tmp_path)
+    engine = _archive_engine(3)
+    torch.manual_seed(4242)
+    before = torch.random.get_rng_state().clone()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        engine.train_fusion_model(path, epochs=2)
+    assert torch.equal(before, torch.random.get_rng_state())
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        engine.train_fusion_model(path, epochs=1, seed=None)
+    assert not torch.equal(before, torch.random.get_rng_state())
+
+
+def test_archive_training_uses_the_stratified_split_and_reshuffles(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rare positives reach validation, and each epoch's batches differ.
+
+    The split used to be an unstratified permutation under a fixed seed (42),
+    which for this archive's label placement puts none of the six positives
+    in the validation rows.
+    """
+    path = _archive(tmp_path, n=300, n_positive=6, data_seed=7)
+    labels = np.load(path)["labels"]
+    engine = _archive_engine(1)
+    batches: list[frozenset[int]] = []
+    validated: list[int] = []
+    real_forward = type(engine.fusion_model).forward
+
+    def recording_forward(model: Any, groups: dict[str, torch.Tensor], *a: Any, **k: Any) -> Any:
+        rows = [int(v) for v in groups["statistical"][:, 0].tolist()]
+        if model.training:
+            batches.append(frozenset(rows))
+        else:
+            validated.extend(rows)
+        return real_forward(model, groups, *a, **k)
+
+    monkeypatch.setattr(type(engine.fusion_model), "forward", recording_forward)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        engine.train_fusion_model(path, epochs=3, batch_size=32, early_stopping_patience=10)
+
+    n_val = int(300 * 0.2)
+    n_train = 300 - n_val
+    per_epoch = -(-n_train // 32)
+    assert len(batches) == 3 * per_epoch
+    first_batches = [batches[i * per_epoch] for i in range(3)]
+    assert len(set(first_batches)) == 3, "every epoch replayed the same first batch"
+    val_rows = set(validated)
+    assert len(val_rows) == n_val
+    train_rows = {row for batch in batches for row in batch}
+    assert not (val_rows & train_rows) and len(train_rows) == n_train
+    # round(0.2 * 6) = 1 of the six positives is held out for validation.
+    assert int(labels[sorted(val_rows)].sum()) == 1

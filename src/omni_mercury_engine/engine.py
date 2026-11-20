@@ -1822,7 +1822,7 @@ class OmniMercuryEngine(LoggerMixin):
         conformal_split: float = 0.1,
         conformal_coverage: float = 0.9,
         seed: int | None = 0,
-        refit_detectors: bool = True,
+        refit_detectors: bool = False,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -1909,11 +1909,12 @@ class OmniMercuryEngine(LoggerMixin):
                 another thread count or BLAS can round differently, and
                 training amplifies that.
             refit_detectors: Refit every detector on all of ``X`` once the
-                network is trained (default ``True``; see "Validation
-                hold-out" below). ``False`` leaves them fitted on the
+                network is trained (default ``False``; see "Validation
+                hold-out" below). Left off, the detectors stay fitted on the
                 training split, so the served engine is exactly the one the
-                validation rows measured, at the price of detector references
-                built from ``1 - validation_split`` of the rows.
+                validation rows measured. ``True`` gives the detectors
+                references built from every row, and serves features the
+                network was not trained against.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,
@@ -1935,17 +1936,18 @@ class OmniMercuryEngine(LoggerMixin):
         validation rows are extracted as a batch of their own, exactly as
         serving them would. Early stopping, the temperature and the published
         ``fit_validation`` AUC/F1 (``val_roc_auc`` / ``val_f1``) are therefore
-        measured on rows nothing fitted for training had seen. Once the
-        network is trained, every detector is refitted on all of ``X`` (less
-        the conformal slice below), so the engine this method returns serves
-        with detectors fitted on the full training data -- what
-        ``fit_fusion(X_train, y_train)`` has always been documented to leave
-        behind, and the row set the drift reference and the support envelope
-        describe. The network was trained against the training-split fits, so
-        this refit moves the served features slightly off the ones validation
-        measured (``refit_detectors=False`` keeps the two identical). The
-        conformal certificate is fitted after the refit, on the function
-        that is served.
+        measured on rows nothing fitted for training had seen. The engine
+        this method returns serves with those same detectors -- fitted on the
+        training split -- so what validation measured is what is served.
+        ``refit_detectors=True`` refits every detector on all of ``X`` (less
+        the conformal slice below) once the network is trained; the network
+        was trained against the training-split fits, so that moves the served
+        features off the ones validation measured. Measured on five recorded
+        ADBench tables over 8 paired seeds, the refit cost test AUC 0.0013
+        (standard error 0.0006; pima 0.0062, 0.0022) and expected calibration
+        error 0.0018 (0.0008), and left the certificate's coverage where it
+        was, which is why it is not the default. Either way the conformal
+        certificate is fitted last, on the function that is served.
 
         Conformal certificate (``conformal_calibrate``, default True): with
         EXPLICIT labels, a stratified ``conformal_split`` slice of each class
@@ -2160,10 +2162,9 @@ class OmniMercuryEngine(LoggerMixin):
         )
 
         # The detectors were fitted on the training rows so validation stayed
-        # held out. Serving gets what this method has always promised: every
-        # detector fitted on all of ``X`` (less the conformal slice, which
-        # nothing may see), which is also the row set the drift reference and
-        # the support envelope describe.
+        # held out, and by default they are what is served. On request every
+        # detector is refitted on all of ``X`` (less the conformal slice,
+        # which nothing may see).
         if refit_detectors and len(val_rows) > 0:
             self._fit_detectors_for_training(X)
             self._invalidate_drift_reference()
@@ -6416,7 +6417,8 @@ class OmniMercuryEngine(LoggerMixin):
             ``logger.warning`` is emitted the first time it happens, so the
             caller can audit it. To avoid the leakage entirely, call
             ``fit_fusion(X_train, y_train)`` (which fits all detectors on
-            ``X_train``) before any ``detect_with_fusion`` invocation.
+            training rows of ``X_train``) before any ``detect_with_fusion``
+            invocation.
         """
         detector_features = {}
         detector_scores = {}
@@ -7757,6 +7759,7 @@ class OmniMercuryEngine(LoggerMixin):
         checkpoint_dir: str | None = None,
         use_mixed_precision: bool = False,
         gradient_accumulation_steps: int = 1,
+        seed: int | None = 0,
     ) -> dict[str, Any]:
         """Train the fusion model on custom data.
 
@@ -7794,6 +7797,17 @@ class OmniMercuryEngine(LoggerMixin):
                 Requires CUDA. Default False.
             gradient_accumulation_steps: Steps for gradient accumulation.
                 Useful for larger effective batch sizes. Default 1.
+            seed: Seed of the training run (default ``0``), as in
+                :meth:`fit_fusion`: it drives the train/validation split
+                (stratified by anomaly label when both classes are present),
+                the per-epoch shuffle of the training rows, the initial
+                weights of a network this engine has not trained or loaded
+                yet, and dropout, so the same archive and seed give the same
+                trained model whatever the process drew from torch's global
+                RNG beforehand; the caller's global RNG state is restored
+                when the call returns. ``None`` leaves all of that to the
+                ambient global stream. A network that was already trained or
+                loaded is trained on from its current weights.
 
         Returns:
             Dictionary containing:
@@ -7820,12 +7834,6 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(f"Best loss: {result['best_loss']:.4f}")
             >>> print(f"Epochs: {result['epochs_trained']}")
         """
-        import os
-        import tempfile
-
-        from torch.utils.data import DataLoader, random_split
-
-        from omni_mercury_engine.ml.training import AnomalyDataset, FusionTrainer
         from omni_mercury_engine.security.safe_load import (
             UnsafePayloadError,
             safe_load_training_data,
@@ -7867,25 +7875,102 @@ class OmniMercuryEngine(LoggerMixin):
         # exactly the set this archive trained on (train/serve lockstep).
         self._fusion_feature_groups = sorted(features_dict.keys())
 
-        # Create dataset and split
-        dataset = AnomalyDataset(features_dict, labels)
-        total_size = len(dataset)
-        val_size = int(total_size * validation_split)
-        train_size = total_size - val_size
+        # The whole of training runs under the seed scope, as fit_fusion's
+        # does: the split, the per-epoch shuffle, the weights of a
+        # not-yet-trained network and dropout are functions of ``seed``, and
+        # the caller's global torch RNG state is handed back untouched.
+        with _scoped_torch_seed(seed) as generator:
+            return self._train_fusion_archive(
+                features_dict,
+                labels,
+                generator=generator,
+                validation_split=validation_split,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                optimizer_type=optimizer_type,
+                early_stopping_patience=early_stopping_patience,
+                checkpoint_dir=checkpoint_dir,
+                use_mixed_precision=use_mixed_precision,
+                gradient_accumulation_steps=gradient_accumulation_steps,
+            )
 
-        train_dataset, val_dataset = random_split(
-            dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
+    def _train_fusion_archive(
+        self,
+        features_dict: dict[str, torch.Tensor],
+        labels: torch.Tensor,
+        *,
+        generator: torch.Generator | None,
+        validation_split: float,
+        epochs: int,
+        batch_size: int,
+        learning_rate: float,
+        optimizer_type: str,
+        early_stopping_patience: int,
+        checkpoint_dir: str | None,
+        use_mixed_precision: bool,
+        gradient_accumulation_steps: int,
+    ) -> dict[str, Any]:
+        """Training loop behind :meth:`train_fusion_model`.
+
+        Runs inside that method's seed scope: every draw from torch's global
+        stream here (weight initialisation, dropout) is a function of the
+        run's seed, and ``generator`` is the local stream for the split and
+        the per-epoch shuffle (``None``: the ambient global stream).
+        """
+        import os
+        import tempfile
+
+        from torch.utils.data import DataLoader, Subset
+
+        from omni_mercury_engine.ml.training import AnomalyDataset, FusionTrainer
+
+        # Train/validation split from the helper fit_fusion uses: stratified
+        # by anomaly label when both classes are present, so a rare positive
+        # class reaches the validation rows. The split used to be a fixed
+        # (seed 42) unstratified permutation whatever the caller did.
+        dataset = AnomalyDataset(features_dict, labels)
+        train_indices, val_indices = self._fusion_train_val_split(
+            (labels > 0).to(torch.float32).numpy(), validation_split, generator
         )
+        train_dataset = Subset(dataset, train_indices.tolist())
+        val_dataset = Subset(dataset, val_indices.tolist())
+
+        # A network this engine constructed and nothing has trained or loaded
+        # is rebuilt here, inside the seed scope, with the architecture it
+        # was constructed with: its construction-time weights came from
+        # whatever torch's global stream held when the engine was built. A
+        # loaded or already-trained network is trained on from where it is.
+        if self._fusion_model_pristine:
+            built = self.fusion_model
+            self.fusion_model = OmniFusionModel(
+                feature_dims=dict(built.feature_dims),
+                hidden_dim=built.hidden_dim,
+                num_heads=built.num_heads,
+                dropout=built.dropout,
+                num_classes=built.num_classes,
+                masked_mean_pooling=built.masked_mean_pooling,
+            )
+            self.fusion_model.to(self.device)
+            self.fusion_inference = FusionInference(
+                model=self.fusion_model,
+                device=str(self.device),
+            )
 
         # Create data loaders
         # Use config.num_workers (default 4) for parallel data loading
         # Set to 0 in config for single-threaded loading (needed for some environments)
+        # ``shuffle=True`` draws a fresh order every epoch; with ``generator``
+        # that order comes from the run's local stream instead of the global
+        # one (the sampler runs in this process, so worker count does not
+        # change the batches).
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
+            generator=generator,
         )
         val_loader = DataLoader(
             val_dataset,

@@ -259,5 +259,9 @@ def test_training_replaces_an_inference_auto_fit() -> None:
     engine.fit_fusion(train, labels)
     assert engine._inference_auto_fit_detectors == set()
     spatial: Any = engine.detectors["spatial"]
-    state = spatial.get_fitted_state()
-    assert np.allclose(np.asarray(state["lof_points"]), train)
+    points = np.asarray(spatial.get_fitted_state()["lof_points"])
+    # The reference is training rows (the fit's training split), none of them
+    # from the batch that was scored before the fit.
+    assert 0 < len(points) <= len(train)
+    assert all(np.isclose(train, row).all(axis=1).any() for row in points)
+    assert not any(np.isclose(scored, row).all(axis=1).any() for row in points)
