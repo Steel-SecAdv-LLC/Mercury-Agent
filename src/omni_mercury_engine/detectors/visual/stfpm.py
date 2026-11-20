@@ -322,7 +322,7 @@ class STFPMDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
-        original_size = data.shape[-2:]
+        original_size = self._input_spatial_size(data)
         data = self.preprocess(data)
 
         all_scores = []
@@ -342,7 +342,7 @@ class STFPMDetector(BaseVisualDetector):
 
             # Compute anomaly maps from feature discrepancy
             anomaly_maps = self._compute_anomaly_maps(
-                teacher_features, student_features, original_size  # type: ignore[arg-type, unused-ignore]
+                teacher_features, student_features, original_size
             )
 
             # Image-level scores
@@ -461,20 +461,12 @@ class STFPMDetector(BaseVisualDetector):
                 if layer in teacher_features:
                     t_feat = teacher_features[layer]
                     s_feat = student_features[layer]
-                    # Global average of squared difference
-                    diff = (t_feat - s_feat).pow(2).mean(dim=[2, 3])
+                    # Spatial pooling of the squared difference
+                    diff = self._pool_for_fusion((t_feat - s_feat).pow(2), dim=[2, 3])
                     feat_list.append(diff)
 
             features = torch.cat(feat_list, dim=1)
             all_features.append(features)
 
         features = torch.cat(all_features, dim=0)
-
-        # Project to 128D
-        if features.shape[1] != 128:
-            if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
-            features = self._fusion_projection(features)
-
-        features = nn.functional.normalize(features, p=2, dim=1)
-        return features
+        return self._project_features_for_fusion(features)

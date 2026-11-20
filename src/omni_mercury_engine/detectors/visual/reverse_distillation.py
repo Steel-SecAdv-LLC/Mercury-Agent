@@ -47,7 +47,9 @@ class ReverseDistillationConfig(VisualDetectorConfig):
         learning_rate: Learning rate for training
         num_epochs: Number of training epochs
         weight_decay: Weight decay for optimizer
-        oce_gamma: Gamma parameter for one-class embedding loss
+        oce_gamma: Accepted but unused: the cosine reconstruction loss used
+            here has no gamma term; the field is kept for config
+            compatibility.
         layers: Feature extraction layers to use
     """
 
@@ -55,7 +57,7 @@ class ReverseDistillationConfig(VisualDetectorConfig):
     learning_rate: float = 0.005
     num_epochs: int = 200
     weight_decay: float = 1e-5
-    oce_gamma: float = 0.1  # One-class embedding gamma parameter
+    oce_gamma: float = 0.1  # Accepted but unused (see the field docstring)
     layers: list[str] = field(default_factory=lambda: ["layer1", "layer2", "layer3"])
 
 
@@ -199,17 +201,17 @@ class ReverseDistillationDetector(BaseVisualDetector):
         self._init_backbone()
         self.teacher = self.backbone
 
-        # Student encoder (same architecture, trainable)
+        # Student encoder (same architecture, trained from scratch).
+        # ``trainable=True`` keeps the autograd graph through the extractor's
+        # forward: without it the student received no gradients and never
+        # trained (its weights stayed byte-identical to initialization).
         self.student_encoder = FeatureExtractor(
             backbone_name=config.backbone,
             layers=config.layers,
             device=self.device,
             pretrained=False,  # Train from scratch
+            trainable=True,
         )
-
-        # Unfreeze student
-        for param in self.student_encoder.parameters():
-            param.requires_grad = True
 
         # These will be initialized after first forward pass
         self.bottleneck: OCEBottleneck | None = None
@@ -414,7 +416,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
-        original_size: tuple[int, int] = (data.shape[-2], data.shape[-1])
+        original_size: tuple[int, int] = self._input_spatial_size(data)
         data = self.preprocess(data)
 
         all_scores = []
@@ -550,17 +552,9 @@ class ReverseDistillationDetector(BaseVisualDetector):
                 aggregated = self._aggregate_student_features(student_features)
                 bottleneck_out = self.bottleneck(aggregated)
 
-            # Global average of bottleneck
-            features = nn.functional.adaptive_avg_pool2d(bottleneck_out, 1).flatten(1)
+            # Global pooling of the bottleneck representation
+            features = self._pool_for_fusion(bottleneck_out, dim=[2, 3])
             all_features.append(features)
 
         features = torch.cat(all_features, dim=0)
-
-        # Project to 128D
-        if features.shape[1] != 128:
-            if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
-            features = self._fusion_projection(features)
-
-        features = nn.functional.normalize(features, p=2, dim=1)
-        return features
+        return self._project_features_for_fusion(features)

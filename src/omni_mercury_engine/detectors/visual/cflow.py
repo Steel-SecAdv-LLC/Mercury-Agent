@@ -44,21 +44,34 @@ class CFlowConfig(VisualDetectorConfig):
 
     Attributes:
         num_flows: Number of flow layers
-        n_flows: Alias for num_flows (for test compatibility)
+        n_flows: Alias for num_flows; resolved in ``__post_init__`` (setting
+            either takes effect, the canonical field wins when both are
+            customized and they disagree)
         hidden_dim: Hidden dimension in flow networks
-        hidden_ratio: Ratio for hidden dimension (for test compatibility)
+        hidden_ratio: Scales the default ``hidden_dim`` (256) when
+            ``hidden_dim`` itself was not customized; e.g. 0.5 yields 128
         learning_rate: Learning rate for training
         num_epochs: Number of training epochs
     """
 
     num_flows: int = 8
-    n_flows: int = 8  # Alias for test compatibility
+    n_flows: int = 8  # Alias, resolved in __post_init__
     hidden_dim: int = 256
-    hidden_ratio: float = 1.0  # Alias for test compatibility
+    hidden_ratio: float = 1.0  # Scales the default hidden_dim
     learning_rate: float = 1e-4
     num_epochs: int = 100
     clamp_value: float = 3.0
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
+
+    def __post_init__(self) -> None:
+        """Resolve the alias fields so setting either name takes effect."""
+        if self.n_flows != 8 and self.num_flows == 8:
+            self.num_flows = self.n_flows
+        self.n_flows = self.num_flows
+        # hidden_ratio scales the default width only; an explicit hidden_dim
+        # wins, which also keeps a saved config idempotent across reloads.
+        if self.hidden_ratio != 1.0 and self.hidden_dim == 256:
+            self.hidden_dim = max(2, round(256 * self.hidden_ratio))
 
 
 class PositionalEncoding2D(nn.Module):
@@ -83,12 +96,15 @@ class PositionalEncoding2D(nn.Module):
 
         div_term = torch.exp(torch.arange(0, channels, 2).float() * (-math.log(10000.0) / channels))
 
-        # Alternate between sin and cos for x and y
+        # Alternate between sin and cos for y and x.  ``y_pos`` is [max, 1]
+        # and broadcasts down rows; ``x_pos`` is [1, max] and broadcasts
+        # across columns (transposing it made the x-terms vary along rows
+        # too, so horizontal position was ignored).
         for i in range(channels // 4):
             pe[:, :, 4 * i] = torch.sin(y_pos * div_term[i])
             pe[:, :, 4 * i + 1] = torch.cos(y_pos * div_term[i])
-            pe[:, :, 4 * i + 2] = torch.sin(x_pos.T * div_term[i])
-            pe[:, :, 4 * i + 3] = torch.cos(x_pos.T * div_term[i])
+            pe[:, :, 4 * i + 2] = torch.sin(x_pos * div_term[i])
+            pe[:, :, 4 * i + 3] = torch.cos(x_pos * div_term[i])
 
         self.register_buffer("pe", pe)
 
@@ -532,7 +548,7 @@ class CFlowDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
-        original_size = data.shape[-2:]
+        original_size = self._input_spatial_size(data)
         data = self.preprocess(data)
 
         all_scores = []
@@ -654,18 +670,10 @@ class CFlowDetector(BaseVisualDetector):
             feat_list = []
             for layer in self.cflow_config.layers:
                 if layer in features:
-                    feat_list.append(features[layer].mean(dim=[2, 3]))
+                    feat_list.append(self._pool_for_fusion(features[layer], dim=[2, 3]))
 
             fusion_features = torch.cat(feat_list, dim=1)
             all_features.append(fusion_features)
 
         features = torch.cat(all_features, dim=0)
-
-        # Project to 128D
-        if features.shape[1] != 128:
-            if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
-            features = self._fusion_projection(features)
-
-        features = nn.functional.normalize(features, p=2, dim=1)
-        return features
+        return self._project_features_for_fusion(features)

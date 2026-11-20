@@ -44,11 +44,14 @@ class PaDiMConfig(VisualDetectorConfig):
     Attributes:
         d_reduced: Reduced feature dimension (random projection)
         epsilon: Regularization for covariance matrix inversion
+        seed: Seed of the random projection, so a fit is reproducible and two
+            instances fitted on the same data agree
     """
 
     d_reduced: int = 100  # Reduced dimension for efficiency
     epsilon: float = 0.01  # Covariance regularization
     layers: list[str] = field(default_factory=lambda: ["layer1", "layer2", "layer3"])
+    seed: int = 0
 
 
 class PaDiMDetector(BaseVisualDetector):
@@ -135,7 +138,9 @@ class PaDiMDetector(BaseVisualDetector):
     def _get_random_projection(self, input_dim: int, output_dim: int) -> torch.Tensor:
         """Generate random projection matrix for dimensionality reduction.
 
-        Uses random Gaussian projection following Johnson-Lindenstrauss lemma.
+        Uses random Gaussian projection following Johnson-Lindenstrauss
+        lemma, drawn from a generator seeded with ``config.seed`` so the
+        projection (and hence the whole fitted model) is reproducible.
 
         Args:
             input_dim: Input feature dimension
@@ -144,8 +149,9 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Projection matrix [input_dim, output_dim]
         """
-        # Random Gaussian projection
-        projection = torch.randn(input_dim, output_dim)
+        # Seeded random Gaussian projection
+        generator = torch.Generator(device="cpu").manual_seed(self.padim_config.seed)
+        projection = torch.randn(input_dim, output_dim, generator=generator)
         # Orthogonalize for better preservation of distances
         projection, _ = torch.linalg.qr(projection)
         return projection
@@ -165,15 +171,16 @@ class PaDiMDetector(BaseVisualDetector):
         """
         feature_list = list(features.values())
 
-        # Use smallest spatial size as reference
-        min_h = min(f.shape[2] for f in feature_list)
-        min_w = min(f.shape[3] for f in feature_list)
+        # Use the largest spatial size (layer1) as reference, per the paper:
+        # deeper layers are upsampled so localization keeps layer1's grid.
+        ref_h = max(f.shape[2] for f in feature_list)
+        ref_w = max(f.shape[3] for f in feature_list)
 
         resized = []
         for feat in feature_list:
-            if feat.shape[2] != min_h or feat.shape[3] != min_w:
+            if feat.shape[2] != ref_h or feat.shape[3] != ref_w:
                 feat = nn.functional.interpolate(
-                    feat, size=(min_h, min_w), mode="bilinear", align_corners=False
+                    feat, size=(ref_h, ref_w), mode="bilinear", align_corners=False
                 )
             resized.append(feat)
 
@@ -250,12 +257,9 @@ class PaDiMDetector(BaseVisualDetector):
         # Centered features
         centered = all_features_tensor - self.mean.unsqueeze(0)
 
-        # Covariance: E[XX^T]
-        # For each position, compute covariance across samples
-        cov = torch.zeros(n_positions, d, d, device=self.device)
-        for pos in range(n_positions):
-            pos_features = centered[:, pos, :]  # [N, d]
-            cov[pos] = torch.matmul(pos_features.T, pos_features) / (n_samples - 1)
+        # Covariance E[XX^T] across samples, for every position at once
+        # (numerically equivalent to the per-position matmul loop).
+        cov = torch.einsum("npd,npe->pde", centered, centered) / (n_samples - 1)
 
         # Regularize and invert covariance
         identity = torch.eye(d, device=self.device).unsqueeze(0)
@@ -288,7 +292,7 @@ class PaDiMDetector(BaseVisualDetector):
         if isinstance(data, np.ndarray):
             data = torch.from_numpy(data).float()
 
-        original_size = data.shape[-2:]
+        original_size = self._input_spatial_size(data)
         data = self.preprocess(data)
 
         all_scores = []
@@ -431,17 +435,9 @@ class PaDiMDetector(BaseVisualDetector):
             if self.projection is not None:
                 patches = torch.matmul(patches, self.projection)
 
-            # Global average
-            global_feat = patches.mean(dim=1)
+            # Global pooling over positions
+            global_feat = self._pool_for_fusion(patches, dim=1)
             all_features.append(global_feat)
 
         features = torch.cat(all_features, dim=0)
-
-        # Project to 128D
-        if features.shape[1] != 128:
-            if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
-            features = self._fusion_projection(features)
-
-        features = nn.functional.normalize(features, p=2, dim=1)
-        return features
+        return self._project_features_for_fusion(features)

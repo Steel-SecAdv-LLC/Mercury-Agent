@@ -29,9 +29,21 @@ from omni_mercury_engine.security.safe_torch import safe_torch_load
 
 logger = logging.getLogger(__name__)
 
+#: Fixed seed of the deterministic fusion projection: two detector instances
+#: (or a save/load round trip) must map features to the fusion space with the
+#: same random matrix, bit for bit.
+_FUSION_PROJECTION_SEED = 0x4D455243  # "MERC"
+
 
 class BackboneType(Enum):
-    """Supported backbone architectures for feature extraction."""
+    """Supported backbone architectures for feature extraction.
+
+    ``DINO_V2`` is retained as a released member, but its value
+    ``"dinov2_vitb14"`` is not a timm model name: constructing it raises a
+    clear error naming the real timm DINOv2 variants (see
+    :func:`~omni_mercury_engine.detectors.visual.backbone.create_backbone`).
+    It is kept rather than removed so existing references do not break.
+    """
 
     RESNET18 = "resnet18"
     RESNET50 = "resnet50"
@@ -62,8 +74,11 @@ class VisualDetectorConfig:
             training to calibrate the threshold (at least one image each
             for training and calibration).
         calibration_seed: Seed of the deterministic train/calibration split.
-        normalize_features: Whether to L2-normalize extracted features
-        pool_strategy: Feature pooling strategy ('avg', 'max', 'adaptive')
+        normalize_features: Whether ``extract_features`` L2-normalizes the
+            fusion embedding it returns.
+        pool_strategy: How ``extract_features`` pools patch/spatial features
+            into the fusion embedding: 'avg' and 'adaptive' average (the
+            historical behaviour), 'max' takes the maximum.
     """
 
     backbone: str = "resnet18"
@@ -147,6 +162,11 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         self._backbone: nn.Module | None = None
         self._feature_dim: int = 0
 
+        # Deterministic fusion-projection matrices, keyed by (in_dim, out_dim).
+        # Plain tensors (not Parameters/buffers), so they never enter
+        # ``state_dict``: they are reproducible from _FUSION_PROJECTION_SEED.
+        self._fusion_projections: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor]] = {}
+
         # Image normalization (ImageNet stats) - use _norm prefix to avoid conflicts with subclass attributes
         self.register_buffer("_norm_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
         self.register_buffer("_norm_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
@@ -220,6 +240,13 @@ class BaseVisualDetector(BaseDetector, nn.Module):
     def preprocess(self, images: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
         """Preprocess images for feature extraction.
 
+        Scaling to [0, 1] is explicit and per-sample, never keyed on the
+        batch maximum (which wrongly divided already-normalized images that
+        shared a batch with 8-bit ones): ``uint8`` input is always divided by
+        255; float (and other integer) input is taken as-is unless a sample's
+        own maximum exceeds 1.5, in which case that sample alone is treated
+        as 0-255 data and divided by 255.
+
         Args:
             images: Input images [B, C, H, W] or [B, H, W, C], values in [0, 255] or [0, 1]
 
@@ -232,7 +259,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 array).
         """
         if isinstance(images, np.ndarray):
+            is_uint8 = images.dtype == np.uint8
             images = torch.from_numpy(images).float()
+        else:
+            is_uint8 = images.dtype == torch.uint8
+            if not torch.is_floating_point(images):
+                images = images.float()
 
         if images.dim() != 4 or (images.shape[1] not in (1, 3) and images.shape[-1] not in (1, 3)):
             raise InputModalityError(
@@ -250,9 +282,20 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         if images.shape[1] not in (1, 3) and images.shape[-1] in (1, 3):
             images = images.permute(0, 3, 1, 2)
 
-        # Normalize to [0, 1] if needed
-        if images.max() > 1.0:
+        # Scale to [0, 1]: uint8 is by definition 0-255; float input is
+        # taken as-is unless a sample's own max exceeds 1.5 (heuristic for
+        # float 0-255 input), decided per sample so one 8-bit image cannot
+        # rescale the already-normalized images in the same batch.
+        if is_uint8:
             images = images / 255.0
+        else:
+            sample_max = images.reshape(images.shape[0], -1).amax(dim=1)
+            divisor = torch.where(
+                sample_max > 1.5,
+                torch.full_like(sample_max, 255.0),
+                torch.ones_like(sample_max),
+            )
+            images = images / divisor.view(-1, 1, 1, 1)
 
         # Resize if needed
         if images.shape[-2:] != self.visual_config.image_size:
@@ -268,6 +311,91 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         images = (images - self._norm_mean) / self._norm_std  # type: ignore[operator, unused-ignore]
 
         return images
+
+    @staticmethod
+    def _input_spatial_size(images: torch.Tensor | np.ndarray[Any, Any]) -> tuple[int, int]:
+        """Spatial ``(H, W)`` of a raw 4-D image batch, before preprocessing.
+
+        Applies the same channel-layout rule as :meth:`preprocess`: the batch
+        is channel-first unless axis 1 is not a valid 1/3-channel count while
+        the trailing axis is -- then it is channel-last and the spatial size
+        is axes 1 and 2.  Detectors must size their anomaly maps from this,
+        never from ``shape[-2:]`` of the raw tensor, which reads ``(W, C)``
+        for channel-last input.
+
+        Args:
+            images: Raw input batch, before :meth:`preprocess`.
+
+        Returns:
+            The input's spatial size ``(H, W)``.
+        """
+        shape = tuple(int(s) for s in images.shape)
+        if len(shape) == 4 and shape[1] not in (1, 3) and shape[-1] in (1, 3):
+            return shape[1], shape[2]
+        return shape[-2], shape[-1]
+
+    def _fusion_projection_params(
+        self, in_dim: int, out_dim: int, device: torch.device
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """The deterministic linear map used to reach the fusion dimension.
+
+        Initialized like ``nn.Linear`` but from a ``torch.Generator`` seeded
+        with a fixed constant, so every instance (and every save/load round
+        trip) produces the identical matrix.  Kept as plain tensors: it is
+        derived, not learned, so it stays out of ``state_dict``.
+        """
+        key = (int(in_dim), int(out_dim))
+        if key not in self._fusion_projections:
+            generator = torch.Generator(device="cpu").manual_seed(_FUSION_PROJECTION_SEED)
+            bound = 1.0 / math.sqrt(in_dim)
+            weight = torch.empty(out_dim, in_dim).uniform_(-bound, bound, generator=generator)
+            bias = torch.empty(out_dim).uniform_(-bound, bound, generator=generator)
+            self._fusion_projections[key] = (weight, bias)
+        weight, bias = self._fusion_projections[key]
+        return weight.to(device), bias.to(device)
+
+    def _project_features_for_fusion(
+        self, features: torch.Tensor, output_dim: int = 128
+    ) -> torch.Tensor:
+        """Map pooled features to the fusion dimension for the ML pipeline.
+
+        Applies the deterministic projection when the dimensions differ and,
+        when ``visual_config.normalize_features`` is set (the default),
+        L2-normalizes the result.
+
+        Args:
+            features: Pooled per-image features ``[N, D]``.
+            output_dim: Fusion embedding width (128 for the fusion pipeline).
+
+        Returns:
+            Fusion features ``[N, output_dim]``.
+        """
+        if features.shape[1] != output_dim:
+            weight, bias = self._fusion_projection_params(
+                int(features.shape[1]), output_dim, features.device
+            )
+            features = features @ weight.t() + bias
+        if self.visual_config.normalize_features:
+            features = nn.functional.normalize(features, p=2, dim=1)
+        return features
+
+    def _pool_for_fusion(self, features: torch.Tensor, dim: int | list[int]) -> torch.Tensor:
+        """Pool features along ``dim`` according to ``pool_strategy``.
+
+        'avg' and 'adaptive' average (the historical behaviour); 'max' takes
+        the maximum.
+
+        Raises:
+            DataException: If ``pool_strategy`` names an unknown strategy.
+        """
+        strategy = self.visual_config.pool_strategy
+        if strategy == "max":
+            return features.amax(dim=dim)
+        if strategy in ("avg", "adaptive"):
+            return features.mean(dim=dim)
+        raise DataException(
+            f"{self._name}: unknown pool_strategy {strategy!r}; expected 'avg', 'max' or 'adaptive'"
+        )
 
     def postprocess_anomaly_map(
         self,
@@ -584,7 +712,15 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 "dataclasses.asdict) or VisualDetectorConfig."
             )
         self._build_architecture_for_load()
-        self.load_state_dict(checkpoint["state_dict"])
+        state_dict = checkpoint["state_dict"]
+        # Checkpoints written while ``extract_features`` lazily registered an
+        # unseeded ``_fusion_projection`` Linear carry its two keys; the
+        # projection is now deterministic (recreated from a fixed seed) and
+        # lives outside ``state_dict``.  Exactly those keys are dropped --
+        # every other key still loads strictly.
+        for key in [k for k in state_dict if k.startswith("_fusion_projection.")]:
+            del state_dict[key]
+        self.load_state_dict(state_dict)
         self._restore_fitted_state(checkpoint.get("fitted_state") or {})
         self._is_fitted = checkpoint["is_fitted"]
         # A calibrated threshold lives on the detector, not in its config;
