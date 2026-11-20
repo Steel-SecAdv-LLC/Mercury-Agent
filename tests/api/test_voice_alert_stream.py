@@ -123,13 +123,36 @@ def test_stream_picks_up_other_workers_runs_from_the_store(
 
 
 def test_alerts_route_streams_event_stream(fresh_voice: MercuryVoice) -> None:
-    """``?limit=1`` ends the stream after one alert; a run recorded meanwhile is that alert."""
+    """``?limit=1`` ends the stream after one alert.
+
+    The alert published meanwhile is UNOWNED (``principal: None`` — the shape
+    of the watch's own broadcasts), which every subscriber may see.  It used
+    to be a run recorded under the ``"anonymous"`` principal: that pinned the
+    cross-caller leak in which every unauthenticated subscriber received
+    every other unauthenticated caller's detections.
+    """
     import threading
     import time
 
     def later() -> None:
         time.sleep(0.4)
-        _record("anonymous", [False, True], [0.1, 9.0])
+        alert_bus.get_alert_bus().publish(
+            {
+                "detection": {
+                    "detection_id": "broadcast-1",
+                    "method": "univariate",
+                    "anomaly_detected": True,
+                    "anomaly_count": 1,
+                    "n_samples": 2,
+                    "anomaly_score": 9.0,
+                    "threshold": 3.5,
+                    "severity_label": "high",
+                },
+                "domain": "general",
+                "principal": None,
+                "timestamp": 1.0,
+            }
+        )
 
     threading.Thread(target=later).start()
     with TestClient(app) as client:
@@ -139,6 +162,37 @@ def test_alerts_route_streams_event_stream(fresh_voice: MercuryVoice) -> None:
     assert response.content.startswith(b": connected")
     events = _events(response.content)
     assert len(events) == 1 and events[0]["initiative_type"].endswith("anomaly")
+
+
+def test_anonymous_subscribers_do_not_share_each_others_runs(
+    fresh_voice: MercuryVoice,
+) -> None:
+    """A run recorded by one anonymous caller never streams to another.
+
+    All unauthenticated callers share the ``"anonymous"`` principal, so an
+    equality visibility rule streamed every anonymous caller's flagged
+    detections (full record included) to every anonymous SSE subscriber.
+    The rule now refuses owned records to identity-less viewers.
+    """
+
+    async def run() -> None:
+        gen = voice_module.alert_events("anonymous", heartbeat=0, store_poll=0.05)
+        first = await gen.__anext__()
+        assert first.startswith(b": connected")
+        await _arecord("anonymous", [False, True], [0.1, 9.0])
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(gen.__anext__(), timeout=0.6)
+        await gen.aclose()
+
+    asyncio.run(run())
+
+    # The unowned broadcast, by contrast, still reaches the anonymous viewer.
+    from omni_mercury_engine.narrative.alert_bus import principal_may_see
+
+    assert principal_may_see("anonymous", None) is True
+    assert principal_may_see("anonymous", "anonymous") is False
+    assert principal_may_see("alice", "anonymous") is False
+    assert principal_may_see("alice", "alice") is True
 
 
 def test_history_and_status_are_scoped_to_the_caller(fresh_voice: MercuryVoice) -> None:

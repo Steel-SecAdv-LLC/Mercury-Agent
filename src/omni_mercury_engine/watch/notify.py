@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import TYPE_CHECKING, Any
@@ -590,10 +591,23 @@ class Notifier:
         try:
             send()
         except Exception as exc:  # one address failing must not cost the others theirs
-            error = f"{type(exc).__name__}: {str(exc)[:200]}"
+            # Webhook URLs (Slack/Discord style) carry their secret in the
+            # PATH, which the generic redactors do not strip: an HTTPError's
+            # "... for url: https://hooks.../T.../B.../<secret>" would land in
+            # this log line and the stored delivery error. Reduce any URL in
+            # the exception text to scheme://host before it is kept anywhere.
+            error = f"{type(exc).__name__}: {_strip_url_paths(str(exc))[:200]}"
             logger.warning("watch: %s delivery of %s failed: %s", channel, key, error)
         self.store.record_delivery(key, rank, subscriber, channel, error=error, now=self._clock())
         done["failed" if error else "sent"] += 1
+
+
+_URL_RE = re.compile(r"https?://([^/\s\"']+)[^\s\"']*")
+
+
+def _strip_url_paths(text: str) -> str:
+    """Replace every URL in ``text`` with its scheme-plus-host only."""
+    return _URL_RE.sub(lambda m: m.group(0).split(m.group(1))[0] + m.group(1) + "/...", text)
 
 
 def _post_json(url: str, payload: dict[str, Any]) -> None:

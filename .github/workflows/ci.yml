@@ -985,7 +985,10 @@ jobs:
         run: |
           python -m venv /tmp/semgrep-env
           /tmp/semgrep-env/bin/pip install --upgrade "pip>=26.1"
-          /tmp/semgrep-env/bin/pip install semgrep
+          # Pinned: the ruleset behaviour this gate was verified against
+          # (0 true findings over src/ at this version); an unpinned semgrep
+          # can change what "blocking" means between runs.
+          /tmp/semgrep-env/bin/pip install "semgrep==1.186.0"
           # Expose semgrep on PATH for the scan step below without
           # contaminating the runner's site-packages.
           ln -sf /tmp/semgrep-env/bin/semgrep /usr/local/bin/semgrep
@@ -1096,9 +1099,22 @@ jobs:
             echo "Semgrep is not installed — failing rather than silently skipping."
             exit 1
           fi
+          # --error makes findings fail the job: without it, ``semgrep scan``
+          # exits 0 on findings and nothing read the JSON afterwards, so the
+          # step's BLOCKING claim was false. Every current match was triaged
+          # (2026-11-20) and each site already carries the mitigation its
+          # rule asks for; those sites carry an inline ``nosemgrep`` with the
+          # justification beside the code, so the rules stay enabled and a
+          # NEW finding fails the job. The generated console bundle is
+          # excluded as a path: it is built by scripts/build_console_port.py
+          # (hand-edits fail its gate) and its XSS escaping is enforced by
+          # the console's own in-page self-tests (diag.js asserts every
+          # server/user string is escaped).
           semgrep scan \
             --config "p/python" \
             --config "p/security-audit" \
+            --error \
+            --exclude 'src/omni_mercury_engine/api/frontend_assets/static/console/*' \
             --json \
             --output semgrep-report.json \
             src/

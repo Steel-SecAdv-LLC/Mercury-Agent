@@ -4,19 +4,17 @@
 
 name: Benchmark Pipeline
 
-# Permissions required for PR comments, artifact uploads, and (on main only)
-# auto-committing the latest benchmark JSON + README "Latest Benchmark Results"
-# block back to the repository so the most recent live-data run is permanent
-# instead of expiring with the 90-day artifact retention.
+# Default to read-only; every write scope is granted at the JOB that needs
+# it (zizmor excessive-permissions: a workflow-level write hands the token's
+# write scopes to every job, including ones that never write).  The
+# ``benchmark`` job carries the writes it uses: PR comments, (on main only)
+# auto-committing the latest benchmark JSON + README "Latest Benchmark
+# Results" block, and the "Re-trigger required checks" dispatch of ci.yml via
+# the Actions API — without ``actions: write`` that dispatch 403s and (being
+# continue-on-error) fails silently, leaving benchmark PRs stuck on pending
+# required checks.
 permissions:
-  contents: write
-  pull-requests: write
-  issues: read
-  # Required by the "Re-trigger required checks" step, which dispatches
-  # ci.yml via the Actions API (workflow_dispatch).  Without actions: write
-  # the GITHUB_TOKEN dispatch call 403s and (being continue-on-error) fails
-  # silently, leaving benchmark PRs stuck on pending required checks.
-  actions: write
+  contents: read
 
 concurrency:
   group: benchmark-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -99,6 +97,11 @@ jobs:
   benchmark:
     name: Run Mercury Benchmarks
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+      actions: write
     # The gating benchmark step alone took 77-115 min on this branch, and 120 cut one run off.
     timeout-minutes: 180
     # Defence-in-depth self-trigger guard.  GitHub already honours

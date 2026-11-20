@@ -425,9 +425,12 @@ class CAPAlertGenerator:
         Returns:
             True if valid CAP structure, False otherwise.
         """
-        from xml.etree.ElementTree import ParseError
-
-        from defusedxml.ElementTree import fromstring as safe_fromstring
+        # ParseError via defusedxml (it re-exports the stdlib type), so this
+        # function touches no stdlib-xml import at all.
+        from defusedxml.ElementTree import (
+            ParseError,
+            fromstring as safe_fromstring,
+        )
 
         try:
             root = safe_fromstring(xml_string)

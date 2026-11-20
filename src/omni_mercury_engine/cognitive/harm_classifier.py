@@ -29,9 +29,10 @@ the gate (combined by ``max``), and any failure or unparseable reply yields
 from __future__ import annotations
 
 import logging
-import os
 import re
 from typing import TYPE_CHECKING
+
+from omni_mercury_engine._env import killswitch_active as _killswitch_active
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -200,7 +201,7 @@ def default_harm_classifier() -> Callable[[str], float]:
     """
 
     def classify(text: str) -> float:
-        if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
+        if _killswitch_active("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER"):
             return 0.0
         score = _shipped_meaning_level_score(text)
         backend = _resolve_default_backend()
@@ -249,7 +250,7 @@ def served_model_available() -> bool:
 
     Fail-safe: any resolution/attribute error returns ``False``.
     """
-    if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
+    if _killswitch_active("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER"):
         return False
     backend = _resolve_default_backend()
     if backend is None:
@@ -281,7 +282,7 @@ def real_harm_classifier_available() -> bool:
 
     Fail-safe: returns ``False`` if neither source resolves.
     """
-    if os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1":
+    if _killswitch_active("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER"):
         return False
     try:
         from omni_mercury_engine.cognitive.meaning_level import meaning_level_available
@@ -302,7 +303,7 @@ def harm_classifier_posture() -> dict[str, bool]:
     (a generative backend is serving), ``disabled`` (the kill switch is set),
     and ``meaning_level`` (coverage exists at all).
     """
-    disabled = os.environ.get("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER") == "1"
+    disabled = _killswitch_active("MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER")
     shipped = False
     if not disabled:
         try:

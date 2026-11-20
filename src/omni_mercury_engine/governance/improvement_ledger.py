@@ -272,6 +272,9 @@ def _published_path() -> Path | None:
     return None
 
 
+_PUBLISHED_CACHE: tuple[float, dict[str, Any] | None] | None = None
+
+
 def published() -> dict[str, Any] | None:
     """The committed, measured adaptive-change decisions, whole.
 
@@ -282,11 +285,19 @@ def published() -> dict[str, Any] | None:
         verdict (``adopted`` / ``refused`` / ``recorded_not_adopted``) and
         the harness that measured it.
     """
+    global _PUBLISHED_CACHE
     path = _published_path()
     if path is None:
         return None
     try:
+        mtime = path.stat().st_mtime
+        if _PUBLISHED_CACHE is not None and _PUBLISHED_CACHE[0] == mtime:
+            # Served anonymously per request; without the mtime cache every
+            # GET re-read and re-parsed the committed artifact from disk.
+            return _PUBLISHED_CACHE[1]
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return data if isinstance(data, dict) else None
+    result = data if isinstance(data, dict) else None
+    _PUBLISHED_CACHE = (mtime, result)
+    return result

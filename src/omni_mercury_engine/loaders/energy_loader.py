@@ -20,11 +20,14 @@ import logging
 import os
 import zipfile
 from typing import TYPE_CHECKING, Any
-from xml.etree.ElementTree import ParseError
 
 import numpy as np
 import pandas as pd
 from defusedxml import ElementTree as SafeElementTree
+
+# ParseError via defusedxml (a re-export of the stdlib type), so this module
+# carries no stdlib-xml import at all.
+from defusedxml.ElementTree import ParseError
 
 from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.evaluation.hazard_metrics import noaa_g_scale

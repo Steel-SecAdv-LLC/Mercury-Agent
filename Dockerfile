@@ -5,7 +5,11 @@
 # =============================================================================
 # Stage 1: Builder - Install dependencies in a full environment
 # =============================================================================
-FROM python:3.14-slim-trixie AS builder
+# Digest-pinned (multi-arch index of python:3.14-slim-trixie as of
+# 2026-11-20): a tag is a moving target, so an upstream re-tag could
+# silently change every build's base. Dependabot's docker ecosystem
+# tracks and updates the digest.
+FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS builder
 
 # Install build dependencies
 # gfortran + libopenblas-dev + pkg-config: required when pip falls back to
@@ -128,7 +132,10 @@ print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 # The shared object is co-located inside the installed ama_cryptography package
 # so it travels with the venv into the runtime stage and loads without
 # LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
-ARG AMA_REF=v5.0.0
+# The commit the v5.0.0 tag pointed to when pinned (tags are movable;
+# a commit SHA is not). Bump together with pyproject's ama-cryptography
+# pin and tests/security/test_pqc_gate_real_ama.py.
+ARG AMA_REF=702e253a137f98ffe452d2f6e614fcc175112598  # tag v5.0.0
 COPY scripts/build_ama_native.sh scripts/fetch_ama_prebuilt.sh /app/scripts/
 RUN AMA_REF="${AMA_REF}" bash /app/scripts/build_ama_native.sh
 
@@ -170,7 +177,7 @@ COPY . /app
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only runtime dependencies
 # =============================================================================
-FROM python:3.14-slim-trixie AS runtime
+FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS runtime
 
 # Build arguments for flexibility
 ARG USERNAME=mercuryagent

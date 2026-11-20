@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 import time
 from collections import deque
@@ -40,12 +41,30 @@ __all__ = ["QUEUE_SIZE", "AlertBus", "get_alert_bus", "principal_may_see", "to_a
 #: Entries a slow subscriber may lag before the oldest are dropped.
 QUEUE_SIZE = 256
 
+#: Concurrent SSE subscribers the bus accepts; each live stream holds a
+#: connection, a queue and a heartbeat for as long as it stays open, so an
+#: unbounded count let anonymous callers exhaust file descriptors and memory.
+MAX_SUBSCRIBERS = int(os.environ.get("MERCURY_ALERT_BUS_MAX_SUBSCRIBERS", "64"))
+
 
 def principal_may_see(requested: str | None, recorded: str | None) -> bool:
-    """The retriever's visibility rule: unowned entries to all, owned to their owner."""
+    """The retriever's visibility rule: unowned entries to all, owned to their owner.
+
+    An anonymous viewer has no identity to own records with.  Every entry
+    recorded under the ``"anonymous"`` principal belongs to some *other*
+    unauthenticated caller, so treating all anonymous callers as one owner
+    streamed every anonymous user's flagged detections (full record included)
+    to every other anonymous SSE subscriber — a cross-caller data leak.
+    Unowned entries (``recorded is None``: the watch's own broadcasts) stay
+    visible to all; owned entries are visible only to an *authenticated*
+    matching principal.
+    """
     if recorded is None:
         return True
-    return str(recorded) == (requested or "anonymous")
+    viewer = requested or "anonymous"
+    if viewer == "anonymous":
+        return False
+    return str(recorded) == viewer
 
 
 def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
@@ -99,10 +118,17 @@ class AlertBus:
         self.dropped = 0
 
     def subscribe(self, principal: str | None) -> tuple[int, asyncio.Queue[dict[str, Any]]]:
-        """Register the running loop's queue for ``principal``; returns ``(token, queue)``."""
+        """Register the running loop's queue for ``principal``; returns ``(token, queue)``.
+
+        Raises:
+            RuntimeError: When :data:`MAX_SUBSCRIBERS` streams are already
+                live (the caller maps this to HTTP 503).
+        """
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=QUEUE_SIZE)
         with self._lock:
+            if len(self._subscribers) >= MAX_SUBSCRIBERS:
+                raise RuntimeError(f"alert bus is full ({MAX_SUBSCRIBERS} live subscribers)")
             token = self._next_id
             self._next_id += 1
             self._subscribers[token] = _Subscriber(loop, queue, principal)
@@ -115,7 +141,7 @@ class AlertBus:
 
     @property
     def subscriber_count(self) -> int:
-        """Live subscribers."""
+        """Live subscribers (also the capacity pre-check at the SSE route)."""
         with self._lock:
             return len(self._subscribers)
 

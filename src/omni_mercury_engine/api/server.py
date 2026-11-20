@@ -25,6 +25,7 @@ Example:
 from __future__ import annotations
 
 import contextvars
+import json
 import logging
 import os
 import re
@@ -748,6 +749,110 @@ async def redoc_html() -> HTMLResponse:
 from omni_mercury_engine.api.security_headers import STATIC_PREFIX, SecurityHeadersMiddleware
 
 app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type, unused-ignore]
+
+
+class _BodyLimitExceeded(Exception):
+    """Raised inside the guarded receive when a body outgrows its cap."""
+
+
+class BodySizeLimitMiddleware:
+    """Refuse request bodies over a byte cap, before parsing spends on them.
+
+    The app had no body bound at any level: FastAPI's JSON decode and
+    pydantic validation ran over an unbounded body before any gate (the
+    harm gate's 1 MiB / 5M-value caps apply only after parsing), and the one
+    existing guard (the assessment surface) trusted the Content-Length
+    header, which a chunked request simply omits.  This middleware is pure
+    ASGI so it can do both halves: a declared Content-Length over the cap is
+    refused with 413 before the body is read at all, and a chunked or
+    lying-length body is counted as it streams and cut off at the cap.
+
+    Caps (bytes):
+    * ``MERCURY_MAX_BODY_BYTES`` — default 10 MiB, every route.
+    * ``MERCURY_MAX_UPLOAD_BODY_BYTES`` — default 600 MiB, for the
+      authenticated model-management surface (``/api/v1/models``), whose
+      upload handler enforces its own 500 MB streaming bound.
+    """
+
+    _UPLOAD_PREFIX = "/api/v1/models"
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Read the caps once; the per-request work is a counter."""
+        self.app = app
+        self.default_limit = int(os.getenv("MERCURY_MAX_BODY_BYTES", str(10 * 1024 * 1024)))
+        self.upload_limit = int(os.getenv("MERCURY_MAX_UPLOAD_BODY_BYTES", str(600 * 1024 * 1024)))
+
+    def _limit_for(self, path: str) -> int:
+        if path.startswith(self._UPLOAD_PREFIX):
+            return self.upload_limit
+        return self.default_limit
+
+    @staticmethod
+    async def _send_413(send: Any, limit: int) -> None:
+        body = json.dumps({"detail": f"Request body exceeds the {limit}-byte limit."}).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        """Enforce the cap on HTTP requests; pass everything else through."""
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        limit = self._limit_for(scope.get("path", ""))
+
+        declared: int | None = None
+        for name, value in scope.get("headers") or ():
+            if name == b"content-length":
+                try:
+                    declared = int(value)
+                except ValueError:
+                    declared = None
+                break
+        if declared is not None and declared > limit:
+            await self._send_413(send, limit)
+            return
+
+        received = 0
+        response_started = False
+
+        async def guarded_receive() -> dict[str, Any]:
+            nonlocal received
+            message: dict[str, Any] = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body") or b"")
+                if received > limit:
+                    raise _BodyLimitExceeded
+            return message
+
+        async def wrapped_send(message: dict[str, Any]) -> None:
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, guarded_receive, wrapped_send)
+        except _BodyLimitExceeded:
+            if response_started:
+                raise RuntimeError(
+                    "request body exceeded its cap after the response started"
+                ) from None
+            await self._send_413(send, limit)
+
+
+# Registered after (= outermost of) the header middleware: the byte cap is
+# the first thing a request meets, so an oversized body is refused before
+# any other layer spends work on it.
+app.add_middleware(BodySizeLimitMiddleware)
 
 
 # Enums for API parameters

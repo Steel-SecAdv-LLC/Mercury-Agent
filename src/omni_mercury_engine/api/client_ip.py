@@ -85,9 +85,16 @@ def _normalize_ip(candidate: str) -> str | None:
         # IPv4 host:port (a lone colon with dots present cannot be IPv6).
         entry = entry.split(":", 1)[0]
     try:
-        return str(ipaddress.ip_address(entry))
+        parsed = ipaddress.ip_address(entry)
     except ValueError:
         return None
+    if isinstance(parsed, ipaddress.IPv6Address) and not parsed.ipv4_mapped:
+        # Rate-limit identity is the /64, the unit providers delegate to one
+        # subscriber. Per-address buckets gave a single /64 holder 2^64
+        # identities — unlimited fresh budgets, plus the ability to evict
+        # every legitimate bucket out of the limiter's bounded LRU.
+        return str(ipaddress.ip_network(f"{parsed}/64", strict=False).network_address) + "/64"
+    return str(parsed)
 
 
 def resolve_client_ip(

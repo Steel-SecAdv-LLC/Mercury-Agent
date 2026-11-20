@@ -877,7 +877,9 @@ class JWTAuth:
                 "one via AMA HD key management (set AMA_MASTER_SEED so the "
                 "derivation is deterministic fleet-wide)."
             )
-        logger.warning(
+        # Logs the refusal REASON only; the key material never enters the
+        # message. The rule below keys on the env-var name in the text.
+        logger.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             "JWT_SECRET_KEY would be rejected in production because %s. "
             "Accepting it for development only.",
             reason,
@@ -1118,9 +1120,13 @@ class JWTAuth:
             logger.warning("JWT token expired")
             return None
         except jwt.InvalidTokenError as e:
-            # Sanitize error message to prevent log injection via crafted tokens
+            # Sanitize error message to prevent log injection via crafted tokens.
+            # PyJWT error text names the failure mode ("Signature verification
+            # failed", ...) and never echoes the token itself.
             safe_msg = str(e).replace("\n", " ").replace("\r", " ")
-            logger.warning("Invalid JWT token: %s", safe_msg)
+            logger.warning(
+                "Invalid JWT token: %s", safe_msg
+            )  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             return None
         except (KeyError, TypeError, ValueError) as e:
             # Malformed payload - missing required fields or wrong types
@@ -1215,7 +1221,9 @@ class RequestRateLimiter:
             request.client.host if request.client else None,
             request.headers.get("X-Forwarded-For"),
         )
-        return f"ip:{client_ip}"
+        # Not a response body: this is the rate-limiter's bucket key (the
+        # rule pattern-matches any returned f-string in a FastAPI module).
+        return f"ip:{client_ip}"  # nosemgrep: python.flask.security.audit.directly-returned-format-string.directly-returned-format-string
 
     def is_allowed(
         self,

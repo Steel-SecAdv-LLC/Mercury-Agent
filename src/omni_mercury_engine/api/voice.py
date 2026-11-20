@@ -1307,6 +1307,16 @@ async def alerts(
 ) -> StreamingResponse:
     """Stream the caller's flagged runs as server-sent events."""
     principal = _principal_of(user)
+    # The bus bounds live subscribers (MAX_SUBSCRIBERS); a full bus is a
+    # capacity condition, answered 503 here rather than a 500 mid-stream.
+    from omni_mercury_engine.narrative.alert_bus import MAX_SUBSCRIBERS, get_alert_bus
+
+    if get_alert_bus().subscriber_count >= MAX_SUBSCRIBERS:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"The alert stream is at capacity ({MAX_SUBSCRIBERS} subscribers).",
+            headers={"Retry-After": "5"},
+        )
     return StreamingResponse(
         alert_events(principal, max_events=limit),
         media_type="text/event-stream",

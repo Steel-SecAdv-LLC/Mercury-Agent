@@ -305,6 +305,13 @@ jobs:
     name: Build Package
     needs: [validate, test]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Sigstore-backed build provenance for the exact dist artifacts
+      # (actions/attest-build-provenance signs via the workflow OIDC
+      # identity and stores the attestation on the repository).
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout code (attempt 1)
@@ -413,6 +420,34 @@ jobs:
       - name: Verify package
         run: |
           twine check dist/*
+
+      # SIGNED provenance for the exact artifacts built above: a Sigstore
+      # bundle bound to this workflow's OIDC identity, attached to the
+      # repository's attestation store and verifiable with
+      # ``gh attestation verify``.  This is the cryptographic counterpart of
+      # the self-authored JSON below, which remains for human readers and
+      # explicitly claims no signature.
+      - name: Attest build provenance (Sigstore)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+
+      # Dependency SBOM via Mercury's own emitter (CycloneDX 1.5 from the
+      # installed environment; src/omni_mercury_engine/tools/sbom_emitter.py):
+      # the locked ``[api]`` closure plus the wheel built above — the served
+      # platform profile, resolved from uv.lock, not a floating pip solve.
+      # The container image's full-closure SBOM is BuildKit's, attached to
+      # the pushed image by digest (sbom: true in the docker job).
+      - name: Emit dependency SBOM (locked api closure, in-house emitter)
+        run: |
+          python -m pip install "uv==0.11.32"
+          uv venv .sbom-venv --python "${{ env.PYTHON_VERSION }}"
+          UV_PROJECT_ENVIRONMENT=.sbom-venv uv sync --locked --extra api --no-dev --inexact
+          .sbom-venv/bin/python -m omni_mercury_engine.tools.sbom_emitter \
+            --sbom-path dist/SBOM-api-closure.cdx.json
+          test -s dist/SBOM-api-closure.cdx.json
 
       - name: Generate package SBOM and provenance
         env:
@@ -611,8 +646,13 @@ jobs:
           # straight into the published artifact. Released layers are built
           # from the pinned base and the locked closure every time; slower,
           # and the only build whose layers trace to this commit alone.
+          # The Dockerfile's ARG is MERCURY_VERSION (it feeds the OCI
+          # ``org.opencontainers.image.version`` label).  This used to pass
+          # ``VERSION=...``, an ARG the Dockerfile never declares, so every
+          # released image carried the Dockerfile default (3.0.0) in its
+          # version label regardless of the tag being released.
           build-args: |
-            VERSION=${{ needs.validate.outputs.version }}
+            MERCURY_VERSION=${{ needs.validate.outputs.version }}
 
   # ============================================================================
   # Create GitHub Release
@@ -805,6 +845,11 @@ jobs:
         with:
           packages-dir: pypi-dist/
           skip-existing: true
+          # PEP 740: sign and upload digital attestations for the staged
+          # artifacts via the trusted-publishing OIDC identity. Valid only
+          # on this OIDC path, which is why the token-mode step below does
+          # not carry it.
+          attestations: true
 
       - name: Publish to PyPI (API token)
         if: steps.pypi_check.outputs.mode == 'token' && steps.preflight.outputs.publishable == 'true'

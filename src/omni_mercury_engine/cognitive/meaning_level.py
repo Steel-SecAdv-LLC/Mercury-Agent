@@ -47,7 +47,6 @@ from __future__ import annotations
 import json
 import logging
 import math
-import os
 import re
 from itertools import pairwise
 from pathlib import Path
@@ -261,8 +260,17 @@ DISABLE_ENV_VAR = "MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER"
 
 
 def meaning_level_disabled() -> bool:
-    """True when the kill switch is set. Read per call, so it can be toggled."""
-    return os.environ.get(DISABLE_ENV_VAR) == "1"
+    """True when the kill switch is set AND may be honoured.
+
+    Read per call, so it can be toggled.  In production (or when the
+    environment mode cannot be read) the switch is ignored with an ERROR —
+    one environment variable must not silently disable the meaning-level
+    harm coverage on a production deployment
+    (:func:`omni_mercury_engine._env.killswitch_active`).
+    """
+    from omni_mercury_engine._env import killswitch_active
+
+    return killswitch_active(DISABLE_ENV_VAR)
 
 
 def meaning_level_available() -> bool:

@@ -67,6 +67,7 @@ __all__ = [
     "flagship_cognitive_enabled",
     "get_mercury_env",
     "is_production",
+    "killswitch_active",
     "require_real_component",
 ]
 
@@ -197,3 +198,39 @@ def flagship_cognitive_enabled() -> bool:
     """
     raw = os.environ.get(MERCURY_FLAGSHIP_COGNITIVE_VAR, "on")
     return raw.strip().lower() not in ("off", "false", "0")
+
+
+_KILLSWITCH_WARNED: set[str] = set()
+
+
+def killswitch_active(var: str) -> bool:
+    """Whether a safety kill switch is set AND may be honoured here.
+
+    A kill switch (``var`` set to ``"1"``) turns off a safety instrument —
+    the shipped harm classifier, the gate audit trail.  In development that
+    is a legitimate operator choice; in production, silently honouring it
+    turns one environment variable into a safety bypass.  This reader is the
+    single place that distinction lives: in production mode (or when the
+    environment mode cannot be read — fail closed), the switch is IGNORED
+    and an ERROR is logged once per variable, mirroring the treatment of the
+    GOSNN testing bypass.
+    """
+    import logging as _logging
+
+    if os.environ.get(var) != "1":
+        return False
+    try:
+        production = is_production()
+    except MercuryProductionConfigError:
+        production = True
+    if production:
+        if var not in _KILLSWITCH_WARNED:
+            _KILLSWITCH_WARNED.add(var)
+            _logging.getLogger(__name__).error(
+                "%s is set but IGNORED: safety kill switches are not honoured "
+                "in production (unset the variable, or run with "
+                "MERCURY_ENV=development on a non-production deployment).",
+                var,
+            )
+        return False
+    return True

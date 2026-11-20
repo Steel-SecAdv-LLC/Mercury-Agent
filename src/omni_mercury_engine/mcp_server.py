@@ -1221,7 +1221,10 @@ class MercuryMCPServer:
         query = args.get("query")
         if not isinstance(query, str) or not query.strip():
             raise ToolError("'query' must be a non-empty string")
-        max_sources = int(args.get("max_sources", 5))
+        # Clamped to the advertised inputSchema bounds (1..10): arguments are
+        # not schema-validated on the wire, and an unclamped value meant one
+        # fetch per requested source.
+        max_sources = max(1, min(int(args.get("max_sources", 5)), 10))
         report = self._research_assistant().research_report(query, max_sources=max_sources)
         out = report.to_dict()
         # Verifier-in-the-loop: an extractive report can still surface a source's

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import threading
 from collections.abc import Mapping
 from typing import Any
@@ -60,6 +61,14 @@ _flagship_engine: Any = None
 # Bounded audit trail of the served flagship's decisions (built with the
 # engine); GET /detect/flagship/decisions serves its summary, churn included.
 _flagship_ledger: Any = None
+# Admission bound for flagship detections. Every flagship call occupies one
+# AnyIO threadpool token (default pool: 40) while it WAITS on the single
+# engine lock, so ~40 queued calls — reachable anonymously, and amplified by
+# explain/gdpr_report — used to starve every sync route on the worker,
+# login included. Calls beyond this queue depth are refused with 429
+# immediately instead of parking a pool thread.
+_FLAGSHIP_MAX_QUEUE = int(os.environ.get("MERCURY_FLAGSHIP_MAX_QUEUE", "8"))
+_flagship_admission = threading.BoundedSemaphore(max(_FLAGSHIP_MAX_QUEUE, 1))
 
 
 def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
@@ -279,15 +288,30 @@ def _run_flagship_detection(
     scalar bleed described above. Any :class:`EthicalConstraintViolationError`
     propagates to the caller, which maps it to HTTP 403.
     """
-    with _flagship_lock:
-        result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
-            matrix,
-            domain=domain,
-            explain=explain,
-            gdpr_report=gdpr_report,
-            subject_id=subject_id,
+    if not _flagship_admission.acquire(blocking=False):
+        # The queue for the single-engine lock is full: refuse now rather
+        # than park another threadpool token behind it (see the admission
+        # bound's comment at the module top).
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "The flagship detector's queue is full; retry shortly. "
+                f"(admission bound: {_FLAGSHIP_MAX_QUEUE} queued calls)"
+            ),
+            headers={"Retry-After": "1"},
         )
-        return result
+    try:
+        with _flagship_lock:
+            result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
+                matrix,
+                domain=domain,
+                explain=explain,
+                gdpr_report=gdpr_report,
+                subject_id=subject_id,
+            )
+            return result
+    finally:
+        _flagship_admission.release()
 
 
 class NeurosymbolicRequest(BaseModel):
@@ -1126,8 +1150,13 @@ async def detect_tier(
         return result
 
     except ValueError as e:
-        # Bad request: unknown detector name, stacking-without-labels, bad alpha.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # Bad request: unknown detector name, stacking-without-labels, bad
+        # alpha. First line, clipped: deep numpy/engine ValueErrors can carry
+        # internal detail (shapes, module paths).
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except Exception as e:
         logger.error("Tier detection failed: %s", e)
         raise HTTPException(
@@ -1142,10 +1171,20 @@ class FlagshipDetectRequest(BaseModel):
     data: list[list[float]] = Field(
         ...,
         min_length=1,
+        # Caps what the body-size middleware cannot see: element counts.
+        # 65,536 rows is far beyond the measured serving envelope (latency
+        # is recorded at 1-1024 rows) while bounding the ledger/memory cost
+        # a single anonymous call can pin.
+        max_length=65536,
         description="Rows of equal-length numeric feature vectors (a feature matrix).",
     )
     domain: str | None = Field(
         default=None,
+        # The engine's sanitize_domain collapses anything outside its
+        # whitelist to 'general'; the cap stops an arbitrary-size caller
+        # string from riding raw into DecisionRecord.domain and the
+        # 4096-entry decision ledger.
+        max_length=128,
         description="Optional domain for GOSNN threshold tuning (e.g. 'medical').",
     )
     explain: bool = Field(
@@ -1165,6 +1204,7 @@ class FlagshipDetectRequest(BaseModel):
     )
     subject_id: str | None = Field(
         default=None,
+        max_length=256,
         description="Optional data-subject identifier recorded in the GDPR report.",
     )
 
@@ -1211,8 +1251,13 @@ async def flagship_decision_summary(
     user: User | None = Depends(_get_optional_user),
 ) -> dict[str, Any]:
     """Serve the flagship decision ledger's aggregate summary."""
-    with _flagship_lock:
-        ledger = _flagship_ledger
+    # Deliberately lock-free: this handler runs on the event loop, and
+    # ``_flagship_lock`` is a threading.Lock held for the whole of every
+    # flagship detection — taking it here let one caller freeze the entire
+    # worker (every route, /health included) for the duration of a detection.
+    # Reading the module global is atomic, and ``DecisionLedger.summary()``
+    # is O(1) under the ledger's own internal lock.
+    ledger = _flagship_ledger
     if ledger is None:
         return {"total": 0, "recorded": False}
     summary: dict[str, Any] = ledger.summary()
@@ -1339,8 +1384,19 @@ async def detect_flagship(
                 e, f"Detection blocked by the '{e.check}' ethical gate."
             ),
         ) from e
+    except HTTPException:
+        # Already a shaped HTTP answer (e.g. the 429 admission refusal from
+        # the queue bound); the generic handler below must not flatten it
+        # into a 500.
+        raise
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # Bounded: deep numpy/torch/engine ValueErrors can carry internal
+        # detail (shapes, fitted widths, module paths); the caller gets the
+        # first line, clipped, which is enough to fix the input.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except ImportError as e:
         logger.error("Flagship fusion engine unavailable: %s", e)
         raise HTTPException(
@@ -1429,7 +1485,11 @@ async def detect_rca(
 
     except ValueError as e:
         # Bad request: non-2-D observations, mismatched node_names length.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # First line, clipped, for the same reason as the tier route.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except Exception as e:
         logger.error("Root-cause localization failed: %s", e)
         raise HTTPException(

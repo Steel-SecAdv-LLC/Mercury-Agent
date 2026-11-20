@@ -32,8 +32,12 @@ concurrency:
 
 jobs:
   auto-merge:
-    # Only run on Dependabot's own PRs.
-    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'
+    # Only run on Dependabot's own PRs. The PR *author* login is the
+    # unspoofable check (zizmor bot-conditions: ``github.actor`` is whoever
+    # triggered the run, so an actor clause is both spoof-flagged and
+    # redundant beside the author check; fetch-metadata below also refuses
+    # non-Dependabot PRs).
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Dependabot metadata

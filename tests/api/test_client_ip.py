@@ -82,10 +82,24 @@ class TestTrustedProxyTier:
         assert resolve_client_ip("203.0.113.9", "6.6.6.6, not-an-ip", hops=1) == "203.0.113.9"
 
     def test_ipv6_and_port_forms_normalise(self) -> None:
-        """Bracketed IPv6, v6 case, and host:port forms all canonicalise."""
-        assert resolve_client_ip("10.0.0.1", "[2001:DB8::1]:443", hops=1) == "2001:db8::1"
-        assert resolve_client_ip("10.0.0.1", "2001:DB8::2", hops=1) == "2001:db8::2"
+        """Bracketed IPv6, v6 case, and host:port forms all canonicalise.
+
+        IPv6 canonicalises to its /64: the delegation unit providers hand one
+        subscriber. Per-address buckets gave a single /64 holder 2^64 rate
+        identities and the power to evict every legitimate bucket from the
+        limiter's bounded LRU.
+        """
+        assert resolve_client_ip("10.0.0.1", "[2001:DB8::1]:443", hops=1) == "2001:db8::/64"
+        assert resolve_client_ip("10.0.0.1", "2001:DB8::2", hops=1) == "2001:db8::/64"
         assert resolve_client_ip("10.0.0.1", "198.51.100.7:8080", hops=1) == "198.51.100.7"
+
+    def test_ipv6_same_slash64_shares_one_bucket(self) -> None:
+        """Two addresses in one /64 are one rate identity; another /64 is not."""
+        first = resolve_client_ip("10.0.0.1", "2001:db8:1:2:aaaa::1", hops=1)
+        second = resolve_client_ip("10.0.0.1", "2001:db8:1:2:bbbb::2", hops=1)
+        other = resolve_client_ip("10.0.0.1", "2001:db8:1:3::1", hops=1)
+        assert first == second == "2001:db8:1:2::/64"
+        assert other != first
 
     def test_missing_header_with_hops_uses_peer(self) -> None:
         """A proxied deployment still resolves direct (header-less) hits sanely."""
