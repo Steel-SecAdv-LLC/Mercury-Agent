@@ -44,6 +44,7 @@ Example::
 from __future__ import annotations
 
 import copy
+import itertools
 import logging
 import math
 from collections import deque
@@ -95,6 +96,15 @@ class EngineStreamSession:
     window, counted in ``samples_unmeasured``, and the returned verdict is
     marked ``partial`` -- it never poisons the window and never becomes a
     silent all-clear.
+
+    Every verdict also carries ``churn``: the fraction of verdict flips (the
+    newest sample's ``is_anomaly`` differing from the previous point-resolved
+    tick's) among the last ``churn_window`` consecutive point-resolved verdict
+    pairs. A stream that flips every tick is operationally unstable even when
+    each tick is individually defensible, and nothing measured it. ``churn``
+    is ``None`` until two point-resolved verdicts exist; warmup, unmeasured
+    and not-point-resolved ticks never enter the history (they report the
+    churn as it stands).
     """
 
     def __init__(
@@ -106,6 +116,7 @@ class EngineStreamSession:
         min_samples: int = 32,
         refit_interval: int = 128,
         monitor_drift: bool = True,
+        churn_window: int = 32,
     ) -> None:
         """Initialize the session.
 
@@ -123,6 +134,8 @@ class EngineStreamSession:
                 session's detectors on the post-drift samples at the next
                 tick.  Previously the online drift detector was built but
                 reachable from no live path.
+            churn_window: Number of consecutive point-resolved verdict pairs
+                the per-tick ``churn`` fraction is computed over (>= 1).
 
         Raises:
             ValueError: If a window/sample/interval parameter is out of range.
@@ -135,6 +148,8 @@ class EngineStreamSession:
             )
         if refit_interval < 1:
             raise ValueError(f"refit_interval must be >= 1, got {refit_interval}")
+        if churn_window < 1:
+            raise ValueError(f"churn_window must be >= 1, got {churn_window}")
         self._engine = engine
         self._detector_types = list(detector_types) if detector_types is not None else None
         # The session operates on its OWN detector instances, never the
@@ -164,6 +179,10 @@ class EngineStreamSession:
         # again (it doubles until the window is full); None outside that phase.
         self._drift_consolidate_at: int | None = None
         self._feature_dim: int | None = None
+        # The last churn_window + 1 point-resolved verdicts (churn_window
+        # consecutive pairs). Only "ok" ticks enter; warmup, unmeasured and
+        # not-point-resolved ticks are excluded by construction.
+        self._churn_history: deque[bool] = deque(maxlen=churn_window + 1)
         self._drift_monitor: Any = None
         self._drift_events = 0
         if monitor_drift:
@@ -183,6 +202,18 @@ class EngineStreamSession:
     def samples_unmeasured(self) -> int:
         """Samples excluded as non-finite (reported, never scored)."""
         return self._samples_unmeasured
+
+    def _churn(self) -> float | None:
+        """Flip fraction over the retained point-resolved verdict pairs.
+
+        ``None`` while fewer than two point-resolved verdicts exist (no pair
+        to compare yet) -- never a fabricated 0.0 stability claim.
+        """
+        if len(self._churn_history) < 2:
+            return None
+        verdicts = list(self._churn_history)
+        flips = sum(1 for prev, cur in itertools.pairwise(verdicts) if prev != cur)
+        return flips / (len(verdicts) - 1)
 
     def _coerce(self, sample: Any) -> np.ndarray[Any, Any] | None:
         """One sample as a finite 1-D float vector, or None if unmeasured."""
@@ -318,7 +349,9 @@ class EngineStreamSession:
             "not_point_resolved"), ``partial`` (True while warming up, when
             this sample was unmeasured, or when no detector gave a verdict
             about this sample), ``is_anomaly``/``score``/``per_detector``/
-            ``uncertainty`` once warmed up, plus the session counters.
+            ``uncertainty`` once warmed up, ``churn`` (verdict-flip fraction
+            over the last ``churn_window`` point-resolved pairs; ``None``
+            until two resolved verdicts), plus the session counters.
 
         Raises:
             ValueError: On a sample whose dimensionality contradicts the
@@ -331,6 +364,10 @@ class EngineStreamSession:
             "samples_seen": self._samples_seen,
             "samples_unmeasured": self._samples_unmeasured,
             "window_fill": len(self._window),
+            # Verdict-flip fraction over the last point-resolved ticks; a
+            # tick that resolves a verdict below overwrites this with the
+            # value that includes itself. None until two resolved verdicts.
+            "churn": self._churn(),
         }
         if array is None:
             self._samples_unmeasured += 1
@@ -428,15 +465,19 @@ class EngineStreamSession:
             # Certainty-weighted mean: a detector shrugging at its decision
             # boundary moves the stream verdict less than a certain one.
             score = float(np.average(scores, weights=np.asarray(certainty_weights) + 1e-9))
-        verdict = {
+        is_anomaly = any(per_detector[name]["is_anomaly"] for name in resolved)
+        if math.isnan(score):
+            raise RuntimeError("stream verdict produced a NaN score; refusing to serve it")
+        # This tick resolved a verdict about its own sample: it enters the
+        # churn history, and the tick reports the churn including itself.
+        self._churn_history.append(bool(is_anomaly))
+        return {
             **base,
             "status": "ok",
             "partial": False,
-            "is_anomaly": any(per_detector[name]["is_anomaly"] for name in resolved),
+            "is_anomaly": is_anomaly,
             "score": score,
             "per_detector": per_detector,
             "uncertainty": float(np.mean([per_detector[name]["uncertainty"] for name in resolved])),
+            "churn": self._churn(),
         }
-        if math.isnan(score):
-            raise RuntimeError("stream verdict produced a NaN score; refusing to serve it")
-        return verdict

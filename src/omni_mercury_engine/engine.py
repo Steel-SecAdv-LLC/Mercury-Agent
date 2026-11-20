@@ -88,12 +88,14 @@ del _pqc_enforce
 import contextvars
 import functools
 import gc
+import hashlib
 import logging
 import os
 import threading
 import time
 from collections import deque
 from contextlib import contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import numpy as np
@@ -218,7 +220,6 @@ from omni_mercury_engine.utils.logging import LoggerMixin
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
-    from pathlib import Path
 
     from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
     from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
@@ -1665,6 +1666,17 @@ class OmniMercuryEngine(LoggerMixin):
             # by training scripts and persisted in/restored from the checkpoint
             # so a shipped artifact is self-describing for audit. None unless set.
             self._fusion_provenance: dict[str, Any] | None = None
+            # Identity of the checkpoint file the serving weights came from
+            # (basename + sha256, hashed once at load and cached -- never per
+            # call). Both None until load_model(); an in-process fit resets
+            # them so provenance reads "in-memory fit" instead of naming a
+            # file whose weights were since replaced.
+            self._fusion_checkpoint_name: str | None = None
+            self._fusion_checkpoint_sha256: str | None = None
+            # Calibration-set size behind _fusion_conformal; None when the
+            # certificate was restored from a checkpoint (which does not
+            # record it -- the provenance says so rather than inventing one).
+            self._fusion_conformal_n_calibration: int | None = None
             logger.info(
                 "OmniFusionModel initialized (untrained). Call fit_fusion() "
                 "before detection for optimal performance."
@@ -2893,6 +2905,11 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_active and sym_module is not None:
             sym_module.eval()
         self._fusion_trained = True
+        # The serving weights now come from this in-process fit, not from any
+        # previously loaded checkpoint file: drop the cached file identity so
+        # model provenance reports "in-memory fit", never a stale artifact.
+        self._fusion_checkpoint_name = None
+        self._fusion_checkpoint_sha256 = None
         self._invalidate_drift_reference()
 
         logger.info(f"Fusion training complete. Best val_loss: {best_val_loss:.4f}")
@@ -4249,6 +4266,8 @@ class OmniMercuryEngine(LoggerMixin):
             probs = self.score_fusion(X_cal)
         y = np.asarray(y_cal).astype(int).ravel()
         self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
+        # Recorded for model provenance: the certificate's calibration-set size.
+        self._fusion_conformal_n_calibration = int(y.size)
         report = self._fusion_conformal.coverage_report(probs, y)
         logger.info(
             "Fusion conformal calibrated: coverage=%.2f thresholds=%s (n_cal=%d)",
@@ -5478,6 +5497,7 @@ class OmniMercuryEngine(LoggerMixin):
         min_samples: int = 32,
         refit_interval: int = 128,
         monitor_drift: bool = True,
+        churn_window: int = 32,
     ) -> Any:
         """Open a one-sample-at-a-time detection session on this engine.
 
@@ -5495,6 +5515,8 @@ class OmniMercuryEngine(LoggerMixin):
             refit_interval: Samples between detector refits.
             monitor_drift: Run the ADWIN online drift monitor over the
                 measured stream (verdicts then carry a ``drift`` record).
+            churn_window: Point-resolved verdict pairs the per-tick ``churn``
+                (verdict-flip fraction) is computed over.
 
         Returns:
             A new ``EngineStreamSession``.
@@ -5508,6 +5530,7 @@ class OmniMercuryEngine(LoggerMixin):
             min_samples=min_samples,
             refit_interval=refit_interval,
             monitor_drift=monitor_drift,
+            churn_window=churn_window,
         )
 
     @property
@@ -6792,6 +6815,13 @@ class OmniMercuryEngine(LoggerMixin):
                   per-row values, aligned with the input rows
                 - threshold_used: The decision threshold applied
                 - detector_importance: Dict of detector weights
+                - model_provenance: Identity of the calibrated model that
+                  produced the probability — ``{"checkpoint"`` (basename or
+                  ``"in-memory fit"``), ``"checkpoint_sha256"`` (hex, hashed
+                  once at load; ``None`` for an in-memory fit),
+                  ``"temperature"``, ``"conformal"`` (``coverage_target`` /
+                  ``coverage_achieved`` / ``n_calibration``, or ``None``),
+                  ``"trained_groups"}``
                 - mode: Detection mode ('fusion')
                 - skipped_detectors: (only when something was skipped) evidence
                   sources that did not report this call, ``{name: {"reason",
@@ -7236,6 +7266,11 @@ class OmniMercuryEngine(LoggerMixin):
             "detector_uncertainties": {k: float(v) for k, v in det_uncertainties.items()},
             "mode": "fusion",
             "threshold_used": float(threshold),
+            # Identity of the calibrated model that produced the probability
+            # (checkpoint name + sha256, temperature, conformal coverage,
+            # trained groups) -- additive, assembled from state cached at
+            # load/fit time, so no file is read or hashed per call.
+            "model_provenance": self._model_provenance(),
         }
 
         # Surface any detectors that had to be auto-fit on the inference batch.
@@ -7503,6 +7538,49 @@ class OmniMercuryEngine(LoggerMixin):
             anomaly_score=float(result["anomaly_prob"]),
         )
         return report.to_dict()
+
+    def _model_provenance(self) -> dict[str, Any]:
+        """Identity of the calibrated model behind ``detect_with_fusion``.
+
+        A JSON-safe mapping assembled entirely from engine state cached at
+        load/fit/calibrate time (no per-call file reads or hashing):
+
+        * ``checkpoint``: the loaded checkpoint's basename, or ``"in-memory
+          fit"`` when the serving weights come from an in-process fit (or no
+          training has happened yet).
+        * ``checkpoint_sha256``: sha256 of the loaded file, hashed once by
+          :meth:`load_model`; ``None`` for an in-memory fit.
+        * ``temperature``: the fitted post-hoc temperature scalar, or ``None``
+          when no calibrator is fitted.
+        * ``conformal``: ``{"coverage_target", "coverage_achieved",
+          "n_calibration"}`` for the fitted conformal certificate
+          (``n_calibration`` is ``None`` for a certificate restored from a
+          checkpoint, which does not record it), or ``None`` without one.
+        * ``trained_groups``: the feature groups the network was trained on.
+
+        Returns:
+            The ``model_provenance`` mapping attached to detection results.
+        """
+        temperature: float | None = None
+        calibrator = self._fusion_calibrator
+        if calibrator is not None:
+            raw_temperature = getattr(calibrator, "temperature", None)
+            if raw_temperature is not None:
+                temperature = float(raw_temperature)
+        conformal: dict[str, Any] | None = None
+        if self._fusion_conformal is not None:
+            conformal = {
+                "coverage_target": float(self._fusion_conformal.coverage),
+                "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+                "n_calibration": self._fusion_conformal_n_calibration,
+            }
+        return {
+            "checkpoint": self._fusion_checkpoint_name or "in-memory fit",
+            "checkpoint_sha256": self._fusion_checkpoint_sha256,
+            "temperature": temperature,
+            "conformal": conformal,
+            "trained_groups": list(self._fusion_feature_groups or ()),
+        }
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_fusion_calibrated_subject)
     def detect_with_fusion_calibrated(
@@ -8527,11 +8605,26 @@ class OmniMercuryEngine(LoggerMixin):
                 if conformal_state is not None
                 else None
             )
+            # A checkpoint does not record the calibration-set size; the
+            # provenance reports None for a restored certificate rather than
+            # carrying a stale in-process count across the load.
+            self._fusion_conformal_n_calibration = None
         else:
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)
             self._fusion_trained = True
             self._symbolic_module = None
+
+        # Cache the loaded artifact's identity for model provenance: the
+        # basename names it, the sha256 pins the exact bytes. Hashed once,
+        # here, so serving never re-reads the file per call. A failed load
+        # raises before this point and keeps the previous identity.
+        self._fusion_checkpoint_name = Path(path).name
+        digest = hashlib.sha256()
+        with Path(path).open("rb") as checkpoint_file:
+            for chunk in iter(lambda: checkpoint_file.read(1 << 20), b""):
+                digest.update(chunk)
+        self._fusion_checkpoint_sha256 = digest.hexdigest()
 
         # Loaded weights are kept by a later fit (see _fit_fusion_on_features).
         self._fusion_model_pristine = False

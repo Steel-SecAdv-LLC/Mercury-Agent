@@ -66,6 +66,10 @@ class DecisionLedger:
         self._by_response_action: dict[str, int] = {}
         self._abstained = 0
         self._calibrated = 0
+        # Consecutive-record disposition flips among the *retained* records
+        # (adjacent pairs whose dispositions differ), kept in lock-step with
+        # appends and ring-buffer evictions so the churn rate stays O(1).
+        self._disposition_flips = 0
 
     # -- aggregate bookkeeping ---------------------------------------------
 
@@ -90,10 +94,21 @@ class DecisionLedger:
 
     def _append_locked(self, record: DecisionRecord) -> None:
         """Append one record, accounting for any ring-buffer eviction (lock held)."""
-        if self.maxlen is not None and len(self._entries) == self.maxlen:
+        at_capacity = self.maxlen is not None and len(self._entries) == self.maxlen
+        if at_capacity:
             # The leftmost record is about to be evicted by the bounded deque;
-            # decrement its contribution before it is dropped.
+            # decrement its contribution before it is dropped -- including the
+            # adjacent-pair flip it formed with its right neighbour.
+            if len(self._entries) >= 2 and (
+                self._entries[0].disposition is not self._entries[1].disposition
+            ):
+                self._disposition_flips -= 1
             self._apply(self._entries[0], -1)
+        # The new record pairs with the current newest one, unless that very
+        # record is the one being evicted (maxlen == 1: never any pair).
+        if self._entries and not (at_capacity and len(self._entries) == 1):
+            if self._entries[-1].disposition is not record.disposition:
+                self._disposition_flips += 1
         self._entries.append(record)
         self._apply(record, 1)
 
@@ -120,6 +135,7 @@ class DecisionLedger:
             self._by_response_action.clear()
             self._abstained = 0
             self._calibrated = 0
+            self._disposition_flips = 0
 
     # -- views --------------------------------------------------------------
 
@@ -147,7 +163,11 @@ class DecisionLedger:
 
         The summary is the audit's headline: how the loop split across the three
         transparency states, the operational dispositions and the bounded responses,
-        plus the transparent-abstention and calibrated-decision rates.  It is O(1) in
+        plus the transparent-abstention and calibrated-decision rates and the
+        decision ``churn`` -- consecutive-record disposition flips over the
+        ``n - 1`` adjacent pairs of the retained trail (``None`` with fewer
+        than two records), a trail that re-decides every event being
+        operationally unstable even when each record is sound.  It is O(1) in
         the size of the trail -- the counts are maintained incrementally as
         records are recorded and evicted, not recomputed here.
         """
@@ -160,6 +180,7 @@ class DecisionLedger:
                 "by_response_action": dict(self._by_response_action),
                 "abstention_rate": (self._abstained / total) if total else 0.0,
                 "calibrated_rate": (self._calibrated / total) if total else 0.0,
+                "churn": (self._disposition_flips / (total - 1)) if total >= 2 else None,
             }
 
     # -- persistence --------------------------------------------------------

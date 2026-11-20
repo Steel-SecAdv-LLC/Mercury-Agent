@@ -23,7 +23,15 @@ pipeline already threads through:
 * ``skipped_detectors`` -- the evidence sources that did not report this run
   (timed out, refused, errored), each flagged with whether the fusion network
   was trained on it.  A trained source that is missing means the probability
-  was computed from partial evidence.
+  was computed from partial evidence.  The full per-entry provenance is kept
+  as ``skipped_detail``.
+* ``detector_uncertainties`` / ``out_of_support_rows`` / ``model_provenance``
+  -- per-detector decision uncertainty, the extrapolation-floored rows and
+  the calibrated model's identity (checkpoint, temperature, conformal
+  coverage), carried verbatim for record provenance.
+* ``detector_importance`` / ``explanation`` / ``gdpr_report`` -- reduced to a
+  bounded ``contributions`` summary (top-16 weights, 6 dp); the raw full
+  explanation never rides the evidence.
 
 Extraction is defensive: every field is optional, missing keys collapse to
 ``None`` (a transparent "signal absent this run"), and nothing here raises on a
@@ -34,8 +42,12 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+
+#: Hard cap on each ``contributions`` map: enough to name every detector and
+#: the strongest features, never the raw full explanation.
+_MAX_CONTRIBUTION_ENTRIES = 16
 
 
 def _as_float(value: Any) -> float | None:
@@ -85,6 +97,69 @@ def _as_int_tuple(values: Any) -> tuple[int, ...] | None:
     return tuple(coerced)
 
 
+def _bounded_contributions(raw: Any) -> dict[str, float] | None:
+    """Bound a ``name -> weight`` mapping to a compact, stable summary.
+
+    Keeps at most :data:`_MAX_CONTRIBUTION_ENTRIES` entries -- the strongest by
+    absolute weight, ties broken by name for determinism -- with each weight
+    rounded to 6 decimal places.  Non-finite or non-numeric weights are
+    dropped; an empty or malformed mapping reads as absent (``None``), never
+    as a fabricated zero-attribution.
+    """
+    if not isinstance(raw, Mapping):
+        return None
+    entries: list[tuple[str, float]] = []
+    for name, value in raw.items():
+        as_float = _as_float(value)
+        if as_float is not None:
+            entries.append((str(name), as_float))
+    if not entries:
+        return None
+    entries.sort(key=lambda item: (-abs(item[1]), item[0]))
+    return {name: round(value, 6) for name, value in entries[:_MAX_CONTRIBUTION_ENTRIES]}
+
+
+def _ig_summary(explanation: Any) -> dict[str, float] | None:
+    """Bounded attribution summary of an IG ``explanation`` payload.
+
+    Reads the ``feature_importances`` list the explainer's ``to_dict`` emits
+    (``{"feature", "importance", ...}`` items) and reduces it to a top-k
+    ``feature -> importance`` map via :func:`_bounded_contributions`.  The raw
+    explanation (narratives, counterfactuals, faithfulness scores) never rides
+    the record -- it stays at the detection result's top level only.
+    """
+    if not isinstance(explanation, Mapping):
+        return None
+    importances = explanation.get("feature_importances")
+    if not isinstance(importances, (list, tuple)):
+        return None
+    collected: dict[str, float] = {}
+    for item in importances:
+        if not isinstance(item, Mapping):
+            continue
+        name = item.get("feature")
+        value = _as_float(item.get("importance"))
+        if name is not None and value is not None:
+            collected[str(name)] = value
+    return _bounded_contributions(collected)
+
+
+def _shapley_summary(report: Any) -> dict[str, float] | None:
+    """Bounded Shapley summary of a GDPR ``gdpr_report`` payload.
+
+    Reads ``explanation.feature_contributions`` from the report's ``to_dict``
+    form and reduces it to the same top-k map shape as the IG summary.  The
+    full report (rights narrative, counterfactual actions) stays at the
+    detection result's top level only.
+    """
+    if not isinstance(report, Mapping):
+        return None
+    explanation = report.get("explanation")
+    if not isinstance(explanation, Mapping):
+        return None
+    return _bounded_contributions(explanation.get("feature_contributions"))
+
+
 @dataclass(frozen=True)
 class Evidence:
     """A typed, normalised snapshot of one detection result.
@@ -130,6 +205,28 @@ class Evidence:
             partial evidence, and the decider will not ground a verdict on
             it.  Empty when every trained source reported, or the result did
             not carry the ``skipped_detectors`` section.
+        skipped_detail: Full provenance of every skip entry the result
+            carried (trained or not): ``name -> {reason, detail,
+            trained_group}`` as ``detect_with_fusion`` reported it.  Empty
+            when nothing was skipped.  Additive beside
+            :attr:`skipped_detectors`, which keeps its released
+            names-of-trained-sources meaning unchanged.
+        detector_uncertainties: Per-detector decision uncertainty
+            (``name -> value``) from the result's ``detector_uncertainties``
+            key; empty when absent.  Non-finite values are dropped.
+        out_of_support_rows: Rows outside the fusion training envelope whose
+            probabilities were floored at the detector consensus (the
+            result's ``out_of_support_rows``); empty when absent or clean.
+        model_provenance: Identity of the calibrated model that produced the
+            probability (checkpoint name/sha256, temperature, conformal
+            coverage, trained groups) -- the result's ``model_provenance``
+            mapping, or ``None`` when the result carried none.
+        contributions: Bounded causal-contribution summary under a stable
+            key: ``{"detector_importance", "integrated_gradients",
+            "shapley"}``, each a top-k (at most 16 entries) ``name -> weight``
+            map with weights rounded to 6 dp, or ``None`` when that source
+            was absent this run.  Never the raw full explanation.  ``None``
+            on evidence built without :meth:`from_detection`.
         domain: Optional domain hint.
     """
 
@@ -151,6 +248,11 @@ class Evidence:
     gosnn_demote_clear_above: float | None = None
     domain: str | None = None
     skipped_detectors: tuple[str, ...] = ()
+    skipped_detail: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    detector_uncertainties: Mapping[str, float] = field(default_factory=dict)
+    out_of_support_rows: tuple[int, ...] = ()
+    model_provenance: Mapping[str, Any] | None = None
+    contributions: Mapping[str, Any] | None = None
 
     @property
     def calibrated(self) -> bool:
@@ -267,16 +369,51 @@ class Evidence:
         # Evidence sources that did not report.  A source counts against the
         # verdict when the fusion network was trained on it; an entry that
         # does not say (malformed, or a bare list of names) is read as
-        # trained -- the fail-closed reading of an unclear record.
+        # trained -- the fail-closed reading of an unclear record.  The full
+        # per-entry provenance ({reason, detail, trained_group}) is carried
+        # beside the names so a reloaded record can say *why* evidence was
+        # missing, not only that it was.
         skipped_detectors: list[str] = []
+        skipped_detail: dict[str, dict[str, Any]] = {}
         skipped = result.get("skipped_detectors")
         if isinstance(skipped, Mapping):
             for name, info in skipped.items():
+                skipped_detail[str(name)] = (
+                    {str(key): value for key, value in info.items()}
+                    if isinstance(info, Mapping)
+                    else {}
+                )
                 trained = info.get("trained_group", True) if isinstance(info, Mapping) else True
                 if trained is not False:
                     skipped_detectors.append(str(name))
         elif isinstance(skipped, (list, tuple, set, frozenset)):
             skipped_detectors.extend(str(name) for name in skipped)
+            skipped_detail = {str(name): {} for name in skipped}
+
+        detector_uncertainties: dict[str, float] = {}
+        raw_uncertainties = result.get("detector_uncertainties")
+        if isinstance(raw_uncertainties, Mapping):
+            for name, value in raw_uncertainties.items():
+                uncertainty = _as_float(value)
+                if uncertainty is not None:
+                    detector_uncertainties[str(name)] = uncertainty
+
+        raw_provenance = result.get("model_provenance")
+        model_provenance = (
+            {str(key): value for key, value in raw_provenance.items()}
+            if isinstance(raw_provenance, Mapping)
+            else None
+        )
+
+        # Bounded causal-contribution summary (always three keys; a source
+        # absent this run reads None).  ``detector_importance`` rides every
+        # fusion result; the IG and Shapley summaries only exist when the
+        # caller opted into ``explain`` / ``gdpr_report``.
+        contributions: dict[str, Any] = {
+            "detector_importance": _bounded_contributions(result.get("detector_importance")),
+            "integrated_gradients": _ig_summary(result.get("explanation")),
+            "shapley": _shapley_summary(result.get("gdpr_report")),
+        }
 
         return cls(
             anomaly_prob=anomaly_prob,
@@ -297,6 +434,11 @@ class Evidence:
             gosnn_demote_clear_above=gosnn_demote_clear_above,
             domain=domain if domain is not None else result.get("domain"),
             skipped_detectors=tuple(sorted(skipped_detectors)),
+            skipped_detail=skipped_detail,
+            detector_uncertainties=detector_uncertainties,
+            out_of_support_rows=_as_int_tuple(result.get("out_of_support_rows")) or (),
+            model_provenance=model_provenance,
+            contributions=contributions,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -322,6 +464,13 @@ class Evidence:
             "gosnn_demote_act_below": self.gosnn_demote_act_below,
             "gosnn_demote_clear_above": self.gosnn_demote_clear_above,
             "skipped_detectors": list(self.skipped_detectors),
+            "skipped_detail": {name: dict(info) for name, info in self.skipped_detail.items()},
+            "detector_uncertainties": dict(self.detector_uncertainties),
+            "out_of_support_rows": list(self.out_of_support_rows),
+            "model_provenance": (
+                dict(self.model_provenance) if self.model_provenance is not None else None
+            ),
+            "contributions": dict(self.contributions) if self.contributions is not None else None,
             "domain": self.domain,
         }
 

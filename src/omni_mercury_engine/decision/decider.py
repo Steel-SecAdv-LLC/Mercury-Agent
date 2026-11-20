@@ -34,7 +34,9 @@ order:
    calibration may no longer hold, or the GOSNN fused-state detection head
    (when its merit-gated checkpoint shipped one) strongly disagrees with the
    grounded label at its validation-selected thresholds.  Overlays only ever
-   weaken a verdict toward abstention, never the reverse.
+   weaken a verdict toward abstention, never the reverse.  Every applicable
+   overlay leaves its reason on the record (the state is demoted once), and
+   the deferral is resolvable by re-input only when all of them are.
 """
 
 from __future__ import annotations
@@ -373,45 +375,56 @@ class DecisionAbstentionResponder:
             )
 
     def _apply_demotions(self, ev: Evidence, v: _Verdict) -> None:
-        """Weaken a grounded verdict to a deferral on partial evidence / disagreement / drift."""
+        """Weaken a grounded verdict to a deferral on partial evidence / disagreement / drift.
+
+        Every applicable overlay is collected before the verdict is touched,
+        so a record demoted for several reasons at once names all of them --
+        the gate used to stop at the first match, and a simultaneous symbolic
+        conflict or drift silently vanished from the audit trail.  The state
+        is demoted exactly once, and the deferral is resolvable by re-input
+        only when *every* matched overlay is (a single human-adjudication
+        reason among them routes the whole deferral to a human).
+        """
+        demotions: list[tuple[str, bool]] = []
+
         if ev.skipped_detectors:
             # A detector the fusion network was trained on did not report
             # (timed out, refused by a saturated executor, declined, failed):
             # the probability -- and any certificate derived from it -- was
             # computed from part of the evidence the calibration assumed.
             # A re-run with every detector reporting resolves it.
-            self._demote(
-                v,
-                "partial evidence: trained detector(s) did not report this run "
-                f"({', '.join(ev.skipped_detectors)}); a verdict on part of the "
-                "evidence is not grounded",
-                resolvable_by_input=True,
+            demotions.append(
+                (
+                    "partial evidence: trained detector(s) did not report this run "
+                    f"({', '.join(ev.skipped_detectors)}); a verdict on part of the "
+                    "evidence is not grounded",
+                    True,
+                )
             )
-            return
 
         if (
             ev.symbolic_satisfaction is not None
             and ev.symbolic_satisfaction < self.policy.symbolic_agreement_floor
         ):
             # Neural-vs-symbolic conflict needs human adjudication, not more data.
-            self._demote(
-                v,
-                f"neuro-symbolic satisfaction {ev.symbolic_satisfaction:.2f} below "
-                f"floor {self.policy.symbolic_agreement_floor:g}: the neural verdict "
-                "and the symbolic rules disagree",
-                resolvable_by_input=False,
+            demotions.append(
+                (
+                    f"neuro-symbolic satisfaction {ev.symbolic_satisfaction:.2f} below "
+                    f"floor {self.policy.symbolic_agreement_floor:g}: the neural verdict "
+                    "and the symbolic rules disagree",
+                    False,
+                )
             )
-            return
 
         if ev.drift_detected and self.policy.drift_is_deferring(ev.drift_severity):
             # Drift is resolved by recalibrating on fresh data -- a data request.
-            self._demote(
-                v,
-                f"distribution drift ({ev.drift_severity}) detected: the "
-                "calibration may no longer hold",
-                resolvable_by_input=True,
+            demotions.append(
+                (
+                    f"distribution drift ({ev.drift_severity}) detected: the "
+                    "calibration may no longer hold",
+                    True,
+                )
             )
-            return
 
         # GOSNN disagreement overlay: the merit-gated fused-state detection
         # head corroborates (or contests) the grounded label.  Strong
@@ -422,44 +435,58 @@ class DecisionAbstentionResponder:
         # detection-metric-gated head produced it, so the overlay is inert on
         # observability-only builds.  Inclusive comparisons: a probability
         # exactly at a demotion threshold defers (fail-closed reading).
-        if not self.policy.defer_on_gosnn_disagreement or ev.gosnn_anomaly_prob is None:
-            return
-        if (
-            v.label == 1
-            and ev.gosnn_demote_act_below is not None
-            and ev.gosnn_anomaly_prob <= ev.gosnn_demote_act_below
-        ):
+        # ``v.label`` is still the grounded label here: no demotion has been
+        # applied yet, so the head is compared against the verdict it contests.
+        if self.policy.defer_on_gosnn_disagreement and ev.gosnn_anomaly_prob is not None:
+            if (
+                v.label == 1
+                and ev.gosnn_demote_act_below is not None
+                and ev.gosnn_anomaly_prob <= ev.gosnn_demote_act_below
+            ):
+                demotions.append(
+                    (
+                        f"GOSNN fused-state detection head estimates P(anomaly)="
+                        f"{ev.gosnn_anomaly_prob:.3f} <= {ev.gosnn_demote_act_below:g} "
+                        "against a grounded positive: the cross-detector fusion and "
+                        "the serving verdict disagree",
+                        False,
+                    )
+                )
+            elif (
+                v.label == 0
+                and ev.gosnn_demote_clear_above is not None
+                and ev.gosnn_anomaly_prob >= ev.gosnn_demote_clear_above
+            ):
+                demotions.append(
+                    (
+                        f"GOSNN fused-state detection head estimates P(anomaly)="
+                        f"{ev.gosnn_anomaly_prob:.3f} >= {ev.gosnn_demote_clear_above:g} "
+                        "against a grounded negative: the cross-detector fusion and "
+                        "the serving verdict disagree",
+                        False,
+                    )
+                )
+
+        if demotions:
             self._demote(
                 v,
-                f"GOSNN fused-state detection head estimates P(anomaly)="
-                f"{ev.gosnn_anomaly_prob:.3f} <= {ev.gosnn_demote_act_below:g} "
-                "against a grounded positive: the cross-detector fusion and "
-                "the serving verdict disagree",
-                resolvable_by_input=False,
-            )
-        elif (
-            v.label == 0
-            and ev.gosnn_demote_clear_above is not None
-            and ev.gosnn_anomaly_prob >= ev.gosnn_demote_clear_above
-        ):
-            self._demote(
-                v,
-                f"GOSNN fused-state detection head estimates P(anomaly)="
-                f"{ev.gosnn_anomaly_prob:.3f} >= {ev.gosnn_demote_clear_above:g} "
-                "against a grounded negative: the cross-detector fusion and "
-                "the serving verdict disagree",
-                resolvable_by_input=False,
+                [reason for reason, _ in demotions],
+                resolvable_by_input=all(resolvable for _, resolvable in demotions),
             )
 
     @staticmethod
-    def _demote(v: _Verdict, reason: str, *, resolvable_by_input: bool) -> None:
-        """Demote a grounded verdict to a deferral (toward abstention only)."""
+    def _demote(v: _Verdict, reasons: list[str], *, resolvable_by_input: bool) -> None:
+        """Demote a grounded verdict to a deferral (toward abstention only).
+
+        Applied once per verdict with every matched overlay's reason, so the
+        state transition happens a single time however many overlays fired.
+        """
         v.state = ThreeState.UNAVAILABLE
         v.disposition = Disposition.DEFER
         v.label = None
         v.confidence = None
         v.resolvable_by_input = resolvable_by_input
-        v.reasons.append(reason)
+        v.reasons.extend(reasons)
 
     @staticmethod
     def _caveats(ev: Evidence) -> tuple[str, ...]:
