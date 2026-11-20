@@ -268,6 +268,48 @@ def measure() -> tuple[dict[str, Any], dict[str, Any]]:
     fitted_on = np.array([day <= TRAINED_THROUGH for day in days])
     shipped = fit(rows[fitted_on], outcomes[fitted_on])
     after = ~fitted_on
+
+    # Conformal certificate, uniform with the anomaly path's: fitted on the
+    # walk-forward out-of-sample forecasts of the last two decades (each day
+    # forecast by a model that never saw it; those late models are near the
+    # shipped fit, which each year moves by one year in ~90), and measured
+    # on the after-the-fit days the shipped model has never seen. The
+    # held-out coverage below is the certificate's real content: a measured
+    # guarantee, not an exchangeability theorem, because the walk-forward
+    # score functions differ slightly from the shipped one.
+    from omni_mercury_engine.core.conformal_prediction import BinaryConformalClassifier
+
+    recent = walked & (years >= 2000)
+    certificate = BinaryConformalClassifier(coverage=0.9).fit(
+        made["forecast"][recent], outcomes[recent].astype(int)
+    )
+    after_probs = forecast(shipped, rows[after])["forecast"]
+    after_y = outcomes[after].astype(int)
+    after_sets = certificate.predict(after_probs)
+    sizes = np.asarray(after_sets.set_size, dtype=int)
+    contains = np.array(
+        [int(y) in set(labels) for y, labels in zip(after_y, after_sets.label_sets(), strict=True)]
+    )
+    conformal_evidence = {
+        "calibrated_on": "walk-forward forecasts 2000-" + str(TRAINED_THROUGH.year),
+        "n_calibration": int(certificate.n_calibration or 0),
+        "coverage_target": 0.9,
+        "coverage_achieved_bound": round(float(certificate.coverage_achieved), 4),
+        "after_the_fit": {
+            "days": int(after_y.size),
+            "empirical_coverage": round(float(contains.mean()), 4),
+            "empirical_coverage_storm_days": (
+                round(float(contains[after_y == 1].mean()), 4) if (after_y == 1).any() else None
+            ),
+            "empirical_coverage_quiet_days": (
+                round(float(contains[after_y == 0].mean()), 4) if (after_y == 0).any() else None
+            ),
+            "singleton_rate": round(float(np.mean(sizes == 1)), 4),
+            "ambiguous_rate": round(float(np.mean(sizes == 2)), 4),
+            "empty_rate": round(float(np.mean(sizes == 0)), 4),
+        },
+    }
+
     model = {
         "schema": "mercury.kp-g1-model/v1",
         "version": f"kp-g1/{TRAINED_THROUGH.year}",
@@ -284,6 +326,10 @@ def measure() -> tuple[dict[str, Any], dict[str, Any]]:
         "trained_through": TRAINED_THROUGH.isoformat(),
         "fitted_on_days": int(fitted_on.sum()),
         "l2": L2,
+        # The certificate rides the artifact in the exact layout the fusion
+        # checkpoint's conformal_state uses, so the forecast path's conformal
+        # output is uniform with the anomaly path's.
+        "conformal": certificate.export_state(),
     }
     evidence = {
         "record": {
@@ -308,6 +354,7 @@ def measure() -> tuple[dict[str, Any], dict[str, Any]]:
             "last": max(days).isoformat(),
             **account(forecast(shipped, rows[after]), outcomes[after]),
         },
+        "conformal": conformal_evidence,
         "model": model["version"],
     }
     return evidence, model

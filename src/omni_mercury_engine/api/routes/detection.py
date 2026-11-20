@@ -241,7 +241,13 @@ def _served_flagship_engine() -> Any:
         # oldest evicted), so a long-lived served engine does not grow per
         # anomalous request.
         if flagship_cognitive_enabled():
-            engine.enable_cognitive_analysis()
+            # Curiosity novelty is ON for the served flagship: the signal is
+            # measured to discriminate (read-only mean AUROC 0.9282 over the
+            # 15 recorded evaluations, artifacts/novelty_discovery.json), it
+            # runs only on detected anomalies at O(features) cost, and it
+            # rides the record's cognitive summary as a *signal* — never a
+            # verdict-mover (that adoption would need its own harness).
+            engine.enable_cognitive_analysis(enable_curiosity=True)
         _flagship_engine = engine
     return _flagship_engine
 

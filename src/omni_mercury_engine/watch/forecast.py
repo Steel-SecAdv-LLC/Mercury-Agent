@@ -123,6 +123,12 @@ class Model:
         persistence: That share among days with a storm in the 24 hours
             before the cut-off (``"after_storm"``) and without (``"after_quiet"``).
         trained_through: The last day it was fitted on.
+        conformal: Optional conformal certificate state, in exactly the
+            layout the fusion checkpoint's ``conformal_state`` carries
+            (``BinaryConformalClassifier.export_state``), so the forecast
+            path's certificate is uniform with the anomaly path's.  Fitted
+            and measured by ``research/forecast_kp/measure.py``; ``None`` on
+            an artifact written before the certificate existed.
     """
 
     version: str
@@ -133,6 +139,7 @@ class Model:
     climatology: float
     persistence: Mapping[str, float]
     trained_through: str
+    conformal: Mapping[str, Any] | None = None
 
     def probability(self, values: Sequence[float]) -> float:
         """The probability of a storm day, from one day's :func:`features`."""
@@ -152,6 +159,38 @@ class Model:
         return {
             "climatology": self.climatology,
             "persistence": self.persistence["after_storm" if stormy else "after_quiet"],
+        }
+
+    def prediction_set(self, probability: float) -> dict[str, Any] | None:
+        """The conformal label set for one forecast probability.
+
+        The same block shape the anomaly path serves ({``prediction_set``,
+        ``set_size``, ``abstain``, ``coverage``}), plus the regime it was
+        issued under: the certificate was calibrated on walk-forward
+        out-of-sample forecasts and its held-out coverage is measured in
+        ``research/forecast_kp/evidence.json`` — a measured guarantee, not an
+        exchangeability theorem, because each walk-forward year's model
+        differs slightly from the shipped one.
+
+        Returns:
+            The block, or ``None`` when the artifact carries no certificate.
+        """
+        if self.conformal is None:
+            return None
+        import numpy as np
+
+        from omni_mercury_engine.core.conformal_prediction import BinaryConformalClassifier
+
+        classifier = BinaryConformalClassifier.from_state(dict(self.conformal))
+        pred = classifier.predict(np.array([float(probability)]))
+        size = int(pred.set_size[0])
+        return {
+            "prediction_set": pred.label_sets()[0],
+            "set_size": size,
+            "abstain": bool(size == 2),
+            "coverage": float(pred.coverage_level),
+            "regime": "per_day_walk_forward",
+            "n_calibration": classifier.n_calibration,
         }
 
 
@@ -175,6 +214,7 @@ def load_model(path: Path | None = None) -> Model:
             name: float(document["persistence"][name]) for name in ("after_storm", "after_quiet")
         },
         trained_through=str(document["trained_through"]),
+        conformal=document.get("conformal"),
     )
 
 
@@ -388,20 +428,28 @@ class Forecaster:
                 )  # fmt: skip
             else:
                 start = datetime.combine(to_issue, time(0), tzinfo=UTC)
+                probability = self.model.probability(values)
+                basis = {
+                    "model": self.model.version,
+                    "features": dict(zip(FEATURES, values, strict=True)),
+                    "cutoff": datetime.combine(
+                        to_issue - timedelta(days=1), time(CUTOFF_HOUR), tzinfo=UTC
+                    ).isoformat(),
+                    "source": KP_URL,
+                }
+                # Uniform conformal output: when the shipped artifact carries
+                # a certificate, the issued forecast states its label set and
+                # measured coverage, exactly as the anomaly path does.
+                certificate = self.model.prediction_set(probability)
+                if certificate is not None:
+                    basis["conformal"] = certificate
                 self.ledger.issue(
                     self.forecast_id(to_issue),
                     target=TARGET,
                     window=(start, start + timedelta(days=1)),
-                    probability=self.model.probability(values),
+                    probability=probability,
                     references=self.model.references(values),
-                    basis={
-                        "model": self.model.version,
-                        "features": dict(zip(FEATURES, values, strict=True)),
-                        "cutoff": datetime.combine(
-                            to_issue - timedelta(days=1), time(CUTOFF_HOUR), tzinfo=UTC
-                        ).isoformat(),
-                        "source": KP_URL,
-                    },
+                    basis=basis,
                     now=now,
                 )
                 done["issued"] += 1

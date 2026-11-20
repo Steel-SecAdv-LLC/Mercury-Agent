@@ -149,9 +149,11 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
 
     Carries the orchestrator's critique of the detection — reliability,
     confidence, the uncertainties together with the flags that say whether
-    each was measured or is a placeholder — and its historical analogs (case
-    ids and recommended actions, at most five each, truncated), never the
-    full analysis: the reasoning chain, knowledge updates and raw feedback
+    each was measured or is a placeholder — its discovery signals (curiosity
+    novelty when the component scored this observation; causal factors, at
+    most five, truncated), and its historical analogs (case ids and
+    recommended actions, at most five each, truncated), never the full
+    analysis: the reasoning chain, knowledge updates and raw feedback
     signals stay at the detection result's top level.
     """
     if not isinstance(analysis, Mapping):
@@ -177,8 +179,41 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
         "ethical_permissible": (
             bool(analysis["ethical_permissible"]) if "ethical_permissible" in analysis else None
         ),
+        # Discovery signals: present only when the component produced them
+        # (the orchestrator's to_dict omits the novelty keys until the
+        # curiosity engine scored this observation), so a record without the
+        # component is unchanged.
+        "novelty_score": _as_float(analysis.get("novelty_score")),
+        "is_novel": (bool(analysis["is_novel"]) if "is_novel" in analysis else None),
+        "causal_factors": strings(analysis.get("causal_factors"), 5),
+        "hypothesis": _chain_hypothesis(analysis.get("reasoning_chain")),
         "similar_cases": strings(analysis.get("similar_cases"), 5),
         "recommendations": strings(analysis.get("recommendations"), 5),
+    }
+
+
+def _chain_hypothesis(chain: Any) -> dict[str, Any] | None:
+    """The multi-hop reasoner's derived conclusion, bounded, or ``None``.
+
+    The reasoner's chain ends in the proposition it derived (abductive
+    best-explaining-hypothesis rules included); the record carries that final
+    conclusion with its confidence and the chain depth, so the proposal is
+    reconstructable and challengeable from the record without the full chain
+    (which stays at the detection result's top level).
+    """
+    if not isinstance(chain, (list, tuple)) or not chain:
+        return None
+    last = chain[-1]
+    if not isinstance(last, Mapping):
+        return None
+    conclusion = last.get("conclusion")
+    if not isinstance(conclusion, str) or not conclusion.strip():
+        return None
+    return {
+        "conclusion": conclusion[:240],
+        "confidence": _as_float(last.get("confidence")),
+        "rule": str(last.get("rule", ""))[:80],
+        "chain_depth": len(chain),
     }
 
 

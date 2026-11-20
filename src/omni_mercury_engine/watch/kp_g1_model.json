@@ -53,5 +53,15 @@
   },
   "trained_through": "2025-12-31",
   "fitted_on_days": 34306,
-  "l2": 0.001
+  "l2": 0.001,
+  "conformal": {
+    "coverage": 0.9,
+    "coverage_achieved": 0.9,
+    "seed": 42,
+    "thresholds": {
+      "0": 0.27551140327594936,
+      "1": 0.9212152222045976
+    },
+    "n_calibration": 9497
+  }
 }

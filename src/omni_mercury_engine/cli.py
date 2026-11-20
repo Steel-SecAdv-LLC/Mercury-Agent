@@ -151,7 +151,7 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
         from omni_mercury_engine._env import flagship_cognitive_enabled
 
         if flagship_cognitive_enabled():
-            engine.enable_cognitive_analysis()
+            engine.enable_cognitive_analysis(enable_curiosity=True)
         from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
 
         data = _one_sample_if_feature_vector(engine, data)

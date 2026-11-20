@@ -527,5 +527,20 @@
       }
     ]
   },
+  "conformal": {
+    "calibrated_on": "walk-forward forecasts 2000-2025",
+    "n_calibration": 9497,
+    "coverage_target": 0.9,
+    "coverage_achieved_bound": 0.9,
+    "after_the_fit": {
+      "days": 320,
+      "empirical_coverage": 0.8656,
+      "empirical_coverage_storm_days": 0.9286,
+      "empirical_coverage_quiet_days": 0.8523,
+      "singleton_rate": 0.3125,
+      "ambiguous_rate": 0.6875,
+      "empty_rate": 0.0
+    }
+  },
   "model": "kp-g1/2025"
 }

@@ -2687,6 +2687,10 @@ MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + 
         '(cog.confidence_calibrated === false ? " (uncalibrated)" : "") : "") + '
         '(cog.epistemic_measured === false ? " · epistemic unmeasured" : "") + '
         '(cog.aleatoric_measured === false ? " · aleatoric unmeasured" : "")]);\n'
+        '      if (cog && typeof cog.novelty_score === "number") kv.push(["· novelty", '
+        'cog.novelty_score.toFixed(3) + (cog.is_novel ? " · NOVEL regime" : "")]);\n'
+        "      if (cog && Array.isArray(cog.causal_factors) && cog.causal_factors.length) "
+        'kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 160)]);\n'
         '      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));\n'
         '      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));\n'
         "    }",

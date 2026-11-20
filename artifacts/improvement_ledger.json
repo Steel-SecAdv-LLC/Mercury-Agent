@@ -177,6 +177,22 @@
       },
       "why_refused": "The LODO historical prior is the first label-free selector signal measured to raise the mean out-of-fold (+0.0413, where all four previously tested per-set signal families carried none), but every mean-improving candidate regresses individual datasets by 0.04-0.14 - the exact dilution/selection pattern the FINDINGS record documents. The standing keep bar (no set below -0.002) exists because a fleet operator cannot trade one hazard's detection for another's mean; until a per-set guard exists that catches the -0.10 regressions, the controller stays refused. The dataset-local signals (dispersion -0.23, entropy -0.25 rank correlation) again carry no usable selection signal.",
       "rollback": "Nothing shipped; the harness and artifact remain, and the controller becomes adoptable the day a per-set reliability guard clears the regression floor."
+    },
+    {
+      "component": "cognitive.curiosity_novelty",
+      "change": "Curiosity novelty scoring elevated from opt-in/advisory to the served flagship (route, CLI, MCP): the CuriosityEngine scores each detected anomaly's distance from the observed distribution, the score rides the DecisionRecord's cognitive summary (novelty_score, is_novel) and the console, and a read-only novelty() scorer was added so measurement cannot drift the estimate it scores against.",
+      "reason": "Phase 3 discovery elevation: novelty scoring must be measurable, reconstructable, and challengeable on the served path. It was default-off and its discrimination had never been measured.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_novelty_discovery.py",
+        "artifact": "artifacts/novelty_discovery.json",
+        "read_only_mean_auroc": 0.9282,
+        "absorbing_mean_auroc": 0.9219,
+        "n_evaluations": 15,
+        "latency_delta_ms_anomalous_single_row": 3.5,
+        "scope": "a signal in the record, never a verdict-mover: adopting novelty as a decision factor would need its own harness against the standing keep bar"
+      },
+      "rollback": "MERCURY_FLAGSHIP_COGNITIVE=off removes the whole critique; enable_cognitive_analysis(enable_curiosity=False) (the engine API default, unchanged) removes only the novelty signal."
     }
   ]
 }

@@ -198,6 +198,49 @@ class CuriosityEngine:
         self._mean = self._mean + delta / self._count
         self._m2 = self._m2 + delta * (x - self._mean)
 
+    def novelty(self, target: str, data: Any = None) -> ExplorationResult:
+        """Score one observation for novelty WITHOUT folding it in (read-only).
+
+        :meth:`explore` scores and then absorbs the observation, so a stream
+        of scored rows drifts the estimate toward what it is scoring — right
+        for exploration, wrong for measurement.  This is the measurement
+        form: the same score, the estimate untouched.  Used by the novelty
+        discovery harness (``research/cognitive/harness_novelty_discovery.py``)
+        and by any caller that must score held-out rows against a fixed,
+        fitted distribution.
+
+        Args:
+            target: Free-text label for the exploration.
+            data: The observation — a mapping of scalars or an array-like.
+
+        Returns:
+            An :class:`ExplorationResult`; ``n_observations`` reports the
+            unchanged count.
+        """
+        self._exploration_counter += 1
+        exploration_id = f"novelty_{self._exploration_counter:06d}"
+        x = self._to_vector(data)
+        if x is None or (self._mean is not None and x.shape != self._mean.shape):
+            return ExplorationResult(
+                exploration_id=exploration_id,
+                target=target,
+                novelty_score=0.0,
+                is_novel=False,
+                standardized_distance=0.0,
+                n_observations=self._count,
+                measured=False,
+            )
+        score, distance, measured = self._score(x)
+        return ExplorationResult(
+            exploration_id=exploration_id,
+            target=target,
+            novelty_score=score,
+            is_novel=measured and score >= self.novelty_threshold,
+            standardized_distance=distance,
+            n_observations=self._count,
+            measured=measured,
+        )
+
     def explore(self, target: str, data: Any = None) -> ExplorationResult:
         """Score one observation for novelty and fold it into the estimate.
 

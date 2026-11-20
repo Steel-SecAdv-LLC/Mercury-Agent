@@ -1,0 +1,75 @@
+{
+  "schema": "mercury.research.novelty_discovery/v1",
+  "generated_at": "2026-11-20T20:42:20.409434+00:00",
+  "protocol": {
+    "observed": "fit-split normal rows (the detector's own fit data)",
+    "scored": "held-out rows, read-only (novelty()) and absorbing (explore())",
+    "n_evaluations": 15
+  },
+  "per_dataset": {
+    "pima_real/seed0": {
+      "read_only_auroc": 0.7186666666666667,
+      "absorbing_auroc": 0.7120833333333333
+    },
+    "pima_real/seed1": {
+      "read_only_auroc": 0.67525,
+      "absorbing_auroc": 0.6638333333333334
+    },
+    "pima_real/seed2": {
+      "read_only_auroc": 0.7105,
+      "absorbing_auroc": 0.6956666666666667
+    },
+    "cardio/seed0": {
+      "read_only_auroc": 0.9781715260545906,
+      "absorbing_auroc": 0.9672766749379652
+    },
+    "cardio/seed1": {
+      "read_only_auroc": 0.9534739454094293,
+      "absorbing_auroc": 0.9436647022332506
+    },
+    "cardio/seed2": {
+      "read_only_auroc": 0.964485111662531,
+      "absorbing_auroc": 0.9530474565756824
+    },
+    "breastw/seed0": {
+      "read_only_auroc": 0.9927988986550884,
+      "absorbing_auroc": 0.9799851742031134
+    },
+    "breastw/seed1": {
+      "read_only_auroc": 0.9926930001058986,
+      "absorbing_auroc": 0.9848565074658477
+    },
+    "breastw/seed2": {
+      "read_only_auroc": 0.9930106957534682,
+      "absorbing_auroc": 0.989727840728582
+    },
+    "wbc/seed0": {
+      "read_only_auroc": 1.0,
+      "absorbing_auroc": 1.0
+    },
+    "wbc/seed1": {
+      "read_only_auroc": 1.0,
+      "absorbing_auroc": 0.9947089947089947
+    },
+    "wbc/seed2": {
+      "read_only_auroc": 0.9947089947089947,
+      "absorbing_auroc": 1.0
+    },
+    "thyroid/seed0": {
+      "read_only_auroc": 0.9874752358886538,
+      "absorbing_auroc": 0.9859977838218998
+    },
+    "thyroid/seed1": {
+      "read_only_auroc": 0.9811289076928242,
+      "absorbing_auroc": 0.9796850340821329
+    },
+    "thyroid/seed2": {
+      "read_only_auroc": 0.9807595446761358,
+      "absorbing_auroc": 0.9786441019441926
+    }
+  },
+  "mean": {
+    "read_only_auroc": 0.9282,
+    "absorbing_auroc": 0.9219
+  }
+}
