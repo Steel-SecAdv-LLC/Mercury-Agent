@@ -4,10 +4,10 @@
     "n_scored": 18,
     "mean_auroc": 0.7737,
     "protocol": "transductive (fit unlabeled on X, score X, AUROC vs y); full sets",
-    "commit": "41fd2fe282cf9dc09215e1d4e0c7aa4d749b8927",
-    "detector_commit": "41fd2fe282cf9dc09215e1d4e0c7aa4d749b8927",
-    "detector_blob": "91addf653ae9db39947f5f28dcf84170c8b1302a",
-    "timestamp": "2026-11-20T05:35:02.782140+00:00",
+    "commit": "67cb0caa5ee91820c0bb3621133fe150e7843d3f",
+    "detector_commit": "67cb0caa5ee91820c0bb3621133fe150e7843d3f",
+    "detector_blob": "0ca3886385529dac80bbc9692b8e7b97f453a13a",
+    "timestamp": "2026-11-20T08:34:16.721520+00:00",
     "versions": {
       "python": "3.13.18",
       "numpy": "2.5.4"
@@ -72,7 +72,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.9179,
-      "secs": 0.3
+      "secs": 0.1
     },
     {
       "dataset": "Lymphography",
@@ -82,7 +82,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.993,
-      "secs": 0.1
+      "secs": 0.0
     },
     {
       "dataset": "mammography",
@@ -92,7 +92,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.865,
-      "secs": 1.6
+      "secs": 0.6
     },
     {
       "dataset": "optdigits",
@@ -102,7 +102,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.4548,
-      "secs": 2.3
+      "secs": 1.9
     },
     {
       "dataset": "PageBlocks",
@@ -162,7 +162,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.6768,
-      "secs": 0.6
+      "secs": 0.5
     },
     {
       "dataset": "WBC",
@@ -192,7 +192,7 @@
       "data_type": "tabular",
       "weight_source": "unsupervised_adaptive",
       "auroc": 0.502,
-      "secs": 0.4
+      "secs": 0.1
     }
   ]
 }
