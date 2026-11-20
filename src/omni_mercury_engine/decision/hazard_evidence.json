@@ -193,10 +193,10 @@
         "ece": 0.1166
       },
       "probability": {
-        "brier": 0.2024,
-        "ece": 0.2474,
+        "brier": 0.2023,
+        "ece": 0.2472,
         "reference_brier": 0.1917,
-        "skill": -0.0558
+        "skill": -0.0554
       },
       "certificate": {
         "target": 0.9,

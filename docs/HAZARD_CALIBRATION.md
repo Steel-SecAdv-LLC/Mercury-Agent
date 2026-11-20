@@ -47,7 +47,7 @@ Nothing is random: the same events give the same numbers.
 |---|---|---|---|---|---|---|---|---|---|
 | earthquake | statistical | 5 | 2,214 | 7 | -0.044 | 99.1% (98.4% / 99.9%) | 97.6% | 63.2% | 2.6% of 39 |
 | energy | statistical | 5 | 6,064 | 328 | -0.011 | 92.3% (90.6% / 94.0%) | 66.2% | 77.2% | 24.7% of 1,174 |
-| fema | statistical | 5 | 2,228 | 431 | -0.056 | 95.5% (95.8% / 95.2%) | 93.1% | 34.0% | 15.3% of 163 |
+| fema | statistical | 5 | 2,228 | 431 | -0.055 | 95.5% (95.8% / 95.2%) | 93.1% | 34.0% | 15.3% of 163 |
 | fema_activity | expert_annotated | 8 | 2,922 | 674 | +0.350 | 91.7% (91.8% / 91.6%) | 50.0% | 83.4% | 67.5% of 1,261 |
 | flood | statistical | 1 | | | not measured: one event: there is no other to calibrate on | | | | |
 | hurricane | statistical | 12 | 537 | 143 | +0.078 | 97.8% (97.8% / 97.8%) | 87.1% | 82.7% | 6.7% of 15 |
