@@ -583,7 +583,11 @@ class HurricaneLoader(BaseDomainLoader):
             basin = event.get("basin", "NA")
             url = f"{_BASE_CSV_URL}ibtracs.{basin}.list.v04r01.csv"
 
-        cache_key = f"hurricane_basin_csv_{url}"
+        # ``_v2``: the cached basin frame now carries ``track_type``. A frame
+        # cached before that has no such column, so the spur filter would be
+        # skipped silently and a spur-contaminated frame written under the
+        # versioned event key.
+        cache_key = f"hurricane_basin_csv_v2_{url}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -696,8 +700,9 @@ class HurricaneLoader(BaseDomainLoader):
         really measured over far less time.  This mirrors the synoptic
         main-track selection used by ``ml/hazard_training/hurricane_wind.py``.
 
-        Rows are kept when ``track_type == "main"`` (when that column is
-        present) and ``iso_time`` lands exactly on a synoptic hour.  Rows with
+        Rows are kept when ``track_type`` is not a ``spur`` (when that column
+        is present; ``main`` and the provisional types are the storm's own
+        track) and ``iso_time`` lands exactly on a synoptic hour.  Rows with
         an unparseable ``iso_time`` are dropped: a time-series feature cannot
         be placed without a timestamp.
 
@@ -713,7 +718,14 @@ class HurricaneLoader(BaseDomainLoader):
         mask = pd.Series(True, index=df.index)
 
         if "track_type" in df.columns:
-            mask &= df["track_type"].astype(str).str.strip().str.lower() == "main"
+            # IBTrACS marks secondary tracks with a ``spur`` suffix. Everything
+            # else is the storm's own track: ``main``, and for storms not yet
+            # post-analysed ``PROVISIONAL`` / ``US-PROVISIONAL``. Keeping only
+            # ``main`` dropped every current-season storm (measured on the live
+            # last-3-years file: 413 storms became 237, and the newest record
+            # went from this week to seven months back).
+            track_type = df["track_type"].astype(str).str.strip().str.lower()
+            mask &= ~track_type.str.endswith("spur")
 
         if "iso_time" in df.columns:
             times = pd.to_datetime(df["iso_time"], errors="coerce")

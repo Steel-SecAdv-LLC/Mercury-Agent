@@ -558,6 +558,33 @@ class TestH7Hurricane:
         hours = sorted(pd.to_datetime(df["iso_time"]).dt.hour.unique().tolist())
         assert hours == [0, 6, 12, 18]
 
+    @pytest.mark.parametrize("track_type", ["PROVISIONAL", "US-PROVISIONAL", "main", " Main "])
+    def test_provisional_tracks_are_the_storms_own_track(self, track_type: str) -> None:
+        """A storm not yet post-analysed is kept; only ``spur`` rows are secondary.
+
+        IBTrACS files current-season storms under ``PROVISIONAL`` /
+        ``US-PROVISIONAL`` until they are re-analysed. Keeping only ``main``
+        removed every one of them, so the realtime read stopped months back.
+        """
+        from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
+
+        frame = self._mixed_track()
+        own_track = frame["track_type"] == "main"
+        frame.loc[own_track, "track_type"] = track_type
+        kept = HurricaneLoader._filter_synoptic_main_track(frame)
+        assert len(kept) == 7
+        assert set(kept["track_type"]) == {track_type}
+
+    @pytest.mark.parametrize("spur", ["spur", "US-PROVISIONAL_spur", "PROVISIONAL_spur"])
+    def test_every_kind_of_spur_is_dropped(self, spur: str) -> None:
+        from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
+
+        frame = self._mixed_track()
+        frame.loc[frame["track_type"] == "spur", "track_type"] = spur
+        kept = HurricaneLoader._filter_synoptic_main_track(frame)
+        assert len(kept) == 7
+        assert not kept["track_type"].str.lower().str.endswith("spur").any()
+
     def test_ri_measured_over_true_24h(self, tmp_path: Path) -> None:
         """After filtering, a +50 kt / 24 h climb is labelled rapid-intensifying."""
         from omni_mercury_engine.loaders.hurricane_loader import HurricaneLoader
