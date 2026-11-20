@@ -245,7 +245,7 @@ class CAPAlertGenerator:
         domain: str,
         headline: str,
         description: str,
-        anomaly_score: float,
+        anomaly_score: float | None,
         area_description: str,
         coordinates: tuple[float, float] | None = None,
         geocode: dict[str, str] | None = None,
@@ -261,7 +261,11 @@ class CAPAlertGenerator:
             domain: Mercury domain (e.g., "earthquake", "tsunami").
             headline: Short alert headline.
             description: Detailed description of the detected anomaly.
-            anomaly_score: Mercury anomaly score in [0, 1].
+            anomaly_score: Mercury anomaly score in [0, 1], or ``None`` when
+                no score was produced (an abstention raised for attention):
+                urgency, severity and certainty are then CAP ``Unknown`` and
+                the ``MercuryAnomalyScore`` parameter reads ``unavailable``,
+                rather than the values a made-up 0.0 would map to.
             area_description: Human-readable area description.
             coordinates: Optional (latitude, longitude) tuple.
             geocode: Optional geocode dict (e.g., {"FIPS6": "000000"}).
@@ -294,9 +298,14 @@ class CAPAlertGenerator:
         category = DOMAIN_CATEGORY_MAP.get(domain, CAPCategory.OTHER)
         SubElement(info, "category").text = category.value
         SubElement(info, "event").text = DOMAIN_EVENT_MAP.get(domain, "Anomaly Detection")
-        SubElement(info, "urgency").text = _score_to_urgency(anomaly_score).value
-        SubElement(info, "severity").text = _score_to_severity(anomaly_score).value
-        SubElement(info, "certainty").text = _score_to_certainty(anomaly_score).value
+        if anomaly_score is None:
+            SubElement(info, "urgency").text = CAPUrgency.UNKNOWN.value
+            SubElement(info, "severity").text = CAPSeverity.UNKNOWN.value
+            SubElement(info, "certainty").text = CAPCertainty.UNKNOWN.value
+        else:
+            SubElement(info, "urgency").text = _score_to_urgency(anomaly_score).value
+            SubElement(info, "severity").text = _score_to_severity(anomaly_score).value
+            SubElement(info, "certainty").text = _score_to_certainty(anomaly_score).value
 
         SubElement(info, "senderName").text = self.sender_name
         SubElement(info, "headline").text = headline
@@ -306,7 +315,9 @@ class CAPAlertGenerator:
         # Mercury-specific parameters
         param_score = SubElement(info, "parameter")
         SubElement(param_score, "valueName").text = "MercuryAnomalyScore"
-        SubElement(param_score, "value").text = f"{anomaly_score:.4f}"
+        SubElement(param_score, "value").text = (
+            "unavailable" if anomaly_score is None else f"{anomaly_score:.4f}"
+        )
 
         param_domain = SubElement(info, "parameter")
         SubElement(param_domain, "valueName").text = "MercuryDomain"

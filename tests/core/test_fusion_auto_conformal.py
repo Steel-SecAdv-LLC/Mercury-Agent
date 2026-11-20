@@ -71,13 +71,13 @@ def test_serving_attaches_sets_and_decision_signals_energise(
         out = engine.detect_with_fusion(probe)
     assert "conformal" in out
     # The certificate reports the coverage actually ACHIEVED.  This fixture's
-    # stratified holdout leaves 5 positive calibration rows, and 5 rows can
-    # guarantee at most 5/6 ~ 0.833 at the requested 0.9 -- the certificate
-    # used to claim 0.9 anyway (the silent small-sample clamp), which this
-    # test previously pinned.  It now pins the honest bound.
+    # 40 positives can spare the 9 calibration rows a 0.9 request needs
+    # (9/10), so the stratified holdout takes 9 of them and the achieved
+    # bound is the requested one.  The holdout used to stop at 5 positive
+    # rows, which guarantee only 5/6 ~ 0.833; this test pinned that value
+    # while the floor was 5 (and, before that, a silently clamped 0.9).
     achieved = out["conformal"]["coverage"]
-    assert achieved == pytest.approx(5.0 / 6.0)
-    assert achieved <= 0.9
+    assert achieved == pytest.approx(0.9)
     signals = out["decision"]["signals"]
     assert signals["calibrated"] is True
     assert signals["coverage"] == pytest.approx(achieved)

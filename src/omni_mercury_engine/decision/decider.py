@@ -28,7 +28,9 @@ order:
    threshold side grounds the label, but the record is flagged
    ``calibrated=False`` (a decision without a coverage guarantee).
 4. **Demotion overlays.** A grounded verdict is demoted to ``UNAVAILABLE`` when
-   the neuro-symbolic paths disagree, sufficiently severe drift means the
+   a detector the fusion network was trained on did not report (the
+   probability rests on partial evidence), the neuro-symbolic paths disagree,
+   sufficiently severe drift means the
    calibration may no longer hold, or the GOSNN fused-state detection head
    (when its merit-gated checkpoint shipped one) strongly disagrees with the
    grounded label at its validation-selected thresholds.  Overlays only ever
@@ -143,12 +145,12 @@ class DecisionAbstentionResponder:
             disposition=verdict.disposition,
             decision_label=verdict.label,
             abstained=abstained,
-            # ``DecisionRecord.anomaly_prob`` is a plain float (the JSON-safe
-            # wire shape); when the probability was absent the record carries
-            # 0.0 as a placeholder while the verdict abstains, the reasons name
-            # the absence, and ``signals["anomaly_prob"]`` keeps the honest
-            # ``None``.
-            anomaly_prob=evidence.anomaly_prob if evidence.anomaly_prob is not None else 0.0,
+            # ``None`` when no probability existed.  The record used to carry
+            # a 0.0 placeholder here, which ``explain()`` printed as
+            # ``p=0.000`` and the CAP bridge sent out as "Score 0.00" -- a
+            # fabricated all-clear number on a decision that abstained
+            # precisely because there was no number.
+            anomaly_prob=evidence.anomaly_prob,
             threshold=evidence.threshold,
             decision_confidence=verdict.confidence,
             coverage=evidence.coverage,
@@ -186,8 +188,28 @@ class DecisionAbstentionResponder:
         # certificate is derived from the calibrated probability upstream, so
         # a result carrying one without the probability is malformed, and a
         # malformed result may only ever abstain.
+        #
+        # Which abstention depends on the certificate.  A NaN score and an
+        # EMPTY conformal set arrive together in normal operation: the
+        # classifier's ``nan <= q`` is false for both labels, so a fitted
+        # certificate answers a NaN score with the empty set.  That is the
+        # atypical-point case -- no class explains the point -- and it holds
+        # fail-closed exactly as an empty set does when the probability is
+        # present; deferring it as a resolvable "please re-run" would be the
+        # more permissive answer to the less trustworthy input.
         prob = ev.anomaly_prob
         if prob is None:
+            if ev.conformal_set_size == 0 and self.policy.fail_closed_on_atypical:
+                v.state = ThreeState.UNDECIDABLE
+                v.disposition = Disposition.HOLD
+                v.label = None
+                v.confidence = None
+                v.reasons.append(
+                    "anomaly probability is absent or non-finite and the "
+                    "conformal set is empty: the point is atypical and no "
+                    "class explains it at the target coverage -- fail-closed"
+                )
+                return
             v.state = ThreeState.UNAVAILABLE
             v.disposition = Disposition.DEFER
             v.label = None
@@ -351,7 +373,22 @@ class DecisionAbstentionResponder:
             )
 
     def _apply_demotions(self, ev: Evidence, v: _Verdict) -> None:
-        """Weaken a grounded verdict to a deferral on disagreement / drift."""
+        """Weaken a grounded verdict to a deferral on partial evidence / disagreement / drift."""
+        if ev.skipped_detectors:
+            # A detector the fusion network was trained on did not report
+            # (timed out, refused by a saturated executor, declined, failed):
+            # the probability -- and any certificate derived from it -- was
+            # computed from part of the evidence the calibration assumed.
+            # A re-run with every detector reporting resolves it.
+            self._demote(
+                v,
+                "partial evidence: trained detector(s) did not report this run "
+                f"({', '.join(ev.skipped_detectors)}); a verdict on part of the "
+                "evidence is not grounded",
+                resolvable_by_input=True,
+            )
+            return
+
         if (
             ev.symbolic_satisfaction is not None
             and ev.symbolic_satisfaction < self.policy.symbolic_agreement_floor

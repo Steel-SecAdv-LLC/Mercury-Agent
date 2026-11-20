@@ -188,3 +188,25 @@ class TestScalarCoercionEdges:
                 {"anomaly_prob": 0.5, "gosnn_metadata": {"ethical_gate_passed": bad}}
             )
             assert ev.ethical_gate_passed is None, bad
+
+
+class TestSkippedDetectors:
+    def test_absent_section_means_nothing_was_skipped(self) -> None:
+        assert Evidence.from_detection({"anomaly_prob": 0.5}).skipped_detectors == ()
+
+    def test_only_trained_sources_count_against_the_verdict(self) -> None:
+        ev = Evidence.from_detection(
+            {
+                "anomaly_prob": 0.5,
+                "skipped_detectors": {
+                    "temporal": {"reason": "timeout", "trained_group": True},
+                    "geo_movement": {"reason": "declined", "trained_group": False},
+                    "statistical": {"reason": "saturated"},
+                },
+            }
+        )
+        assert ev.skipped_detectors == ("statistical", "temporal")
+        assert ev.to_dict()["skipped_detectors"] == ["statistical", "temporal"]
+
+    def test_malformed_section_is_ignored(self) -> None:
+        assert Evidence.from_detection({"skipped_detectors": 3}).skipped_detectors == ()

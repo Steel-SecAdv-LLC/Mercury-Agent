@@ -20,6 +20,10 @@ pipeline already threads through:
 * ``symbolic_consistency`` -- the neuro-symbolic agreement (the LTN constraint
   ``satisfaction`` in ``[0, 1]``).
 * ``drift_detection`` -- distribution-shift status (``is_drift`` / ``severity``).
+* ``skipped_detectors`` -- the evidence sources that did not report this run
+  (timed out, refused, errored), each flagged with whether the fusion network
+  was trained on it.  A trained source that is missing means the probability
+  was computed from partial evidence.
 
 Extraction is defensive: every field is optional, missing keys collapse to
 ``None`` (a transparent "signal absent this run"), and nothing here raises on a
@@ -119,6 +123,13 @@ class Evidence:
             head: a grounded positive whose ``gosnn_anomaly_prob`` is at or
             below it is demoted to a deferral.  ``None`` disables that side.
         gosnn_demote_clear_above: Same for grounded negatives at or above it.
+        skipped_detectors: Names of the evidence sources the fusion network
+            was trained on that did not report this run (a detector that
+            timed out, was refused by a saturated executor, declined the
+            input or failed).  Non-empty means the probability rests on
+            partial evidence, and the decider will not ground a verdict on
+            it.  Empty when every trained source reported, or the result did
+            not carry the ``skipped_detectors`` section.
         domain: Optional domain hint.
     """
 
@@ -139,6 +150,7 @@ class Evidence:
     gosnn_demote_act_below: float | None = None
     gosnn_demote_clear_above: float | None = None
     domain: str | None = None
+    skipped_detectors: tuple[str, ...] = ()
 
     @property
     def calibrated(self) -> bool:
@@ -252,6 +264,20 @@ class Evidence:
             raw_sev = drift.get("severity")
             drift_severity = None if raw_sev is None else str(raw_sev)
 
+        # Evidence sources that did not report.  A source counts against the
+        # verdict when the fusion network was trained on it; an entry that
+        # does not say (malformed, or a bare list of names) is read as
+        # trained -- the fail-closed reading of an unclear record.
+        skipped_detectors: list[str] = []
+        skipped = result.get("skipped_detectors")
+        if isinstance(skipped, Mapping):
+            for name, info in skipped.items():
+                trained = info.get("trained_group", True) if isinstance(info, Mapping) else True
+                if trained is not False:
+                    skipped_detectors.append(str(name))
+        elif isinstance(skipped, (list, tuple, set, frozenset)):
+            skipped_detectors.extend(str(name) for name in skipped)
+
         return cls(
             anomaly_prob=anomaly_prob,
             is_anomaly=is_anomaly,
@@ -270,6 +296,7 @@ class Evidence:
             gosnn_demote_act_below=gosnn_demote_act_below,
             gosnn_demote_clear_above=gosnn_demote_clear_above,
             domain=domain if domain is not None else result.get("domain"),
+            skipped_detectors=tuple(sorted(skipped_detectors)),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -294,6 +321,7 @@ class Evidence:
             "gosnn_anomaly_prob": self.gosnn_anomaly_prob,
             "gosnn_demote_act_below": self.gosnn_demote_act_below,
             "gosnn_demote_clear_above": self.gosnn_demote_clear_above,
+            "skipped_detectors": list(self.skipped_detectors),
             "domain": self.domain,
         }
 
