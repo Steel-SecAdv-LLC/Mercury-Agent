@@ -781,8 +781,9 @@ class PandemicLoader(BaseDomainLoader):
             data = self._fetch_json(url, params=params)
         except (ConnectionError, ValueError) as exc:
             # The helper keeps its sanctioned graceful-empty contract (pinned
-            # by tests/test_pandemic_expansion.py::test_who_gho_graceful_
-            # failure): callers that want best-effort data still get an empty
+            # by the WHO GHO graceful-failure test in
+            # ``tests/test_pandemic_expansion.py``): callers that want
+            # best-effort data still get an empty
             # frame on an outage. But emptiness here means "fetch failed", not
             # "no records" -- flag it so ``fetch_historical`` can raise a
             # data-source-unavailable error instead of serving the empty frame

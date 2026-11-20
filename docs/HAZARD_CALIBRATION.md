@@ -4,6 +4,52 @@ Measured 2026-11-18 by `research/hazard_calibration/measure.py`; the
 numbers are `research/hazard_calibration/evidence.json`, and the package ships
 the same file for the decision layer and the API to read.
 
+> **Not current: measured before the loader fixes, and not recorded again.**
+> Everything below this note is the record of 2026-11-18, which is also what
+> the package ships. On 2026-11-20 the loaders were corrected (`7b422c7`,
+> `5ee1f06`, `f024595`: the earthquake query had no spatial filter, hurricane
+> deltas were taken over mixed 3- and 6-hourly rows, tsunami rolling statistics
+> read later samples, FEMA feature rows were shifted against their labels,
+> `mpox_2022` was the COVID file under another name), and the calibration and
+> detector code has changed since the record as well. Run the same day at
+> `41fd2fe` on events fetched with the corrected loaders, this script prints
+> the table that follows. It is a run, not the record: `evidence.json`, the
+> shipped copy, the sentences in the README and the changelog and the counts
+> `tests/research/test_hazard_calibration.py` holds have to change together,
+> and they have not.
+>
+> | Hazard | Labels | Events | Rows | Anomalies | Skill | Coverage, target 90% (each half) | Abstained | Decided right | Anomaly calls right |
+> |---|---|---|---|---|---|---|---|---|---|
+> | earthquake | statistical | 5 | 2,214 | 7 | -0.044 | 99.1% (98.4% / 99.9%) | 97.6% | 63.2% | 2.6% of 39 |
+> | energy | statistical | 5 | 6,064 | 328 | -0.011 | 92.3% (90.6% / 94.0%) | 66.2% | 77.2% | 24.7% of 1,174 |
+> | fema | statistical | 5 | 2,228 | 431 | -0.056 | 95.5% (95.8% / 95.2%) | 93.1% | 34.0% | 15.3% of 163 |
+> | flood | statistical | 1 | | | not measured: one event: there is no other to calibrate on | | | | |
+> | hurricane | statistical | 5 | 181 | 54 | -0.050 | 96.4% (98.3% / 94.5%) | 90.1% | 63.9% | 22.2% of 9 |
+> | landslide | statistical | 1 | | | not measured: one event: there is no other to calibrate on | | | | |
+> | marine | statistical | 3 | 443 | 47 | +0.166 | 96.0% (97.1% / 95.0%) | 90.7% | 57.3% | 63.4% of 71 |
+> | network_security | ground_truth | 2 | 32,938 | 9,721 | -0.023 | 72.5% (72.9% / 72.0%) | 45.6% | 49.4% | 42.4% of 12,464 |
+> | pandemic | statistical | 4 | 2,929 | 227 | +0.067 | 92.0% (91.9% / 92.0%) | 32.5% | 88.1% | 33.9% of 663 |
+> | sepsis | ground_truth | 2 | 38,890 | 674 | +0.010 | 90.9% (91.5% / 90.4%) | 72.3% | 67.2% | 4.7% of 7,242 |
+> | tornado | statistical | 2 | 414 | 40 | +0.188 | 91.5% (90.8% / 92.3%) | 11.0% | 91.6% | 71.4% of 28 |
+> | tsunami | statistical | 3 | 1,255 | 103 | +0.197 | 92.7% (91.2% / 94.2%) | 78.1% | 66.7% | 40.5% of 301 |
+>
+> In that run the certificate held on both halves for nine of the ten hazards
+> measured (earthquake, energy, fema, hurricane, marine, pandemic, sepsis,
+> tornado, tsunami) and fell short on both for network security; the
+> calibrated probability said clearly more than the base rate for marine,
+> pandemic, tornado and tsunami. How much of the difference from the record
+> below is the loaders': the same code, the same day, on events fetched with
+> the loaders as they were before `7b422c7`, held for seven (earthquake,
+> energy, fema, hurricane, marine, sepsis, tornado), fell short for network
+> security and pandemic, and was over on one half and under on the other for
+> tsunami. So pandemic (five events and 22,965 rows with `mpox_2022`, four and
+> 2,929 without; skill -0.653 to +0.067, coverage 84.4% to 92.0%), tsunami
+> (abstained on 44.3% to 78.1% of rows) and hurricane (skill +0.030 to -0.050,
+> abstained on 77.0% to 90.1%) moved with the fixes; energy, marine, network
+> security and sepsis read the same with either loaders, and their distance
+> from the record below is the code's. Flood has one event with both classes
+> and joins landslide as not measurable this way.
+
 ## Why this exists
 
 The hazard table in the README says how well the detector *ranks* the rows of a

@@ -1,39 +1,39 @@
 {
   "schema": "mercury.research.engine_calibration.deleak_impact/v1",
-  "what": "Per-event AUROC of the real MercuryAnomalyDetector before and after excluding each loader's LABEL_DERIVED_FEATURES from the scored matrix, on the same fetched rows. Produced by research/engine_calibration/deleak_impact.py; domains listed under provenance.carried_over_domains keep the figures of the previous measurement because their sources could not be re-fetched.",
+  "what": "Per-event AUROC of the real MercuryAnomalyDetector before and after excluding each loader's LABEL_DERIVED_FEATURES from the scored matrix, on the same fetched rows. Produced by research/engine_calibration/deleak_impact.py; domains listed under provenance.carried_over_domains keep the figures of the previous measurement because their sources could not be re-fetched (none in this measurement).",
   "honest_limits": {
-    "not_a_replacement_table": "7 of the 9 canonical domains could not be re-fetched here (wildfire needs a NASA FIRMS key, financial a FRED key, landslide's host does not resolve, flood and CICIDS are stale URLs the SafeHTTPClient refuses to redirect to, volcanic's USGS endpoint was unavailable). This file is evidence of the de-leak's impact, not a new canonical measurement.",
-    "confound": "Domains with ZERO exclusions also moved (max |delta| 0.119), so the canonical artifact is stale against both the current detector and the live data. Only a delta materially larger than that band is attributable to de-leaking.",
-    "attributable": "earthquake -0.5718 is five times the largest no-exclusion drift, so the magnitude leak explains the bulk of its canonical 0.9367. fema's declaration flags (-0.2138 over five events, re-measured 2026-11-16 with the corrected label rule) are also outside the band. energy (-0.1151), pandemic and hurricane move within it, so de-leaking's effect there is not separable on this evidence.",
-    "correlation_remains": "Exclusion removes identity, not correlation. tornado rose despite dropping ef_scale because fatalities, injuries and path_length covary strongly with EF scale; they are distinct measurements, but physically downstream of the labelled quantity.",
-    "earthquake_remeasured_2026_11_01": "Earthquake was re-fetched from USGS and re-scored with the current detector after b_value joined its exclusion list (the rolling Gutenberg-Richter estimate includes the current event's magnitude). Both views moved against the previous artifact (circular 0.9367 -> 0.8995) because the detector and the live catalog both changed since that measurement; the delta is the comparable quantity and it remains far outside the no-exclusion control band.",
-    "volcanic_unmeasurable": "volcanoes.usgs.gov/vsc/api/volcanoApi/alerts answered HTTP 404 on 2026-11-01, so the volcanic loader's widened exclusion (days_since_last_change) has no measured impact figure; it is declared, gated by the provenance audit, and not quoted anywhere.",
-    "energy_remeasured_2026_11_16": "Energy reads recorded history (NASA OMNI2, NOAA GOES XRS flare reports, EIA-930) and is measured here on all five events. Storm events lose their Kp columns. Both grid events are labelled by the disturbances reported to DOE on Form OE-417 (EIA Electric Power Monthly, to the hour) and lose none: no scored column produces that label. A grid event's full view is the grid matrix, not the space-weather one. The earlier 0.9237 was measured on a synthetic Kp profile and is not comparable.",
-    "tsunami_remeasured_2026_11_16": "Tsunami reads the NDBC DART archive on the buoy's 15-minute cadence and declares no label-derived column, so both views are the same matrix.",
-    "fema_remeasured_2026_11_16": "FEMA's label read iaProgramDeclared, which is unset on declarations since about 2007 (individual assistance is recorded as ihProgramDeclared); every 2023 and 2024 declaration was labelled normal. All five events are re-fetched and measured with the rule reading either flag. The de-leaked mean is 0.4930: without the declaration flags the detector does not find these declarations.",
-    "unlabeled_reference_2026_11_16": "Every event here is fitted on and scored in place, so the detector is fitted with unlabeled_reference=True (the kNN stream's weight is capped at 0.5). Rows carried over from earlier measurements predate that.",
-    "fema_activity_2026_11_16": "fema_activity is labelled by NOAA NCEI's billion-dollar tropical cyclone catalogue and declares no label-derived column, so both views are the same matrix."
+    "remeasured_2026_11_20": "Every domain here was fetched and measured in one run on 2026-11-20 with a fresh loader cache, after the loader fixes at 7b422c7, 5ee1f06 and f024595 (earthquake spatial filter and inclusive end date, hurricane 24 h deltas on the 6-hourly synoptic main track, tornado whole-track rows, tsunami trailing rolling windows, FEMA and pandemic rows aligned with their labels, mpox_2022 no longer an event). No domain is carried over. The figures of the previous artifact were measured on the events as the loaders built them before those fixes and are not comparable row for row.",
+    "not_a_replacement_table": "This file is evidence of the de-leak's impact. The canonical per-domain table is research/engine_calibration/results.json, which scores the de-leaked matrix only and, unlike this script, reads events over 20,000 rows at 20,000 evenly spaced rows (NSL-KDD: 0.5155 there, 0.5082 here on all 148,517 rows). Not measured here: pandemic ebola_2014 (WHO GHO answers HTTP 404 for EBOLA_CASESDEATHS and the constructed stand-in is refused), pandemic mpox_2022 and the four volcanic events (marked not benchmarkable by their loaders), CICIDS-2017 (its sources answer 404 or a redirect the SafeHTTPClient refuses), seven of the twelve hurricane events and tornado midwest_2024 (the archive returns no rows for them), wildfire and financial (keys not set). Flood, landslide and sepsis are not in this script's loader table.",
+    "confound": "The no-exclusion control is exact in this run: marine, network_security and tsunami declare no label-derived column, both views are the same matrix, the detector is deterministic, and their delta is 0.0000. The 0.1189 this field carried before compared a figure carried over from an older run with a fresh one, so it measured the drift between two runs, not anything about exclusion.",
+    "attributable": "earthquake -0.3551 (0.9871 -> 0.6320), fema -0.2427 (0.7258 -> 0.4832), energy -0.1151 and tornado -0.0302 are the exclusion's effect on the same rows. hurricane does not move (+0.0042). Each earthquake event has one or two positives, so its de-leaked AUROC is the rank of one or two rows: 0.7279, 0.8264, 0.2527, 0.9981 and 0.3551, below chance on two of five.",
+    "pandemic_cholera_is_not_a_measurement": "pandemic's de-leaked 0.7741 and delta -0.1635 include cholera_yemen_2017 at 0.5000. That 0.5 is not a measured rank: WHO reports only case counts for the event, every column left after the exclusion is zero, the detector's score is constant, and this script's roc_auc_score returns 0.5 for an all-tied score. results.json records the same event's AUROC as undefined and leaves it out of the mean. Over the three COVID events alone the figures are 0.9199 circular, 0.8654 de-leaked, delta -0.0545.",
+    "correlation_remains": "Exclusion removes identity, not correlation. tornado still ranks at 0.9328 with ef_scale dropped because fatalities, injuries and path_length covary strongly with EF scale; they are distinct measurements, but physically downstream of the labelled quantity.",
+    "volcanic_unmeasurable": "The volcanic loader's four historical events are marked not benchmarkable since 7b422c7 (the USGS API exposes only the current alert, which is not a past eruption), so its exclusion (days_since_last_change) has no measured impact figure; it is declared, gated by the provenance audit, and not quoted anywhere.",
+    "energy": "Energy reads recorded history (NASA OMNI2, NOAA GOES XRS flare reports, EIA-930) and is measured on all five events; its loader was not changed by the fixes and its figures are the same as on 2026-11-16. Storm events lose their Kp columns. Both grid events are labelled by the disturbances reported to DOE on Form OE-417 (EIA Electric Power Monthly, to the hour) and lose none: no scored column produces that label. A grid event's full view is the grid matrix, not the space-weather one.",
+    "tsunami": "Tsunami reads the NDBC DART archive on the buoy's 15-minute cadence and declares no label-derived column, so both views are the same matrix. Its rolling mean and deviation are trailing windows since 5ee1f06; with the centred windows used before, which read later samples, the three events measured 0.9817, 0.9117 and 0.7379 (0.8771) against 0.9908, 0.7352 and 0.7070 (0.8110) now.",
+    "fema": "FEMA's label reads either individual-assistance flag (iaProgramDeclared is unset on declarations since about 2007; ihProgramDeclared records it since). Feature rows are aligned with their labels since 7b422c7, where an unstable re-sort had shifted tied rows against them; measured the same day with the loader as it was before that fix, the de-leaked mean was 0.4930 (all_2023 0.6021 against 0.5532 now). The de-leaked mean is 0.4832: without the declaration flags the detector does not find these declarations.",
+    "unlabeled_reference": "Every event here is fitted on and scored in place, so the detector is fitted with unlabeled_reference=True (the kNN stream's weight is capped at 0.5).",
+    "fema_activity": "fema_activity is labelled by NOAA NCEI's billion-dollar tropical cyclone catalogue and declares no label-derived column, so both views are the same matrix. Its loader was not changed by the fixes and its figures are the same as on 2026-11-16."
   },
   "provenance": {
-    "commit": "0a769e0113647af6025482402256998710a5c7bb",
-    "python": "3.12.3",
+    "commit": "41fd2fe282cf9dc09215e1d4e0c7aa4d749b8927",
+    "python": "3.13.18",
     "numpy": "2.5.4",
     "script": "research/engine_calibration/deleak_impact.py",
     "measured_domains": [
+      "earthquake",
       "energy",
       "fema",
       "fema_activity",
-      "tsunami"
-    ],
-    "carried_over_domains": [
-      "earthquake",
       "hurricane",
       "marine",
       "network_security",
       "pandemic",
-      "tornado"
+      "tornado",
+      "tsunami"
     ],
-    "baseline_artifact": "research/engine_calibration/results.json (canonical, pre-de-leak)"
+    "carried_over_domains": [],
+    "baseline_artifact": "research/engine_calibration/results.json (canonical; scored on the de-leaked matrix since the 2026-11-20 re-measurement)"
   },
   "no_exclusion_control_band": {
     "domains": [
@@ -41,14 +41,14 @@
       "network_security",
       "tsunami"
     ],
-    "max_abs_delta": 0.1189
+    "max_abs_delta": 0.0
   },
   "per_domain": {
     "earthquake": {
       "n_events": 5,
-      "auroc_circular": 0.8995,
-      "auroc_deleaked": 0.3276,
-      "delta": -0.5718,
+      "auroc_circular": 0.9871,
+      "auroc_deleaked": 0.632,
+      "delta": -0.3551,
       "excluded_features": [
         "magnitude",
         "mag_deviation",
@@ -70,9 +70,9 @@
     },
     "fema": {
       "n_events": 5,
-      "auroc_circular": 0.7069,
-      "auroc_deleaked": 0.493,
-      "delta": -0.2138,
+      "auroc_circular": 0.7258,
+      "auroc_deleaked": 0.4832,
+      "delta": -0.2427,
       "excluded_features": [
         "ia_program",
         "hm_program",
@@ -87,10 +87,10 @@
       "excluded_features": []
     },
     "hurricane": {
-      "n_events": 4,
-      "auroc_circular": 0.7792,
-      "auroc_deleaked": 0.7835,
-      "delta": 0.0043,
+      "n_events": 5,
+      "auroc_circular": 0.6162,
+      "auroc_deleaked": 0.6204,
+      "delta": 0.0042,
       "excluded_features": [
         "delta_wind_6h",
         "delta_wind_12h",
@@ -101,24 +101,24 @@
       ]
     },
     "marine": {
-      "n_events": 2,
-      "auroc_circular": 0.5412,
-      "auroc_deleaked": 0.6265,
-      "delta": 0.0853,
+      "n_events": 3,
+      "auroc_circular": 0.6314,
+      "auroc_deleaked": 0.6314,
+      "delta": 0.0,
       "excluded_features": []
     },
     "network_security": {
       "n_events": 2,
-      "auroc_circular": 0.7925,
-      "auroc_deleaked": 0.6736,
-      "delta": -0.1189,
+      "auroc_circular": 0.7149,
+      "auroc_deleaked": 0.7149,
+      "delta": 0.0,
       "excluded_features": []
     },
     "pandemic": {
       "n_events": 4,
-      "auroc_circular": 0.9035,
-      "auroc_deleaked": 0.871,
-      "delta": -0.0325,
+      "auroc_circular": 0.9375,
+      "auroc_deleaked": 0.7741,
+      "delta": -0.1635,
       "excluded_features": [
         "new_cases_smoothed",
         "rolling_avg_7d",
@@ -129,22 +129,57 @@
     },
     "tornado": {
       "n_events": 2,
-      "auroc_circular": 0.8803,
-      "auroc_deleaked": 0.9504,
-      "delta": 0.0701,
+      "auroc_circular": 0.963,
+      "auroc_deleaked": 0.9328,
+      "delta": -0.0302,
       "excluded_features": [
         "ef_scale"
       ]
     },
     "tsunami": {
       "n_events": 3,
-      "auroc_circular": 0.8771,
-      "auroc_deleaked": 0.8771,
+      "auroc_circular": 0.811,
+      "auroc_deleaked": 0.811,
       "delta": 0.0,
       "excluded_features": []
     }
   },
   "per_event": [
+    {
+      "domain": "earthquake",
+      "event": "haiti_2010",
+      "auroc_circular": 0.9853,
+      "auroc_deleaked": 0.7279,
+      "delta": -0.2574
+    },
+    {
+      "domain": "earthquake",
+      "event": "nepal_2015",
+      "auroc_circular": 0.9669,
+      "auroc_deleaked": 0.8264,
+      "delta": -0.1405
+    },
+    {
+      "domain": "earthquake",
+      "event": "noto_2024",
+      "auroc_circular": 0.989,
+      "auroc_deleaked": 0.2527,
+      "delta": -0.7363
+    },
+    {
+      "domain": "earthquake",
+      "event": "tohoku_2011",
+      "auroc_circular": 0.9975,
+      "auroc_deleaked": 0.9981,
+      "delta": 0.0006
+    },
+    {
+      "domain": "earthquake",
+      "event": "turkey_syria_2023",
+      "auroc_circular": 0.9968,
+      "auroc_deleaked": 0.3551,
+      "delta": -0.6417
+    },
     {
       "domain": "energy",
       "event": "bastille_day_2000",
@@ -183,16 +218,16 @@
     {
       "domain": "fema",
       "event": "all_2023",
-      "auroc_circular": 0.7424,
-      "auroc_deleaked": 0.6023,
-      "delta": -0.1401
+      "auroc_circular": 0.8366,
+      "auroc_deleaked": 0.5532,
+      "delta": -0.2833
     },
     {
       "domain": "fema",
       "event": "earthquake_all",
-      "auroc_circular": 0.7364,
-      "auroc_deleaked": 0.7294,
-      "delta": -0.007
+      "auroc_circular": 0.7274,
+      "auroc_deleaked": 0.7291,
+      "delta": 0.0017
     },
     {
       "domain": "fema",
@@ -204,16 +239,16 @@
     {
       "domain": "fema",
       "event": "flood_2024",
-      "auroc_circular": 0.3415,
-      "auroc_deleaked": 0.3119,
-      "delta": -0.0296
+      "auroc_circular": 0.3881,
+      "auroc_deleaked": 0.3121,
+      "delta": -0.076
     },
     {
       "domain": "fema",
       "event": "hurricane_2024",
-      "auroc_circular": 0.714,
+      "auroc_circular": 0.6771,
       "auroc_deleaked": 0.5358,
-      "delta": -0.1782
+      "delta": -0.1414
     },
     {
       "domain": "fema_activity",
@@ -272,144 +307,102 @@
       "delta": 0.0
     },
     {
-      "domain": "tsunami",
-      "event": "chile_2010",
-      "auroc_circular": 0.9117,
-      "auroc_deleaked": 0.9117,
-      "delta": 0.0
-    },
-    {
-      "domain": "tsunami",
-      "event": "tohoku_2011",
-      "auroc_circular": 0.9817,
-      "auroc_deleaked": 0.9817,
-      "delta": 0.0
-    },
-    {
-      "domain": "tsunami",
-      "event": "tonga_2022",
-      "auroc_circular": 0.7379,
-      "auroc_deleaked": 0.7379,
-      "delta": 0.0
-    },
-    {
-      "domain": "earthquake",
-      "event": "haiti_2010",
-      "auroc_circular": 0.7804,
-      "auroc_deleaked": 0.0794,
-      "delta": -0.7009
-    },
-    {
-      "domain": "earthquake",
-      "event": "nepal_2015",
-      "auroc_circular": 0.9694,
-      "auroc_deleaked": 0.1167,
-      "delta": -0.8528
-    },
-    {
-      "domain": "earthquake",
-      "event": "noto_2024",
-      "auroc_circular": 0.991,
-      "auroc_deleaked": 0.0572,
-      "delta": -0.9337
-    },
-    {
-      "domain": "earthquake",
-      "event": "tohoku_2011",
-      "auroc_circular": 0.9893,
-      "auroc_deleaked": 0.9819,
-      "delta": -0.0074
-    },
-    {
-      "domain": "earthquake",
-      "event": "turkey_syria_2023",
-      "auroc_circular": 0.7672,
-      "auroc_deleaked": 0.403,
-      "delta": -0.3642
-    },
-    {
       "domain": "hurricane",
       "event": "helene_2024",
-      "auroc_circular": 0.594,
-      "auroc_deleaked": 0.6974,
-      "delta": 0.1034
+      "auroc_circular": 0.6042,
+      "auroc_deleaked": 0.5938,
+      "delta": -0.0104
     },
     {
       "domain": "hurricane",
       "event": "irma_2017",
-      "auroc_circular": 0.7814,
-      "auroc_deleaked": 0.8288,
-      "delta": 0.0475
+      "auroc_circular": 0.6527,
+      "auroc_deleaked": 0.5672,
+      "delta": -0.0854
     },
     {
       "domain": "hurricane",
       "event": "katrina_2005",
-      "auroc_circular": 0.9048,
-      "auroc_deleaked": 0.8346,
-      "delta": -0.0702
+      "auroc_circular": 0.693,
+      "auroc_deleaked": 0.7807,
+      "delta": 0.0877
     },
     {
       "domain": "hurricane",
       "event": "milton_2024",
-      "auroc_circular": 0.8365,
-      "auroc_deleaked": 0.7731,
-      "delta": -0.0635
+      "auroc_circular": 0.596,
+      "auroc_deleaked": 0.5707,
+      "delta": -0.0253
+    },
+    {
+      "domain": "hurricane",
+      "event": "sandy_2012",
+      "auroc_circular": 0.5352,
+      "auroc_deleaked": 0.5898,
+      "delta": 0.0547
     },
     {
       "domain": "marine",
       "event": "gbr_bleaching_2016",
-      "auroc_circular": 0.4308,
-      "auroc_deleaked": 0.2667,
-      "delta": -0.1641
+      "auroc_circular": 0.2778,
+      "auroc_deleaked": 0.2778,
+      "delta": 0.0
+    },
+    {
+      "domain": "marine",
+      "event": "gbr_bleaching_2020",
+      "auroc_circular": 0.6296,
+      "auroc_deleaked": 0.6296,
+      "delta": 0.0
     },
     {
       "domain": "marine",
       "event": "marine_heatwave_2023",
-      "auroc_circular": 0.6516,
-      "auroc_deleaked": 0.9863,
-      "delta": 0.3347
+      "auroc_circular": 0.9868,
+      "auroc_deleaked": 0.9868,
+      "delta": 0.0
     },
     {
       "domain": "network_security",
       "event": "batadal",
-      "auroc_circular": 0.9176,
+      "auroc_circular": 0.9217,
       "auroc_deleaked": 0.9217,
-      "delta": 0.004
+      "delta": 0.0
     },
     {
       "domain": "network_security",
       "event": "nsl_kdd",
-      "auroc_circular": 0.6674,
-      "auroc_deleaked": 0.4255,
-      "delta": -0.2419
+      "auroc_circular": 0.5082,
+      "auroc_deleaked": 0.5082,
+      "delta": 0.0
+    },
+    {
+      "domain": "pandemic",
+      "event": "cholera_yemen_2017",
+      "auroc_circular": 0.9904,
+      "auroc_deleaked": 0.5,
+      "delta": -0.4904
     },
     {
       "domain": "pandemic",
       "event": "covid_india_delta",
-      "auroc_circular": 0.8963,
-      "auroc_deleaked": 0.8591,
-      "delta": -0.0372
+      "auroc_circular": 0.9041,
+      "auroc_deleaked": 0.859,
+      "delta": -0.0451
     },
     {
       "domain": "pandemic",
       "event": "covid_italy_wave1",
-      "auroc_circular": 0.884,
+      "auroc_circular": 0.8935,
       "auroc_deleaked": 0.8441,
-      "delta": -0.0398
+      "delta": -0.0493
     },
     {
       "domain": "pandemic",
       "event": "covid_usa_wave1",
-      "auroc_circular": 0.947,
+      "auroc_circular": 0.9622,
       "auroc_deleaked": 0.8931,
-      "delta": -0.0539
-    },
-    {
-      "domain": "pandemic",
-      "event": "mpox_2022",
-      "auroc_circular": 0.8866,
-      "auroc_deleaked": 0.8877,
-      "delta": 0.0011
+      "delta": -0.0691
     },
     {
       "domain": "tornado",
@@ -421,9 +414,30 @@
     {
       "domain": "tornado",
       "event": "super_outbreak_2011",
-      "auroc_circular": 0.7606,
-      "auroc_deleaked": 0.9008,
-      "delta": 0.1402
+      "auroc_circular": 0.9261,
+      "auroc_deleaked": 0.8656,
+      "delta": -0.0606
+    },
+    {
+      "domain": "tsunami",
+      "event": "chile_2010",
+      "auroc_circular": 0.7352,
+      "auroc_deleaked": 0.7352,
+      "delta": 0.0
+    },
+    {
+      "domain": "tsunami",
+      "event": "tohoku_2011",
+      "auroc_circular": 0.9908,
+      "auroc_deleaked": 0.9908,
+      "delta": 0.0
+    },
+    {
+      "domain": "tsunami",
+      "event": "tonga_2022",
+      "auroc_circular": 0.707,
+      "auroc_deleaked": 0.707,
+      "delta": 0.0
     }
   ]
 }

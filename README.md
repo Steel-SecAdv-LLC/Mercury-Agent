@@ -137,7 +137,7 @@ Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the co
 
 **Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8571**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
-**Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7737 (+3.40 pts, 13 W / 1 tie / 4 L)** from base `e118e1f` to the detector at `658f3f0` (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`. The harness fits the detector on the rows it scores, so since `15b0eea` it declares that reference unlabelled and the kNN stream is fused at equal weight; the previous ledger (`e7341ce`, 0.7745) gave the stream its dimensional weight. Eight sets rose, nine fell, the mean moved by −0.0008.
+**Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7737 (+3.40 pts, 13 W / 1 tie / 4 L)** from base `e118e1f` to the detector at `41fd2fe` (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`. The harness fits the detector on the rows it scores, so since `15b0eea` it declares that reference unlabelled and the kNN stream is fused at equal weight; the previous ledger (`e7341ce`, 0.7745) gave the stream its dimensional weight. Eight sets rose, nine fell, the mean moved by −0.0008.
 
 > **Both sides were measured on one tree, in one environment.** The earlier
 > ledger (`0.7634`, 14 W / 2 tie / 2 L) was recorded at `bdcdf6a` and left behind by
@@ -396,13 +396,14 @@ cited `run_all_benchmarks.py`, whose output is not committed, and carried
 several values — including a Flood row — that matched no committed artifact):
 
 > **Most of these rows are self-labelled, and the table never said so.**
-> Network Security has labels independent of the scored features
-> (`ground_truth`: NSL-KDD `label`, BATADAL `ATT_FLAG`), FEMA declaration
+> Network Security and Sepsis have labels independent of the scored features
+> (`ground_truth`: NSL-KDD `label`, BATADAL `ATT_FLAG`, PhysioNet
+> `SepsisLabel`), FEMA declaration
 > activity is labelled by NOAA's billion-dollar disaster catalogue, Tsunami by
 > catalogued time windows, and the two Energy grid events by the disturbances
 > reported to DOE. The other rows are `statistical` — the label is a
 > threshold on a column the detector was also handed, unless the Labels column
-> says that column is excluded. `Overall` pools every regime over all 42 events,
+> says that column is excluded. `Overall` pools every regime over all 46 events,
 > which is exactly what
 > the leakage-flagged section below says is never done. The loaders declared this
 > at source the whole time; this table did not carry it. Measured impact and the
@@ -411,45 +412,109 @@ several values — including a Flood row — that matched no committed artifact)
 
 | Domain | AUROC | Labels | Label rule |
 |--------|-------|--------|------------|
-| Network Security | 0.7925 | **independent** | per-row attack flags (NSL-KDD `label`, BATADAL `ATT_FLAG`) |
-| Earthquake | 0.9367 | self-labelled | `magnitude >= mainshock_mag - 1.0`, and `magnitude` is feature[0] |
-| Pandemic | 0.9256 | self-labelled | 7d rolling cases > 2x 30d baseline, on the same smoothed series |
+| Network Security | 0.7186 | **independent** | per-row attack flags (NSL-KDD `label`, BATADAL `ATT_FLAG`) |
+| Sepsis | 0.7193 | **independent** | PhysioNet/CinC Challenge 2019 `SepsisLabel`, per patient-hour; training sets A and B |
+| Earthquake | 0.6321 | self-labelled, magnitude columns excluded | `magnitude >= mainshock_mag - 1.0`; scored on depth, location, time since the previous event and seismicity rate only (`magnitude`, `mag_deviation` and `b_value` excluded); one or two positives per event |
+| Pandemic | 0.8654 | self-labelled, case columns excluded | 7d rolling cases > 2x 30d baseline; scored on deaths, reproduction rate, testing, positivity and stringency only; the three COVID events (the cholera event has no AUROC, see below) |
 | Energy | 0.7808 | mixed, recorded series | storms: `kp >= 7`, scored on the recorded solar wind and flare class only (Kp columns excluded); Texas 2021 and Texas 2023: **independent** — the disturbances reported to DOE on Form OE-417, to the hour (EIA Electric Power Monthly), scored on the EIA-930 grid series |
-| Tsunami | 0.8771 | catalogued windows, recorded series | origin time to a fixed end per event; 15-minute BPR series from the NDBC DART archive |
-| Tornado | 0.8803 | self-labelled | `mag >= 3` (EF3+) on the raw magnitude behind `ef_scale` |
-| Hurricane | 0.7792 | self-labelled | 24h wind delta >= 30 kt, which is also scored |
+| Tsunami | 0.8110 | catalogued windows, recorded series | origin time to a fixed end per event; 15-minute BPR series from the NDBC DART archive, rolling statistics over trailing windows |
+| Tornado | 0.9328 | self-labelled, `ef_scale` excluded | `mag >= 3` (EF3+); scored on path length and width, injuries, fatalities, location and time, which covary with the EF scale |
+| Hurricane | 0.6204 | self-labelled, wind-change columns excluded | 24h wind delta >= 30 kt on the 6-hourly synoptic main track; scored on the 6h and 12h pressure change only |
 | FEMA declaration activity | 0.8583 | **independent** | days inside a NOAA NCEI billion-dollar tropical cyclone's window (event dates plus the 30-day request window); scored on daily counts of FEMA designations, 2017 to 2024 |
-| FEMA declaration flags | 0.4930 | self-labelled, flags excluded | major disaster with individual assistance (IA, or IH since about 2007) and public assistance; scored on state, month, declaration counts and spacing only |
-| Marine | 0.5412 | self-labelled | richness-decline threshold on scored `richness_loss` |
-| *Overall* | *0.8011* | *mixed* | *pools all ten; not a comparable figure* |
+| FEMA declaration flags | 0.4832 | self-labelled, flags excluded | major disaster with individual assistance (IA, or IH since about 2007) and public assistance; scored on state, month, declaration counts and spacing only |
+| Marine | 0.6314 | self-labelled | richness-decline threshold on scored `richness_loss` |
+| Flood | 0.7907 | self-labelled | gauge height >= the NWS flood stage, and `gauge_height_ft` is scored; one event (Helene 2024) |
+| Landslide | 0.6190 | self-labelled, fatality and size columns excluded | fatal, or large and above; one event (Oso 2014: 24 rows, 3 positives) |
+| *Overall* | *0.7227* | *mixed* | *pools all thirteen; not a comparable figure* |
+
+**Re-measured 2026-11-20, after the loader fixes** (`7b422c7`, `5ee1f06`,
+`f024595`; loaders and detector as of `41fd2fe`, loader cache empty at the
+start). Every row above is from that run and is scored on the de-leaked matrix
+(`engineer_scored_features`), which is what `build_cache.py` writes. Six rows
+(Network Security, Earthquake, Pandemic, Tornado, Hurricane, Marine) had been
+carried from a cache older than the exclusion, so they moved for more than one
+reason. A control run of the same pipeline on the same day, with the loaders as
+they were before `7b422c7`, separates the reasons; "before" below is that
+control unless it says "published".
+
+- *Lower because of a fix.* Hurricane 0.7835 → 0.6204: the 24 h deltas had
+  been taken over rows of mixed 3- and 6-hourly spacing and over spur tracks.
+  On the 6-hourly synoptic main track Irma falls 0.8288 → 0.5672, Milton
+  0.7731 → 0.5707, Helene 0.6974 → 0.5938 and Katrina 0.8346 → 0.7807, and
+  Sandy 2012, which held one class before, enters at 0.5898. Tsunami
+  0.8771 → 0.8110: the rolling mean and deviation were centred windows that
+  read later samples; trailing, Chile 2010 is 0.9117 → 0.7352 and Tonga 2022
+  0.7379 → 0.7070 (Tohoku 2011 0.9817 → 0.9908). FEMA declaration flags
+  0.4930 → 0.4832: an unstable re-sort had shifted feature rows against their
+  labels; aligned, all of 2023 is 0.6021 → 0.5532. Pandemic 0.8748 → 0.8654:
+  `mpox_2022` (0.9030) was the COVID file under another name and is no longer
+  an event.
+- *Higher because of a fix.* Earthquake 0.3537 → 0.6321: the historical query
+  had no spatial filter, so each event was every M2.5+ earthquake in the world
+  during its window (Haiti 216 rows, 70 in its region). Haiti 0.0257 → 0.7279,
+  Nepal 0.3333 → 0.8264, Noto 0.0723 → 0.2527, Tohoku 0.9752 → 0.9981,
+  Turkey–Syria 0.3621 → 0.3551. With one or two positives per event that
+  figure is the rank of one or two rows. Tornado 0.9231 → 0.9328 (same-day
+  reports keep their order; the 2011 super outbreak 0.8462 → 0.8656).
+- *Not the fixes.* The 0.9367 published for Earthquake was measured with
+  `magnitude` in the scored matrix; excluding it is what took it to 0.3537.
+  Network Security (published 0.7925; NSL-KDD 0.6674 → 0.5155 on its
+  20,000-row sample, BATADAL 0.9176 → 0.9217) and Marine (published 0.5412;
+  the 2023 heatwave is 404 rows from OBIS today where the older cache held 78,
+  and the 2020 bleaching event is a third) moved between the cache those rows
+  were carried from and today's fetch, and read the same with the loaders
+  before and after. Energy and FEMA declaration activity are unchanged to four
+  places.
+- *Not measured.* `ebola_2014` (published 0.9699) was a series the loader
+  constructed: WHO GHO answers HTTP 404 for `EBOLA_CASESDEATHS` and the
+  stand-in is refused. `cholera_yemen_2017` is fetched, but WHO reports only
+  its case counts, every column left after the exclusion is zero, the score is
+  constant and no AUROC exists; it is not counted as 0.5. Seven of the twelve
+  hurricane events are catalogued under storm identifiers IBTrACS does not
+  hold and return no track; `midwest_2024` is later than the SPC archive file
+  (1950 to 2023); CICIDS-2017's sources answer 404 or redirect; wildfire and
+  financial need keys that were not set. Flood `european_2021`, pandemic
+  `mpox_2022` and the four volcanic events are marked not benchmarkable by
+  their loaders. Flood's Vermont 2023 and two landslide events hold one class.
+  Sepsis, Flood and Landslide are new rows: their sources could not be read
+  when the table was last built.
 
 **What a rank does not tell you, measured.** AUROC says how well the detector
 orders the rows of one event. It does not say that a score of 0.8 means four
 times in five, that a "90%" certificate is right nine times in ten on the next
 event, or how often the decision layer declines to decide. Those are measured
-per hazard on these same events, each event judged by a calibration fitted on
+per hazard, each event judged by a calibration fitted on
 the hazard's others ([`docs/HAZARD_CALIBRATION.md`](docs/HAZARD_CALIBRATION.md)):
 the certificate held for five of the ten hazards that could be measured and fell
 short for two; the calibrated probability says more than the base rate for
 three; and for the two hazards whose labels are independent (network security,
 sepsis) the result is poor. A decision record about a measured hazard carries
-that hazard's record with it.
+that hazard's record with it. That record is of 2026-11-18, on the events as
+the loaders built them before the fixes above, and has not been recorded again;
+the note at the head of that document gives what the same measurement prints
+on the events as they are fetched now.
 
 **What the leak was worth, measured.** Every loader now declares its
 label-derived columns and the scored matrix excludes them
 (`BaseDomainLoader.engineer_scored_features`), so this is re-measurable rather
-than argued. Re-measured with the current detector on the five earthquake
-events re-fetched from USGS (`research/engine_calibration/deleak_impact.py`),
+than argued. Re-measured 2026-11-20 with the current detector, every domain
+with and without its label-derived columns on the same fetched rows in one run
+(`research/engine_calibration/deleak_impact.py`),
 Earthquake falls
-**0.8995 → 0.3276 (−0.5718)** — below chance on four of its five events once
-`magnitude`, `mag_deviation` and the magnitude-derived `b_value` are excluded,
-so that figure was almost entirely the leak. Read the rest with the control in
-mind: domains with *no* exclusions moved by up to
-0.119 on the same events between two runs, so only a delta well outside that
-band is attributable to de-leaking. Pandemic (−0.033) and Hurricane
-(+0.004) sit inside it, as does Energy (−0.115); FEMA's declaration flags
-(−0.214 over five events, re-measured 2026-11-16) sit outside it. Exclusion also removes identity, not correlation:
-Tornado *rose* with `ef_scale` dropped, because path length, injuries and
+**0.9871 → 0.6320 (−0.3551)** — below chance on two of its five events once
+`magnitude`, `mag_deviation` and the magnitude-derived `b_value` are excluded
+(0.6321 in the table: this artifact rounds each event before averaging). The
+control is exact in this run: domains with *no* exclusions moved by up to
+0.000 on the same events, because both views are the same matrix and the
+detector is deterministic. The 0.119 quoted here before compared a figure
+carried over from an older run with a fresh one, and measured the drift
+between two runs. FEMA's declaration flags (−0.243 over five events), Energy
+(−0.115) and Tornado (−0.030) fall with their columns excluded; Hurricane does
+not move (+0.004). Pandemic reads −0.1635 in the artifact, but that mean counts
+the cholera event at 0.5, where the remaining columns are all zero and no
+AUROC exists; over the three COVID events it is −0.0545. Exclusion also removes
+identity, not correlation: Tornado still ranks at 0.93 with `ef_scale`
+dropped, because path length, injuries and
 fatalities covary with EF scale — distinct measurements, still physically
 downstream of the labelled quantity.
 
@@ -458,9 +523,9 @@ The loaders built both series themselves, and the figures then published
 (Energy 0.9237, Tsunami 0.8905) were scores on those constructions. Both
 loaders now read the recorded history: NASA OMNI2 for the three geomagnetic
 storms, EIA-930 for the Texas 2021 grid event, and NDBC's DART archive for the
-tsunami events. The rows above are re-measured on that data with the same
-detector and procedure (`research/engine_calibration/remeasure_recorded.py`);
-the other six domains are unchanged. Energy's five events are 0.9722
+tsunami events. The rows above are measured on that data with the same
+detector and procedure (`research/engine_calibration/remeasure_recorded.py`).
+Energy's five events are 0.9722
 (Bastille Day 2000), 0.7709 (Halloween 2003), 0.5916 (Quebec 1989, where no
 spacecraft measured the solar wind for 56% of the window), 0.9012 (Texas
 2021, Winter Storm Uri) and 0.6680 (Texas 2023, a full year). Both grid
@@ -469,9 +534,11 @@ hour from EIA's Electric Power Monthly; EIA carried that table through 2023. The
 rows include the recorded GOES X-ray flare class (NOAA NCEI's yearly flare
 reports), which was empty before. The two grid
 events are scored on the grid's own series; scored on space weather, as they
-first were, they sat at chance (0.55 and 0.49). Tsunami's three are 0.9817
-(Tohoku 2011), 0.9117 (Chile 2010) and 0.7379 (Tonga 2022) on the buoy's
-15-minute cadence; a 1-minute grid had recorded when the buoy switched to
+first were, they sat at chance (0.55 and 0.49). Tsunami's three are 0.9908
+(Tohoku 2011), 0.7352 (Chile 2010) and 0.7070 (Tonga 2022) on the buoy's
+15-minute cadence, with rolling statistics that look only backwards; with the
+centred windows used until 2026-11-20 they read 0.9817, 0.9117 and 0.7379. A
+1-minute grid had recorded when the buoy switched to
 event mode, which is the answer rather than a reading.
 
 **FEMA's labels were empty for every modern event.** The rule read
@@ -479,9 +546,9 @@ event mode, which is the answer rather than a reading.
 assistance has been recorded as `ihProgramDeclared` since. All 1,738
 declarations of the 2023 and 2024 events were labelled normal. With the rule
 reading either flag, and the flags themselves kept out of the scored matrix,
-the five events score 0.7294 (earthquakes, all years), 0.6023 (all of 2023),
-0.5358 (hurricanes 2024), 0.3119 (floods 2024) and 0.2857 (fires 2023, one
-positive in 36): 0.4930, which is chance. The 0.7598 published before was
+the five events score 0.7291 (earthquakes, all years), 0.5532 (all of 2023),
+0.5358 (hurricanes 2024), 0.3121 (floods 2024) and 0.2857 (fires 2023, one
+positive in 36): 0.4832, which is chance. The 0.7598 published before was
 measured on a different extract and does not survive the corrected labels.
 
 **Why that row stays at chance, and the row that replaces it as the FEMA
@@ -493,7 +560,7 @@ monitor of the declaration stream asks, whether activity is surging, and takes
 its labels from outside FEMA's record: a day is positive when it falls inside
 a NOAA NCEI billion-dollar tropical cyclone's window. The rule was fixed
 before it was measured and was measured once: 0.70 to 0.95 per year, 0.8583
-over 2017 to 2024. `Overall` pools 42 events.
+over 2017 to 2024. `Overall` pools 46 events, 45 of which have an AUROC.
 
 ### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 
