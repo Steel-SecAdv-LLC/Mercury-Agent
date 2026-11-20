@@ -7,20 +7,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,172
-- **Capability-bearing classes:** 2,124 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,181
+- **Capability-bearing classes:** 2,127 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
-- **Refined via base-class analysis:** 94 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,248 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,250 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1248 |
-| Support types (config / result / enum / error) | 1048 |
+| Other capability classes | 1250 |
+| Support types (config / result / enum / error) | 1054 |
 | Detection | 181 |
-| Neural models & layers | 163 |
+| Neural models & layers | 164 |
 | Data sources & loaders | 114 |
 | Adapters & backends | 108 |
 | Engines & orchestration | 102 |
@@ -399,7 +399,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `cognitive/` — 287 classes (189 capability)
+### `cognitive/` — 289 classes (190 capability)
 
 **Analysis & scoring**
 
@@ -598,6 +598,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_Labels` (`cognitive.decision_gate`) — The cells of a table: an array, a column of a frame, its row labels.
 - `_Names` (`cognitive.decision_gate`) — Stands on the stack of :func:`_payload_readings` before what ``key`` names.
 - `_Reader` (`cognitive.decision_gate`) — What :func:`_payload_readings` has read, and the rule for reading a record's keys.
+- `_ShippedClassifierNotTried` (`cognitive.ethical_bounding`) — Sentinel: the shipped classifier's import has not been attempted yet.
 
 **Prediction & forecasting**
 
@@ -617,9 +618,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ConstraintSolver` (`cognitive.formal_verification`) — Solver for constraint satisfaction problems.
 - `SafetyVerifier` (`cognitive.formal_verification`) — Verifier for safety properties.
 
-<details><summary>Support types (98)</summary>
+<details><summary>Support types (99)</summary>
 
-`AbstractionLevel`, `ActionResult`, `ActionRisk`, `AdaptationEvent`, `AdaptationResult`, `AdaptationType`, `AgentRole`, `AgentState`, `AgentStatus`, `AnomalyCategory`, `ApprovalRequest`, `ApprovalStatus`, `BeliefState`, `BenefitCategory`, `CalibrationResult`, `CaseOutcome`, `CausalRelationType`, `CognitiveAnalysisResult`, `ConfidenceLevel`, `ConfidenceLevel`, `ConsensusMethod`, `ConsensusResult`, `ConsistencyResult`, `ConstraintType`, `CoordinationStrategy`, `CounterfactualResult`, `CourseOfAction`, `DataType`, `DecisionType`, `DetectionResult`, `DiagnosticResult`, `EdgeType`, `EnvironmentDomain`, `EscalationRecord`, `EthicalConstraintViolationError`, `EthicalPrinciple`, `ExplanationType`, `ExplanationType`, `ExplorationResult`, `ExternalSourceCategory`, `FaithfulnessMetric`, `FeedbackQuality`, `FeedbackType`, `FusionResult`, `FusionStrategy`, `GoalStatus`, `HarmCategory`, `HazardDomain`, `ImprovementPriority`, `IndicatorStatus`, `IndicatorType`, `InferenceResult`, `InferenceStatus`, `InterventionType`, `LogicalConnective`, `MemoryType`, `Message`, `MessageType`, `NodeType`, `OntologyClassType`, `OperationalIntent`, `OutcomeType`, `PatternType`, `PlanExecutionState`, `PlannerType`, `PlasticityMode`, `PlasticityRule`, `PolicyUpdate`, `PredicateType`, `PredictionError`, `PredictionType`, `PredictionType`, `PredictiveResult`, `ProcessingLevel`, `PropertyType`, `PropertyType`, `ReasoningStrategy`, `ReasoningType`, `RefinementResult`, `ReflectionType`, `RelabelingStrategy`, `RetrievalResult`, `RuleType`, `SequenceType`, `SimilarityMetric`, `TemporalOperator`, `ThoughtType`, `ThreatCategory`, `TraversalResult`, `UnassessableSubjectError`, `UncertaintyType`, `UpdateMode`, `VerificationReport`, `VerificationResult`, `WarningLevel`, `WeaponsDisposition`, `_Reading`, `_Record`
+`AbstractionLevel`, `ActionResult`, `ActionRisk`, `AdaptationEvent`, `AdaptationResult`, `AdaptationType`, `AgentRole`, `AgentState`, `AgentStatus`, `AnomalyCategory`, `ApprovalRequest`, `ApprovalStatus`, `BeliefState`, `BenefitCategory`, `CalibrationResult`, `CaseOutcome`, `CausalRelationType`, `CognitiveAnalysisResult`, `ConfidenceLevel`, `ConfidenceLevel`, `ConsensusMethod`, `ConsensusResult`, `ConsistencyResult`, `ConstraintType`, `CoordinationStrategy`, `CounterfactualResult`, `CourseOfAction`, `DataType`, `DecisionType`, `DetectionResult`, `DiagnosticResult`, `EdgeType`, `EnvironmentDomain`, `EscalationRecord`, `EthicalConstraintViolationError`, `EthicalPrinciple`, `ExplanationType`, `ExplanationType`, `ExplorationResult`, `ExternalSourceCategory`, `FaithfulnessMetric`, `FeedbackQuality`, `FeedbackType`, `FusionResult`, `FusionStrategy`, `GoalStatus`, `HarmCategory`, `HazardDomain`, `ImprovementPriority`, `IndicatorStatus`, `IndicatorType`, `InferenceResult`, `InferenceStatus`, `InterventionType`, `LogicalConnective`, `MemoryType`, `Message`, `MessageType`, `NodeType`, `OntologyClassType`, `OperationalIntent`, `OutcomeType`, `PatternType`, `PlanExecutionState`, `PlannerType`, `PlasticityMode`, `PlasticityRule`, `PolicyUpdate`, `PredicateType`, `PredictionError`, `PredictionType`, `PredictionType`, `PredictiveResult`, `ProcessingLevel`, `PropertyType`, `PropertyType`, `ReasoningStrategy`, `ReasoningType`, `RefinementResult`, `ReflectionType`, `RelabelingStrategy`, `RetrievalResult`, `RuleType`, `SequenceType`, `SimilarityMetric`, `TemporalOperator`, `ThoughtType`, `ThreatCategory`, `TraversalResult`, `UnassessableSubjectError`, `UncertaintyType`, `UpdateMode`, `VerificationReport`, `VerificationResult`, `WarningLevel`, `WeaponsDisposition`, `_FeedbackRecord`, `_Reading`, `_Record`
 
 </details>
 
@@ -668,7 +669,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 354 classes (224 capability)
+### `core/` — 355 classes (224 capability)
 
 **Adapters & backends**
 
@@ -927,9 +928,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Supervised optimizer for OAE weights: maximize F1 on labeled data.
 
-<details><summary>Support types (130)</summary>
+<details><summary>Support types (131)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeatureWidthMismatchError`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeatureWidthMismatchError`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `GatedFusionResult`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
 
 </details>
 
@@ -1076,7 +1077,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 460 classes (335 capability)
+### `detectors/` — 466 classes (337 capability)
 
 **Adapters & backends**
 
@@ -1241,7 +1242,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SpectralResidualDetector` (`detectors.spectral_residual`) — Streaming saliency detector built on the Spectral-Residual transform.
 - `SpectralVibrationDetector` (`detectors.spectral_vibration`) — Advanced spectral vibration anomaly detector.
 - `SpikingNetworkDetector` (`detectors.spiking`) — Leaky integrate-and-fire population spike-rate novelty detector.
-- `StatisticalVLMDetector` (`detectors.vlm.statistical_vlm`) — Offline, deterministic concrete VLM detector (no network, no weights).
+- `StatisticalVLMDetector` (`detectors.vlm.statistical_vlm`) — Offline, deterministic statistical texture heuristic (not a language model).
 - `SubsidenceDetector` (`detectors.geological.subsidence_detector`) — Subsidence and sinkhole-precursor detector for InSAR-style series.
 - `SurvivalHazardDetector` (`detectors.survival`) — Kaplan-Meier + Cox proportional-hazards inter-event-time detector.
 - `TemporalAnomalyDetector` (`detectors.temporal`) — Time series anomaly detection using:.
@@ -1311,6 +1312,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SpectralGraphLayer` (`detectors.spectral_vibration`) — Graph Neural Network layer for spectral analysis.
 - `StudentNetwork` (`detectors.visual.stfpm`) — Lightweight student network that learns to mimic teacher.
 - `TemporalConvBlock` (`detectors.advanced.multi_scale_transformer`) — Temporal convolution block for local pattern extraction.
+- `TimmFeatureBackbone` (`detectors.visual.backbone`) — A timm ``features_only`` model behind the named layer-dict contract.
 - `WildfireCNN` (`detectors.fire.wildfire`) — Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
 - `_Denoiser` (`detectors.diffusion_ad`) — MLP that predicts the noise added to a window, conditioned on timestep.
 - `_EnsembleModel` (`detectors.drone.detector`) — Ensemble fitted on a rolling window, with per-stream fit-time references.
@@ -1383,6 +1385,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `PhysicsGOSNNScalars` (`detectors.physics_integration`) — GOSNN scalar network for physics-based anomaly detection.
 - `PointAdjustmentEvaluator` (`detectors.advanced.point_adjustment`) — Evaluator with point-adjustment for time-series anomaly detection.
 - `PointKinematics` (`detectors.geological.subsidence_detector`) — Per-point kinematic estimates from one LOS displacement series.
+- `PointScoreAlignment` (`detectors.detection_tier`) — A detector's scores laid out one per input point, and how they got there.
 - `PositionContextProvider` (`detectors.vlm.context_providers`) — Position context provider for spatial awareness.
 - `PositionalContextExtractor` (`detectors.vlm.context_providers`) — Alias for PositionContextProvider for test compatibility.
 - `QuantumAnnealingProbe` (`detectors.math_arrest.probes.quantum_annealing`) — Detect thermodynamic outliers via Boltzmann negative log-likelihood.
@@ -1440,9 +1443,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_PlattCalibrator` (`detectors.detection_tier`) — Platt-scaling calibrator: logistic score->P(anomaly) from labels.
 - `_ScoreCalibrator` (`detectors.detection_tier`) — Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
 
-<details><summary>Support types (125)</summary>
+<details><summary>Support types (129)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ConfigAliasMixin`, `ConfigAliasMixin`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IncompatibleCheckpointError`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `ParsedResponse`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 

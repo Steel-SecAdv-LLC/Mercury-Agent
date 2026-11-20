@@ -122,6 +122,7 @@ A test behind `pytest.importorskip("x")` runs only where `x` is installed. "Full
 | `scipy` | scipy | yes |
 | `stumpy` | stumpy | yes |
 | `sympy` | sympy | yes |
+| `timm` | timm | yes |
 | `torch` | torch | yes |
 | `torchvision` | torchvision | yes |
 | `transformers` | transformers | yes |

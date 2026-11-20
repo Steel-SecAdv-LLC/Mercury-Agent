@@ -78,13 +78,31 @@ _COUNT = ("none", "one", "two", "three", "four", "five", "six", "seven", "eight"
 _COUNT += ("eleven", "twelve", "thirteen")
 
 
-def test_the_readme_gives_the_same_account() -> None:
-    """The README's sentence is made of the evidence's counts, spelled out.
+def test_the_changelog_gives_the_same_account() -> None:
+    """The release's changelog entry quotes the evidence as recorded, not an earlier record."""
+    changelog = " ".join((_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8").split())
+    verdicts = [measure.verdict(told) for told in MEASURED.values()]
+    held, short = verdicts.count("held"), verdicts.count("fell short")
+    more = [h for h, told in MEASURED.items() if told["probability"]["skill"] > 0.05]
+    abstained = sorted(told["decision"]["abstained"] for told in MEASURED.values())
 
-    The changelog is not held to the evidence here: an entry records what was
-    measured when it was written, and the evidence has been recorded again
-    since (2026-11-20, on the corrected loaders).
-    """
+    assert (
+        f"held for {_COUNT[held]} of the {_COUNT[len(MEASURED)]} hazards that could be measured "
+        f"and fell short for {_COUNT[short]}" in changelog
+    )
+    attacks, sepsis = MEASURED["network_security"], MEASURED["sepsis"]
+    assert f"network security {attacks['certificate']['coverage']:.1%}" in changelog
+    assert f"says more than the base rate for {_COUNT[len(more)]}" in changelog
+    called_normal = attacks["decision"]["anomalies_called_normal"]
+    assert f"{called_normal:.1%} of true attacks called normal" in changelog
+    assert f"{sepsis['decision']['anomaly_call_precision']:.1%} of anomaly calls right" in changelog
+    assert f"from {abstained[0]:.1%} of rows" in changelog
+    assert f"to {abstained[-1]:.1%}" in changelog
+    assert f"measured {EVIDENCE['measured_on']}" in changelog
+
+
+def test_the_readme_gives_the_same_account() -> None:
+    """The README's sentence is made of the evidence's counts, spelled out."""
     readme = " ".join((_REPO_ROOT / "README.md").read_text(encoding="utf-8").split())
     verdicts = [measure.verdict(told) for told in MEASURED.values()]
     more = [h for h, told in MEASURED.items() if told["probability"]["skill"] > 0.05]
