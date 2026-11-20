@@ -23,13 +23,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import threading
 import time
 from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.narrative.conversation import describe_detection
+from omni_mercury_engine.serving_limits import serving_limits
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -44,7 +44,8 @@ QUEUE_SIZE = 256
 #: Concurrent SSE subscribers the bus accepts; each live stream holds a
 #: connection, a queue and a heartbeat for as long as it stays open, so an
 #: unbounded count let anonymous callers exhaust file descriptors and memory.
-MAX_SUBSCRIBERS = int(os.environ.get("MERCURY_ALERT_BUS_MAX_SUBSCRIBERS", "64"))
+#: From the single source of truth (MERCURY_ALERT_BUS_MAX_SUBSCRIBERS).
+MAX_SUBSCRIBERS = serving_limits().alert_bus_max_subscribers
 
 
 def principal_may_see(requested: str | None, recorded: str | None) -> bool:

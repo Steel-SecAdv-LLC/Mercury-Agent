@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 import threading
 from collections.abc import Mapping
 from typing import Any
@@ -36,6 +35,7 @@ from omni_mercury_engine.api.fusion_weights import (
     spectral_peak_z,
 )
 from omni_mercury_engine.api.routes.export import record_detection
+from omni_mercury_engine.serving_limits import serving_limits
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +66,60 @@ _flagship_ledger: Any = None
 # engine lock, so ~40 queued calls — reachable anonymously, and amplified by
 # explain/gdpr_report — used to starve every sync route on the worker,
 # login included. Calls beyond this queue depth are refused with 429
-# immediately instead of parking a pool thread.
-_FLAGSHIP_MAX_QUEUE = int(os.environ.get("MERCURY_FLAGSHIP_MAX_QUEUE", "8"))
-_flagship_admission = threading.BoundedSemaphore(max(_FLAGSHIP_MAX_QUEUE, 1))
+# immediately instead of parking a pool thread. The depth, like every
+# serving bound, comes from the single source of truth
+# (omni_mercury_engine.serving_limits), which validates it (>= 1).
+_LIMITS = serving_limits()
+_FLAGSHIP_MAX_QUEUE = _LIMITS.flagship_max_queue
+_flagship_admission = threading.BoundedSemaphore(_FLAGSHIP_MAX_QUEUE)
+
+
+class _AdmissionStats:
+    """How often the flagship admission bound is reached, and how close.
+
+    A 429 from the queue cap is not a decision (no detection ran) and not an
+    adaptive change, so it belongs in neither the DecisionLedger nor the
+    Improvement Ledger; it is counted here and served beside them (the
+    decisions summary, the limits endpoint, and the Prometheus counter
+    ``omni_mercury_flagship_admission_rejected_total``), so an operator can
+    see whether the bound is ever hit before deciding to raise it.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.admitted = 0
+        self.rejected = 0
+        self.in_flight = 0
+        self.peak_in_flight = 0
+
+    def admit(self) -> None:
+        with self._lock:
+            self.admitted += 1
+            self.in_flight += 1
+            self.peak_in_flight = max(self.peak_in_flight, self.in_flight)
+
+    def release(self) -> None:
+        with self._lock:
+            self.in_flight -= 1
+
+    def reject(self) -> None:
+        with self._lock:
+            self.rejected += 1
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            total = self.admitted + self.rejected
+            return {
+                "max_queue": _FLAGSHIP_MAX_QUEUE,
+                "admitted_total": self.admitted,
+                "rejected_total": self.rejected,
+                "rejection_rate": (self.rejected / total) if total else 0.0,
+                "in_flight": self.in_flight,
+                "peak_in_flight": self.peak_in_flight,
+            }
+
+
+_admission_stats = _AdmissionStats()
 
 
 def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
@@ -291,7 +342,12 @@ def _run_flagship_detection(
     if not _flagship_admission.acquire(blocking=False):
         # The queue for the single-engine lock is full: refuse now rather
         # than park another threadpool token behind it (see the admission
-        # bound's comment at the module top).
+        # bound's comment at the module top). Counted, so how often the
+        # bound is hit is measured, not guessed.
+        _admission_stats.reject()
+        from omni_mercury_engine.core.metrics import record_flagship_admission_rejected
+
+        record_flagship_admission_rejected()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=(
@@ -300,6 +356,7 @@ def _run_flagship_detection(
             ),
             headers={"Retry-After": "1"},
         )
+    _admission_stats.admit()
     try:
         with _flagship_lock:
             result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
@@ -311,6 +368,7 @@ def _run_flagship_detection(
             )
             return result
     finally:
+        _admission_stats.release()
         _flagship_admission.release()
 
 
@@ -1172,10 +1230,12 @@ class FlagshipDetectRequest(BaseModel):
         ...,
         min_length=1,
         # Caps what the body-size middleware cannot see: element counts.
-        # 65,536 rows is far beyond the measured serving envelope (latency
-        # is recorded at 1-1024 rows) while bounding the ledger/memory cost
-        # a single anonymous call can pin.
-        max_length=65536,
+        # The default (65,536) is far beyond the measured serving envelope
+        # (latency is recorded at 1-1024 rows) while bounding the
+        # ledger/memory cost a single anonymous call can pin. Read from the
+        # single source of truth, so the OpenAPI maxItems below is the
+        # enforced bound.
+        max_length=_LIMITS.flagship_max_rows,
         description="Rows of equal-length numeric feature vectors (a feature matrix).",
     )
     domain: str | None = Field(
@@ -1184,7 +1244,7 @@ class FlagshipDetectRequest(BaseModel):
         # whitelist to 'general'; the cap stops an arbitrary-size caller
         # string from riding raw into DecisionRecord.domain and the
         # 4096-entry decision ledger.
-        max_length=128,
+        max_length=_LIMITS.flagship_max_domain_chars,
         description="Optional domain for GOSNN threshold tuning (e.g. 'medical').",
     )
     explain: bool = Field(
@@ -1204,7 +1264,7 @@ class FlagshipDetectRequest(BaseModel):
     )
     subject_id: str | None = Field(
         default=None,
-        max_length=256,
+        max_length=_LIMITS.flagship_max_subject_id_chars,
         description="Optional data-subject identifier recorded in the GDPR report.",
     )
 
@@ -1258,11 +1318,40 @@ async def flagship_decision_summary(
     # Reading the module global is atomic, and ``DecisionLedger.summary()``
     # is O(1) under the ledger's own internal lock.
     ledger = _flagship_ledger
+    # Admission is reported whether or not a decision was ever recorded: a
+    # server whose every flagship call was refused at the queue cap has no
+    # decisions, and that is exactly when the rejection count matters.
+    admission = _admission_stats.snapshot()
     if ledger is None:
-        return {"total": 0, "recorded": False}
+        return {"total": 0, "recorded": False, "admission": admission}
     summary: dict[str, Any] = ledger.summary()
     summary["recorded"] = True
+    summary["admission"] = admission
     return summary
+
+
+@router.get(
+    "/flagship/limits",
+    summary="The serving bounds this server enforces",
+    description="""
+Every resource bound the served API enforces, with its active value, its
+default, the environment variable that overrides it, its unit, and what it
+protects against — rendered from the single source of truth the enforcing code
+reads (`omni_mercury_engine.serving_limits`), so the numbers here are the
+numbers enforced. Also reports the flagship admission counters: how many calls
+were admitted, how many were refused with 429 at the queue cap, and the peak
+concurrency seen. The same limits appear in the OpenAPI document under
+`info.x-serving-limits`.
+""",
+)
+async def flagship_serving_limits(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Serve the active serving limits and the flagship admission counters."""
+    return {
+        "limits": serving_limits().to_dict(),
+        "admission": _admission_stats.snapshot(),
+    }
 
 
 @router.get(

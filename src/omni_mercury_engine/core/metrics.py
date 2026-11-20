@@ -192,6 +192,15 @@ COMPONENT_DECLINED = _create_counter(
     ["component"],
 )
 
+# Flagship detections refused with 429 because the single-engine queue was
+# full (MERCURY_FLAGSHIP_MAX_QUEUE). Lets an operator alert on the bound
+# being hit instead of discovering it from client complaints.
+FLAGSHIP_ADMISSION_REJECTED = _create_counter(
+    "omni_mercury_flagship_admission_rejected_total",
+    "Flagship detections refused at the admission queue cap (HTTP 429)",
+    [],
+)
+
 # Consumer-group backlog of the streaming worker: messages on the input topic
 # not yet committed (Kafka: log-end minus committed offset over every
 # partition; Redis: undelivered plus delivered-but-unacked entries; memory:
@@ -421,6 +430,11 @@ def record_inference_error(model_name: str) -> None:
         model_name: Name of the model that had an error
     """
     MODEL_INFERENCE_ERRORS.labels(model_name=model_name).inc()
+
+
+def record_flagship_admission_rejected() -> None:
+    """Count one flagship call refused at the admission queue cap."""
+    FLAGSHIP_ADMISSION_REJECTED.inc()
 
 
 def record_component_declined(component: str) -> None:

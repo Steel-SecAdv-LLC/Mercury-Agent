@@ -47,7 +47,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 
 if TYPE_CHECKING:
-    from starlette.types import ASGIApp
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 # Context variable for request correlation ID - accessible throughout request lifecycle
 correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
@@ -401,12 +401,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         from omni_mercury_engine.api.rate_limit_store import build_shared_bucket_backend
         from omni_mercury_engine.security.rate_limiting import RateLimiter
+        from omni_mercury_engine.serving_limits import serving_limits
 
         self.enabled = os.getenv("OMNI_RATE_LIMIT_ENABLED", "true").lower() == "true"
-        self.requests_per_minute = requests_per_minute or int(
-            os.getenv("OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE", "100")
-        )
-        self.burst_size = burst_size or int(os.getenv("OMNI_RATE_LIMIT_BURST", "20"))
+        # The env-derived rate is the single source of truth's, so the
+        # OpenAPI x-rate-limit extension (rendered from the same object)
+        # always advertises the rate actually enforced.
+        limits = serving_limits()
+        self.requests_per_minute = requests_per_minute or limits.rate_limit_requests_per_minute
+        self.burst_size = burst_size or limits.rate_limit_burst
 
         # Unified rate limiter over the shared SQLite backend when
         # MERCURY_KEYSTORE_PATH is set (cross-worker, restart-persistent,
@@ -778,9 +781,12 @@ class BodySizeLimitMiddleware:
 
     def __init__(self, app: ASGIApp) -> None:
         """Read the caps once; the per-request work is a counter."""
+        from omni_mercury_engine.serving_limits import serving_limits
+
         self.app = app
-        self.default_limit = int(os.getenv("MERCURY_MAX_BODY_BYTES", str(10 * 1024 * 1024)))
-        self.upload_limit = int(os.getenv("MERCURY_MAX_UPLOAD_BODY_BYTES", str(600 * 1024 * 1024)))
+        limits = serving_limits()
+        self.default_limit = limits.max_body_bytes
+        self.upload_limit = limits.max_upload_body_bytes
 
     def _limit_for(self, path: str) -> int:
         if path.startswith(self._UPLOAD_PREFIX):
@@ -788,7 +794,7 @@ class BodySizeLimitMiddleware:
         return self.default_limit
 
     @staticmethod
-    async def _send_413(send: Any, limit: int) -> None:
+    async def _send_413(send: Send, limit: int) -> None:
         body = json.dumps({"detail": f"Request body exceeds the {limit}-byte limit."}).encode()
         await send(
             {
@@ -802,7 +808,7 @@ class BodySizeLimitMiddleware:
         )
         await send({"type": "http.response.body", "body": body})
 
-    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """Enforce the cap on HTTP requests; pass everything else through."""
         if scope.get("type") != "http":
             await self.app(scope, receive, send)
@@ -824,16 +830,16 @@ class BodySizeLimitMiddleware:
         received = 0
         response_started = False
 
-        async def guarded_receive() -> dict[str, Any]:
+        async def guarded_receive() -> Message:
             nonlocal received
-            message: dict[str, Any] = await receive()
+            message = await receive()
             if message.get("type") == "http.request":
                 received += len(message.get("body") or b"")
                 if received > limit:
                     raise _BodyLimitExceeded
             return message
 
-        async def wrapped_send(message: dict[str, Any]) -> None:
+        async def wrapped_send(message: Message) -> None:
             nonlocal response_started
             if message.get("type") == "http.response.start":
                 response_started = True
@@ -1753,11 +1759,19 @@ def custom_openapi() -> dict[str, Any]:
         },
     }
 
-    # Add rate limiting information
+    # Rate limiting and every other serving bound, rendered from the single
+    # source of truth the enforcing code reads. ``x-rate-limit`` used to be
+    # the literal {100, 20} whatever OMNI_RATE_LIMIT_* was set to, so a tuned
+    # deployment advertised a limit it did not enforce.
+    from omni_mercury_engine.serving_limits import serving_limits
+
+    limits = serving_limits()
     openapi_schema["info"]["x-rate-limit"] = {
-        "requests_per_minute": 100,
-        "burst_limit": 20,
+        "requests_per_minute": limits.rate_limit_requests_per_minute,
+        "burst_limit": limits.rate_limit_burst,
+        "ipv6_identity_prefix": limits.ipv6_rate_limit_prefix,
     }
+    openapi_schema["info"]["x-serving-limits"] = limits.to_dict()
 
     app.openapi_schema = openapi_schema
     return openapi_schema

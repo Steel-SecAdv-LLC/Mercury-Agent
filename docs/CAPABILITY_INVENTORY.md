@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,186
-- **Capability-bearing classes:** 2,132 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,190
+- **Capability-bearing classes:** 2,135 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,254 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,257 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1254 |
-| Support types (config / result / enum / error) | 1054 |
+| Other capability classes | 1257 |
+| Support types (config / result / enum / error) | 1055 |
 | Detection | 181 |
 | Neural models & layers | 164 |
 | Data sources & loaders | 114 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 67 classes (47 capability)
+### `(top-level)/` — 70 classes (49 capability)
 
 **Adapters & backends**
 
@@ -76,6 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `HaversineTravelCheck` (`truth_decipher`) — Default travel check: haversine distance and a single speed limit.
 - `InventoryItem` (`decouple`) — One place Mercury keeps work on this machine.
 - `ItemWeight` (`truth_decipher`) — One evidence item's weight within its cluster.
+- `Limit` (`serving_limits`) — One enforced bound, as an operator sees it.
 - `LocatedObservation` (`truth_decipher`) — One subject at one place over one time interval.
 - `Location` (`truth_decipher`) — A circular location: centre in decimal degrees and an uncertainty radius in km.
 - `Proportion` (`truth_decipher`) — A count-based proportion with a Wilson score interval.
@@ -85,6 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SUEIndicator` (`truth_decipher`) — Statement-evidence inconsistency for withheld versus disclosed evidence.
 - `SelfModelLedger` (`self_model`) — Append-only, hash-chained (and optionally ML-DSA-65-signed) self-model history.
 - `SelfModelSnapshot` (`self_model`) — One self-model snapshot: a JSON-safe body and its canonical digest.
+- `ServingLimits` (`serving_limits`) — Every serving bound, typed, plus the operator-facing :class:`Limit` view.
 - `SpeakerConsistency` (`truth_decipher`) — Consistency findings for one speaker's statements, in chronological order.
 - `Statement` (`truth_decipher`) — One account given by a speaker at a time.
 - `TableSourceReliability` (`truth_decipher`) — Default reliability model: the item's own reliability, else a per-source table.
@@ -101,9 +103,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `StatementVerifier` (`truth_decipher`) — Verifies statements against evidence and reports evidence-grounded findings.
 
-<details><summary>Support types (20)</summary>
+<details><summary>Support types (21)</summary>
 
-`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryDecoupledError`, `MercuryProductionConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
+`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryDecoupledError`, `MercuryProductionConfigError`, `ServingLimitConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
 
 </details>
 
@@ -201,7 +203,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 176 classes (63 capability)
+### `api/` — 177 classes (64 capability)
 
 **Adapters & backends**
 
@@ -278,6 +280,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TraceContext` (`api.trace_context`) — The trace this request belongs to.
 - `UsageSummary` (`api.usage_ledger`) — Aggregated usage for an account over a time window.
 - `User` (`api.auth`) — Authenticated user information.
+- `_AdmissionStats` (`api.routes.detection`) — How often the flagship admission bound is reached, and how close.
 - `_BodyLimitExceeded` (`api.server`) — Raised inside the guarded receive when a body outgrows its cap.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
