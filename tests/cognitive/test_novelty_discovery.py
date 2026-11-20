@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -69,20 +70,21 @@ class TestReadOnlyScorer:
 
 class TestMeasuredArtifact:
     @pytest.fixture(scope="class")
-    def artifact(self) -> dict:
+    def artifact(self) -> dict[str, Any]:
         assert _ARTIFACT.is_file(), "run research/cognitive/harness_novelty_discovery.py"
-        return json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+        data: dict[str, Any] = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+        return data
 
-    def test_fifteen_evaluations_two_protocols(self, artifact: dict) -> None:
+    def test_fifteen_evaluations_two_protocols(self, artifact: dict[str, Any]) -> None:
         assert artifact["protocol"]["n_evaluations"] == 15
         for values in artifact["per_dataset"].values():
             assert set(values) == {"read_only_auroc", "absorbing_auroc"}
 
-    def test_the_signal_clears_a_real_floor(self, artifact: dict) -> None:
+    def test_the_signal_clears_a_real_floor(self, artifact: dict[str, Any]) -> None:
         """The adoption rested on ~0.93 mean; 0.85 is the never-regress floor."""
         assert artifact["mean"]["read_only_auroc"] >= 0.85
 
-    def test_ledger_records_the_adoption(self, artifact: dict) -> None:
+    def test_ledger_records_the_adoption(self, artifact: dict[str, Any]) -> None:
         from omni_mercury_engine.governance.improvement_ledger import published
 
         data = published()

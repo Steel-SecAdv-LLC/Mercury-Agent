@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,24 +25,25 @@ _ARTIFACT = _ROOT / "artifacts" / "meta_fusion_controller.json"
 
 
 @pytest.fixture(scope="module")
-def artifact() -> dict:
+def artifact() -> dict[str, Any]:
     assert _ARTIFACT.is_file(), "run research/ensembles/harness_meta_fusion.py"
-    return json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+    data: dict[str, Any] = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+    return data
 
 
 class TestMetaFusionDecision:
-    def test_protocol_is_lodo_with_the_standing_bar(self, artifact: dict) -> None:
+    def test_protocol_is_lodo_with_the_standing_bar(self, artifact: dict[str, Any]) -> None:
         protocol = artifact["protocol"]
         assert "leave-one-dataset-out" in protocol["selection"]
         assert protocol["adoption_band"] == 0.003
         assert protocol["regression_floor"] == 0.002
         assert protocol["n_evaluations"] == 19
 
-    def test_every_candidate_was_refused(self, artifact: dict) -> None:
+    def test_every_candidate_was_refused(self, artifact: dict[str, Any]) -> None:
         for name, verdict in artifact["verdicts"].items():
             assert verdict["adopted"] is False, f"{name} recorded as adopted"
 
-    def test_refusals_follow_from_the_bar(self, artifact: dict) -> None:
+    def test_refusals_follow_from_the_bar(self, artifact: dict[str, Any]) -> None:
         protocol = artifact["protocol"]
         for verdict in artifact["verdicts"].values():
             clears = (
@@ -50,13 +52,15 @@ class TestMetaFusionDecision:
             )
             assert verdict["adopted"] == clears
 
-    def test_the_controller_gain_is_real_and_its_cost_is_real(self, artifact: dict) -> None:
+    def test_the_controller_gain_is_real_and_its_cost_is_real(
+        self, artifact: dict[str, Any]
+    ) -> None:
         """Both halves of the finding are pinned: +mean AND a deep regression."""
         controller = artifact["verdicts"]["meta_controller"]
         assert controller["mean_delta_vs_shipped"] > 0.03
         assert controller["worst_delta"] < -0.05
 
-    def test_the_ledger_decision_matches_the_artifact(self, artifact: dict) -> None:
+    def test_the_ledger_decision_matches_the_artifact(self, artifact: dict[str, Any]) -> None:
         from omni_mercury_engine.governance.improvement_ledger import published
 
         data = published()
@@ -75,7 +79,7 @@ class TestMetaFusionDecision:
 
 
 class TestGuardedControllerDecision:
-    def test_guarded_controller_measured_and_refused(self, artifact: dict) -> None:
+    def test_guarded_controller_measured_and_refused(self, artifact: dict[str, Any]) -> None:
         guarded = artifact["verdicts"]["meta_guarded"]
         assert guarded["adopted"] is False
         # Both halves of the sharpened finding are pinned: the guard mostly
@@ -87,7 +91,7 @@ class TestGuardedControllerDecision:
         assert choices["uniform"] >= 15
         assert guarded["mean_delta_vs_shipped"] < 0.003
 
-    def test_ledger_records_the_guarded_refusal(self, artifact: dict) -> None:
+    def test_ledger_records_the_guarded_refusal(self, artifact: dict[str, Any]) -> None:
         from omni_mercury_engine.governance.improvement_ledger import published
 
         data = published()

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import warnings
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -106,25 +107,26 @@ class TestSoundCalibration:
 
 class TestMeasuredArtifact:
     @pytest.fixture(scope="class")
-    def artifact(self) -> dict:
+    def artifact(self) -> dict[str, Any]:
         assert _ARTIFACT.is_file(), "run research/neurosymbolic/harness_hub_conformal.py"
-        return json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+        data: dict[str, Any] = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+        return data
 
-    def test_fifteen_evaluations(self, artifact: dict) -> None:
+    def test_fifteen_evaluations(self, artifact: dict[str, Any]) -> None:
         assert artifact["protocol"]["n_evaluations"] == 15
 
-    def test_coverage_meets_the_stated_bounds_on_average(self, artifact: dict) -> None:
+    def test_coverage_meets_the_stated_bounds_on_average(self, artifact: dict[str, Any]) -> None:
         mean = artifact["mean"]
         assert mean["empirical_coverage"] >= mean["stated_coverage"]
 
-    def test_split_cost_is_recorded_not_hidden(self, artifact: dict) -> None:
+    def test_split_cost_is_recorded_not_hidden(self, artifact: dict[str, Any]) -> None:
         mean = artifact["mean"]
         assert "split_cost_upper_bound" in mean
         assert mean["auc_sound_split"] == pytest.approx(
             mean["auc_encoder_on_all_train"] - mean["split_cost_upper_bound"], abs=1e-3
         )
 
-    def test_ledger_records_the_adoption(self, artifact: dict) -> None:
+    def test_ledger_records_the_adoption(self, artifact: dict[str, Any]) -> None:
         from omni_mercury_engine.governance.improvement_ledger import published
 
         data = published()

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -22,20 +23,21 @@ _ARTIFACT = _ROOT / "artifacts" / "math_arrest_live_ranking.json"
 
 
 @pytest.fixture(scope="module")
-def artifact() -> dict:
+def artifact() -> dict[str, Any]:
     assert _ARTIFACT.is_file(), "run research/math_arrest/harness_live_contributor_ranking.py"
-    return json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+    data: dict[str, Any] = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+    return data
 
 
 class TestLiveContributorRankingDecision:
-    def test_protocol_is_the_preregistered_bar(self, artifact: dict) -> None:
+    def test_protocol_is_the_preregistered_bar(self, artifact: dict[str, Any]) -> None:
         protocol = artifact["protocol"]
         assert protocol["adoption_band"] == 0.003
         assert protocol["regression_floor"] == 0.002
         assert protocol["live_floor"] == 0.75
         assert protocol["n_evaluations"] == 19
 
-    def test_every_candidate_was_refused(self, artifact: dict) -> None:
+    def test_every_candidate_was_refused(self, artifact: dict[str, Any]) -> None:
         verdicts = artifact["verdicts"]
         assert set(verdicts) == {
             "phi_affinity_all",
@@ -48,7 +50,7 @@ class TestLiveContributorRankingDecision:
             # A refusal here must be a real measurement, not a missing one.
             assert isinstance(verdict["mean_delta_vs_shipped"], float)
 
-    def test_refusals_follow_from_the_bar(self, artifact: dict) -> None:
+    def test_refusals_follow_from_the_bar(self, artifact: dict[str, Any]) -> None:
         protocol = artifact["protocol"]
         for verdict in artifact["verdicts"].values():
             clears = (
@@ -57,7 +59,7 @@ class TestLiveContributorRankingDecision:
             )
             assert verdict["adopted"] == clears
 
-    def test_the_ledger_decision_matches_the_artifact(self, artifact: dict) -> None:
+    def test_the_ledger_decision_matches_the_artifact(self, artifact: dict[str, Any]) -> None:
         from omni_mercury_engine.governance.improvement_ledger import published
 
         data = published()
