@@ -3265,9 +3265,19 @@ class MercuryAnomalyDetector(BaseDetector):
     #: Fused scores at or below this value are reported unchanged; above it
     #: they are compressed smoothly into (knee, 1). See _saturate_upper.
     _KNN_SATURATION_KNEE: float = 0.8
+    #: Knee of the residual frequency filter's own saturation. The filter
+    #: blends scores that are already below 1 with a smoothed copy of
+    #: themselves, and the blend can lift a run of high scores over 1. A hard
+    #: clip tied that run at exactly 1.0: on a batch whose top 5% saturated,
+    #: the conformal cut became 1.0 and ``score > cut`` flagged nothing. The
+    #: knee sits just under the ceiling, so every score below it is what the
+    #: clip returned and only the former tie is resolved, in the blend's order.
+    _FILTER_SATURATION_KNEE: float = 0.999
 
     @classmethod
-    def _saturate_upper(cls, values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _saturate_upper(
+        cls, values: np.ndarray[Any, Any], knee: float | None = None
+    ) -> np.ndarray[Any, Any]:
         """Map scores into [0, 1) without tying the upper tail.
 
         Identity on ``[0, knee]``; above the knee ``knee + (1 - knee) *
@@ -3275,8 +3285,13 @@ class MercuryAnomalyDetector(BaseDetector):
         the knee and strictly increasing. A hard clip at 1.0 would tie every
         strong anomaly (and the top of the fit-time reference) at 1.0, so the
         conformal cut could itself become 1.0 and flag nothing.
+
+        Args:
+            values: Scores, any real values (negatives are floored at 0).
+            knee: Where compression starts; the kNN stream's knee by default.
         """
-        knee = cls._KNN_SATURATION_KNEE
+        if knee is None:
+            knee = cls._KNN_SATURATION_KNEE
         v = np.maximum(np.asarray(values, dtype=np.float64), 0.0)
         u = np.maximum(v - knee, 0.0) / (1.0 - knee)
         return np.where(v <= knee, v, knee + (1.0 - knee) * u / (1.0 + u))
@@ -4222,7 +4237,11 @@ class MercuryAnomalyDetector(BaseDetector):
 
         filtered_residual = np.fft.irfft(filtered_fft, n=len(residual))
 
-        blended = np.clip(0.7 * scores + 0.3 * (baseline + filtered_residual), 0.0, 1.0)
+        # Saturated, not clipped: see ``_FILTER_SATURATION_KNEE``.
+        blended = MercuryAnomalyDetector._saturate_upper(
+            0.7 * scores + 0.3 * (baseline + filtered_residual),
+            knee=MercuryAnomalyDetector._FILTER_SATURATION_KNEE,
+        )
         if cache is not None and key is not None:
             cache[key] = blended
             # Bound the memo (insertion-ordered dict): keep the most recent 8.
