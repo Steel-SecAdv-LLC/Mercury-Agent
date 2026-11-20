@@ -43,18 +43,30 @@ class TestComputeAuc:
         assert 0.45 <= auc <= 0.55
 
     def test_all_same_class_positive(self) -> None:
-        """If all labels are 1, AUC is undefined and returns 0.5."""
+        """If all labels are 1, AUC is undefined and returns NaN.
+
+        Changed from the old ``0.5`` expectation: ``0.5`` is a genuine
+        chance-level AUC, so returning it for an undefined case let
+        single-class events inflate ``mean_auc``.  The sentinel is now
+        ``NaN`` and the harness excludes such events from the mean.
+        """
         y_true = np.array([1, 1, 1, 1])
         y_scores = np.array([0.1, 0.5, 0.7, 0.9])
         auc = compute_auc(y_true, y_scores)
-        assert auc == pytest.approx(0.5)
+        assert np.isnan(auc)
 
     def test_all_same_class_negative(self) -> None:
-        """If all labels are 0, AUC is undefined and returns 0.5."""
+        """If all labels are 0, AUC is undefined and returns NaN.
+
+        See :meth:`test_all_same_class_positive`: the undefined-AUC
+        sentinel changed from ``0.5`` to ``NaN`` so that all-one-class
+        events are excluded from ``mean_auc`` rather than credited with a
+        chance-level score.
+        """
         y_true = np.array([0, 0, 0, 0])
         y_scores = np.array([0.1, 0.5, 0.7, 0.9])
         auc = compute_auc(y_true, y_scores)
-        assert auc == pytest.approx(0.5)
+        assert np.isnan(auc)
 
     def test_length_mismatch_raises(self) -> None:
         """Mismatched array lengths must raise ValueError."""

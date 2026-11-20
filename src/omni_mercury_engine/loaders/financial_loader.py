@@ -550,6 +550,11 @@ class FinancialLoader(BaseDomainLoader):
         merged: pd.DataFrame | None = None
         failures: list[ConnectionError] = []
         failed_columns: list[str] = []
+        # Dates on which the equity-market series actually traded. DFF (the
+        # fed-funds rate) publishes 7 days a week, so an outer merge otherwise
+        # introduces weekend rows carrying no market data; we use these dates
+        # to drop them below.
+        market_dates: pd.Series | None = None
 
         for series_id, column in _SERIES_IDS.items():
             try:
@@ -562,6 +567,11 @@ class FinancialLoader(BaseDomainLoader):
 
             if series_df.empty:
                 continue
+
+            # VIX is the equity-market series; its observation dates are the
+            # trading days the merged frame should be restricted to.
+            if series_id == "VIXCLS":
+                market_dates = series_df["date"].copy()
 
             if merged is None:
                 merged = series_df
@@ -599,13 +609,60 @@ class FinancialLoader(BaseDomainLoader):
             if col_name not in merged.columns:
                 merged[col_name] = np.nan
 
-        # Forward-fill then back-fill to handle staggered publication dates
+        # Restrict to the trading days present in the market (VIX) series so
+        # DFF's 7-day-a-week publication does not inject weekend rows that
+        # merely copy Friday's market values (duplicated labels and inflated
+        # "trading-day" counts). If VIX was unavailable, fall back to a
+        # Monday-Friday business-day mask.
+        if market_dates is not None:
+            merged = merged[merged["date"].isin(set(market_dates))].reset_index(drop=True)
+        else:
+            merged = merged[merged["date"].dt.day_of_week < 5].reset_index(drop=True)
+
         value_cols = list(_SERIES_IDS.values())
-        merged[value_cols] = merged[value_cols].ffill().bfill()
+
+        # Fill staggered publication gaps FORWARD only. Back-filling (the old
+        # ``.bfill()``) copied later observations backward over the start of
+        # the window, leaking future values into the leading rows. Leading
+        # rows with no prior observation are left NaN here and imputed from
+        # past/overall statistics downstream, never from a future date.
+        merged[value_cols] = merged[value_cols].ffill()
+
+        # Overnight funding rate: SOFR (``funding_rate``) only begins in April
+        # 2018, so for pre-2018 events (GFC 2008, Asian crisis 1997, flash
+        # crash 2010) it is empty and this column would be all-NaN -> a
+        # constant after imputation. DFF (``fed_funds_rate``) covers those
+        # years, so use it as the funding rate wherever SOFR is missing; the
+        # fed-funds rate is the relevant policy funding rate for that era and
+        # keeps the column carrying real signal instead of a flat 0.
+        if "funding_rate" in merged.columns and "fed_funds_rate" in merged.columns:
+            merged["funding_rate"] = merged["funding_rate"].fillna(merged["fed_funds_rate"])
 
         # Rename VIX column for cleaner downstream usage
         if "VIX" in merged.columns:
             merged = merged.rename(columns={"VIX": "vix"})
+
+        # Any value column still constant across the whole event (a series
+        # FRED does not serve for this period, even after the DFF fallback) is
+        # uninformative. The feature matrix has a fixed, de-leak-mapped shape
+        # so the column cannot be physically dropped, but it must not be fed
+        # silently: name it so the gap is visible in the logs.
+        constant_cols: list[str] = []
+        for raw_col in value_cols:
+            col = "vix" if raw_col == "VIX" else raw_col
+            if col not in merged.columns:
+                continue
+            series = merged[col]
+            if series.notna().any() and int(series.nunique(dropna=True)) <= 1:
+                constant_cols.append(col)
+        if constant_cols:
+            logger.warning(
+                "FRED series constant across event (%s to %s): %s — "
+                "uninformative for anomaly detection.",
+                start_date,
+                end_date,
+                ", ".join(sorted(set(constant_cols))),
+            )
 
         if failed_columns:
             # Set last: ``merge`` and ``rename`` build new frames, and only

@@ -55,19 +55,25 @@ class TestComputeAucAnalytical:
             0.5, abs=0.02
         ), f"Coin-flip interleaved: expected ~0.5, got {auc}"
 
-    def test_single_class_returns_half(self) -> None:
-        """Case 4: Only one class present — AUC must be 0.5 (undefined).
+    def test_single_class_returns_nan(self) -> None:
+        """Case 4: Only one class present — AUC must be NaN (undefined).
 
         When there are no positives (or no negatives), AUC-ROC is
-        mathematically undefined.  The implementation must return 0.5
-        (random baseline) per convention.
+        mathematically undefined.  This test formerly pinned a ``0.5``
+        return (the "random baseline" convention), but ``0.5`` is a real,
+        attainable AUC value: counted into ``mean_auc`` it silently
+        inflated the reported score of every all-one-class event (flood
+        ``european_2021`` with all-1 labels, single-row volcanic events,
+        pandemic stubs, partial BATADAL).  ``compute_auc`` now returns a
+        ``float('nan')`` sentinel so the harness can exclude the event
+        from aggregates instead of crediting it with chance performance.
         """
         y_all_neg = np.zeros(100)
         y_scores = np.random.default_rng(42).uniform(0, 1, 100)
-        assert compute_auc(y_all_neg, y_scores) == 0.5, "All-negative should return 0.5"
+        assert np.isnan(compute_auc(y_all_neg, y_scores)), "All-negative must return NaN"
 
         y_all_pos = np.ones(100)
-        assert compute_auc(y_all_pos, y_scores) == 0.5, "All-positive should return 0.5"
+        assert np.isnan(compute_auc(y_all_pos, y_scores)), "All-positive must return NaN"
 
     def test_tied_scores_handled(self) -> None:
         """Bonus: Tied scores must not crash or produce AUC > 1.0."""

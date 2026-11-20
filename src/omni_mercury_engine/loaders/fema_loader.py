@@ -388,6 +388,21 @@ class FEMALoader(BaseDomainLoader):
             if len(records) < _PAGE_SIZE:
                 break
             skip += _PAGE_SIZE
+        else:
+            # The ``while skip < _MAX_RECORDS`` guard expired while the last
+            # page was still full, so the API has more rows than the cap let
+            # us fetch.  Previously this truncation was silent and the event
+            # was scored on an arbitrary first ``_MAX_RECORDS`` slice.  Warn
+            # loudly so the undercount is visible rather than mistaken for a
+            # complete fetch.  (``for/else`` runs only when the loop was not
+            # ``break``-ed, i.e. we stopped on the record cap.)
+            logger.warning(
+                "fema: hit the %d-record cap for event '%s' with a full final "
+                "page; the OpenFEMA result set is larger and has been "
+                "truncated. Reported counts undercount the true total.",
+                _MAX_RECORDS,
+                event_id,
+            )
 
         df = self._records_to_dataframe(all_records)
 
@@ -542,10 +557,19 @@ class FEMALoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
-        # Ensure chronological order.
+        # Ensure chronological order.  ``kind="stable"`` is load-bearing:
+        # ``get_ground_truth`` labels the frame in the order
+        # ``fetch_historical`` cached it, and this method re-sorts that same
+        # frame.  FEMA declarations cluster heavily on a single
+        # ``declarationDate`` (one disaster covers many counties on one date),
+        # so the ``datetime64`` key is dense with ties.  The default introsort
+        # is not idempotent on tied ``datetime64`` keys, so an unstable
+        # re-sort permutes those tied rows and misaligns feature row *i*
+        # against label row *i*.  A stable sort of already-ordered data is a
+        # no-op and keeps the two in lockstep.
         if "declarationDate" in df.columns:
             df["declarationDate"] = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
-            df = df.sort_values("declarationDate").reset_index(drop=True)
+            df = df.sort_values("declarationDate", kind="stable").reset_index(drop=True)
 
         n = len(df)
 
@@ -750,13 +774,23 @@ class FEMALoader(BaseDomainLoader):
             cutoff = current_date - one_year
             current_state = str(states[i])
 
-            # Count prior declarations within 12 months
+            # Count prior declarations within the trailing 12 months.  The
+            # rows are sorted by ``declarationDate`` ascending, so scanning
+            # backwards from ``i`` we can stop the moment a prior date falls
+            # before the cutoff -- everything earlier is older still.  The
+            # previous code instead scanned a fixed ``i - 5000`` window and
+            # ``continue``d past out-of-window rows, which silently
+            # undercounted the trailing total whenever more than 5000
+            # declarations fell inside the 12-month window.  The break-based
+            # scan is both exact (no cap) and no slower.
             nat_count = 0
             state_count = 0
-            for j in range(max(0, i - 5000), i):  # cap lookback
+            for j in range(i - 1, -1, -1):
                 prior_date = dates.iloc[j]
-                if pd.isna(prior_date) or prior_date < cutoff:
+                if pd.isna(prior_date):
                     continue
+                if prior_date < cutoff:
+                    break
                 nat_count += 1
                 if str(states[j]) == current_state:
                     state_count += 1

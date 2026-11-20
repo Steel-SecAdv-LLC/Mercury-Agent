@@ -693,6 +693,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         }
 
         dfs: list[pd.DataFrame] = []
+        loaded: set[str] = set()
         for name, url in urls.items():
             try:
                 raw_bytes = self._fetch_url(url)
@@ -700,6 +701,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 frame = pd.read_csv(io.StringIO(text))
                 frame.columns = frame.columns.str.strip()
                 dfs.append(frame)
+                loaded.add(name)
                 logger.info(
                     "network_security: downloaded BATADAL %s (%d rows).",
                     name,
@@ -715,11 +717,29 @@ class NetworkSecurityLoader(BaseDomainLoader):
         if not dfs:
             raise ConnectionError("network_security: failed to download any BATADAL data.")
 
+        # The attack labels live ONLY in the "test" file (dataset04); the
+        # "train" file (dataset03) is attack-free.  If the test file did not
+        # load, every row is normal and the "attack-detection" benchmark has
+        # no attacks to detect.  Returning that all-normal set (the old
+        # behaviour) silently scored a degenerate single-class problem.
+        # Refuse instead, so a missing attack file is an error, not a
+        # suspiciously perfect-looking benchmark.
+        if "test" not in loaded:
+            raise ConnectionError(
+                "network_security: BATADAL attack (test) file failed to "
+                "download; only the attack-free training file is available. "
+                "Refusing to serve an all-normal dataset as an attack-"
+                "detection benchmark."
+            )
+
         df = pd.concat(dfs, ignore_index=True)
 
-        # Extract labels and rename to standard column
+        # Extract labels and rename to standard column.  Coerce ATT_FLAG
+        # numerically: concatenating a train file that lacks the column with
+        # a test file that has it yields NaN flags for the train rows, which
+        # a bare ``.astype(int)`` would choke on.
         if "ATT_FLAG" in df.columns:
-            raw_flags = df["ATT_FLAG"].values.astype(int)
+            raw_flags = pd.to_numeric(df["ATT_FLAG"], errors="coerce").fillna(0)
             df["label"] = (raw_flags == 1).astype(np.int64)
             df = df.drop(columns=["ATT_FLAG"])
         else:
@@ -728,11 +748,27 @@ class NetworkSecurityLoader(BaseDomainLoader):
         # Drop datetime column (not a numeric feature)
         df = df.drop(columns=["DATETIME"], errors="ignore")
 
-        # Clean numeric values
-        for col in df.columns:
-            if col != "label":
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-        df = df.fillna(0.0)
+        # Clean numeric values.  A non-numeric cell becomes NaN under the
+        # coercion above; filling it with 0.0 (the previous behaviour) would
+        # inject a *valid-looking* zero sensor reading (zero pressure/flow is
+        # a real, meaningful BATADAL value), biasing the features.  Fill each
+        # column with its own finite median instead, falling back to 0.0 only
+        # for a column that is entirely missing.
+        feature_cols = [c for c in df.columns if c != "label"]
+        for col in feature_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        for col in feature_cols:
+            median = df[col].median()
+            df[col] = df[col].fillna(median if np.isfinite(median) else 0.0)
+
+        # Final guard: even with the test file present, if the parsed labels
+        # contain no attacks the benchmark is still degenerate.
+        if int(df["label"].sum()) == 0:
+            raise ValueError(
+                "network_security: BATADAL data loaded but contains no attack "
+                "rows (ATT_FLAG never 1); cannot benchmark attack detection "
+                "on an all-normal set."
+            )
 
         logger.info(
             "network_security: loaded %d BATADAL records, %d attacks.",

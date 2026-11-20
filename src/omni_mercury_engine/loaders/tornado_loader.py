@@ -239,8 +239,24 @@ class TornadoLoader(BaseDomainLoader):
             logger.warning("SPC archive returned no records for event '%s'.", event_id)
             return df
 
+        # Keep only whole-track rows (``sg == 1``).  The SPC archive records a
+        # multi-state tornado as one whole-track row (``sg == 1``) PLUS one
+        # per-state segment row (``sg == 2, 3, ...``; ``-9`` = unknown) that
+        # repeats the same event.  Counting all of them double-counts exactly
+        # the long-track, violent tornadoes that cross state lines -- the EF3+
+        # events the ``mag >= 3`` label targets -- inflating both the labels
+        # and the per-row features.  ``ml/hazard_training/tornado_radar.py``
+        # applies the same ``sg == 1`` whole-track filter.
+        df = self._filter_full_track(df)
+        if df.empty:
+            logger.warning(
+                "No whole-track (sg==1) rows for event '%s' after dedup.",
+                event_id,
+            )
+            return df
+
         # Sort chronologically
-        df = df.sort_values("date").reset_index(drop=True)
+        df = df.sort_values("date", kind="stable").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -460,6 +476,32 @@ class TornadoLoader(BaseDomainLoader):
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Loaded %d records from SPC tornado archive.", len(df))
         return df
+
+    @staticmethod
+    def _filter_full_track(df: pd.DataFrame) -> pd.DataFrame:
+        """Keep only whole-track rows, dropping per-state segment duplicates.
+
+        In the SPC archive the ``sg`` (segment) field is ``1`` for the single
+        whole-track record of a tornado and ``2, 3, ...`` for the per-state
+        segments of a track that crossed state lines (``-9`` marks unknown).
+        A multi-state tornado therefore appears once as ``sg == 1`` and again
+        once per segment, double-counting the long-track violent tornadoes.
+        Keeping only ``sg == 1`` yields one row per tornado, matching the
+        whole-track selection in ``ml/hazard_training/tornado_radar.py``.
+
+        If the archive carries no ``sg`` column the frame is returned
+        unchanged (nothing to dedup against).
+
+        Args:
+            df: Archive DataFrame already filtered to the event window.
+
+        Returns:
+            DataFrame containing only whole-track rows.
+        """
+        if "sg" not in df.columns:
+            return df
+        sg = pd.to_numeric(df["sg"], errors="coerce")
+        return df[sg == 1].copy()
 
     @staticmethod
     def _filter_by_date_range(

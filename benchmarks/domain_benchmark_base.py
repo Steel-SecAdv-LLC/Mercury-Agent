@@ -39,7 +39,14 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
         y_scores: Continuous anomaly scores.
 
     Returns:
-        AUC-ROC value in [0, 1].
+        AUC-ROC value in [0, 1], or ``float('nan')`` when only a single
+        class is present in ``y_true``.  AUC-ROC is mathematically
+        undefined with no positives (or no negatives), so a sentinel is
+        returned rather than the old ``0.5``: a hard ``0.5`` was
+        indistinguishable from a genuine chance-level result and, counted
+        into ``mean_auc``, silently inflated the reported score of any
+        all-one-class event.  Callers must treat ``nan`` as "undefined"
+        and exclude it from aggregates (see :func:`run_domain_benchmark`).
     """
     y_true = np.asarray(y_true, dtype=np.int64)
     y_scores = np.asarray(y_scores, dtype=np.float64)
@@ -51,8 +58,13 @@ def compute_auc(y_true: np.ndarray, y_scores: np.ndarray) -> float:
     n_neg = np.sum(y_true == 0)
 
     if n_pos == 0 or n_neg == 0:
-        logger.warning("AUC undefined: only one class present in y_true")
-        return 0.5
+        logger.warning(
+            "AUC undefined: only one class present in y_true "
+            "(n_pos=%d, n_neg=%d); returning NaN sentinel.",
+            int(n_pos),
+            int(n_neg),
+        )
+        return float("nan")
 
     # Sort by descending score
     desc_idx = np.argsort(y_scores)[::-1]
@@ -181,10 +193,19 @@ def run_domain_benchmark(
                 continue
 
             if len(features) != len(ground_truth):
-                # Align lengths to the shorter
-                min_len = min(len(features), len(ground_truth))
-                features = features[:min_len]
-                ground_truth = ground_truth[:min_len]
+                # A feature/label length mismatch means the loader's
+                # feature matrix and its ground-truth vector describe
+                # different numbers of samples: feature row i and label i
+                # are no longer the same observation.  Silently truncating
+                # to the shorter (the previous behaviour) manufactured a
+                # plausible-looking but meaningless AUC from misaligned
+                # pairs.  Fail the event loudly instead.
+                raise ValueError(
+                    f"Feature/label length mismatch for event "
+                    f"'{event_id}': {len(features)} feature rows vs "
+                    f"{len(ground_truth)} labels. Loader must return "
+                    f"aligned feature and ground-truth arrays."
+                )
 
             # Fit and detect
             detector = MercuryAnomalyDetector()
@@ -198,12 +219,25 @@ def run_domain_benchmark(
             auc = compute_auc(ground_truth, scores)
             metrics = compute_f1_precision_recall(ground_truth, predictions)
 
+            # AUC-ROC is undefined when only one class is present
+            # (``compute_auc`` returns NaN). Such an event is NOT counted
+            # into ``mean_auc`` -- folding a sentinel into the mean is
+            # exactly the inflation this harness must avoid -- but its
+            # F1/precision/recall remain meaningful and are still reported.
+            auc_defined = bool(np.isfinite(auc))
+
             elapsed = time.monotonic() - event_start
             provenance = loader.get_provenance(event_id, features)
 
             event_result = {
-                "status": "success",
-                "auc": round(auc, 4),
+                "status": "success" if auc_defined else "auc_undefined",
+                "auc": round(auc, 4) if auc_defined else None,
+                "auc_note": (
+                    None
+                    if auc_defined
+                    else "AUC undefined: only one class present in ground truth; "
+                    "excluded from mean_auc."
+                ),
                 "f1": round(metrics["f1"], 4),
                 "precision": round(metrics["precision"], 4),
                 "recall": round(metrics["recall"], 4),
@@ -216,14 +250,15 @@ def run_domain_benchmark(
             }
 
             results["events"][event_id] = event_result
-            event_aucs.append(auc)
+            if auc_defined:
+                event_aucs.append(auc)
             event_f1s.append(metrics["f1"])
             successful_events += 1
 
             logger.info(
-                "  %s: AUC=%.3f  F1=%.3f  (n=%d, %.1fs)",
+                "  %s: AUC=%s  F1=%.3f  (n=%d, %.1fs)",
                 event_id,
-                auc,
+                f"{auc:.3f}" if auc_defined else "undefined",
                 metrics["f1"],
                 len(features),
                 elapsed,
@@ -252,25 +287,35 @@ def run_domain_benchmark(
         _save_results(results, output_path)
         sys.exit(1)
 
+    # ``mean_auc`` and its spread are computed over events with a DEFINED
+    # AUC only (single-class events contributed NaN and were excluded). The
+    # count of defined-AUC events is reported alongside so the mean is never
+    # read as covering every benchmarked event. When no event had a defined
+    # AUC, the AUC aggregates are ``None`` rather than a fabricated number.
+    n_auc_defined = len(event_aucs)
     results["summary"] = {
         "status": "complete",
         "events_benchmarked": successful_events,
         "events_attempted": len(events),
-        "mean_auc": round(float(np.mean(event_aucs)), 4),
-        "std_auc": round(float(np.std(event_aucs)), 4),
-        "mean_f1": round(float(np.mean(event_f1s)), 4),
-        "min_auc": round(float(np.min(event_aucs)), 4),
-        "max_auc": round(float(np.max(event_aucs)), 4),
+        "events_with_defined_auc": n_auc_defined,
+        "events_auc_undefined": successful_events - n_auc_defined,
+        "mean_auc": round(float(np.mean(event_aucs)), 4) if event_aucs else None,
+        "std_auc": round(float(np.std(event_aucs)), 4) if event_aucs else None,
+        "mean_f1": round(float(np.mean(event_f1s)), 4) if event_f1s else None,
+        "min_auc": round(float(np.min(event_aucs)), 4) if event_aucs else None,
+        "max_auc": round(float(np.max(event_aucs)), 4) if event_aucs else None,
     }
 
     _save_results(results, output_path)
 
+    _mean_auc = results["summary"]["mean_auc"]
     logger.info(
-        "%s benchmark complete: %d/%d events, mean AUC=%.3f",
+        "%s benchmark complete: %d/%d events, %d with defined AUC, mean AUC=%s",
         domain,
         successful_events,
         len(events),
-        results["summary"]["mean_auc"],
+        n_auc_defined,
+        f"{_mean_auc:.3f}" if _mean_auc is not None else "undefined (no two-class events)",
     )
 
     return results

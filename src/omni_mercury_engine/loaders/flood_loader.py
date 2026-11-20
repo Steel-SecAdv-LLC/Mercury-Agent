@@ -107,7 +107,12 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "date": "2021-07-14",
         "description": (
             "Devastating floods across western Europe, primarily Germany "
-            "and Belgium. FEMA correlation only — no direct USGS gauge data."
+            "and Belgium. Marked not-benchmarkable: the only source wired in "
+            "is the US OpenFEMA disaster-declarations API, which does not "
+            "cover Europe. Querying it for this window returned unrelated US "
+            "flood declarations, all force-labelled anomalous (fema_only) "
+            "with no gauge columns — a single-class, mislabelled series. No "
+            "offline-testable European gauge source is available here."
         ),
         "sites": [],
         "site_names": [],
@@ -115,6 +120,13 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "end": "2021-07-20",
         "flood_stages": {},
         "fema_only": True,
+        # Honest exclusion: US FEMA data cannot stand in for a European flood.
+        "not_benchmarkable": True,
+        "_not_benchmarkable_reason": (
+            "US OpenFEMA data does not cover European floods; no offline "
+            "European gauge source is wired in. Serving US declarations as "
+            "this event would be a fabricated benchmark."
+        ),
     },
 }
 
@@ -226,6 +238,17 @@ class FloodLoader(BaseDomainLoader):
             return cached
 
         event = _EVENT_CATALOG[event_id]
+
+        # Not-benchmarkable events have no honest offline data source wired
+        # in.  Return an empty frame (the harness records "no_data" and skips
+        # them) rather than serving unrelated data under the event's name.
+        if event.get("not_benchmarkable", False):
+            logger.warning(
+                "Event '%s' is not benchmarkable: %s",
+                event_id,
+                event.get("_not_benchmarkable_reason", "no honest data source"),
+            )
+            return self._empty_dataframe()
 
         # European 2021 event has no USGS sites — return FEMA data only
         if event.get("fema_only", False):
@@ -375,9 +398,17 @@ class FloodLoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
-        # Ensure chronological order
+        # Ensure chronological order.  ``kind="stable"`` is required, not
+        # cosmetic: ``get_ground_truth`` labels the frame in the order
+        # ``fetch_historical`` cached it, and this method re-sorts that same
+        # frame before building features.  On a ``datetime64`` key with tied
+        # timestamps (multi-gauge events share 15-min stamps across sites) the
+        # default introsort is *not* idempotent -- re-sorting an already-sorted
+        # frame permutes tied rows -- so an unstable re-sort silently
+        # misaligns feature row *i* against label row *i*.  A stable sort of
+        # already-ordered data is a no-op, preserving the label order.
         if "datetime" in df.columns:
-            df = df.sort_values("datetime").reset_index(drop=True)
+            df = df.sort_values("datetime", kind="stable").reset_index(drop=True)
 
         # ---- base observables ----
         gauge_height = df.get("gauge_height_ft")
@@ -689,12 +720,19 @@ class FloodLoader(BaseDomainLoader):
 
         df = pd.DataFrame(list(merged.values()))
 
-        # Parse datetime strings and coerce numeric columns
-        df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+        # Parse datetime strings and coerce numeric columns.  ``utc=True`` is
+        # required, not optional: USGS WaterServices stamps each reading with
+        # a local UTC offset, and a fetch window spanning a DST transition
+        # (e.g. the Nov EDT->EST fallback) carries two different offsets in
+        # one series.  Under pandas 3 that raises "Mixed timezones detected"
+        # even with ``errors="coerce"``, so without ``utc=True`` the whole
+        # fetch blows up on any DST-spanning window.  Normalising to UTC
+        # yields one monotonic, tz-aware series.
+        df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce", utc=True)
         for col in ("gauge_height_ft", "discharge_cfs"):
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        df = df.sort_values("datetime").reset_index(drop=True)
+        df = df.sort_values("datetime", kind="stable").reset_index(drop=True)
         return df
 
     def _fetch_fema_declarations(

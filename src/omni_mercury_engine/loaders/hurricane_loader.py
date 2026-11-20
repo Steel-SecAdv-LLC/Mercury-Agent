@@ -48,7 +48,17 @@ _IBTRACS_COLUMNS = [
     "USA_WIND",
     "USA_PRES",
     "NATURE",
+    # TRACK_TYPE distinguishes the main best-track line ("main") from spur
+    # lines; needed to drop the duplicate/off-hour rows before computing
+    # time-based deltas and the rapid-intensification label.
+    "TRACK_TYPE",
 ]
+
+#: Synoptic best-track reporting hours (UTC).  IBTrACS v04 interleaves
+#: 3-hourly, off-hour and spur observations with the 6-hourly synoptic
+#: fixes; only the synoptic main-track rows are evenly 6 h apart, which is
+#: the spacing the RI label and the 24 h / 12 h / 6 h deltas assume.
+_SYNOPTIC_HOURS = (0, 6, 12, 18)
 
 # Number of header/comment rows to skip in IBTrACS CSV.
 # Row 0 is the header, row 1 is the units row.
@@ -280,6 +290,10 @@ class HurricaneLoader(BaseDomainLoader):
 
         df = self._download_ibtracs_csv(_LAST3YEARS_URL)
 
+        # Same synoptic main-track filter as the historical path: the
+        # fixed-step deltas and RI label assume evenly spaced 6-hourly rows.
+        df = self._filter_synoptic_main_track(df)
+
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
             "Fetched %d real-time hurricane track records from IBTrACS.",
@@ -326,8 +340,21 @@ class HurricaneLoader(BaseDomainLoader):
             logger.warning("IBTrACS returned no track data for event '%s'.", event_id)
             return df
 
+        # Drop spur and off-hour rows so the fixed-step deltas and the RI
+        # label measure true 6-hourly spacing (see
+        # :meth:`_filter_synoptic_main_track`).  Done here, before caching,
+        # so ``get_ground_truth`` and ``engineer_features`` both see the same
+        # filtered, aligned rows.
+        df = self._filter_synoptic_main_track(df)
+        if df.empty:
+            logger.warning(
+                "No synoptic main-track rows for event '%s' after filtering.",
+                event_id,
+            )
+            return df
+
         # Sort chronologically so time-series features are meaningful
-        df = df.sort_values("iso_time").reset_index(drop=True)
+        df = df.sort_values("iso_time", kind="stable").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -644,7 +671,50 @@ class HurricaneLoader(BaseDomainLoader):
         if "NATURE" in df.columns:
             result["nature"] = df["NATURE"].astype(str).str.strip()
 
+        # Track line: "main" is the primary best track; spur lines repeat
+        # segments and must be dropped before time-series feature/label work.
+        if "TRACK_TYPE" in df.columns:
+            result["track_type"] = df["TRACK_TYPE"].astype(str).str.strip()
+
         return result
+
+    @staticmethod
+    def _filter_synoptic_main_track(df: pd.DataFrame) -> pd.DataFrame:
+        """Keep only synoptic (00/06/12/18Z) main-track observations.
+
+        IBTrACS v04 mixes 3-hourly, off-hour and spur rows in with the
+        6-hourly synoptic best-track fixes.  The rapid-intensification label
+        and the delta features step by a fixed *number of rows* (``steps=4``
+        for "24 h"), which only equals 24 hours when the rows are the evenly
+        spaced synoptic main-track fixes.  Left unfiltered, four mixed-spacing
+        rows can span as little as ~12 h, so a "30 kt / 24 h" RI call is
+        really measured over far less time.  This mirrors the synoptic
+        main-track selection used by ``ml/hazard_training/hurricane_wind.py``.
+
+        Rows are kept when ``track_type == "main"`` (when that column is
+        present) and ``iso_time`` lands exactly on a synoptic hour.  Rows with
+        an unparseable ``iso_time`` are dropped: a time-series feature cannot
+        be placed without a timestamp.
+
+        Args:
+            df: Standardized IBTrACS DataFrame.
+
+        Returns:
+            Filtered DataFrame (row order preserved).
+        """
+        if df.empty:
+            return df
+
+        mask = pd.Series(True, index=df.index)
+
+        if "track_type" in df.columns:
+            mask &= df["track_type"].astype(str).str.strip().str.lower() == "main"
+
+        if "iso_time" in df.columns:
+            times = pd.to_datetime(df["iso_time"], errors="coerce")
+            mask &= times.notna() & times.dt.hour.isin(_SYNOPTIC_HOURS) & (times.dt.minute == 0)
+
+        return df[mask].copy()
 
     # ------------------------------------------------------------------
     # Private helpers -- feature computation

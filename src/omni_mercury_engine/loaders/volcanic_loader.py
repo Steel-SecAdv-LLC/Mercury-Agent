@@ -339,6 +339,36 @@ class VolcanicLoader(BaseDomainLoader):
                 ),
             )
 
+        # ``getMonitoredVolcanoes`` returns the CURRENT alert state, not a
+        # historical archive.  A name match alone would cache *today's*
+        # Kilauea alert row as if it were the 2018 eruption.  Confirm at
+        # least one matched row's ``alert_date`` falls inside the event's
+        # own [start, end] window before accepting it as that event; if the
+        # only data we have is a current alert dated outside the window
+        # (the common case for any past eruption), that is not historical
+        # data and we refuse rather than mislabel it.
+        start = pd.Timestamp(event["start"], tz="UTC")
+        end = pd.Timestamp(event["end"], tz="UTC") + pd.Timedelta(days=1)
+        alert_dates = pd.to_datetime(df_filtered["alert_date"], errors="coerce", utc=True)
+        in_window = alert_dates.notna() & (alert_dates >= start) & (alert_dates < end)
+        if not bool(in_window.any()):
+            raise DataSourceUnavailableError(
+                loader_name="VolcanicLoader",
+                source_url=_ALERTS_URL,
+                reason=(
+                    f"The USGS volcano API only exposes the CURRENT alert "
+                    f"for '{volcano_name}', not a historical archive. No "
+                    f"alert dated within the event window "
+                    f"{event['start']}..{event['end']} is available, so "
+                    f"historical data for event '{event_id}' "
+                    f"({event['name']}, {event['date']}) cannot be served "
+                    f"without mislabelling a present-day alert as a past "
+                    f"eruption. This event is not benchmarkable from the "
+                    f"real-time alert feed."
+                ),
+            )
+        df_filtered = df_filtered[in_window].copy()
+
         # Enrich with geographic data
         df_filtered = self._enrich_with_geography(df_filtered)
 

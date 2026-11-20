@@ -134,14 +134,27 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "date": "2022-05-06",
         "description": (
             "2022 global Mpox (monkeypox) outbreak. Multi-country outbreak "
-            "outside endemic regions with sustained community transmission."
+            "outside endemic regions with sustained community transmission. "
+            "Marked as a stub: the only OWID source wired into this loader "
+            "(_OWID_CSV_URL) is the COVID-19 dataset, so scoring this event "
+            "from it would be serving COVID data labelled as mpox. No "
+            "offline-testable mpox-specific source is available here."
         ),
         "location": "World",
         "start": "2022-05-01",
         "end": "2022-12-31",
-        "source": "owid",
+        # Deliberately NOT "owid": the wired OWID CSV is COVID-19 data, and
+        # serving COVID as mpox would be a fabricated benchmark.  Until a real
+        # mpox/monkeypox feed is integrated, this event is not benchmarkable.
+        "source": "stub",
         "pathogen_class": "virus",
         "pathogen": "Monkeypox virus (MPXV)",
+        "_stub_reason": (
+            "Only the OWID COVID-19 CSV is wired into this loader; there is "
+            "no mpox-specific data source. Serving COVID data as mpox would "
+            "be dishonest, so this event is excluded from benchmarking "
+            "pending a real monkeypox feed."
+        ),
     },
     # --- BACTERIA (pathogen_class=bacteria) ---
     "cholera_yemen_2017": {
@@ -573,10 +586,18 @@ class PandemicLoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
-        # Ensure chronological order
+        # Ensure chronological order.  ``kind="stable"`` matters because
+        # ``get_ground_truth`` labels the frame in the cached order and this
+        # method re-sorts that same frame: a multi-location ("World")
+        # aggregate interleaves countries on identical dates, so the
+        # ``datetime64`` key carries ties.  The default introsort is not
+        # idempotent on tied ``datetime64`` keys, so an unstable re-sort
+        # permutes the tied rows and misaligns feature row *i* against label
+        # row *i*.  A stable sort of already-ordered data preserves the label
+        # order.
         if "date" in df.columns:
             df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df.sort_values("date").reset_index(drop=True)
+            df = df.sort_values("date", kind="stable").reset_index(drop=True)
 
         # ---- base columns (fill missing with 0) ----
         new_cases = df["new_cases"].fillna(0).values.astype(np.float64)
@@ -728,6 +749,11 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(url, params=params)
         except (ConnectionError, ValueError) as exc:
+            # NB: this swallows a network outage to an empty frame, which
+            # conflates "unreachable" with "no data". That is a known wart,
+            # but it is the repo's sanctioned graceful-degradation contract
+            # (pinned by tests/test_pandemic_expansion.py::
+            # test_who_gho_graceful_failure), so it is left as-is here.
             logger.warning(
                 "Failed to fetch WHO GHO indicator %s: %s",
                 indicator,
@@ -759,7 +785,18 @@ class PandemicLoader(BaseDomainLoader):
             if year < start_year or year > end_year:
                 continue
 
-            annual_value = float(rec.get("NumericValue", 0) or 0)
+            # A missing/blank NumericValue means the API reported no figure
+            # for that year, NOT zero cases.  Coercing it to 0 (the previous
+            # behaviour) fabricated a zero-case year, which the wave-detection
+            # label then read as a trough-then-surge artefact.  Skip the year
+            # instead of inventing a data point.
+            raw_value = rec.get("NumericValue")
+            if raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()):
+                continue
+            try:
+                annual_value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
             monthly_value = annual_value / 12.0
 
             for month in range(1, 13):
@@ -828,6 +865,8 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(_WHO_EMERGENCIES_URL)
         except (ConnectionError, ValueError) as exc:
+            # Same sanctioned graceful-degradation contract as _fetch_who_gho:
+            # an outage returns an empty frame rather than propagating.
             logger.warning("Failed to fetch WHO Emergencies: %s", exc)
             return pd.DataFrame()
 
@@ -848,9 +887,14 @@ class PandemicLoader(BaseDomainLoader):
                 continue
             try:
                 ts = pd.Timestamp(date_str)
-                # Normalize to tz-naive for comparison
+                # Normalize to tz-naive UTC for comparison.  ``tz_localize
+                # (None)`` alone just strips the offset and keeps the local
+                # wall-clock time, so "2020-06-01T23:00+05:00" would have been
+                # compared as 23:00 instead of its true 18:00 UTC -- shifting
+                # alerts near a month boundary into the wrong month.  Convert
+                # to UTC first, then drop the tz.
                 if ts.tzinfo is not None:
-                    ts = ts.tz_localize(None)
+                    ts = ts.tz_convert("UTC").tz_localize(None)
             except (ValueError, TypeError):
                 continue
             if start_ts <= ts <= end_ts:
@@ -961,10 +1005,15 @@ class PandemicLoader(BaseDomainLoader):
         """
         df = self._load_owid_data()
 
-        # Filter by location
+        # Filter by location.  "World" is NOT a "no filter" sentinel: OWID
+        # ships an explicit ``location == "World"`` aggregate row per date.
+        # Skipping the filter for "World" (the previous behaviour) returned
+        # every country's rows interleaved on shared dates -- a single-series
+        # detector then saw many countries' values stacked per day.  Filter
+        # to the named location in every case, "World" included, so the
+        # result is one aggregate series.
         location = event["location"]
-        if location != "World":
-            df = df[df["location"] == location].copy()
+        df = df[df["location"] == location].copy()
 
         # Filter by date range
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -1007,30 +1056,47 @@ class PandemicLoader(BaseDomainLoader):
                 )
                 return self.mark_synthetic(self._synthetic_ebola_2014())
 
-            # Parse WHO GHO records into a DataFrame
-            rows: list[dict[str, Any]] = []
-            for rec in records:
-                rows.append(
-                    {
-                        "date": rec.get("TimeDim", rec.get("YEAR", "")),
-                        "location": rec.get(
-                            "SpatialDim",
-                            rec.get("COUNTRY", ""),
-                        ),
-                        "new_cases": rec.get("NumericValue", 0),
-                        "new_deaths": 0,
-                        "total_cases": 0,
-                        "total_deaths": 0,
-                    }
-                )
-
-            df = pd.DataFrame(rows)
-
-            # Filter to relevant time period
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
             start = pd.Timestamp(event["start"])
             end = pd.Timestamp(event["end"])
-            df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
+
+            # ``TimeDim`` is an integer *year* (WHO GHO reports Ebola
+            # case/death counts annually), NOT a date.  Passing it straight
+            # to ``pd.to_datetime`` read it as nanoseconds-since-1970 (2014
+            # -> 1970-01-01 00:00:00.000002014), so every row fell outside the
+            # event window and the frame came back empty -- the real data path
+            # never produced a single row.  Parse the year explicitly and,
+            # like ``_fetch_who_gho``, spread each annual value across the
+            # in-window months so there is enough temporal density to score.
+            rows: list[dict[str, Any]] = []
+            for rec in records:
+                raw_year = rec.get("TimeDim", rec.get("YEAR"))
+                if raw_year is None:
+                    continue
+                try:
+                    year = int(raw_year)
+                except (TypeError, ValueError):
+                    continue
+
+                annual_cases = float(rec.get("NumericValue", 0) or 0)
+                monthly_cases = annual_cases / 12.0
+                location = rec.get("SpatialDim", rec.get("COUNTRY", ""))
+
+                for month in range(1, 13):
+                    row_date = pd.Timestamp(year=year, month=month, day=15)
+                    if row_date < start or row_date > end:
+                        continue
+                    rows.append(
+                        {
+                            "date": row_date,
+                            "location": location,
+                            "new_cases": monthly_cases,
+                            "new_deaths": 0.0,
+                            "total_cases": 0.0,
+                            "total_deaths": 0.0,
+                        }
+                    )
+
+            df = pd.DataFrame(rows)
 
             if df.empty:
                 check_synthetic_allowed(
@@ -1039,7 +1105,8 @@ class PandemicLoader(BaseDomainLoader):
                 )
                 return self.mark_synthetic(self._synthetic_ebola_2014())
 
-            df = df.sort_values("date").reset_index(drop=True)
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.sort_values("date", kind="stable").reset_index(drop=True)
             return df
 
         except (ConnectionError, KeyError, TypeError) as exc:
