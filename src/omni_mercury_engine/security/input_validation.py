@@ -1087,7 +1087,7 @@ class TrustedEndpoints:
     USGS_WATER_SERVICES = "https://nwis.waterservices.usgs.gov/nwis/iv/"
 
     # NOAA Storm Prediction Center (tornado data)
-    NOAA_SPC_TORNADO_ARCHIVE = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+    NOAA_SPC_TORNADO_ARCHIVE = "https://www.spc.noaa.gov/wcm/data/1950-2024_actual_tornadoes.csv"
     NOAA_SPC_DAILY_REPORTS = "https://www.spc.noaa.gov/climo/reports/today.csv"
 
     # IBTrACS (hurricane/cyclone data)

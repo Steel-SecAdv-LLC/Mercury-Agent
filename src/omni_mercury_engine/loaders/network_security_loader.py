@@ -36,6 +36,10 @@ logger = logging.getLogger(__name__)
 # Ground-truth event catalog
 # ---------------------------------------------------------------------------
 
+#: Rows of CICIDS 2017 kept for an event frame (a seeded uniform sample of the
+#: ~2.8 million), so the cached frame stays a size JSON can hold.
+_CICIDS_MAX_ROWS: int = 200_000
+
 _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "nsl_kdd": {
         "name": "NSL-KDD Network Intrusion Dataset",
@@ -152,7 +156,12 @@ class NetworkSecurityLoader(BaseDomainLoader):
     Attributes:
         DOMAIN: ``"network_security"``
         SOURCE_URL: CIC IDS-2017 reference page.
-        REQUIRES_API_KEY: ``False`` -- all datasets are freely available.
+        REQUIRES_API_KEY: ``False`` -- no dataset needs an API key. NSL-KDD and
+            BATADAL download directly. CICIDS 2017 does not: as of 2026-11-20
+            its Distrinet mirror returns 404 and the CIC page redirects to a
+            registration form, so it loads only from an operator-pinned
+            Hugging Face revision or a local copy (the dataset loader's error
+            names both), and otherwise fails closed.
     """
 
     DOMAIN: str = "network_security"
@@ -610,9 +619,14 @@ class NetworkSecurityLoader(BaseDomainLoader):
             from omni_mercury_engine.datasets.base import DatasetConfig
             from omni_mercury_engine.datasets.security import CICIDSLoader
 
+            # The full dataset is about 2.8 million rows of 79 columns, and
+            # this loader caches an event's frame as JSON: unbounded, one
+            # successful load would write a multi-gigabyte cache file. The
+            # dataset loader draws a seeded uniform sample.
             config = DatasetConfig(
                 name="cicids",
                 preprocessing={"binary": True},
+                max_samples=_CICIDS_MAX_ROWS,
             )
             loader = CICIDSLoader(config)
             features, labels = loader.load_data()

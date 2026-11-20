@@ -1637,3 +1637,34 @@ class TestTornadoArchiveCoversItsCatalogue:
             frame = loader.fetch_historical("midwest_2024")
         assert fetch.called, "the 1950-2023 archive was served from the cache"
         assert len(frame) == 3
+
+
+class TestCicidsFrameIsBounded:
+    def test_the_dataset_loader_is_asked_for_a_bounded_sample(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A successful CICIDS load cannot write a multi-gigabyte JSON cache.
+
+        The event frame is cached as JSON; the full dataset is ~2.8M x 79, and
+        the loader asked for all of it.
+        """
+        from omni_mercury_engine.datasets import security
+        from omni_mercury_engine.loaders import network_security_loader as module
+
+        seen: dict[str, Any] = {}
+
+        class _StubCicids:
+            def __init__(self, config: Any) -> None:
+                seen["max_samples"] = config.max_samples
+
+            def load_data(self) -> tuple[np.ndarray, np.ndarray]:
+                rng = np.random.default_rng(0)
+                return rng.normal(size=(50, 4)).astype(np.float32), rng.integers(0, 2, size=50)
+
+        monkeypatch.setattr(security, "CICIDSLoader", _StubCicids)
+        loader = module.NetworkSecurityLoader(cache_dir=tmp_path / "cic", max_retries=0)
+        frame = loader._load_cicids_dataframe()
+
+        assert seen["max_samples"] == module._CICIDS_MAX_ROWS
+        assert 0 < module._CICIDS_MAX_ROWS <= 250_000
+        assert len(frame) == 50 and "label" in frame.columns
