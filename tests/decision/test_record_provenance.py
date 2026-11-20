@@ -186,10 +186,14 @@ class TestEngineEmitsModelProvenance:
         provenance = out["model_provenance"]
         assert provenance["checkpoint"] == "provenance_roundtrip.mdl"
         assert provenance["checkpoint_sha256"] == expected_sha
-        # The checkpoint does not record its calibration-set size; the
-        # restored certificate says so instead of inventing one.
+        # The calibration-set size rides conformal_state through the
+        # checkpoint, so the restored certificate reports the real count (a
+        # checkpoint written before the size was recorded restores None).
         assert provenance["conformal"] is not None
-        assert provenance["conformal"]["n_calibration"] is None
+        assert provenance["conformal"]["n_calibration"] == (
+            fitted_engine._fusion_conformal_n_calibration
+        )
+        assert isinstance(provenance["conformal"]["n_calibration"], int)
 
     def test_decision_signals_carry_the_provenance(self, fitted_engine: OmniMercuryEngine) -> None:
         probe = np.random.default_rng(3).normal(size=(4, WIDTH))

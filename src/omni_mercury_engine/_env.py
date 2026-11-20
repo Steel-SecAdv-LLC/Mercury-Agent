@@ -62,7 +62,9 @@ __all__ = [
     "MERCURY_ENV_DEVELOPMENT",
     "MERCURY_ENV_PRODUCTION",
     "MERCURY_ENV_VAR",
+    "MERCURY_FLAGSHIP_COGNITIVE_VAR",
     "MercuryProductionConfigError",
+    "flagship_cognitive_enabled",
     "get_mercury_env",
     "is_production",
     "require_real_component",
@@ -174,3 +176,24 @@ def require_real_component(
         f"degrade to a stub in production.\n"
         f"Remediation: {remediation}"
     )
+
+
+#: Env var that turns the cognitive self-critique off on the served flagship
+#: surfaces (the ``/detect/flagship`` route, ``mercury-agent detect -d
+#: fusion`` and the MCP flagship engine).  Shared here so the three serving
+#: surfaces read one switch with one spelling instead of three drifting
+#: copies.
+MERCURY_FLAGSHIP_COGNITIVE_VAR = "MERCURY_FLAGSHIP_COGNITIVE"
+
+
+def flagship_cognitive_enabled() -> bool:
+    """Whether the served flagship runs the cognitive self-critique.
+
+    On by default; ``MERCURY_FLAGSHIP_COGNITIVE`` set to ``off``, ``false``
+    or ``0`` (case-insensitive, whitespace-tolerant) opts out.  Any other
+    value, including unset, means on — the serving posture is
+    critique-by-default, and an operator turns it off only for the measured
+    latency cost.
+    """
+    raw = os.environ.get(MERCURY_FLAGSHIP_COGNITIVE_VAR, "on")
+    return raw.strip().lower() not in ("off", "false", "0")

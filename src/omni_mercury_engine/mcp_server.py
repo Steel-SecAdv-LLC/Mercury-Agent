@@ -155,6 +155,13 @@ class MercuryMCPServer:
             # the served engine closes the loop, so every flagship detection
             # carries a ``decision`` record surfaced in the tool output.
             engine.enable_decision_layer()
+            # Cognitive self-critique, same switch and default as the route
+            # (the mirror was incomplete without it: MCP flagship records
+            # carried signals.cognitive = None while the route's did not).
+            from omni_mercury_engine._env import flagship_cognitive_enabled
+
+            if flagship_cognitive_enabled():
+                engine.enable_cognitive_analysis()
             self._engine = engine
         return self._engine
 

@@ -7354,12 +7354,31 @@ class OmniMercuryEngine(LoggerMixin):
         # score. A no-op (no key added) until the calibrator is fit.
         if self._fusion_conformal is not None:
             pred_set = self._fusion_conformal.predict(np.array([float(anomaly_prob_val)]))
+            n_rows = int(anomaly_probs_all.size)
             result["conformal"] = {
                 "prediction_set": pred_set.label_sets()[0],
                 "set_size": int(pred_set.set_size[0]),
                 "abstain": bool(pred_set.set_size[0] == 2),
                 "coverage": float(pred_set.coverage_level),
+                # The certificate is fitted per sample.  The scalar verdict is
+                # the batch-max row, and selecting the max breaks per-sample
+                # exchangeability, so a multi-row batch must say which regime
+                # the guarantee was issued under rather than let "calibrated"
+                # read as a batch-level promise.
+                "regime": "per_sample",
+                "n_rows": n_rows,
             }
+            if n_rows > 1:
+                # Per-row label sets ARE individually exchangeable with the
+                # fit; surface their set-size counts so the record carries the
+                # part of the certificate that is sound on a batch.
+                row_sets = self._fusion_conformal.predict(anomaly_probs_all)
+                sizes = np.asarray(row_sets.set_size, dtype=int)
+                result["conformal"]["row_set_sizes"] = {
+                    "empty": int(np.sum(sizes == 0)),
+                    "singleton": int(np.sum(sizes == 1)),
+                    "ambiguous": int(np.sum(sizes == 2)),
+                }
 
         # Explainability (opt-in): attach an Integrated-Gradients attribution of
         # this sample's calibrated fusion probability, plus its faithfulness
@@ -8605,10 +8624,13 @@ class OmniMercuryEngine(LoggerMixin):
                 if conformal_state is not None
                 else None
             )
-            # A checkpoint does not record the calibration-set size; the
-            # provenance reports None for a restored certificate rather than
-            # carrying a stale in-process count across the load.
-            self._fusion_conformal_n_calibration = None
+            # The calibration-set size travels inside conformal_state (added
+            # alongside the fitted thresholds); a checkpoint written before it
+            # was recorded restores None, so provenance reports the honest
+            # "unknown" rather than a stale in-process count.
+            self._fusion_conformal_n_calibration = (
+                self._fusion_conformal.n_calibration if self._fusion_conformal is not None else None
+            )
         else:
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)

@@ -1142,6 +1142,11 @@ class BinaryConformalClassifier:
         #: both classes (the Mondrian guarantee is per class, so the honest
         #: headline is the weakest class).  ``coverage`` until fitted.
         self.coverage_achieved: float = coverage
+        #: Size of the calibration split :meth:`fit` consumed; ``None`` until
+        #: fitted, and ``None`` after :meth:`from_state` of a checkpoint
+        #: written before the size was recorded (provenance then reports the
+        #: honest "unknown" rather than a fabricated count).
+        self.n_calibration: int | None = None
         self._fitted = False
 
     @staticmethod
@@ -1195,6 +1200,7 @@ class BinaryConformalClassifier:
         # guarantees only 5/6) the certificate must say so, never silently
         # claim the requested level.
         self.coverage_achieved = min(achieved_by_class.values())
+        self.n_calibration = int(y.size)
         if self.coverage_achieved < self.coverage:
             logger.warning(
                 "BinaryConformal: calibration class sizes %s cannot guarantee "
@@ -1220,20 +1226,26 @@ class BinaryConformalClassifier:
         existing artifacts rebuild through :meth:`from_state` unchanged.
 
         Returns:
-            Mapping with ``coverage``, ``seed`` and the per-class
-            ``thresholds`` (int-keyed class labels).
+            Mapping with ``coverage``, ``seed``, the per-class ``thresholds``
+            (int-keyed class labels) and, when :meth:`fit` ran in this
+            process, ``n_calibration`` (the calibration-split size, so a
+            restored certificate's provenance can report how many rows it
+            was fitted on).
 
         Raises:
             RuntimeError: If called before :meth:`fit`.
         """
         if not self._fitted:
             raise RuntimeError("Must call fit() before export_state()")
-        return {
+        state: dict[str, Any] = {
             "coverage": float(self.coverage),
             "coverage_achieved": float(self.coverage_achieved),
             "seed": int(self.seed),
             "thresholds": {int(label): float(q) for label, q in self._thresholds.items()},
         }
+        if self.n_calibration is not None:
+            state["n_calibration"] = int(self.n_calibration)
+        return state
 
     @classmethod
     def from_state(cls, state: dict[str, Any]) -> BinaryConformalClassifier:
@@ -1259,6 +1271,11 @@ class BinaryConformalClassifier:
         # so such a state keeps the requested level (exactly what it claimed
         # when it was written).
         clf.coverage_achieved = float(state.get("coverage_achieved", state["coverage"]))
+        # Checkpoints written before the size was recorded carry no
+        # ``n_calibration``; the restored certificate then reports None
+        # (unknown) rather than a fabricated count.
+        n_cal = state.get("n_calibration")
+        clf.n_calibration = int(n_cal) if n_cal is not None else None
         clf._fitted = True
         return clf
 

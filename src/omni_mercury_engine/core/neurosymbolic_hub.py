@@ -7,7 +7,9 @@ Enhanced neuro-symbolic fusion integrating:
 - Stacking/BMA fusion for ensemble calibration
 - Real-time rule inference with explanation generation
 - GOSNN bidirectional synaptic integration
-- Calibration and conformal prediction
+- Probability calibration (Platt scaling; no conformal certificate — the
+  hub's calibration split is drawn after the encoder fit, so a conformal
+  guarantee fitted on it would not be exchangeable with unseen rows)
 - Benevolence ≥0.99 enforcement
 
 This module serves as the keystone for cross-domain gains, providing
@@ -626,7 +628,8 @@ class NeuroSymbolicHub:
     - Neural encoding (LTN-style)
     - Symbolic reasoning (knowledge graph)
     - Stacking/BMA fusion
-    - Calibration and conformal prediction
+    - Probability calibration (Platt scaling; see the module docstring for
+      why no conformal certificate is claimed here)
     - Ethical constraint enforcement
     - GOSNN bidirectional integration
 

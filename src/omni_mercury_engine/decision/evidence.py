@@ -148,10 +148,11 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
     """Bounded self-critique summary of a ``cognitive_analysis`` payload.
 
     Carries the orchestrator's critique of the detection — reliability,
-    calibrated confidence, the measured uncertainties — and its historical
-    analogs (case ids and recommended actions, at most five each, truncated),
-    never the full analysis: the reasoning chain, knowledge updates and raw
-    feedback signals stay at the detection result's top level.
+    confidence, the uncertainties together with the flags that say whether
+    each was measured or is a placeholder — and its historical analogs (case
+    ids and recommended actions, at most five each, truncated), never the
+    full analysis: the reasoning chain, knowledge updates and raw feedback
+    signals stay at the detection result's top level.
     """
     if not isinstance(analysis, Mapping):
         return None
@@ -161,11 +162,18 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
             return []
         return [str(item)[:160] for item in value if str(item).strip()][:limit]
 
+    def flag(key: str) -> bool | None:
+        value = analysis.get(key)
+        return bool(value) if isinstance(value, bool) else None
+
     return {
         "is_reliable": (bool(analysis["is_reliable"]) if "is_reliable" in analysis else None),
         "confidence": _as_float(analysis.get("confidence")),
+        "confidence_calibrated": flag("confidence_calibrated"),
         "epistemic_uncertainty": _as_float(analysis.get("epistemic_uncertainty")),
+        "epistemic_measured": flag("epistemic_measured"),
         "aleatoric_uncertainty": _as_float(analysis.get("aleatoric_uncertainty")),
+        "aleatoric_measured": flag("aleatoric_measured"),
         "ethical_permissible": (
             bool(analysis["ethical_permissible"]) if "ethical_permissible" in analysis else None
         ),
@@ -272,9 +280,12 @@ class Evidence:
     conformal_set_size: int | None = None
     conformal_labels: tuple[int, ...] | None = None
     coverage: float | None = None
+    conformal_regime: str | None = None
+    conformal_rows: int | None = None
     ethical_gate_passed: bool | None = None
     ethical_score: float | None = None
     ethical_threshold: float | None = None
+    ethics_report: Mapping[str, Any] | None = None
     symbolic_satisfaction: float | None = None
     drift_detected: bool = False
     drift_severity: str | None = None
@@ -331,6 +342,8 @@ class Evidence:
         conformal_set_size: int | None = None
         conformal_labels: tuple[int, ...] | None = None
         coverage: float | None = None
+        conformal_regime: str | None = None
+        conformal_rows: int | None = None
         conformal = result.get("conformal")
         if isinstance(conformal, Mapping):
             # The label set is the source of truth: a certificate counts as
@@ -348,6 +361,12 @@ class Evidence:
                 # the certificate is actually present, so a malformed section can
                 # never yield the contradictory `calibrated=False, coverage=0.9`.
                 coverage = _as_float(conformal.get("coverage"))
+                regime = conformal.get("regime")
+                if isinstance(regime, str) and regime:
+                    conformal_regime = regime
+                rows = conformal.get("n_rows")
+                if isinstance(rows, int) and not isinstance(rows, bool) and rows > 0:
+                    conformal_rows = rows
 
         ethical_passed: bool | None = None
         ethical_score: float | None = None
@@ -459,6 +478,8 @@ class Evidence:
             conformal_set_size=conformal_set_size,
             conformal_labels=conformal_labels,
             coverage=coverage,
+            conformal_regime=conformal_regime,
+            conformal_rows=conformal_rows,
             ethical_gate_passed=ethical_passed,
             ethical_score=ethical_score,
             ethical_threshold=ethical_threshold,
@@ -478,6 +499,45 @@ class Evidence:
             cognitive=_cognitive_summary(result.get("cognitive_analysis")),
         )
 
+    @classmethod
+    def from_ethical_block(
+        cls,
+        ethics: Mapping[str, Any],
+        *,
+        domain: str | None = None,
+    ) -> Evidence:
+        """Build the evidence of a decision the ethical gate refused.
+
+        A blocked boundary produces no probability, no certificate and no
+        detector output — the gate raised before any of them existed.  What it
+        does produce is the structured refusal report (check, score,
+        threshold, ruleset version, details), and that report is the whole
+        evidence: the decider's fail-closed Stage 1 turns it into an
+        UNDECIDABLE/HOLD record whose ``signals.ethics_report`` carries the
+        full report, so a refusal is reconstructable from its record exactly
+        like a served verdict.
+
+        Args:
+            ethics: The bounded, JSON-safe refusal report (the ``ethics``
+                block of the structured 403 payload).
+            domain: Optional domain hint.
+
+        Returns:
+            Evidence with ``ethical_gate_passed=False`` and the report
+            attached.
+        """
+        return cls(
+            anomaly_prob=None,
+            is_anomaly=False,
+            threshold=0.5,
+            severity=0.0,
+            ethical_gate_passed=False,
+            ethical_score=_as_float(ethics.get("score")),
+            ethical_threshold=_as_float(ethics.get("threshold")),
+            ethics_report=dict(ethics),
+            domain=domain,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe provenance view of the evidence used."""
         return {
@@ -491,9 +551,12 @@ class Evidence:
                 list(self.conformal_labels) if self.conformal_labels is not None else None
             ),
             "coverage": self.coverage,
+            "conformal_regime": self.conformal_regime,
+            "conformal_rows": self.conformal_rows,
             "ethical_gate_passed": self.ethical_gate_passed,
             "ethical_score": self.ethical_score,
             "ethical_threshold": self.ethical_threshold,
+            "ethics_report": (dict(self.ethics_report) if self.ethics_report is not None else None),
             "symbolic_satisfaction": self.symbolic_satisfaction,
             "drift_detected": self.drift_detected,
             "drift_severity": self.drift_severity,

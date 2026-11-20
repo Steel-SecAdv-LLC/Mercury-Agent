@@ -140,9 +140,18 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
             )
         # Deployment posture (mirrors /detect/flagship and the MCP server):
         # served fusion detections close the loop with a ``decision`` record.
-        # Additive key in the JSON output; the core engine default stays
-        # opt-in.
+        # Additive key in the JSON output. The engine constructor already
+        # builds a default responder; this explicit call keeps the serving
+        # posture stated at the entry point.
         engine.enable_decision_layer()
+        # Cognitive self-critique, same switch and default as /detect/flagship
+        # (the "mirrors" claim above was false for this piece: the route ran
+        # the critique and the CLI did not, so `-d fusion` records carried
+        # signals.cognitive = None).
+        from omni_mercury_engine._env import flagship_cognitive_enabled
+
+        if flagship_cognitive_enabled():
+            engine.enable_cognitive_analysis()
         from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
 
         data = _one_sample_if_feature_vector(engine, data)

@@ -140,6 +140,14 @@ class CognitiveAnalysisResult:
             "is_reliable": self.is_reliable,
             "epistemic_uncertainty": self.epistemic_uncertainty,
             "aleatoric_uncertainty": self.aleatoric_uncertainty,
+            # Transparency: whether the uncertainties above were actually
+            # measured (ensemble/MC variance, heteroscedastic residuals) and
+            # whether the confidence came from a fitted calibrator. Without
+            # these, a downstream record cannot tell a placeholder 0.1 from a
+            # measurement.
+            "epistemic_measured": self.epistemic_measured,
+            "aleatoric_measured": self.aleatoric_measured,
+            "confidence_calibrated": self.confidence_calibrated,
             "reasoning_chain": self.reasoning_chain,
             "causal_factors": self.causal_factors,
             "similar_cases": self.similar_historical_cases,

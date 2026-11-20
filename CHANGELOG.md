@@ -28,6 +28,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Changed — the Phase 1 decision-quality layer closes its stated gaps.** The
+certificate now says what it is: the calibration-set size rides the checkpoint
+(`conformal_state.n_calibration`; the shipped `default_fusion.pt` re-saved
+bit-identical in weights, temperature and detector state, now carrying
+n=251), and a multi-row batch's record states that the per-sample certificate
+applied to the batch-max row is not a batch-level guarantee
+(`conformal.regime`/`n_rows`, per-row set-size counts, a decider caveat). The
+self-critique can challenge detector results in both directions: a *measured*
+unreliable critique demotes a grounded verdict to DEFER (needs a human;
+`DecisionPolicy.defer_on_unreliable_critique`), a reliable *calibrated*
+critique at or above `critique_support_confidence_floor` (0.75) disputes an
+abstention on the record without overturning a fail-closed gate, and a
+critique built from placeholder uncertainties can do neither — the
+transparency flags (`epistemic_measured`, `aleatoric_measured`,
+`confidence_calibrated`) now ride `cognitive_analysis` and the record's
+cognitive summary, where the record previously presented the placeholder 0.1s
+as measurements. Every ethically blocked decision now carries a full
+fail-closed DecisionRecord: the structured 403's `decision` is an
+UNDECIDABLE/HOLD record whose `signals.ethics_report` is the same bounded
+report (detection routes, the route gate, and additively on the assessment
+surface), so the decider's ethical Stage 1 is reachable from serving for the
+first time. The CLI and MCP flagship surfaces run the cognitive critique
+under the same `MERCURY_FLAGSHIP_COGNITIVE` switch as the route (their
+"mirrors /flagship" comments were false; measured on the shipped checkpoint,
+single row, median of 12: 9.1 ms off, 139.4 ms on). The served flagship
+records every decision into a bounded ledger and
+`GET /api/v1/detect/flagship/decisions` serves its summary — including the
+measured decision churn — where `DecisionLedger` churn was library-only. The
+flagship's historical recorder no longer fabricates a 0.0 score for a result
+without one. The console decision panel renders decision confidence, the
+response plan, model provenance (checkpoint, sha, conformal n), the
+per-sample-regime note on batches, and the critique with its
+measured/unmeasured flags. The NAB streaming figures in the README were
+re-measured on the current detector (per-stream AUROC 0.817/0.692/0.665/0.749,
+mean 0.731; the committed artifact re-recorded) where the README still carried
+the pre-fix 0.729 record, and `NeuroSymbolicHub` no longer advertises conformal
+prediction it does not implement (it implements Platt scaling; its calibration
+split is drawn after the encoder fit, so a conformal certificate fitted there
+would not be exchangeable with unseen rows).
+
 ## [3.1.0] - 2026-11-16
 
 Backward compatible with 3.0.0: no released interface is removed or changed in

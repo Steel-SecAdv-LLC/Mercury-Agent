@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import math
-import os
 import threading
 from collections.abc import Mapping
 from typing import Any
@@ -20,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
+from omni_mercury_engine._env import flagship_cognitive_enabled
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
@@ -57,6 +57,9 @@ router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])
 # ---------------------------------------------------------------------------
 _flagship_lock = threading.Lock()
 _flagship_engine: Any = None
+# Bounded audit trail of the served flagship's decisions (built with the
+# engine); GET /detect/flagship/decisions serves its summary, churn included.
+_flagship_ledger: Any = None
 
 
 def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
@@ -75,7 +78,11 @@ def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
 
     Returns:
         ``{"message", "ethics": {check, score, threshold, ruleset_version,
-        details}}``.
+        details}, "decision"}`` — the ``decision`` is a full fail-closed
+        :class:`~omni_mercury_engine.decision.record.DecisionRecord` (as a
+        dict) whose ``signals.ethics_report`` carries the same structured
+        report, so a blocked decision is reconstructable from its record
+        exactly like a served verdict.
     """
     from omni_mercury_engine.core.centralized_constants import ETHICAL
 
@@ -95,7 +102,7 @@ def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
             return [bounded(v, depth + 1) for v in list(value)[:8]]
         return str(value)[:240]
 
-    return {
+    detail: dict[str, Any] = {
         "message": message,
         "ethics": {
             "check": str(getattr(refusal, "check", "unknown")),
@@ -105,6 +112,23 @@ def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
             "details": bounded(getattr(refusal, "details", None) or {}),
         },
     }
+    # Every blocked decision carries a full fail-closed DecisionRecord, not
+    # only the refusal report: the decider's ethical Stage 1 (UNDECIDABLE /
+    # HOLD) was unreachable from serving because the gates raise before a
+    # record exists — this is where the blocked branch gets its record. The
+    # layer is pure and deterministic, and must never turn a refusal into a
+    # 500, hence the broad guard: a record-construction failure degrades to
+    # the structured refusal alone.
+    try:
+        from omni_mercury_engine.decision import DecisionAbstentionResponder, Evidence
+
+        record = DecisionAbstentionResponder().decide_from_evidence(
+            Evidence.from_ethical_block(detail["ethics"])
+        )
+        detail["decision"] = record.to_dict()
+    except Exception:  # pragma: no cover - defensive: refusal must still serve
+        logger.exception("decision record for ethical refusal could not be built")
+    return detail
 
 
 def _raise_if_too_large_to_assess(refusal: Exception) -> None:
@@ -189,25 +213,34 @@ def _served_flagship_engine() -> Any:
         # detection carries a ``decision`` record (grounded verdict or
         # explicit abstention plus a bounded, non-destructive response plan).
         # Additive only: the detection route returns the raw result dict, so
-        # existing consumers see one extra key. The core engine's own default
-        # stays opt-in (``OmniMercuryEngine.enable_decision_layer``).
-        engine.enable_decision_layer()
+        # existing consumers see one extra key. The engine constructor already
+        # builds a default responder (the layer is ON by default engine-wide);
+        # the explicit call here is what attaches the served ledger below.
+        #
+        # The layer records into a bounded, process-wide ledger (the "verify"
+        # step): GET /detect/flagship/decisions serves its summary, including
+        # the measured decision churn (consecutive-disposition flip fraction).
+        # Before this, DecisionLedger existed but no served path ever wrote
+        # to one, so churn was a library-only number.
+        from omni_mercury_engine.decision import DecisionLedger
+
+        global _flagship_ledger
+        _flagship_ledger = DecisionLedger(maxlen=4096)
+        engine.enable_decision_layer(ledger=_flagship_ledger)
         # Cognitive self-critique on the served flagship, on by default:
         # every detection also carries ``cognitive_analysis`` (reliability,
-        # calibrated confidence, measured uncertainties, historical analogs),
-        # and the decision record's signals keep a bounded summary of it.
-        # Measured cost on single-row serving with the shipped checkpoint:
-        # 29.4 -> 164 ms per call. Operators who need the latency back set
+        # confidence and uncertainties with their measured/placeholder flags,
+        # historical analogs), and the decision record's signals keep a
+        # bounded summary of it.
+        # Measured cost on single-row serving with the shipped checkpoint
+        # (median of 12 warm calls, 2026-11-20): 9.1 -> 139.4 ms per call.
+        # Operators who need the latency back set
         # MERCURY_FLAGSHIP_COGNITIVE=off (the k6/locust load lanes exercise
         # /detect/univariate and are unaffected). The orchestrator's working
         # memory is bounded (OBSERVATION_MEMORY_LIMIT observation nodes,
         # oldest evicted), so a long-lived served engine does not grow per
         # anomalous request.
-        if os.environ.get("MERCURY_FLAGSHIP_COGNITIVE", "on").strip().lower() not in (
-            "off",
-            "false",
-            "0",
-        ):
+        if flagship_cognitive_enabled():
             engine.enable_cognitive_analysis()
         _flagship_engine = engine
     return _flagship_engine
@@ -1156,6 +1189,31 @@ async def describe_flagship_model(
     return description
 
 
+@router.get(
+    "/flagship/decisions",
+    summary="Decision trail summary of the served flagship",
+    description="""
+Aggregates over the bounded, process-wide audit trail of `POST /detect/flagship`
+decisions since this server started (ring buffer, most recent 4096): counts by
+transparency state, disposition and response action, the abstention and
+calibration fractions, and the measured decision **churn** — the fraction of
+consecutive decisions whose disposition flipped. Empty counts mean no flagship
+decision has been recorded yet.
+""",
+)
+async def flagship_decision_summary(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Serve the flagship decision ledger's aggregate summary."""
+    with _flagship_lock:
+        ledger = _flagship_ledger
+    if ledger is None:
+        return {"total": 0, "recorded": False}
+    summary: dict[str, Any] = ledger.summary()
+    summary["recorded"] = True
+    return summary
+
+
 @router.post(
     "/flagship",
     summary="Flagship Neuro-Symbolic Fusion Detection",
@@ -1208,15 +1266,25 @@ async def detect_flagship(
         )
 
         user_id = user.id if user else "anonymous"
+        # A result without a probability is recorded as having none ("scores"
+        # stays empty and the summary carries None), never as a fabricated
+        # 0.0 — the same placeholder the decision layer explicitly removed
+        # from its records.
+        recorded_prob = result.get("anomaly_prob")
+        recorded_prob = (
+            float(recorded_prob)
+            if isinstance(recorded_prob, (int, float)) and not isinstance(recorded_prob, bool)
+            else None
+        )
         await record_detection(
             user_id=user_id,
             method="flagship_fusion",
             data=request.data,
             results={
                 "anomalies": [bool(result.get("is_anomaly", False))],
-                "scores": [float(result.get("anomaly_prob", 0.0))],
+                "scores": [recorded_prob] if recorded_prob is not None else [],
                 "summary": {
-                    "anomaly_prob": float(result.get("anomaly_prob", 0.0)),
+                    "anomaly_prob": recorded_prob,
                     "severity": float(result.get("severity", 0.0)),
                     "class_prediction": result.get("class_prediction"),
                 },

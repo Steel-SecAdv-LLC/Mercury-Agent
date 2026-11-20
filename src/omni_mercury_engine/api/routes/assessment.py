@@ -117,13 +117,30 @@ async def _run(call: Callable[..., dict[str, Any]], *args: Any, **kwargs: Any) -
 
         # More text than the gate reads is a refusal about size, and says so.
         too_much = refused_for_size(exc)
+        # The released flat shape is kept; an ethical (403) refusal is
+        # additionally extended with the same structured report and
+        # fail-closed DecisionRecord the detection routes carry, so every
+        # blocked decision is reconstructable from its record. A size (413)
+        # refusal is about transport, not an ethical verdict, and stays flat.
+        detail: dict[str, Any] = {
+            "refused": True,
+            "check": exc.check,
+            "reason": too_much or str(exc),
+        }
+        if too_much is None:
+            from omni_mercury_engine.api.routes.detection import _ethical_refusal_detail
+
+            structured = _ethical_refusal_detail(exc, str(exc))
+            detail["ethics"] = structured["ethics"]
+            if "decision" in structured:
+                detail["decision"] = structured["decision"]
         raise HTTPException(
             status_code=(
                 status.HTTP_403_FORBIDDEN
                 if too_much is None
                 else status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
             ),
-            detail={"refused": True, "check": exc.check, "reason": too_much or str(exc)},
+            detail=detail,
         ) from exc
     except ConsentRequiredError as exc:
         raise HTTPException(

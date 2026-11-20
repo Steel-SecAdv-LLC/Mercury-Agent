@@ -111,6 +111,13 @@
       if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);
       if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);
       if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);
+      if (typeof dec.decision_confidence === "number") kv.push(["· confidence", dec.decision_confidence.toFixed(3)]);
+      if (dec.response && typeof dec.response === "object") kv.push(["· response", String(dec.response.action || "?") + (dec.response.requires_human ? " · needs a human" : "") + (typeof dec.response.urgency === "number" ? " · urgency " + dec.response.urgency : "")]);
+      const sig = dec.signals && typeof dec.signals === "object" ? dec.signals : null, mp = sig && sig.model_provenance;
+      if (mp && typeof mp === "object") kv.push(["· model", String(mp.checkpoint || "?") + (mp.checkpoint_sha256 ? " · sha " + String(mp.checkpoint_sha256).slice(0, 12) : "") + (mp.conformal && mp.conformal.n_calibration != null ? " · conformal n=" + mp.conformal.n_calibration : "")]);
+      if (sig && sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);
+      const cog = sig && sig.cognitive;
+      if (cog && typeof cog === "object") kv.push(["· critique", (cog.is_reliable == null ? "reliability unknown" : cog.is_reliable ? "reliable" : "UNRELIABLE") + (typeof cog.confidence === "number" ? " · conf " + cog.confidence.toFixed(2) + (cog.confidence_calibrated === false ? " (uncalibrated)" : "") : "") + (cog.epistemic_measured === false ? " · epistemic unmeasured" : "") + (cog.aleatoric_measured === false ? " · aleatoric unmeasured" : "")]);
       (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));
       (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));
     }

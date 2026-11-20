@@ -42,7 +42,8 @@ order:
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any
+from collections.abc import Mapping
+from typing import Any
 
 from omni_mercury_engine.decision import hazard_evidence
 from omni_mercury_engine.decision.evidence import Evidence
@@ -51,9 +52,6 @@ from omni_mercury_engine.decision.record import DecisionRecord
 from omni_mercury_engine.decision.response import ResponsePlan, ResponsePolicy
 from omni_mercury_engine.decision.states import Disposition
 from omni_mercury_engine.verifiers.three_state import ThreeState
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 class _Verdict:
@@ -233,6 +231,36 @@ class DecisionAbstentionResponder:
         # Stage 4 -- demotion overlays (only weaken a grounded verdict).
         if v.state is ThreeState.GROUNDED:
             self._apply_demotions(ev, v)
+
+        # Stage 5 -- the critique's other direction: a reliable, *calibrated*
+        # critique at or above the policy floor may dispute a resolvable
+        # abstention, on the record.  The challenge is stated in ``reasons``
+        # and changes nothing: a critique can challenge but not overturn a
+        # fail-closed gate (an UNDECIDABLE hold — ethical block, atypical
+        # point — is never challenged), and promotion would need measured
+        # evidence of its own.  This closes the "one-way demotions only"
+        # asymmetry without trading away fail-closed semantics.
+        if (
+            v.state is ThreeState.UNAVAILABLE
+            and v.disposition is Disposition.DEFER
+            and isinstance(ev.cognitive, Mapping)
+        ):
+            cog = ev.cognitive
+            conf = cog.get("confidence")
+            if (
+                cog.get("is_reliable") is True
+                and cog.get("confidence_calibrated") is True
+                and isinstance(conf, (int, float))
+                and not isinstance(conf, bool)
+                and float(conf) >= self.policy.critique_support_confidence_floor
+            ):
+                v.reasons.append(
+                    f"challenge on the record: the self-critique disputes this "
+                    f"abstention (reliable, calibrated confidence {float(conf):.2f} "
+                    f">= floor {self.policy.critique_support_confidence_floor:g}); "
+                    "the abstention stands — a critique may challenge but not "
+                    "overturn a fail-closed gate"
+                )
 
     def _from_conformal(self, ev: Evidence, v: _Verdict) -> None:
         """Ground (or abstain) from the conformal label set -- authoritative."""
@@ -467,12 +495,44 @@ class DecisionAbstentionResponder:
                     )
                 )
 
+        # Cognitive self-critique overlay (dispute direction): the engine's
+        # own critic found this detection unreliable.  It counts only when
+        # the critique is *measured* — at least one transparency flag says a
+        # real quantity (ensemble/MC variance, heteroscedastic residuals, a
+        # fitted confidence calibrator) stood behind the reliability verdict.
+        # A critique of placeholder uncertainties is surfaced in the record's
+        # signals but may not move a verdict.  Model-vs-critic contradiction
+        # is for a human, not a data request.
+        cog = ev.cognitive
+        if (
+            self.policy.defer_on_unreliable_critique
+            and isinstance(cog, Mapping)
+            and cog.get("is_reliable") is False
+            and self._critique_measured(cog)
+        ):
+            demotions.append(
+                (
+                    "the engine's own self-critique found this detection "
+                    "unreliable on measured grounds: a verdict its critic "
+                    "disputes needs a human",
+                    False,
+                )
+            )
+
         if demotions:
             self._demote(
                 v,
                 [reason for reason, _ in demotions],
                 resolvable_by_input=all(resolvable for _, resolvable in demotions),
             )
+
+    @staticmethod
+    def _critique_measured(cog: Mapping[str, Any]) -> bool:
+        """Whether the cognitive critique rests on at least one measured quantity."""
+        return any(
+            cog.get(key) is True
+            for key in ("epistemic_measured", "aleatoric_measured", "confidence_calibrated")
+        )
 
     @staticmethod
     def _demote(v: _Verdict, reasons: list[str], *, resolvable_by_input: bool) -> None:
@@ -501,6 +561,17 @@ class DecisionAbstentionResponder:
             caveats.append(
                 "no conformal coverage certificate was attached; confidence is "
                 "a margin heuristic, not a distribution-free guarantee"
+            )
+        elif (
+            ev.conformal_regime == "per_sample"
+            and ev.conformal_rows is not None
+            and ev.conformal_rows > 1
+        ):
+            caveats.append(
+                f"the conformal certificate is per-sample and this verdict is the "
+                f"batch-max row of {ev.conformal_rows}; selecting the max is not "
+                f"exchangeable with the per-sample fit, so the stated coverage is "
+                f"not a batch-level guarantee"
             )
         # What decisions about this hazard have been worth on real events
         # held out, where that has been measured: a "90%" reads the same for

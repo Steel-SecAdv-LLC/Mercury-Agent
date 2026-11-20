@@ -1,42 +1,85 @@
 {
   "dataset": "NAB (Numenta Anomaly Benchmark, MIT; committed fixture)",
   "detector": "MercuryAnomalyDetector (trained statistical ensemble)",
+  "math_arrest_causal": {
+    "detector": "CausalMathArrest (fixed trailing window over the 21-probe ensemble)",
+    "window": 256,
+    "per_stream": {
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+        "auroc": 0.6652,
+        "alarm_rate_normal_points": 0.0086,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0,
+        "threshold": 0.4309
+      },
+      "realAdExchange/exchange-3_cpc_results.csv": {
+        "auroc": 0.6977,
+        "alarm_rate_normal_points": 0.0017,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0,
+        "threshold": 0.3843
+      },
+      "realKnownCause/rogue_agent_key_hold.csv": {
+        "auroc": 0.5391,
+        "alarm_rate_normal_points": 0.0078,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0,
+        "threshold": 0.3715
+      },
+      "realTraffic/speed_7578.csv": {
+        "auroc": 0.7817,
+        "alarm_rate_normal_points": 0.0285,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0086,
+        "threshold": 0.4734
+      }
+    },
+    "mean_auroc": 0.6709,
+    "nab_standard_score": 43.93,
+    "mean_alarm_rate_normal_points": 0.0117,
+    "mean_false_abstention_rate": 0.0
+  },
   "protocol": {
     "feature_window": 20,
     "warmup_fraction": 0.15,
+    "causal_window": 256,
     "features": [
       "value",
       "rolling_zscore",
       "first_difference",
       "rolling_std"
     ],
-    "leak_free": "causal features; fitted on warmup prefix preceding all labeled windows"
+    "leak_free": "causal features; fitted on the warmup prefix preceding all labeled windows; each point scored from its trailing 256-sample window only, so no future sample influences any score (prefix-invariant)"
   },
   "per_stream": {
     "realTraffic/speed_7578.csv": {
       "n_points": 1127,
       "n_anomalous": 116,
       "warmup": 169,
-      "auroc": 0.8395855516422311
+      "window": 256,
+      "auroc": 0.8171533295110165
     },
     "realKnownCause/rogue_agent_key_hold.csv": {
       "n_points": 1882,
       "n_anomalous": 190,
       "warmup": 282,
-      "auroc": 0.6613885778275476
+      "window": 256,
+      "auroc": 0.6918402388951101
     },
     "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
       "n_points": 1243,
       "n_anomalous": 126,
       "warmup": 186,
-      "auroc": 0.6862479327570628
+      "window": 256,
+      "auroc": 0.6653368114162959
     },
     "realAdExchange/exchange-3_cpc_results.csv": {
       "n_points": 1538,
       "n_anomalous": 153,
       "warmup": 230,
-      "auroc": 0.7284441049146931
+      "window": 256,
+      "auroc": 0.7486348074583369
     }
   },
-  "mean_auroc": 0.7289165417853837
+  "mean_auroc": 0.7307412968201898
 }

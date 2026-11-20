@@ -143,10 +143,17 @@ class TestStateRoundTrip:
         """The mapping matches the ``conformal_state`` checkpoint layout."""
         probs, y = _synthetic_probs(800, seed=11)
         state = BinaryConformalClassifier(coverage=0.85).fit(probs, y).export_state()
-        assert set(state) == {"coverage", "coverage_achieved", "seed", "thresholds"}
+        assert set(state) == {
+            "coverage",
+            "coverage_achieved",
+            "seed",
+            "thresholds",
+            "n_calibration",
+        }
         assert isinstance(state["coverage"], float)
         assert isinstance(state["coverage_achieved"], float)
         assert isinstance(state["seed"], int)
+        assert isinstance(state["n_calibration"], int)
         for label, threshold in state["thresholds"].items():
             assert type(label) is int and type(threshold) is float
 
