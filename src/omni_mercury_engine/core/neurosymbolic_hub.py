@@ -7,9 +7,12 @@ Enhanced neuro-symbolic fusion integrating:
 - Stacking/BMA fusion for ensemble calibration
 - Real-time rule inference with explanation generation
 - GOSNN bidirectional synaptic integration
-- Probability calibration (Platt scaling; no conformal certificate — the
-  hub's calibration split is drawn after the encoder fit, so a conformal
-  guarantee fitted on it would not be exchangeable with unseen rows)
+- Probability calibration (Platt over the served fused score) and a
+  conformal certificate: the calibration split is drawn BEFORE the encoder
+  fit, Platt is fitted on the first half of the held-out rows scored
+  through the served path, and the certificate on the second half through
+  the fitted Platt — so its coverage guarantee is exchangeable with unseen
+  rows (it used to be unsound to certify here, and the docstring said so)
 - Benevolence ≥0.99 enforcement
 
 This module serves as the keystone for cross-domain gains, providing
@@ -137,6 +140,10 @@ class ExplainableOutput:
     # Calibration
     calibrated_score: float | None = None
     confidence_interval: tuple[float, float] | None = None
+    # Conformal label set over the Platt-calibrated fused score (the same
+    # block shape the engine's anomaly path and the storm forecast serve);
+    # None on a hub fitted without labels or with too few calibration rows.
+    conformal: dict[str, Any] | None = None
 
     # Ethical compliance
     benevolence_score: float = 1.0
@@ -158,6 +165,7 @@ class ExplainableOutput:
             "rules_fired": self.rules_fired,
             "explanations": self.explanations,
             "calibrated_score": self.calibrated_score,
+            "conformal": self.conformal,
             "benevolence_score": self.benevolence_score,
             "ethical_compliant": self.ethical_compliant,
         }
@@ -628,8 +636,8 @@ class NeuroSymbolicHub:
     - Neural encoding (LTN-style)
     - Symbolic reasoning (knowledge graph)
     - Stacking/BMA fusion
-    - Probability calibration (Platt scaling; see the module docstring for
-      why no conformal certificate is claimed here)
+    - Probability calibration and a conformal certificate (sound split
+      ordering; see :meth:`fit`)
     - Ethical constraint enforcement
     - GOSNN bidirectional integration
 
@@ -747,6 +755,9 @@ class NeuroSymbolicHub:
 
         # Calibrator
         self._calibrator: Any = None
+        # Conformal certificate over the Platt-calibrated fused score, fitted
+        # on the calibration sub-split no fitted component touched (see fit).
+        self._conformal: Any = None
 
         # Meta-learner for stacking
         self._meta_learner: Any = None
@@ -1018,38 +1029,86 @@ class NeuroSymbolicHub:
     ) -> NeuroSymbolicHub:
         """Fit the neuro-symbolic hub.
 
+        The calibration split is drawn BEFORE anything is fitted, and every
+        fitted component (the neural encoder, the stacking/BMA fusion
+        weights) sees only the non-calibration rows.  The calibration rows
+        are then scored through the hub's own served scoring path
+        (:meth:`predict`), so the Platt calibrator is fitted on the exact
+        score function serving applies — it used to be fitted on *neural*
+        scores of rows the encoder had already seen, then applied to *fused*
+        scores at serve, a double mismatch.  The held-out calibration rows
+        are sub-split in half: the first half fits Platt, the second —
+        scored through the fitted Platt — fits a
+        :class:`~omni_mercury_engine.core.conformal_prediction.BinaryConformalClassifier`,
+        so the certificate's calibration rows were touched by no fitted
+        component, which is what its coverage guarantee requires.
+
         Args:
             X: Training features
             y: Optional labels
-            validation_split: Fraction for calibration validation
+            validation_split: Fraction held out for calibration (drawn before
+                the encoder fit; needs at least 4 rows to calibrate, and the
+                conformal certificate is fitted only when its sub-split holds
+                at least 2 rows).
 
         Returns:
             Self for method chaining
         """
         rng = np.random.default_rng(self.seed)
 
-        # Fit neural encoder
-        self.neural_encoder.fit(X, y)
-
-        # If labels provided, set up calibration and learn fusion weights
         if y is not None and self.use_calibration:
             n = len(X)
-            n_val = int(n * validation_split)
+            n_cal = int(n * validation_split)
             idx = rng.permutation(n)
-            val_idx = idx[:n_val]
+            cal_idx = idx[:n_cal]
+            fit_idx = idx[n_cal:]
 
-            X_val = X[val_idx]
-            y_val = y[val_idx]
-
-            # Get neural scores
-            neural_scores = self.neural_encoder.encode(X_val)
-
-            # Set up calibration
-            self._setup_calibration(neural_scores, y_val)
-
-            # Learn fusion weights if using stacking/BMA
+            # Every fitted component sees only the fit rows.
+            self.neural_encoder.fit(X[fit_idx], y[fit_idx])
             if self.fusion_mode in [FusionMode.STACKING, FusionMode.BMA, FusionMode.ADAPTIVE]:
-                self._learn_fusion_weights(X_val, y_val)
+                self._learn_fusion_weights(X[fit_idx], y[fit_idx])
+
+            if n_cal >= 4:
+                # Score the untouched calibration rows through the served
+                # path itself (no calibrator is attached yet, so
+                # ``anomaly_score`` is the raw fused score serving computes).
+                outputs = self.predict(X[cal_idx], return_explanations=False)
+                fused_cal = np.array([float(o.anomaly_score) for o in outputs])
+                y_cal = np.asarray(y[cal_idx]).astype(int)
+                # Stratified halving: alternate each class between the Platt
+                # half and the conformal half, so a scarce positive class
+                # reaches both (an unstratified cut often starves one half of
+                # positives entirely on small tables).
+                order: list[int] = []
+                for label in (1, 0):
+                    order.extend(int(i) for i in np.flatnonzero(y_cal == label))
+                platt_rows = np.array(order[0::2], dtype=int)
+                conformal_rows = np.array(order[1::2], dtype=int)
+                half = len(platt_rows)
+                self._setup_calibration(fused_cal[platt_rows], y_cal[platt_rows])
+                if self._calibrator is not None and n_cal - half >= 2:
+                    from omni_mercury_engine.core.conformal_prediction import (
+                        BinaryConformalClassifier,
+                    )
+
+                    conformal_probs = np.clip(
+                        np.asarray(
+                            self._calibrator.calibrate(fused_cal[conformal_rows]), dtype=float
+                        ),
+                        0.0,
+                        1.0,
+                    )
+                    self._conformal = BinaryConformalClassifier(coverage=0.9).fit(
+                        conformal_probs, y_cal[conformal_rows]
+                    )
+            else:
+                logger.warning(
+                    "NeuroSymbolicHub: %d calibration rows are too few to "
+                    "calibrate (need >= 4); serving uncalibrated scores",
+                    n_cal,
+                )
+        else:
+            self.neural_encoder.fit(X, y)
 
         self._fitted = True
         logger.info("NeuroSymbolicHub fitted successfully")
@@ -1365,12 +1424,34 @@ class NeuroSymbolicHub:
 
             # Apply calibration
             calibrated_score = None
+            conformal_block: dict[str, Any] | None = None
             if self._calibrator is not None:
                 try:
                     calibrated_score = float(self._calibrator.calibrate(np.array([fused_score]))[0])
                 except Exception:
                     # Calibration failed; use uncalibrated score
                     calibrated_score = fused_score
+            # Conformal label set, evaluated on the exact function it was
+            # fitted on (Platt over the served fused score), BEFORE the
+            # threshold manager or the symbolic veto may overwrite the
+            # calibrated score — those overrides sit outside the certificate
+            # and the block says which regime it was issued under.
+            if self._conformal is not None and calibrated_score is not None:
+                try:
+                    pred_set = self._conformal.predict(
+                        np.array([float(np.clip(calibrated_score, 0.0, 1.0))])
+                    )
+                    size = int(pred_set.set_size[0])
+                    conformal_block = {
+                        "prediction_set": pred_set.label_sets()[0],
+                        "set_size": size,
+                        "abstain": bool(size == 2),
+                        "coverage": float(pred_set.coverage_level),
+                        "regime": "per_sample_pre_veto",
+                        "n_calibration": self._conformal.n_calibration,
+                    }
+                except Exception:  # pragma: no cover - the verdict must serve
+                    logger.exception("hub conformal prediction failed; block omitted")
 
             # P2 Integration: Use adaptive domain thresholding if available
             if self._threshold_manager is not None:
@@ -1560,6 +1641,7 @@ class NeuroSymbolicHub:
                     explanations=explanations if return_explanations else [],
                     reasoning_chain=reasoning_chain if return_explanations else [],
                     calibrated_score=calibrated_score,
+                    conformal=conformal_block,
                     benevolence_score=benevolence_score,
                     # The sample reached this line, so the harm-uplift gate
                     # permitted it — a blocking disposition raises out of

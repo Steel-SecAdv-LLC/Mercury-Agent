@@ -193,6 +193,24 @@
         "scope": "a signal in the record, never a verdict-mover: adopting novelty as a decision factor would need its own harness against the standing keep bar"
       },
       "rollback": "MERCURY_FLAGSHIP_COGNITIVE=off removes the whole critique; enable_cognitive_analysis(enable_curiosity=False) (the engine API default, unchanged) removes only the novelty signal."
+    },
+    {
+      "component": "neurosymbolic_hub.sound_calibration",
+      "change": "NeuroSymbolicHub draws its calibration split BEFORE the encoder fit, fits every component on non-calibration rows only, fits Platt on the served fused score (it was fitted on neural scores and applied to fused scores), and carries a conformal certificate fitted on a stratified calibration half no fitted component touched; predict() serves the uniform conformal block (per_sample_pre_veto regime).",
+      "reason": "Priority item 1: the hub's split-after-fit ordering made any certificate unsound, and the docstring disclaimed one. Uniform conformal outputs require the symbolic path to carry a sound certificate.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/neurosymbolic/harness_hub_conformal.py",
+        "artifact": "artifacts/hub_conformal.json",
+        "mean_auc_sound_split": 0.9122,
+        "mean_auc_encoder_on_all_train": 0.9378,
+        "split_cost_upper_bound": 0.0256,
+        "split_cost_note": "concentrated on the smallest table (wbc, 157 train rows, -0.18 to -0.25 on two seeds); near zero on the other 13 evaluations",
+        "mean_empirical_coverage": 0.9294,
+        "mean_stated_coverage_bound": 0.8343,
+        "n_evaluations": 15
+      },
+      "rollback": "use_calibration=False restores the uncalibrated hub; the old leaky ordering is not kept - a certificate that is not exchangeable is not a smaller feature, it is a false claim."
     }
   ]
 }
