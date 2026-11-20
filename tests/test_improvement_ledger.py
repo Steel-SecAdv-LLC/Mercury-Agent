@@ -111,6 +111,9 @@ class TestCommittedDecisions:
                 "adopted_opt_in",
                 "refused",
                 "recorded_not_adopted",
+                # HOLD with the exact promotion bar published: not adopted,
+                # not closed — the bar is the decision.
+                "hold_with_published_bar",
             )
             impact = decision["impact"]
             assert impact.get("harness"), "impact must name its harness"

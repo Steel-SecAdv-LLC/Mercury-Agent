@@ -139,3 +139,31 @@ class TestRecordedDecision:
         assert impact["mean_f1_before"] == pytest.approx(0.3123, abs=1e-3)
         assert impact["mean_f1_after"] == pytest.approx(0.3722, abs=1e-3)
         assert "speed_7578" in str(entry)  # the one measured cost is named
+
+
+class TestDefaultFlipRefusal:
+    def test_the_alarm_path_default_flip_is_refused_with_numbers(self) -> None:
+        from omni_mercury_engine.governance.improvement_ledger import published
+
+        data = published()
+        assert data is not None
+        entry = next(
+            d for d in data["decisions"] if d["component"] == "streaming.hysteresis_default"
+        )
+        assert entry["verdict"] == "refused"
+        impact = entry["impact"]
+        # Both halves of the refusal are pinned: the NAB score falls and the
+        # false-alarm rate rises under the flipped default.
+        assert impact["nab_standard_score_exit_alpha_0_20"] < impact["nab_standard_score_default"]
+        assert (
+            impact["alarm_rate_on_normals_exit_alpha_0_20"]
+            > impact["alarm_rate_on_normals_default"]
+        )
+
+    def test_the_released_default_is_still_single_threshold(self) -> None:
+        import inspect
+
+        from omni_mercury_engine.streaming.causal_math_arrest import CausalMathArrest
+
+        signature = inspect.signature(CausalMathArrest.__init__)
+        assert signature.parameters["exit_alpha"].default is None

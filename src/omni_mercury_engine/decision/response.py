@@ -11,6 +11,18 @@ posture made concrete, and it is asserted as an invariant in the tests.
 :class:`ResponsePolicy` turns a :class:`~omni_mercury_engine.decision.states.\
 Disposition` plus the event's severity into a :class:`ResponsePlan`, drawing
 advisory steps from an overridable, domain-aware catalogue.
+
+**Deliberately non-scored.** Unlike the anomaly, symbolic and forecast paths,
+a plan carries no conformal or confidence bound — scoring is absent by
+decision, not omission (``artifacts/improvement_ledger.json``,
+``decision.response_plan_scoring``): no labelled outcome exists for "the
+countermeasure was right", and a bound fitted to nothing would be a
+fabricated claim in uniform dress.  The plan's trustworthy properties are the
+ones it has by construction — deterministic, bounded, non-destructive, and
+reconstructable from the :class:`DecisionRecord` it was derived from.  If
+recommendation outcomes are ever recorded (the ``DecisionLoop``/
+``FeedbackSink`` seam exists for that), a measured calibration becomes
+possible and the decision is re-openable.
 """
 
 from __future__ import annotations

@@ -172,6 +172,8 @@ def main() -> int:
         # resolved in a second pass below.
         chosen[dataset.name] = ""  # filled in the second pass
 
+    aucs["meta_guarded"] = {}
+    chosen_guarded: dict[str, str] = {}
     for i, dataset in enumerate(datasets):
         same_corpus = [
             d.name for j, d in enumerate(datasets) if j != i and d.corpus == dataset.corpus
@@ -183,6 +185,26 @@ def main() -> int:
         )
         chosen[dataset.name] = best_candidate
         aucs["meta_controller"][dataset.name] = aucs[best_candidate][dataset.name]
+
+        # The guarded controller may fall back: a non-uniform candidate is
+        # selected only when the historical same-corpus pool itself clears
+        # the standing keep bar (mean delta over the pool > ADOPTION_BAND and
+        # no pool dataset below -REGRESSION_FLOOR); otherwise uniform.  This
+        # is the per-dataset abstention the forced-selection controller
+        # lacked — it buys the mean only where history says no one paid.
+        eligible: list[tuple[float, str]] = []
+        for candidate in candidates:
+            if candidate == "uniform":
+                continue
+            deltas = [aucs[candidate][n] - aucs["uniform"][n] for n in pool]
+            if (
+                float(np.nanmean(deltas)) > ADOPTION_BAND
+                and float(np.nanmin(deltas)) >= -REGRESSION_FLOOR
+            ):
+                eligible.append((float(np.nanmean([aucs[candidate][n] for n in pool])), candidate))
+        picked = max(eligible)[1] if eligible else "uniform"
+        chosen_guarded[dataset.name] = picked
+        aucs["meta_guarded"][dataset.name] = aucs[picked][dataset.name]
 
     shipped = aucs["uniform"]
     verdicts: dict[str, dict[str, object]] = {}
@@ -226,6 +248,7 @@ def main() -> int:
         "shipped_uniform_mean_auc": float(np.mean(list(shipped.values()))),
         "per_dataset": aucs,
         "controller_choices": chosen,
+        "guarded_controller_choices": chosen_guarded,
         "local_signal_rank_correlation_with_best_single_advantage": signal_corr,
         "verdicts": verdicts,
     }

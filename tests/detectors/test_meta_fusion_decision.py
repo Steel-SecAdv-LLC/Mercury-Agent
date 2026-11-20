@@ -72,3 +72,60 @@ class TestMetaFusionDecision:
         assert entry["impact"]["meta_controller_worst_delta"] == pytest.approx(
             controller["worst_delta"], abs=1e-3
         )
+
+
+class TestGuardedControllerDecision:
+    def test_guarded_controller_measured_and_refused(self, artifact: dict) -> None:
+        guarded = artifact["verdicts"]["meta_guarded"]
+        assert guarded["adopted"] is False
+        # Both halves of the sharpened finding are pinned: the guard mostly
+        # abstains, and where history cleared the bar the pick still
+        # regressed out-of-fold.
+        from collections import Counter
+
+        choices = Counter(artifact["guarded_controller_choices"].values())
+        assert choices["uniform"] >= 15
+        assert guarded["mean_delta_vs_shipped"] < 0.003
+
+    def test_ledger_records_the_guarded_refusal(self, artifact: dict) -> None:
+        from omni_mercury_engine.governance.improvement_ledger import published
+
+        data = published()
+        assert data is not None
+        entry = next(
+            d
+            for d in data["decisions"]
+            if d["component"] == "ensembles.meta_fusion_controller.guarded"
+        )
+        assert entry["verdict"] == "refused"
+        assert entry["impact"]["guarded_mean_delta"] == pytest.approx(
+            artifact["verdicts"]["meta_guarded"]["mean_delta_vs_shipped"], abs=1e-3
+        )
+
+
+class TestCrossModalConsistencyDecision:
+    def test_refused_with_its_artifact(self) -> None:
+        import json
+        from pathlib import Path
+
+        from omni_mercury_engine.governance.improvement_ledger import published
+
+        artifact = json.loads(
+            (
+                Path(__file__).resolve().parents[2] / "artifacts/cross_modal_consistency.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert artifact["adopted"] is False
+        # The refusal's ground is pinned: both classes agree near-perfectly.
+        assert artifact["mean_agreement_false_positive"] > 0.9
+        assert artifact["mean_agreement_true_positive"] > 0.9
+
+        data = published()
+        assert data is not None
+        entry = next(
+            d for d in data["decisions"] if d["component"] == "decision.cross_modal_consistency"
+        )
+        assert entry["verdict"] == "refused"
+        assert entry["impact"]["mean_agreement_false_positive"] == pytest.approx(
+            artifact["mean_agreement_false_positive"], abs=1e-4
+        )

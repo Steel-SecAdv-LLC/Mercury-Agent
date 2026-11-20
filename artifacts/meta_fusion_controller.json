@@ -1,6 +1,6 @@
 {
   "schema": "mercury.research.meta_fusion_controller/v1",
-  "generated_at": "2026-11-20T20:32:26.724345+00:00",
+  "generated_at": "2026-11-20T21:28:07.947560+00:00",
   "protocol": {
     "selection": "leave-one-dataset-out; controller picks by historical mean AUC on same-corpus other datasets; target labels never read",
     "adoption_band": 0.003,
@@ -113,6 +113,27 @@
       "thyroid/seed0": 0.696551492562372,
       "thyroid/seed1": 0.733638897283503,
       "thyroid/seed2": 0.7083039521842786
+    },
+    "meta_guarded": {
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.7042862257685029,
+      "realAdExchange/exchange-3_cpc_results.csv": 0.7776249893896953,
+      "realKnownCause/rogue_agent_key_hold.csv": 0.6850802538260545,
+      "realTraffic/speed_7578.csv": 0.8280571709394708,
+      "pima_real/seed0": 0.5588333333333333,
+      "pima_real/seed1": 0.5685833333333333,
+      "pima_real/seed2": 0.5218333333333334,
+      "cardio/seed0": 0.3733522022332506,
+      "cardio/seed1": 0.4080334987593052,
+      "cardio/seed2": 0.4318781017369727,
+      "breastw/seed0": 0.8499417557979456,
+      "breastw/seed1": 0.8305623212961982,
+      "breastw/seed2": 0.8590490310282749,
+      "wbc/seed0": 0.91005291005291,
+      "wbc/seed1": 0.91005291005291,
+      "wbc/seed2": 0.9470899470899471,
+      "thyroid/seed0": 0.6737181424398107,
+      "thyroid/seed1": 0.6514220476142507,
+      "thyroid/seed2": 0.6206306034048554
     }
   },
   "controller_choices": {
@@ -135,6 +156,27 @@
     "thyroid/seed0": "best_single_hist",
     "thyroid/seed1": "best_single_hist",
     "thyroid/seed2": "best_single_hist"
+  },
+  "guarded_controller_choices": {
+    "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": "uniform",
+    "realAdExchange/exchange-3_cpc_results.csv": "decorrelated",
+    "realKnownCause/rogue_agent_key_hold.csv": "uniform",
+    "realTraffic/speed_7578.csv": "uniform",
+    "pima_real/seed0": "uniform",
+    "pima_real/seed1": "uniform",
+    "pima_real/seed2": "uniform",
+    "cardio/seed0": "best_single_hist",
+    "cardio/seed1": "uniform",
+    "cardio/seed2": "uniform",
+    "breastw/seed0": "uniform",
+    "breastw/seed1": "uniform",
+    "breastw/seed2": "uniform",
+    "wbc/seed0": "uniform",
+    "wbc/seed1": "uniform",
+    "wbc/seed2": "uniform",
+    "thyroid/seed0": "uniform",
+    "thyroid/seed1": "uniform",
+    "thyroid/seed2": "uniform"
   },
   "local_signal_rank_correlation_with_best_single_advantage": {
     "probe_dispersion": -0.23333333333333334,
@@ -167,6 +209,13 @@
       "mean_delta_vs_shipped": 0.04128799066611251,
       "worst_dataset": "realTraffic/speed_7578.csv",
       "worst_delta": -0.10157465803915144,
+      "adopted": false
+    },
+    "meta_guarded": {
+      "mean_auc": 0.6900043216542291,
+      "mean_delta_vs_shipped": -0.0016735373516870069,
+      "worst_dataset": "cardio/seed0",
+      "worst_delta": -0.02936957196029777,
       "adopted": false
     }
   }

@@ -211,6 +211,93 @@
         "n_evaluations": 15
       },
       "rollback": "use_calibration=False restores the uncalibrated hub; the old leaky ordering is not kept - a certificate that is not exchangeable is not a smaller feature, it is a false claim."
+    },
+    {
+      "component": "ensembles.meta_fusion_controller.guarded",
+      "change": "Guarded Meta-Fusion Controller: per dataset it may select a non-uniform candidate only when the historical same-corpus pool itself clears the standing keep bar (pool mean delta > +0.003 and no pool dataset below -0.002); otherwise it abstains back to the shipped uniform fusion.",
+      "reason": "Priority item 3: re-evaluate the refused controller with per-dataset fallback/abstention instead of forced global selection.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_meta_fusion.py",
+        "artifact": "artifacts/meta_fusion_controller.json",
+        "guarded_mean_delta": -0.0017,
+        "guarded_worst_delta": -0.0294,
+        "fallback_rate": "17 of 19 datasets fall back to uniform",
+        "unguarded_mean_delta_for_contrast": 0.0413,
+        "n_evaluations": 19,
+        "bar": "adopt only if mean delta > +0.003 with no dataset below -0.002"
+      },
+      "why_refused": "The per-dataset guard removes the deep regressions and the gain with them: on the two datasets whose historical pool cleared the bar, the selection still regressed out-of-fold (worst -0.0294). The sharpened finding: at this pool size (3-14 same-corpus datasets), historical clearance of the keep bar does not transfer to the held-out dataset, so there is no operating point between 'forced selection that buys +0.04 mean by regressing single sets up to 0.14' and 'a guard so strict it is uniform'. Adoption requires either a far larger historical pool or a per-set reliability signal, which remains unfound.",
+      "rollback": "Nothing shipped; both controllers and their artifact remain for re-measurement when the recorded corpus grows."
+    },
+    {
+      "component": "streaming.hysteresis_default",
+      "change": "Promote the hysteresis verdict gate from opt-in to CausalMathArrest's default alarm semantics (exit_alpha=0.20 by default).",
+      "reason": "Priority item 4: the gate cut point-verdict churn 35% and raised point F1 on the NAB streams, chosen identically in every LOSO fold; promote it to default and re-measure the full NAB suite to lock the gain in.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "benchmarks/nab_streaming_benchmark.py (run_causal_math_arrest protocol with CausalMathArrest(exit_alpha=...))",
+        "artifact": "artifacts/nab_streaming.eval.json",
+        "nab_standard_score_default": 43.93,
+        "nab_standard_score_exit_alpha_0_10": 35.43,
+        "nab_standard_score_exit_alpha_0_20": 31.94,
+        "alarm_rate_on_normals_default": 0.0117,
+        "alarm_rate_on_normals_exit_alpha_0_20": 0.018,
+        "alarm_churn_default": 0.015,
+        "alarm_churn_exit_alpha_0_20": 0.0116,
+        "point_verdict_gain_for_contrast": "churn 0.0235->0.0153, F1 0.3123->0.3722 (the measurement the promotion rested on - a different protocol)"
+      },
+      "why_refused": "The gate's measured gain is on the point-verdict protocol (thresholded MercuryAnomalyDetector scores, where holding a verdict merges flip pairs and lifts recall). On the math-arrest ALARM path the same hold is a false-positive machine: the NAB standard score, which penalizes false alarms, falls 43.93 to 31.94 at exit_alpha=0.20 and the alarm rate on normal points rises 0.0117 to 0.0180, for a churn cut of only 0.0034. A smoothing policy that helps one protocol is not a default for another; it stays opt-in (exit_alpha=None default) where each path can adopt it on its own measurement.",
+      "rollback": "Nothing changed: the released single-threshold default stands; the opt-in remains measured and available."
+    },
+    {
+      "component": "decision.cross_modal_consistency",
+      "change": "Cross-modal consistency (mean rank percentile of a flagged row across the engine's detector streams) as an additional abstention/demotion factor on the served path.",
+      "reason": "Priority item 5: an internal consistency score over already-computed streams, measured on false-positive rate and coverage before fusing it into the decider.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_cross_modal_consistency.py",
+        "artifact": "artifacts/cross_modal_consistency.json",
+        "mean_agreement_false_positive": 0.9505,
+        "mean_agreement_true_positive": 0.9613,
+        "tp_agreement_higher_count": "7 of 12 comparable evaluations",
+        "bar": "adopt only if FP agreement < TP agreement - 0.05 on >= 80% of evaluations"
+      },
+      "why_refused": "Among flagged rows the streams agree almost perfectly on true and false positives alike (both means above 0.95, a 0.011 gap, direction inconsistent across evaluations): a row extreme enough to flag is extreme in nearly every stream whether it is a real anomaly or not. A demotion floor anywhere useful would defer true detections as often as false ones, raising abstention without lowering the false-positive rate. The factor stays out of the decider; the existing stream-disagreement overlays (symbolic satisfaction, GOSNN head) remain the measured cross-model challenges.",
+      "rollback": "Nothing shipped; the harness and artifact remain for re-measurement if the stream set diversifies."
+    },
+    {
+      "component": "detectors.math_arrest.promotion_bar",
+      "change": "Math Arrest stays HOLD (not a default member of the served flagship ensemble), with the exact promotion bar published.",
+      "reason": "Priority item 6: define and publish the marginal-gain threshold that would move Math Arrest to default, so no cycles are spent on it until the bar is cleared.",
+      "verdict": "hold_with_published_bar",
+      "impact": {
+        "harness": "benchmarks/competitive_regression_guard.py (8-set ADBench subset, seed 42) and benchmarks/nab_streaming_benchmark.py (committed NAB suite)",
+        "artifact": "artifacts/math_arrest_probe_correlation.json",
+        "bar": {
+          "mean_rank": "adding math_arrest to the live ensemble must improve Mercury's mean rank on the 8-set guard subset by >= 0.25 (half the guard's regression margin)",
+          "mean_auc": "or improve mean AUC by > +0.003 (the standing adoption band)",
+          "no_regression": "with no guard set regressing by more than 0.002 AUC",
+          "latency": "at <= 10% added latency on the measured flagship path (9.1 ms single-row cognitive-off baseline)",
+          "both_corpora": "and the committed NAB mean AUROC (0.7307) must not fall"
+        },
+        "current_standing": "overall mean AUC 0.7088 beside the served ensemble (that artifact)"
+      },
+      "why_refused": "Not refused - HOLD: the ensemble's measured standing (0.7088 overall on the recorded corpora) sits below the served detectors it would join, and the published bar is what changes that verdict. Any promotion PR must carry the guard runs clearing every clause.",
+      "rollback": "No change to roll back; the bar itself is versioned here and in this entry's history."
+    },
+    {
+      "component": "decision.response_plan_scoring",
+      "change": "ResponsePlan remains a deterministic, non-scored policy surface; no conformal or confidence bound is attached to recommendations.",
+      "reason": "Priority item 7: decide whether operator-facing recommendations are scored and certified, or documented as non-scored.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "none exists (that is the refusal's ground)",
+        "artifact": "src/omni_mercury_engine/decision/response.py",
+        "measurement": "There is no ground truth for recommendation correctness: no labels exist for 'the countermeasure was right', so any confidence bound attached to one would be fabricated, not fitted."
+      },
+      "why_refused": "A certificate without a labelled outcome to calibrate against is a false claim in uniform dress. The plan's trustworthy properties are the ones it has by construction - deterministic, bounded, non-destructive, reconstructable from the DecisionRecord it was derived from - and the docstring now states that scoring is deliberately absent, not forgotten. The day recommendation outcomes are recorded (a feedback loop exists in DecisionLoop/FeedbackSink), a measured calibration becomes possible and this verdict is re-openable.",
+      "rollback": "Nothing to roll back."
     }
   ]
 }
