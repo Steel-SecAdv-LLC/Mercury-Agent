@@ -22,20 +22,30 @@ trained statistical ensemble - over the real streams, with each stream's
 score distribution passed through the symbolic decision gate so the full
 neuro-symbolic path is exercised end to end.
 
-Protocol (leak-free):
+Protocol (leak-free, strictly causal):
 
 * Each point is featurized causally - value, rolling z-score, first
   difference, rolling std over a trailing window - using only past and
   present samples.
 * The detector is fitted on the stream's warmup prefix (the first 15%,
-  which precedes every labeled anomaly window in these streams) and scores
-  the whole stream.
+  which precedes every labeled anomaly window in these streams) and never
+  refitted.
+* Each post-warmup point is scored as the *last* element of its trailing
+  256-sample window, exactly as ``CausalMathArrest`` scores a stream, so no
+  future sample ever influences a score. The protocol is prefix-invariant:
+  the scores of ``F[:k]`` equal the first ``k`` scores of ``F`` to machine
+  precision (an earlier version scored the whole stream in one batch call,
+  where ``MercuryAnomalyDetector``'s centred-window / whole-batch rFFT /
+  forward-looking kinematic stages let later samples shift a point's score
+  by up to ~0.05 - that was not leak-free despite the label).
 * Per-point scores are scored against the NAB window labels by AUROC. A
   point is anomalous iff its timestamp lies in a labeled window.
 
-Recorded result (2026-10-27): per-stream AUROC 0.840 / 0.661 / 0.686 /
-0.728, mean 0.729 - real detection on real labeled streams, replacing the
-authored-scenario theater.
+Recorded result (2026-11-20, causal trailing-window protocol): per-stream
+AUROC 0.817 / 0.692 / 0.665 / 0.749, mean 0.731 - real detection on real
+labeled streams, scored with no future leakage. (The superseded whole-batch
+run read 0.839 / 0.660 / 0.686 / 0.728, mean 0.729; the honest causal
+numbers land within ~0.03 of it per stream.)
 
 Usage::
 
@@ -69,6 +79,9 @@ _DEFAULT_FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "nab"
 _FEATURE_WINDOW = 20
 #: Warmup fraction fitted on; precedes every labeled window in these streams.
 _WARMUP_FRACTION = 0.15
+#: Trailing window each point is causally scored within (matches
+#: ``CausalMathArrest`` / ``EngineStreamSession``'s default window).
+_CAUSAL_WINDOW = 256
 #: The four real streams carried in the fixture, by NAB key and relative path.
 _STREAMS: tuple[tuple[str, str], ...] = (
     ("realTraffic/speed_7578.csv", "realTraffic/speed_7578.csv.gz"),
@@ -167,20 +180,63 @@ def causal_features(
     return out
 
 
-def evaluate_stream(values: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict[str, Any]:
-    """Fit on the warmup prefix and score the whole stream by AUROC."""
+def causal_scores(
+    features: np.ndarray[Any, Any],
+    warmup: int,
+    window: int = _CAUSAL_WINDOW,
+) -> np.ndarray[Any, Any]:
+    """Strictly causal per-point anomaly scores (no future sample is read).
+
+    The detector is fitted once on ``features[:warmup]`` -- the warmup prefix
+    that precedes every labeled window -- and never refitted. Each point ``i``
+    is then scored as the *last* element of the trailing window
+    ``features[max(0, i - window + 1) : i + 1]``, exactly as
+    :class:`~omni_mercury_engine.streaming.causal_math_arrest.CausalMathArrest`
+    scores a stream. Because point ``i``'s score depends only on samples at or
+    before ``i`` (and on the fixed warmup fit), the scores of ``features[:k]``
+    equal the first ``k`` scores of ``features`` exactly for every
+    ``k >= warmup`` -- the protocol is prefix-invariant and leak-free.
+
+    Args:
+        features: The ``(n, 4)`` causal feature matrix.
+        warmup: Number of leading rows the detector is fitted on.
+        window: Trailing window length each point is scored within.
+
+    Returns:
+        ``(n,)`` per-point scores in ``[0, 1]``.
+    """
+    detector = MercuryAnomalyDetector()
+    detector.fit(features[:warmup])
+    n = len(features)
+    scores = np.empty(n, dtype=np.float64)
+    for i in range(n):
+        lo = max(0, i - window + 1)
+        point = np.asarray(detector.detect(features[lo : i + 1])["scores"], dtype=np.float64)
+        scores[i] = float(point[-1])
+    return scores
+
+
+def evaluate_stream(
+    values: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
+    window: int = _CAUSAL_WINDOW,
+) -> dict[str, Any]:
+    """Fit on the warmup prefix, score each point causally, and report AUROC.
+
+    Each post-warmup point is scored from its trailing ``window`` samples only
+    (see :func:`causal_scores`), so no future value ever influences a score.
+    """
     features = causal_features(values)
     warmup = int(_WARMUP_FRACTION * len(features))
     if warmup < 20 or labels[:warmup].any():
         raise ValueError("warmup prefix is too short or already contains a labeled anomaly")
-    detector = MercuryAnomalyDetector()
-    detector.fit(features[:warmup])
-    scores = np.asarray(detector.detect(features)["scores"], dtype=np.float64)
+    scores = causal_scores(features, warmup, window)
     scored = np.arange(len(features)) >= warmup  # exclude the fitted prefix
     return {
         "n_points": len(values),
         "n_anomalous": int(labels.sum()),
         "warmup": warmup,
+        "window": window,
         "auroc": auroc(labels[scored], scores[scored]),
     }
 
@@ -289,8 +345,14 @@ def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
         "protocol": {
             "feature_window": _FEATURE_WINDOW,
             "warmup_fraction": _WARMUP_FRACTION,
+            "causal_window": _CAUSAL_WINDOW,
             "features": ["value", "rolling_zscore", "first_difference", "rolling_std"],
-            "leak_free": "causal features; fitted on warmup prefix preceding all labeled windows",
+            "leak_free": (
+                "causal features; fitted on the warmup prefix preceding all "
+                "labeled windows; each point scored from its trailing "
+                f"{_CAUSAL_WINDOW}-sample window only, so no future sample "
+                "influences any score (prefix-invariant)"
+            ),
         },
         "per_stream": per_stream,
         "mean_auroc": mean_auroc,

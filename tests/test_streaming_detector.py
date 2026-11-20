@@ -88,10 +88,13 @@ class TestIngestSinglePoints:
         result = None
         for i in range(5):
             result = sd.ingest(float(i))
-        # After exactly min_samples, the detector may or may not have
-        # produced a result depending on refit timing; just verify no crash.
-        # The 5th point triggers refit, so result should not be None.
-        assert result is None or isinstance(result, dict)
+        # The reference is fitted on the points seen BEFORE the one being
+        # scored, so min_samples points are warm-up and the next one is scored.
+        assert result is None
+        assert sd.last_status == "warmup"
+        result = sd.ingest(5.0)
+        assert isinstance(result, dict)
+        assert sd.last_status == "ok"
 
     def test_ingest_list(self) -> None:
         """Ingesting a Python list (multi-feature) should work."""
@@ -99,14 +102,14 @@ class TestIngestSinglePoints:
         for i in range(6):
             result = sd.ingest([float(i), float(i) * 2])
         # After min_samples, should get a result
-        assert result is None or isinstance(result, dict)
+        assert isinstance(result, dict)
 
     def test_ingest_numpy_array(self) -> None:
         """Ingesting a numpy array should work."""
         sd = StreamingDetector(min_samples=5, refit_interval=5)
         for i in range(6):
             result = sd.ingest(np.array([float(i)]))
-        assert result is None or isinstance(result, dict)
+        assert isinstance(result, dict)
 
     def test_total_points_increments(self) -> None:
         """_total_points should increment with each ingest call."""
@@ -154,34 +157,34 @@ class TestDetectionResults:
     def test_result_is_dict(self, detector: Any) -> None:
         """After min_samples, ingest should return a dict."""
         result = detector.ingest(np.random.randn(3).tolist())
-        assert result is None or isinstance(result, dict)
+        assert isinstance(result, dict)
 
     def test_result_has_scores(self, detector: Any) -> None:
         """Result dict should contain 'scores' key."""
         result = detector.ingest(np.random.randn(3).tolist())
-        if result is not None:
-            assert "scores" in result
+        assert result is not None
+        assert "scores" in result
 
     def test_result_has_is_anomaly(self, detector: Any) -> None:
         """Result dict should contain 'is_anomaly' key."""
         result = detector.ingest(np.random.randn(3).tolist())
-        if result is not None:
-            assert "is_anomaly" in result
+        assert result is not None
+        assert "is_anomaly" in result
 
     def test_result_has_streaming_metadata(self, detector: Any) -> None:
         """Result dict should contain 'streaming_metadata' key."""
         result = detector.ingest(np.random.randn(3).tolist())
-        if result is not None:
-            assert "streaming_metadata" in result
+        assert result is not None
+        assert "streaming_metadata" in result
 
     def test_streaming_metadata_fields(self, detector: Any) -> None:
         """streaming_metadata should have total_points, window_size, latency."""
         result = detector.ingest(np.random.randn(3).tolist())
-        if result is not None:
-            meta = result["streaming_metadata"]
-            assert "total_points_ingested" in meta
-            assert "window_size" in meta
-            assert "latency_ms" in meta
+        assert result is not None
+        meta = result["streaming_metadata"]
+        assert "total_points_ingested" in meta
+        assert "window_size" in meta
+        assert "latency_ms" in meta
 
     def test_is_ready_after_min_samples(self, detector: Any) -> None:
         """After enough points, is_ready should be True."""
@@ -237,7 +240,7 @@ class TestBatchIngestion:
         sd = StreamingDetector(min_samples=20, refit_interval=20)
         batch = np.random.randn(30, 3)
         result = sd.ingest_batch(batch)
-        assert result is None or isinstance(result, dict)
+        assert isinstance(result, dict)
 
     def test_batch_updates_total_points(self) -> None:
         """Batch ingest should update _total_points correctly."""
@@ -265,10 +268,10 @@ class TestBatchIngestion:
         sd = StreamingDetector(min_samples=10, refit_interval=10)
         batch = np.random.randn(20, 2)
         result = sd.ingest_batch(batch)
-        if result is not None:
-            meta = result["streaming_metadata"]
-            assert "batch_size" in meta
-            assert meta["batch_size"] == 20
+        assert result is not None
+        meta = result["streaming_metadata"]
+        assert "batch_size" in meta
+        assert meta["batch_size"] == 20
 
     def test_batch_accepts_list_of_lists(self) -> None:
         """ingest_batch should accept a list of lists."""

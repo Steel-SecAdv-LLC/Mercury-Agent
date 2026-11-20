@@ -162,3 +162,98 @@ def test_detect_emits_no_numerical_warning() -> None:
         result = det.detect(_signals(n=1, seed=4)[0])
 
     assert np.isfinite(float(result["anomaly_score"]))
+
+
+def _parseval_signal(kind: str) -> np.ndarray:
+    rng = np.random.default_rng(1)
+    t = np.arange(1000.0)
+    return {
+        "white": rng.standard_normal(1000),
+        "sine": np.sin(2.0 * np.pi * 7.0 * t / 256.0),
+        "large_mean": 70.0 + rng.standard_normal(1000),
+        "random_walk": np.cumsum(rng.standard_normal(1000)),
+        "alternating": np.where(t % 2 == 0, 1.0, -1.0),
+        "odd_length": 5.0 + rng.standard_normal(999),
+        "shorter_than_window": rng.standard_normal(101),
+    }[kind]
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "white",
+        "sine",
+        "large_mean",
+        "random_walk",
+        "alternating",
+        "odd_length",
+        "shorter_than_window",
+    ],
+)
+def test_parseval_identity_is_exact_for_any_signal(kind: str) -> None:
+    """The windowed DFT's energy equals the windowed frames' energy, exactly.
+
+    The check used to compare ``|X|/N`` squared sums against raw time energy
+    with no correction (ratio ~0.19 for every input, so it could never pass). A
+    flat one-sided x2 then double-counted the DC bin (ratio up to 1.7 on a
+    signal with a mean), and comparing against the WHOLE signal's mean square
+    read 1.3 on a random walk. Per frame, with DC once, interior bins twice and
+    the Nyquist bin restored, Parseval is an identity for every one of these.
+    """
+    signal = _parseval_signal(kind)
+    oracle = SpectralDomainFrequency({"domain": "medical", "sample_rate": 256.0})
+    freq_matrix, _ = oracle._compute_frequency_matrix(signal)
+    ratio = oracle._parseval_energy_ratio(signal, freq_matrix)
+    assert abs(ratio - 1.0) < 1e-9, f"{kind}: Parseval energy ratio {ratio!r} is not 1.0"
+    assert oracle._validate_parseval_energy(signal, freq_matrix) is True
+
+
+@pytest.mark.parametrize("factor", [2.0, 0.5, 0.19**0.5])
+def test_parseval_check_catches_a_mis_scaled_transform(factor: float) -> None:
+    """A wrongly scaled magnitude matrix fails the self-check (and only that does)."""
+    signal = _parseval_signal("white")
+    oracle = SpectralDomainFrequency({"domain": "medical", "sample_rate": 256.0})
+    freq_matrix, _ = oracle._compute_frequency_matrix(signal)
+    assert oracle._validate_parseval_energy(signal, freq_matrix * factor) is False
+
+
+def test_parseval_check_rejects_a_matrix_from_another_signal() -> None:
+    """A frame-count mismatch is reported as a failure, not silently passed."""
+    oracle = SpectralDomainFrequency({"domain": "medical", "sample_rate": 256.0})
+    long_matrix, _ = oracle._compute_frequency_matrix(_parseval_signal("white"))
+    assert (
+        oracle._validate_parseval_energy(_parseval_signal("shorter_than_window"), long_matrix)
+        is False
+    )
+
+
+def test_frequency_matrix_covers_the_newest_samples() -> None:
+    """Framing must reach the signal tail, not drop the newest win_len/2-1.
+
+    With ``while start + win_len <= n`` and a half-window hop, a spike in the
+    final samples fell outside every frame and never reached the spectrum.
+    """
+    oracle = SpectralDomainFrequency({"domain": "medical", "sample_rate": 64.0, "inner_window": 16})
+    # n=23, win_len=16, hop=8: the old stride emits a single frame [0:16], so
+    # indices 16..22 are dropped. Put all the energy there (interior to the
+    # added tail frame [7:23], away from the Hann-zeroed endpoints).
+    signal = np.zeros(23, dtype=np.float64)
+    signal[16:22] = [5.0, -5.0, 5.0, -5.0, 5.0, -5.0]
+    freq_matrix, _ = oracle._compute_frequency_matrix(signal)
+    assert (
+        float(np.sum(np.abs(freq_matrix))) > 0.01
+    ), "the newest samples did not reach the spectrum; the tail frame is missing"
+
+
+def test_fisher_aggregate_p_survives_underflow() -> None:
+    """``chi2.sf`` keeps a tiny positive p where ``1 - chi2.cdf`` underflows to 0."""
+    from scipy.stats import chi2
+
+    p_values = [1e-4] * 8
+    log_p_sum = -2.0 * float(np.sum(np.log(np.clip(p_values, 1e-300, 1.0))))
+    dof = 2 * len(p_values)
+    # The old inline expression underflows to exactly zero...
+    assert (1.0 - chi2.cdf(log_p_sum, dof)) == 0.0
+    # ...the survival function keeps the tiny positive tail.
+    agg = SpectralDomainFrequency._fisher_aggregate_p(p_values)
+    assert 0.0 < agg < 1e-12, f"aggregate p should be tiny-positive, got {agg}"

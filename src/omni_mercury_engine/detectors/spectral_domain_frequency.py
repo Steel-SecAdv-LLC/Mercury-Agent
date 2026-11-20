@@ -67,6 +67,11 @@ logger = logging.getLogger(__name__)
 
 PHI = MATH.GOLDEN_RATIO  # 1.618033988749895
 EPSILON = MATH.EPSILON  # 1e-8
+
+#: Relative tolerance of the Parseval self-check. The check is an exact
+#: identity (see ``_parseval_energy_ratio``), so this only absorbs
+#: floating-point rounding.
+_PARSEVAL_TOLERANCE: float = 1e-6
 DEFAULT_ALPHA = 0.05
 
 # =============================================================================
@@ -246,7 +251,7 @@ class FrequencyInfluenceVector:
         band_scores: Per-band anomaly scores keyed by label.
         aggregate_score: Weighted aggregate anomaly score [0, 1].
         aggregate_p_value: Fisher combined p-value across bands.
-        spectral_entropy: Shannon entropy of the power spectrum.
+        spectral_entropy: Shannon entropy of the magnitude spectrum.
         dominant_frequency: Frequency with highest power (Hz).
         spectral_centroid: Centre of mass of the spectrum (Hz).
         change_point_detected: True when binary segmentation found a CP.
@@ -468,9 +473,14 @@ class SpectralDomainFrequency(BaseDetector):
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Compute windowed DFT with Hann window and 50 % overlap.
 
-        Returns a ``[n_windows, n_freq_bins]`` power matrix and the
-        corresponding frequency axis.  Each window's energy is
-        normalised by window length for comparability.
+        Returns a ``[n_windows, n_freq_bins]`` magnitude matrix (each entry is
+        ``|X[k]| / win_len``, not a squared power) and the corresponding
+        frequency axis.
+
+        The frame starts are ``0, hop, 2*hop, ...`` while a full window fits,
+        plus a final frame ending exactly at ``n`` whenever the regular stride
+        would otherwise drop the newest ``win_len/2 - 1`` samples -- so the tail
+        of the signal always reaches the spectrum.
 
         Args:
             signal: 1-D time-domain signal.
@@ -481,36 +491,29 @@ class SpectralDomainFrequency(BaseDetector):
         """
         n = len(signal)
         win_len = min(self._oracle_config.inner_window, n)
-        hop = max(win_len // 2, 1)
-
+        if win_len < 1:
+            # Empty signal: nothing to transform.
+            return np.zeros((0, 0)), np.zeros(0)
         hann = np.hanning(win_len)
 
         # Pre-compute frequency axis ONCE (invariant across windows)
         freqs_full = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
         pos_mask = freqs_full >= 0
 
+        # Frame starts on the regular stride; ``win_len == n`` yields the single
+        # frame that covers the whole (short) signal, so no separate
+        # short-signal branch is needed.
+        starts = self._frame_starts(n, win_len)
+
         windows: list[np.ndarray[Any, Any]] = []
-        start = 0
-        while start + win_len <= n:
+        for start in starts:
             segment = signal[start : start + win_len] * hann
             spectrum = fft(segment)
             magnitude = np.abs(spectrum[pos_mask]) / win_len
             windows.append(magnitude)
-            start += hop
-
-        # Handle edge case: signal shorter than window
-        if not windows:
-            segment = signal * np.hanning(n)
-            spectrum = fft(segment)
-            freqs_full = fftfreq(n, d=1.0 / self._oracle_config.sample_rate)
-            pos_mask = freqs_full >= 0
-            magnitude = np.abs(spectrum[pos_mask]) / n
-            windows.append(magnitude)
-            win_len = n
 
         freq_matrix = np.array(windows)
-        freqs = fftfreq(win_len, d=1.0 / self._oracle_config.sample_rate)
-        freqs = freqs[freqs >= 0]
+        freqs = freqs_full[pos_mask]
 
         return freq_matrix, freqs
 
@@ -518,42 +521,133 @@ class SpectralDomainFrequency(BaseDetector):
     # Parseval validation
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _frame_starts(n: int, win_len: int) -> list[int]:
+        """Start index of every analysis frame for an ``n``-sample signal.
+
+        Regular 50 %-overlap stride while a full window fits. When that stride
+        stops short of the signal end, the newest ``win_len/2 - 1`` samples
+        would never reach a frame, so a final full-length frame ends exactly at
+        ``n``: the last frame is repositioned there when the one before it
+        still abuts (no gap, and the frame count is unchanged, so per-frame
+        statistics are not handed an extra boundary frame); otherwise it is
+        appended.
+        """
+        hop = max(win_len // 2, 1)
+        starts = list(range(0, n - win_len + 1, hop))
+        if starts[-1] + win_len < n:
+            tail_start = n - win_len
+            if len(starts) >= 2 and starts[-2] + win_len >= tail_start:
+                starts[-1] = tail_start
+            else:
+                starts.append(tail_start)
+        return starts
+
+    def _parseval_energy_ratio(
+        self,
+        signal: np.ndarray[Any, Any],
+        freq_matrix: np.ndarray[Any, Any],
+    ) -> float:
+        """Frequency-to-time energy ratio of the windowed DFT: exactly 1.0 when scaled right.
+
+        Parseval's theorem holds per frame, for the WINDOWED segment
+        ``s = x * w``: ``sum(s**2) / N == sum_k (|S[k]| / N)**2`` over all ``N``
+        two-sided bins. ``freq_matrix`` stores ``|S[k]| / N`` for the
+        non-negative frequencies only, so the two-sided sum is rebuilt as: the
+        DC bin once, every interior bin twice (its mirror image), and -- for an
+        even ``N``, where ``fftfreq`` files the Nyquist bin under the negative
+        frequencies and the matrix therefore omits it -- the Nyquist bin once,
+        computed directly as the alternating sum of ``s``.
+
+        Both sides are taken over the same frames, so the ratio is an identity
+        for any signal (stationary or not, any mean): it departs from 1.0 only
+        if the transform is mis-scaled. Comparing against the whole signal's
+        mean square instead -- as an earlier version did -- is not an identity
+        and read 1.3 on a random walk.
+
+        Args:
+            signal: Original time-domain signal.
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix from
+                :meth:`_compute_frequency_matrix` (the FFT is not recomputed).
+
+        Returns:
+            The frequency/time energy ratio; ``1.0`` when there is no energy to
+            compare, ``nan`` when ``freq_matrix`` was not built from ``signal``.
+        """
+        n = len(signal)
+        win_len = min(self._oracle_config.inner_window, n)
+        if n == 0 or win_len < 1 or freq_matrix.size == 0:
+            return 1.0
+        starts = self._frame_starts(n, win_len)
+        if len(starts) != freq_matrix.shape[0]:
+            return float("nan")
+        hann = np.hanning(win_len)
+        frames = np.stack([signal[start : start + win_len] for start in starts]) * hann
+        time_energy = float(np.sum(frames**2)) / win_len
+        if time_energy < EPSILON:
+            return 1.0  # Near-zero signal -- nothing to validate
+        squared = freq_matrix**2
+        freq_energy = float(np.sum(squared[:, 0]) + 2.0 * np.sum(squared[:, 1:]))
+        if win_len % 2 == 0:
+            alternating = np.where(np.arange(win_len) % 2 == 0, 1.0, -1.0)
+            nyquist = (frames @ alternating) / win_len
+            freq_energy += float(np.sum(nyquist**2))
+        return freq_energy / time_energy
+
     def _validate_parseval_energy(
         self,
         signal: np.ndarray[Any, Any],
         freq_matrix: np.ndarray[Any, Any],
     ) -> bool:
-        """Validate Parseval's theorem using the already-computed freq_matrix.
+        """Self-check that the windowed DFT is correctly scaled.
 
-        Does **not** recompute the FFT.  Compares time-domain energy
-        against the mean per-window frequency-domain energy.
+        Uses the already-computed ``freq_matrix`` (no second FFT). Because
+        :meth:`_parseval_energy_ratio` is an exact identity, a failure means the
+        transform's scaling is wrong, never that the data is unusual; it is
+        logged at WARNING.
 
         Args:
             signal: Original time-domain signal.
-            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix from
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix from
                 ``_compute_frequency_matrix``.
 
         Returns:
-            ``True`` if the check passes within tolerance.
+            ``True`` if the energy ratio equals 1.0 to numerical tolerance.
         """
-        time_energy = float(np.sum(signal**2)) / len(signal)
-        # Mean per-window frequency energy (already normalised by win_len)
-        freq_energy = float(np.mean(np.sum(freq_matrix**2, axis=1)))
-
-        if time_energy < EPSILON:
-            return True  # Near-zero signal — nothing to validate
-
-        ratio = abs(freq_energy - time_energy) / (time_energy + EPSILON)
-        passes = ratio < 0.5  # Generous tolerance for windowed DFT
+        ratio = self._parseval_energy_ratio(signal, freq_matrix)
+        passes = bool(np.isfinite(ratio) and abs(ratio - 1.0) < _PARSEVAL_TOLERANCE)
 
         if not passes:
-            logger.debug(
-                "Parseval validation: time=%.6f freq=%.6f ratio=%.4f",
-                time_energy,
-                freq_energy,
+            logger.warning(
+                "Parseval identity violated: freq/time energy ratio=%.6f (must be 1.0); "
+                "the windowed DFT is mis-scaled.",
                 ratio,
             )
         return passes
+
+    @staticmethod
+    def _fisher_aggregate_p(p_values: list[float]) -> float:
+        """Fisher-combined aggregate p-value across the per-band p-values.
+
+        Uses the chi-square **survival function** (``chi2.sf``), not
+        ``1 - chi2.cdf``: for a strongly significant combined statistic the CDF
+        rounds to exactly 1.0, so ``1 - cdf`` underflows to 0.0 and discards the
+        magnitude of the evidence, whereas ``sf`` keeps the tiny positive tail.
+
+        Args:
+            p_values: Per-band p-values.
+
+        Returns:
+            The combined p-value in ``[0, 1]``; ``1.0`` when there are no bands.
+        """
+        if not p_values:
+            return 1.0
+        from scipy.stats import chi2
+
+        p_clipped = np.clip(p_values, 1e-300, 1.0)
+        log_p_sum = -2.0 * float(np.sum(np.log(p_clipped)))
+        dof = 2 * len(p_values)
+        return float(chi2.sf(log_p_sum, dof))
 
     # ------------------------------------------------------------------
     # Band power extraction
@@ -571,7 +665,7 @@ class SpectralDomainFrequency(BaseDetector):
         change-point detection.
 
         Args:
-            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix.
             freqs: Positive frequency axis.
 
         Returns:
@@ -594,10 +688,10 @@ class SpectralDomainFrequency(BaseDetector):
         self,
         freq_matrix: np.ndarray[Any, Any],
     ) -> float:
-        """Shannon entropy of the mean power spectrum.
+        """Shannon entropy of the mean magnitude spectrum.
 
         Args:
-            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix.
 
         Returns:
             Spectral entropy (nats).
@@ -613,10 +707,10 @@ class SpectralDomainFrequency(BaseDetector):
         freq_matrix: np.ndarray[Any, Any],
         freqs: np.ndarray[Any, Any],
     ) -> float:
-        """Centre of mass of the mean power spectrum in Hz.
+        """Centre of mass of the mean magnitude spectrum in Hz.
 
         Args:
-            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix.
             freqs: Positive frequency axis.
 
         Returns:
@@ -637,13 +731,13 @@ class SpectralDomainFrequency(BaseDetector):
         """Compute spectral flux: rate of spectral change across frames.
 
         Spectral flux measures the L2 norm of the frame-to-frame difference
-        in the power spectrum, normalised by the number of frames.  High
+        in the magnitude spectrum, normalised by the number of frames.  High
         flux indicates rapid spectral evolution — a frequency-domain analog
         of acceleration that is useful for detecting slow-onset anomalies
         (e.g., gradual infrastructure degradation, creeping sensor drift).
 
         Args:
-            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix.
 
         Returns:
             Mean spectral flux (non-negative).
@@ -801,7 +895,7 @@ class SpectralDomainFrequency(BaseDetector):
         detection, and structural mode identification.
 
         Args:
-            freq_matrix: ``[n_windows, n_freq_bins]`` power matrix.
+            freq_matrix: ``[n_windows, n_freq_bins]`` magnitude matrix.
 
         Returns:
             Cepstral peak ratio (>= 1.0; higher = more harmonic).
@@ -1648,8 +1742,9 @@ class SpectralDomainFrequency(BaseDetector):
         mean_spectrum = np.mean(freq_matrix, axis=0)
         self._current_beta, _, _ = self._estimate_noise_color(mean_spectrum, freqs)
 
-        # Stage 2: Parseval validation (uses existing freq_matrix)
-        self._validate_parseval_energy(signal, freq_matrix)
+        # Stage 2: Parseval validation (uses existing freq_matrix); the result
+        # is consumed -- a failure logs a warning inside the validator.
+        parseval_ok = self._validate_parseval_energy(signal, freq_matrix)
 
         # Stage 3: Per-band extraction and scoring
         band_powers = self._extract_band_powers(freq_matrix, freqs)
@@ -1684,12 +1779,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         # Fisher's method for aggregate p-value
         p_values = [br.p_value for br in band_results]
-        p_clipped = np.clip(p_values, 1e-300, 1.0)
-        log_p_sum = -2.0 * np.sum(np.log(p_clipped))
-        dof = 2 * len(p_values)
-        from scipy.stats import chi2
-
-        aggregate_p = float(1.0 - chi2.cdf(log_p_sum, dof))
+        aggregate_p = self._fisher_aggregate_p(p_values)
 
         # Change-point detected if any band is significant
         change_point_detected = any(br.is_significant for br in band_results)
@@ -1741,6 +1831,7 @@ class SpectralDomainFrequency(BaseDetector):
             "influence_vector": iv,
             "band_results": band_results,
             "detector_type": "spectral_domain_frequency",
+            "parseval_energy_ok": parseval_ok,
             "noise_color": {
                 "beta": self._noise_beta,
                 "name": self._noise_color,

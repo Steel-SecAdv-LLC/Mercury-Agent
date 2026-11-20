@@ -82,3 +82,33 @@ class TestSignal:
         scores = np.asarray(det.detect(test)["scores"])
         # ~2% budget; allow generous headroom for finite-sample variation.
         assert (scores > 0.5).mean() < 0.08
+
+    def test_spike_at_latest_index_scores_as_high_as_mid_series(self) -> None:
+        """The newest sample (index -1) -- the one streaming reports -- must
+        not be suppressed relative to the same spike mid-series.
+
+        With a centred local baseline, ~half the local window around the final
+        index is the point's own saliency, halving its deviation. A trailing
+        baseline (SR paper) compares each point only against its history, so a
+        spike at the final index scores on par with one mid-series.
+        """
+        rng = np.random.default_rng(7)
+        base = rng.normal(0.0, 1.0, 600)
+        det = SpectralResidualDetector().fit(rng.normal(size=800))
+
+        mid = base.copy()
+        mid[300] += 8.0
+        score_mid = float(np.asarray(det.detect(mid)["scores"])[300])
+
+        end = base.copy()
+        end[-1] += 8.0
+        score_end = float(np.asarray(det.detect(end)["scores"])[-1])
+
+        assert score_mid > 0.5, f"mid-series spike should score high: {score_mid:.3f}"
+        # Fails today: the centred baseline puts ~half the point's own saliency
+        # in its baseline at the final index, so the newest spike scores far
+        # below the mid-series one and may not even cross the 0.5 boundary.
+        assert score_end > 0.5, f"final-index spike not flagged: {score_end:.3f}"
+        assert (
+            score_end >= 0.9 * score_mid
+        ), f"final-index spike suppressed: end={score_end:.3f} vs mid={score_mid:.3f}"

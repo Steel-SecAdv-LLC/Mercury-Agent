@@ -135,16 +135,32 @@ def _make_image_like_dataset(
     n_samples: int = 400,
     seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """High-dimensional data resembling flattened images."""
+    """Flattened 16x16 images: smooth 2-D fields, anomalies carry a bright patch.
+
+    Random noise with ``3 * sqrt(n_samples)`` features (what this fixture used
+    to build) is not image-like in any sense a detector can measure; a raster
+    whose neighbouring pixels move together is.
+    """
     rng = np.random.RandomState(seed)
-    n_features = int(np.sqrt(n_samples)) * 3  # Roughly sqrt(n_samples) range
+    side = 16
     n_anomalies = int(n_samples * 0.1)
     n_normal = n_samples - n_anomalies
+    yy, xx = np.mgrid[0:side, 0:side] / side
 
-    X_normal = rng.randn(n_normal, n_features) * 0.5
-    X_anomaly = rng.randn(n_anomalies, n_features) * 0.5 + 3.0
+    def _field() -> np.ndarray:
+        a, b, c = rng.randn(3)
+        base = a * np.sin(2 * np.pi * xx) + b * np.cos(2 * np.pi * yy) + c * xx * yy
+        return np.asarray(base + 0.05 * rng.randn(side, side))
 
-    X = np.vstack([X_normal, X_anomaly])
+    normal = [_field() for _ in range(n_normal)]
+    anomalous = []
+    for _ in range(n_anomalies):
+        image = _field()
+        r, c = rng.randint(0, side - 4, size=2)
+        image[r : r + 4, c : c + 4] += 6.0
+        anomalous.append(image)
+
+    X = np.asarray(normal + anomalous).reshape(n_samples, side * side)
     y = np.concatenate([np.zeros(n_normal), np.ones(n_anomalies)]).astype(np.int32)
 
     idx = rng.permutation(len(X))
@@ -187,10 +203,7 @@ class TestDataTypeDetection:
         X, _ = _make_image_like_dataset(n_samples=400)
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result in (
-            DataCharacteristics.IMAGE,
-            DataCharacteristics.TABULAR,
-        ), f"Expected IMAGE or TABULAR, got {result.value}"
+        assert result is DataCharacteristics.IMAGE, f"Expected IMAGE, got {result.value}"
 
     def test_small_data_returns_unknown(self) -> None:
         X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
@@ -941,8 +954,11 @@ class TestFrequencyDomainOracleParseval:
         oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
         signal = rng.standard_normal(512)
         freq_matrix, _freqs = oracle._compute_frequency_matrix(signal)
-        result = oracle._validate_parseval_energy(signal, freq_matrix)
-        assert result is True or result is False  # Returns bool
+        # Parseval is an exact per-frame identity for the windowed DFT (the
+        # uncorrected check sat near 0.19 and could never pass).
+        ratio = oracle._parseval_energy_ratio(signal, freq_matrix)
+        assert abs(ratio - 1.0) < 1e-9, f"Parseval energy ratio {ratio!r} is not 1.0"
+        assert oracle._validate_parseval_energy(signal, freq_matrix) is True
 
 
 class TestFrequencyDomainOracleConfig:

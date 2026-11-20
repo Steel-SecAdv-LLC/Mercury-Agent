@@ -49,8 +49,10 @@ class SpectralResidualDetector(BaseDetector):
     """Streaming saliency detector built on the Spectral-Residual transform.
 
     The detector flattens its input to a 1-D series, computes the SR saliency
-    map, and scores each point by the local saliency z-score. ``fit`` records a
-    robust (median-absolute-deviation) saliency scale on training data so that
+    map, and scores each point by its saliency relative to a trailing local
+    baseline (the SR paper's ``(S - S_bar) / S_bar`` over the preceding points).
+    ``fit`` records a robust (median-absolute-deviation) saliency scale on
+    training data so that
     :meth:`detect` can squash raw saliency into a monotone ``[0, 1]`` anomaly
     score via ``1 - exp(-s / scale)``. No model weights are learned, matching
     the training-free nature of the transform.
@@ -59,7 +61,8 @@ class SpectralResidualDetector(BaseDetector):
     decision_source = DecisionSource(
         kind="published",
         description=(
-            "Scores are Spectral-Residual saliency local z-scores squashed by "
+            "Scores are Spectral-Residual saliency deviations relative to a "
+            "trailing local baseline, (S - S_bar) / S_bar, squashed by "
             "1 - exp(-s / scale), the scale anchored so the configured training "
             "calibration quantile (default 0.98) lands at 0.5; the decision "
             "threshold is the configured operating point, default 0.5 on the "
@@ -145,6 +148,30 @@ class SpectralResidualDetector(BaseDetector):
         smoothed = np.convolve(padded, kernel, mode="same")
         return smoothed[pad : pad + values.size]
 
+    @staticmethod
+    def _trailing_average(values: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
+        """Trailing average of the ``window`` samples preceding each index.
+
+        Causal: the baseline for index ``i`` is the mean of
+        ``values[i - window : i]`` -- the points strictly *before* ``i`` -- so
+        the sample being scored never enters its own baseline. This is the SR
+        paper's local average of the preceding ``z`` points, and it keeps the
+        newest (streaming) sample's deviation from being halved by a centred
+        window straddling it. Index 0 has no history, so its baseline is its
+        own value, yielding a zero deviation there.
+        """
+        n = values.size
+        if window <= 0 or n == 0:
+            return values.astype(np.float64, copy=True)
+        window = min(window, n)
+        prefix = np.concatenate(([0.0], np.cumsum(values, dtype=np.float64)))
+        idx = np.arange(n)
+        lo = np.maximum(0, idx - window)
+        counts = idx - lo
+        sums = prefix[idx] - prefix[lo]
+        safe_counts = np.where(counts > 0, counts, 1)
+        return np.where(counts > 0, sums / safe_counts, values.astype(np.float64))
+
     def _extend_series(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Extrapolate one point so the newest sample sits inside the window.
 
@@ -184,10 +211,21 @@ class SpectralResidualDetector(BaseDetector):
         """Per-point local saliency magnitude (pre-squash), length ``n``."""
         series = self._to_1d_f64(data)
         saliency = self._saliency_map(series)
-        local = self._moving_average(saliency, self.window_local)
-        # Local deviation above the smoothed saliency baseline is the anomaly
-        # signal; relative form keeps it scale-invariant across series.
-        deviation = saliency - local
+        local = self._trailing_average(saliency, self.window_local)
+        # SR paper relative score O(x) = (S - S_bar) / S_bar, with S_bar the
+        # trailing local average of the points *preceding* x. The relative
+        # (not absolute) form keeps it scale-invariant across series, and the
+        # trailing (not centred) baseline keeps the newest sample -- the one
+        # streaming reports -- out of its own baseline so its spike is not
+        # suppressed. ``eps`` floors the denominator at the series' typical
+        # (median) saliency rather than a bare 1e-8: at the first few indices
+        # the trailing baseline rests on only one or two samples and can be
+        # near zero, which a tiny floor would turn into a spurious early-index
+        # spike; a scale-aware floor keeps those O(1) while a genuine spike,
+        # whose numerator is large, still scores far above background.
+        median_saliency = float(np.median(saliency)) if saliency.size else 0.0
+        eps = median_saliency if median_saliency > 1e-8 else 1e-8
+        deviation = (saliency - local) / (local + eps)
         return np.maximum(deviation, 0.0)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> SpectralResidualDetector:
@@ -207,7 +245,7 @@ class SpectralResidualDetector(BaseDetector):
         return self
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
-        """Per-sample fusion feature: the raw local saliency deviation.
+        """Per-sample fusion feature: the relative trailing-baseline saliency deviation.
 
         Args:
             data: Input series (flattened to 1-D).
