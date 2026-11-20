@@ -1,25 +1,79 @@
 {
   "metadata": {
-    "purpose": "Deterministic regression guard for the fusion AUC/F1 + conformal coverage floor on a fixed seeded synthetic corpus. Offline / network-free; the real-data fusion numbers live in benchmarks/fusion_capacity/sweep_real_v5.json.",
+    "purpose": "Regression guard for the fusion AUC/F1 + conformal coverage floor on a fixed seeded synthetic corpus: the median over seeded fits at one torch thread. Offline / network-free; the real-data fusion numbers live in benchmarks/fusion_capacity/sweep_real_v5.json.",
     "seed": 20260526,
+    "fit_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "torch_threads": 1,
     "epochs": 8,
     "symbolic_weight": 0.0,
     "n_train": 1002,
     "n_cal": 334,
     "n_test": 334,
-    "commit": "0793e74f4309103c49ed6e3c061d2594d92e6bf7",
-    "python": "3.11.15",
+    "commit": "ec32d5330c0a0f8c5d1e654f63555386bfb31873",
+    "python": "3.13.18",
     "margins": {
-      "auc": 0.05,
+      "auc": 0.04,
       "f1": 0.07,
       "coverage": 0.05
     }
   },
-  "auc": 1.0,
+  "auc": 0.996764705882353,
   "f1": 0.9850746268656716,
   "conformal": {
     "target_coverage": 0.9,
-    "empirical_coverage": 0.9520958083832335,
-    "average_set_size": 0.9520958083832335
-  }
+    "empirical_coverage": 0.9221556886227545,
+    "average_set_size": 0.9221556886227545
+  },
+  "realizations": [
+    {
+      "fit_seed": 0,
+      "auc": 0.9875490196078431,
+      "f1": 0.8684210526315789,
+      "empirical_coverage": 0.907185628742515
+    },
+    {
+      "fit_seed": 1,
+      "auc": 0.987843137254902,
+      "f1": 0.8354430379746834,
+      "empirical_coverage": 0.9281437125748503
+    },
+    {
+      "fit_seed": 2,
+      "auc": 0.996764705882353,
+      "f1": 0.9850746268656716,
+      "empirical_coverage": 0.9101796407185628
+    },
+    {
+      "fit_seed": 3,
+      "auc": 0.9931372549019608,
+      "f1": 0.9705882352941176,
+      "empirical_coverage": 0.937125748502994
+    },
+    {
+      "fit_seed": 4,
+      "auc": 0.9999019607843138,
+      "f1": 0.9850746268656716,
+      "empirical_coverage": 0.9520958083832335
+    },
+    {
+      "fit_seed": 5,
+      "auc": 0.9995098039215686,
+      "f1": 0.9850746268656716,
+      "empirical_coverage": 0.9221556886227545
+    },
+    {
+      "fit_seed": 6,
+      "auc": 1.0,
+      "f1": 1.0,
+      "empirical_coverage": 0.8982035928143712
+    }
+  ]
 }
