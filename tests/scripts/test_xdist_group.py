@@ -53,6 +53,7 @@ XDIST_GROUP_USERS: frozenset[str] = frozenset(
         "tests/benchmarks/test_fusion_mode_ablation.py",
         "tests/core/test_adaptive_domain_thresholding_measured.py",
         "tests/detectors/test_affinity_lodo.py",
+        "tests/decision/test_record_provenance.py",
         "tests/detectors/test_contrastive_refinement.py",
         "tests/detectors/test_fusion_monotonicity.py",
         "tests/detectors/test_probe_redundancy.py",
