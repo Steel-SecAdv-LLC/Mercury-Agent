@@ -143,7 +143,12 @@ class DecisionAbstentionResponder:
             disposition=verdict.disposition,
             decision_label=verdict.label,
             abstained=abstained,
-            anomaly_prob=evidence.anomaly_prob,
+            # ``DecisionRecord.anomaly_prob`` is a plain float (the JSON-safe
+            # wire shape); when the probability was absent the record carries
+            # 0.0 as a placeholder while the verdict abstains, the reasons name
+            # the absence, and ``signals["anomaly_prob"]`` keeps the honest
+            # ``None``.
+            anomaly_prob=evidence.anomaly_prob if evidence.anomaly_prob is not None else 0.0,
             threshold=evidence.threshold,
             decision_confidence=verdict.confidence,
             coverage=evidence.coverage,
@@ -172,11 +177,34 @@ class DecisionAbstentionResponder:
             )
             return
 
+        # Stage 2 -- no usable probability: abstain, fail-closed.  ``None``
+        # means the result carried no finite ``anomaly_prob`` (missing, NaN,
+        # inf, unparseable).  That is "decidable in principle, but the input
+        # was not produced this run" -- exactly ``UNAVAILABLE`` in the
+        # three-state taxonomy -- so it defers for a scored re-run rather than
+        # grounding anything.  This outranks even a conformal label set: a
+        # certificate is derived from the calibrated probability upstream, so
+        # a result carrying one without the probability is malformed, and a
+        # malformed result may only ever abstain.
+        prob = ev.anomaly_prob
+        if prob is None:
+            v.state = ThreeState.UNAVAILABLE
+            v.disposition = Disposition.DEFER
+            v.label = None
+            v.confidence = None
+            v.resolvable_by_input = True
+            v.reasons.append(
+                "anomaly probability is absent or non-finite: no usable "
+                "evidence to ground a verdict -- abstaining fail-closed; "
+                "re-run with a scored result"
+            )
+            return
+
         # Stage 2/3 -- ground the base verdict from the certificate or the band.
         if ev.conformal_set_size is not None:
             self._from_conformal(ev, v)
         else:
-            self._from_threshold_band(ev, v)
+            self._from_threshold_band(ev, v, prob)
 
         # Stage 4 -- demotion overlays (only weaken a grounded verdict).
         if v.state is ThreeState.GROUNDED:
@@ -232,10 +260,14 @@ class DecisionAbstentionResponder:
         v.label = None
         v.confidence = None
 
-    def _from_threshold_band(self, ev: Evidence, v: _Verdict) -> None:
-        """Uncalibrated fallback: ground by the threshold, abstain in the band."""
+    def _from_threshold_band(self, ev: Evidence, v: _Verdict, prob: float) -> None:
+        """Uncalibrated fallback: ground by the threshold, abstain in the band.
+
+        ``prob`` is the evidence's ``anomaly_prob`` already proven present by
+        ``_classify`` (an absent probability abstains before this stage runs).
+        """
         margin = self.policy.indecision_margin
-        distance = ev.anomaly_prob - ev.threshold
+        distance = prob - ev.threshold
 
         # Inclusive band (``threshold +/- margin``): a probability sitting exactly
         # on the boundary is an uncalibrated don't-know, so it abstains too --
@@ -247,7 +279,7 @@ class DecisionAbstentionResponder:
             v.confidence = None
             v.resolvable_by_input = True
             v.reasons.append(
-                f"probability {ev.anomaly_prob:.3f} within +/-{margin:g} of "
+                f"probability {prob:.3f} within +/-{margin:g} of "
                 f"threshold {ev.threshold:.3f} and no coverage certificate -- "
                 "an uncalibrated don't-know"
             )
@@ -290,14 +322,14 @@ class DecisionAbstentionResponder:
             # heuristic and record the fallback, rather than fabricating a
             # calibrated number.
             try:
-                p_raw = float(cal.transform_one(ev.anomaly_prob))
+                p_raw = float(cal.transform_one(prob))
             except Exception:  # any misbehaving calibrator -> margin fallback
                 p_raw = float("nan")
             if math.isfinite(p_raw):
                 p_anomaly = min(1.0, max(0.0, p_raw))
                 v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
                 v.reasons.append(
-                    f"probability {ev.anomaly_prob:.3f} past threshold "
+                    f"probability {prob:.3f} past threshold "
                     f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "
                     "score calibrator (calibrated, but no distribution-free coverage "
                     "certificate)"
@@ -313,7 +345,7 @@ class DecisionAbstentionResponder:
             # Reached when no calibrator is fitted, or a fitted one misbehaved.
             v.confidence = min(1.0, 0.5 + abs(distance))
             v.reasons.append(
-                f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "
+                f"probability {prob:.3f} is {abs(distance):.3f} past "
                 f"threshold {ev.threshold:.3f} (uncalibrated margin heuristic: no "
                 "calibrator fitted and no coverage guarantee)"
             )

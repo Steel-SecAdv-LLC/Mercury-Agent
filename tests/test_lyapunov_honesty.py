@@ -80,3 +80,55 @@ def test_learnable_engine_monitor_requires_contraction() -> None:
     assert eng._recent_contraction(window=5) is True  # variance collapsed -> measured
     eng._score_history = [0.5, 0.5, 0.5, 0.5, 0.5] + [0.9, 0.1, 0.9, 0.1, 0.9]
     assert eng._recent_contraction(window=5) is False  # variance grew
+
+
+def test_estimated_rate_matches_known_decay_within_20_percent() -> None:
+    """R9 audit cure: the decay-rate estimator must recover a known lambda.
+
+    A fusion-score trajectory ``exp(-0.25 t)`` has window *variance* decaying
+    at ``2 * lambda``, and the elapsed time between the initial and recent
+    windows is ``len(history) - window``, not the total ``time_step``.  The
+    old estimator divided ``-log(var ratio)`` by the total step count with no
+    factor 2, overestimating this trajectory's rate by ~33%.
+    """
+    eq = _eq()
+    eq.convergence_history = [float(np.exp(-0.25 * t)) for t in range(30)]
+    eq.time_step = 30
+    is_stable, rate = eq.verify_lyapunov_stability(window_size=10)
+    assert is_stable is True
+    assert abs(rate - 0.25) <= 0.2 * 0.25, f"estimated lambda {rate} not within 20% of 0.25"
+
+
+def test_decay_far_below_target_rate_is_not_stable() -> None:
+    """A barely-contracting trajectory must not be reported 'stable'.
+
+    ``LYAPUNOV.MIN_CONVERGENCE_RATIO`` (0.5) exists for exactly this: the
+    measured rate must reach at least that share of the configured target
+    before stability is claimed.  The old check accepted ANY positive rate.
+    """
+    eq = _eq()
+    eq.convergence_history = [
+        float(np.exp(-0.001 * t)) * (1.0 + 0.01 * ((-1.0) ** t)) for t in range(30)
+    ]
+    eq.time_step = 30
+    is_stable, rate = eq.verify_lyapunov_stability(window_size=10)
+    assert rate < 0.125  # far below MIN_CONVERGENCE_RATIO * 0.25
+    assert is_stable is False
+
+
+def test_flat_trajectory_is_not_stable() -> None:
+    eq = _eq()
+    eq.convergence_history = [0.5] * 30
+    eq.time_step = 30
+    is_stable, rate = eq.verify_lyapunov_stability(window_size=10)
+    assert is_stable is False
+    assert rate == 0.0
+
+
+def test_constant_variance_noise_is_not_stable() -> None:
+    eq = _eq()
+    rng = np.random.default_rng(7)
+    eq.convergence_history = (rng.normal(0.0, 0.1, 30) + 0.5).tolist()
+    eq.time_step = 30
+    is_stable, _rate = eq.verify_lyapunov_stability(window_size=10)
+    assert is_stable is False

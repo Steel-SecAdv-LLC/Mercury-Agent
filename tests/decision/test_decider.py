@@ -422,3 +422,67 @@ class TestUnknownSignalsAreNoOps:
             {**result, "info_geometry_certificate": {"d": {"price": [9.9]}}, "future_key": [1, 2]}
         )
         assert noisy.to_dict() == responder.decide(result).to_dict()
+
+
+class TestAbsentProbabilityAbstains:
+    """Fail-closed restoration: no usable probability means no grounded verdict.
+
+    ``_as_float`` collapses NaN / inf / malformed values to "absent", and the
+    old ``or 0.0`` fallback then handed the threshold-band stage a fabricated
+    0.0 -- which it grounded as CLEAR with confidence 1.0.  The fixed decider
+    abstains with ``UNAVAILABLE`` (the three-state meaning of "decidable in
+    principle, but not produced this run": the input was not fed) and ``DEFER``.
+    """
+
+    @pytest.mark.parametrize(
+        "result",
+        [
+            {},
+            {"anomaly_prob": float("nan")},
+            {"anomaly_prob": None, "is_anomaly": True},
+            {"anomaly_prob": "not-a-number"},
+            {"anomaly_prob": float("inf")},
+        ],
+        ids=["empty", "nan", "none-with-flag", "unfloatable", "inf"],
+    )
+    def test_missing_or_non_finite_probability_abstains(
+        self, responder: DecisionAbstentionResponder, result: dict[str, Any]
+    ) -> None:
+        rec = responder.decide(result)
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+        assert rec.abstained is True
+        assert rec.decision_label is None
+        assert rec.decision_confidence is None
+        assert any("absent or non-finite" in r for r in rec.reasons)
+        # The provenance keeps the truth: the probability was absent.
+        assert rec.signals["anomaly_prob"] is None
+
+    def test_absent_probability_abstains_even_with_a_conformal_block(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        # A certificate is derived from the calibrated probability upstream;
+        # a result carrying a label set but no probability is malformed, and a
+        # malformed result must not ground (strictly more conservative).
+        rec = responder.decide({"anomaly_prob": None, "conformal": _conformal([0])})
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.abstained is True
+
+    def test_ethical_refusal_still_outranks_absent_probability(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(
+            {"anomaly_prob": None, "gosnn_metadata": {"ethical_gate_passed": False}}
+        )
+        assert rec.state is ThreeState.UNDECIDABLE
+        assert rec.disposition is Disposition.HOLD
+
+    def test_genuine_zero_probability_still_grounds_clear(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        # A real 0.0 is a real probability: well below the threshold band, it
+        # grounds a CLEAR exactly as before (absent and 0.0 are distinguished).
+        rec = responder.decide(_result(anomaly_prob=0.0))
+        assert rec.state is ThreeState.GROUNDED
+        assert rec.decision_label == 0
+        assert rec.disposition is Disposition.CLEAR

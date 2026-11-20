@@ -421,3 +421,87 @@ class TestContentGateBounded:
         benign = "the quick brown fox reads about earthquakes and weather forecasting. " * 500
         blocked, _note = default_content_gate(benign)
         assert not blocked
+
+
+class TestEscalationApprovalIsStrict:
+    """Only a literal ``True`` from the reviewer authorizes a gray-zone request.
+
+    ``bool(reviewer(record))`` approved on ANY truthy return -- the string
+    ``"no"``, a dict, a ``Mock()``.  The broker now mirrors the identity guard
+    the evidence extractor uses for the ethical-gate verdict: ``is True``
+    approves, anything else refuses (fail-closed).
+    """
+
+    def _record(self) -> EscalationRecord:
+        return EscalationRecord(query="q", reason="gray zone", disposition="escalate")
+
+    def test_truthy_string_no_does_not_approve(self) -> None:
+        broker = EscalationBroker(reviewer=lambda rec: "no")  # type: ignore[arg-type,return-value]
+        decision = broker.review(self._record())
+        assert decision.approved is False
+        assert broker.approvals_used == 0
+
+    def test_other_truthy_non_bools_do_not_approve(self) -> None:
+        from unittest.mock import Mock
+
+        for truthy in ({"approved": True}, 1, "True", Mock()):
+
+            def _reviewer(rec: EscalationRecord, t: object = truthy) -> bool:
+                return t  # type: ignore[return-value]
+
+            broker = EscalationBroker(reviewer=_reviewer)
+            assert broker.review(self._record()).approved is False, truthy
+            assert broker.approvals_used == 0
+
+    def test_literal_true_still_approves(self) -> None:
+        broker = EscalationBroker(reviewer=lambda rec: True)
+        assert broker.review(self._record()).approved is True
+        assert broker.approvals_used == 1
+
+
+class TestEscalationCeilingUnderConcurrency:
+    """The bounded-autonomy ceiling must hold across concurrent reviews.
+
+    ``_approvals`` was read (ceiling check) and incremented without a lock, so
+    N threads parked inside the reviewer could all pass the ceiling check and
+    all be approved.  The barrier makes that race deterministic: without the
+    lock every thread is approved; with it, never more than ``max_approvals``.
+    """
+
+    def test_concurrent_reviews_cannot_exceed_max_approvals(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import threading
+
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+
+        n_threads = 8
+        max_approvals = 3
+        barrier = threading.Barrier(n_threads, timeout=30)
+
+        def reviewer(rec: EscalationRecord) -> bool:
+            barrier.wait()  # every thread is past the ceiling check before any approves
+            return True
+
+        broker = EscalationBroker(reviewer=reviewer, max_approvals=max_approvals)
+        approvals: list[bool] = []
+        approvals_lock = threading.Lock()
+
+        def run() -> None:
+            decision = broker.review(
+                EscalationRecord(query="q", reason="gray zone", disposition="escalate")
+            )
+            with approvals_lock:
+                approvals.append(decision.approved)
+
+        threads = [threading.Thread(target=run) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+
+        assert sum(approvals) <= max_approvals, (
+            f"{sum(approvals)} concurrent approvals exceeded the "
+            f"bounded-autonomy ceiling of {max_approvals}"
+        )
+        assert broker.approvals_used <= max_approvals

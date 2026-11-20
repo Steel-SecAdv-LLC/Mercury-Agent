@@ -86,7 +86,13 @@ class Evidence:
     """A typed, normalised snapshot of one detection result.
 
     Attributes:
-        anomaly_prob: Calibrated ``P(anomaly)`` in ``[0, 1]``.
+        anomaly_prob: Calibrated ``P(anomaly)`` in ``[0, 1]``, or ``None`` when
+            the result carried no finite probability (missing, ``None``, NaN,
+            infinite or unparseable).  ``None`` is "signal absent this run",
+            which the decider answers with an abstention -- it is never
+            collapsed to ``0.0``, because a fabricated zero would ground a
+            confident CLEAR from no evidence (fail-open).  A genuine ``0.0``
+            stays a real probability.
         is_anomaly: The detector's raw threshold verdict (carried for context).
         threshold: The decision threshold the verdict used.
         severity: Anomaly severity in ``[0, 1]`` (0.0 when absent).
@@ -116,7 +122,7 @@ class Evidence:
         domain: Optional domain hint.
     """
 
-    anomaly_prob: float
+    anomaly_prob: float | None
     is_anomaly: bool
     threshold: float
     severity: float
@@ -149,21 +155,28 @@ class Evidence:
         """Build an :class:`Evidence` from a ``detect_with_fusion`` result dict.
 
         Args:
-            result: The detection result mapping.  Only ``anomaly_prob`` is
-                effectively required; everything else degrades gracefully.
+            result: The detection result mapping.  Every field is optional; a
+                missing or non-finite ``anomaly_prob`` is preserved as ``None``
+                and the decider abstains on it rather than guessing.
             domain: Optional domain hint (falls back to ``result['domain']``).
 
         Returns:
             A normalised :class:`Evidence`.
         """
-        anomaly_prob = _as_float(result.get("anomaly_prob")) or 0.0
+        # The probability is a gate signal: absent/NaN/inf stays ``None`` (an
+        # abstention driver downstream), never the falsy-``or`` 0.0 that used
+        # to turn "no evidence" into the strongest possible CLEAR evidence.
+        # A genuine 0.0 (also falsy) is preserved exactly by the ``is None``
+        # distinction.
+        anomaly_prob = _as_float(result.get("anomaly_prob"))
         threshold = _as_float(result.get("threshold_used"))
         if threshold is None:
             threshold = _as_float(result.get("threshold"))
         if threshold is None:
             threshold = 0.5
         severity = _as_float(result.get("severity")) or 0.0
-        is_anomaly = bool(result.get("is_anomaly", anomaly_prob > threshold))
+        default_flag = anomaly_prob is not None and anomaly_prob > threshold
+        is_anomaly = bool(result.get("is_anomaly", default_flag))
 
         conformal_set_size: int | None = None
         conformal_labels: tuple[int, ...] | None = None

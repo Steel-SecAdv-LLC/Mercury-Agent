@@ -165,6 +165,11 @@ class SplitConformalPredictor:
         self.seed = seed
         self.calibration_scores: np.ndarray[Any, Any] | None = None
         self.quantile_threshold: float | None = None
+        #: The finite-sample guarantee :meth:`fit` actually achieved.  Equal to
+        #: ``coverage`` when the calibration set is large enough; strictly
+        #: lower when the quantile rank had to be clamped to ``n`` (small
+        #: ``n``), in which case the honest bound is ``n / (n + 1)``.
+        self.coverage_achieved: float | None = None
         self._fitted = False
 
     def fit(
@@ -186,14 +191,32 @@ class SplitConformalPredictor:
         # Compute quantile with finite-sample correction
         # q = ceil((n+1) * (1-alpha)) / n
         alpha = 1 - self.coverage
-        q_idx = int(np.ceil((n + 1) * (1 - alpha)))
-        q_idx = min(q_idx, n) - 1  # 0-indexed, bounded
+        rank = min(int(np.ceil((n + 1) * (1 - alpha))), n)  # clamped 1-based rank
+        q_idx = rank - 1  # 0-indexed, bounded
 
         self.quantile_threshold = self.calibration_scores[q_idx]
+        # The guarantee of the rank-``k`` order statistic is ``k / (n + 1)``.
+        # Unclamped, ``k = ceil((n + 1) * coverage) >= (n + 1) * coverage``, so
+        # the request is met and the achieved level reported is the request.
+        # When the rank was clamped to ``n`` the request is NOT attainable
+        # (e.g. n = 5 at 0.9 guarantees only 5/6 ~ 0.833), and claiming the
+        # requested level would overstate the certificate -- so the achieved
+        # bound is stored and surfaced instead of being silently replaced.
+        self.coverage_achieved = min(self.coverage, rank / (n + 1))
+        if self.coverage_achieved < self.coverage:
+            logger.warning(
+                "SplitConformal: %d calibration scores cannot guarantee the "
+                "requested coverage %.4f; the achieved finite-sample bound is "
+                "%.4f and is what the certificate reports",
+                n,
+                self.coverage,
+                self.coverage_achieved,
+            )
         self._fitted = True
 
         logger.debug(
             f"SplitConformal fitted: n={n}, coverage={self.coverage}, "
+            f"achieved={self.coverage_achieved}, "
             f"threshold={self.quantile_threshold:.4f}"
         )
         return self
@@ -229,7 +252,11 @@ class SplitConformalPredictor:
             prediction=point_predictions,
             lower_bound=lower,
             upper_bound=upper,
-            coverage_level=self.coverage,
+            # The level the fit actually achieved (== the requested level
+            # except when a small calibration set clamped the quantile).
+            coverage_level=(
+                self.coverage_achieved if self.coverage_achieved is not None else self.coverage
+            ),
             set_sizes=set_sizes,
             quantile_threshold=self.quantile_threshold,
         )
@@ -1061,7 +1088,9 @@ class BinaryPredictionSet:
         contains_anomaly: ``(n,)`` bool -- label 1 is in the set.
         set_size: ``(n,)`` int in ``{0, 1, 2}``.
         probability: ``(n,)`` calibrated ``P(anomaly)`` used to build the sets.
-        coverage_level: Target coverage (e.g. 0.9).
+        coverage_level: The per-class coverage guarantee the calibration
+            actually achieved (the requested target, e.g. 0.9, unless a small
+            calibration class could only support a lower finite-sample bound).
     """
 
     contains_normal: np.ndarray[Any, Any]
@@ -1109,6 +1138,10 @@ class BinaryConformalClassifier:
         self.seed = seed
         self._predictors: dict[int, SplitConformalPredictor] = {}
         self._thresholds: dict[int, float] = {}
+        #: The per-class guarantee :meth:`fit` actually achieved, taken over
+        #: both classes (the Mondrian guarantee is per class, so the honest
+        #: headline is the weakest class).  ``coverage`` until fitted.
+        self.coverage_achieved: float = coverage
         self._fitted = False
 
     @staticmethod
@@ -1135,19 +1168,42 @@ class BinaryConformalClassifier:
         if probs.shape != y.shape:
             raise ValueError("probabilities and labels must have the same length")
 
+        achieved_by_class: dict[int, float] = {}
         for label in (0, 1):
             mask = y == label
             if not np.any(mask):
                 # No calibration data for this class: include it unconditionally
                 # (threshold 1.0) so the coverage guarantee stays conservative
-                # rather than silently dropping the class.
+                # rather than silently dropping the class.  Always-included
+                # means the true label of this class is always covered.
                 self._thresholds[label] = 1.0
+                achieved_by_class[label] = 1.0
                 continue
             nonconformity = 1.0 - self._class_probability(probs[mask], label)
             predictor = SplitConformalPredictor(coverage=self.coverage, seed=self.seed)
             predictor.fit(nonconformity)
             self._predictors[label] = predictor
             self._thresholds[label] = predictor.get_anomaly_threshold()
+            achieved_by_class[label] = (
+                predictor.coverage_achieved
+                if predictor.coverage_achieved is not None
+                else self.coverage
+            )
+
+        # The honest per-class guarantee is the weakest class's achieved
+        # bound.  With too few rows in a class (e.g. 5 at a 0.9 request, which
+        # guarantees only 5/6) the certificate must say so, never silently
+        # claim the requested level.
+        self.coverage_achieved = min(achieved_by_class.values())
+        if self.coverage_achieved < self.coverage:
+            logger.warning(
+                "BinaryConformal: calibration class sizes %s cannot guarantee "
+                "the requested per-class coverage %.4f; the achieved bound "
+                "%.4f is what the certificate reports",
+                {int(label): int(np.sum(y == label)) for label in (0, 1)},
+                self.coverage,
+                self.coverage_achieved,
+            )
 
         self._fitted = True
         return self
@@ -1174,6 +1230,7 @@ class BinaryConformalClassifier:
             raise RuntimeError("Must call fit() before export_state()")
         return {
             "coverage": float(self.coverage),
+            "coverage_achieved": float(self.coverage_achieved),
             "seed": int(self.seed),
             "thresholds": {int(label): float(q) for label, q in self._thresholds.items()},
         }
@@ -1197,6 +1254,11 @@ class BinaryConformalClassifier:
         """
         clf = cls(coverage=float(state["coverage"]), seed=int(state["seed"]))
         clf._thresholds = {int(label): float(q) for label, q in dict(state["thresholds"]).items()}
+        # Older checkpoints predate the achieved-coverage field; without the
+        # per-class calibration sizes the achieved bound cannot be recomputed,
+        # so such a state keeps the requested level (exactly what it claimed
+        # when it was written).
+        clf.coverage_achieved = float(state.get("coverage_achieved", state["coverage"]))
         clf._fitted = True
         return clf
 
@@ -1241,7 +1303,10 @@ class BinaryConformalClassifier:
             contains_anomaly=contains[1],
             set_size=set_size,
             probability=probs,
-            coverage_level=self.coverage,
+            # The certificate carries the ACHIEVED guarantee: equal to the
+            # requested level except when a small calibration class clamped
+            # the quantile, in which case claiming the request would be false.
+            coverage_level=self.coverage_achieved,
         )
 
     def coverage_report(
@@ -1269,6 +1334,7 @@ class BinaryConformalClassifier:
 
         return {
             "target_coverage": self.coverage,
+            "coverage_achieved": self.coverage_achieved,
             "empirical_coverage": float(np.mean(covered)) if len(y) else float("nan"),
             "coverage_by_class": per_class,
             "average_set_size": float(np.mean(pred.set_size)),

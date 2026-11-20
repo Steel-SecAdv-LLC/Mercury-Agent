@@ -70,10 +70,17 @@ def test_serving_attaches_sets_and_decision_signals_energise(
         warnings.simplefilter("ignore")
         out = engine.detect_with_fusion(probe)
     assert "conformal" in out
-    assert out["conformal"]["coverage"] == 0.9
+    # The certificate reports the coverage actually ACHIEVED.  This fixture's
+    # stratified holdout leaves 5 positive calibration rows, and 5 rows can
+    # guarantee at most 5/6 ~ 0.833 at the requested 0.9 -- the certificate
+    # used to claim 0.9 anyway (the silent small-sample clamp), which this
+    # test previously pinned.  It now pins the honest bound.
+    achieved = out["conformal"]["coverage"]
+    assert achieved == pytest.approx(5.0 / 6.0)
+    assert achieved <= 0.9
     signals = out["decision"]["signals"]
     assert signals["calibrated"] is True
-    assert signals["coverage"] == 0.9
+    assert signals["coverage"] == pytest.approx(achieved)
 
 
 def test_certificate_survives_the_checkpoint_round_trip(

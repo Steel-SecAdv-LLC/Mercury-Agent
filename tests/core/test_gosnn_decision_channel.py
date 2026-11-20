@@ -186,8 +186,17 @@ class TestDecisionLayerRouting:
             baseline_decision = baseline["decision"]
             assert baseline_decision["signals"]["gosnn_anomaly_prob"] is None
 
-            # Force maximal disagreement with whatever the verdict was.
-            disagreeing = 0.0 if baseline["is_anomaly"] else 1.0
+            # Force maximal disagreement with whatever the verdict was.  Key
+            # on the DECISION label, not ``is_anomaly``: the demotion overlay
+            # compares the GOSNN probability against the decision label
+            # (decider._apply_demotions), and with a conformal certificate
+            # attached the label comes from the conformal set, which can
+            # disagree with the raw threshold verdict -- keying on
+            # ``is_anomaly`` made this test flake whenever the two differed.
+            base_label = baseline_decision["decision_label"]
+            if base_label is None:
+                base_label = int(baseline["is_anomaly"])
+            disagreeing = 0.0 if base_label == 1 else 1.0
             monkeypatch.setattr(fusion, "detection_probability", lambda fused: disagreeing)
             monkeypatch.setattr(fusion, "detection_head", object())
             monkeypatch.setattr(
@@ -223,7 +232,13 @@ class TestDecisionLayerRouting:
             monkeypatch.setattr(fusion, "decision_thresholds", None)
             baseline = fitted_engine.detect_with_fusion(row)
 
-            agreeing = 1.0 if baseline["is_anomaly"] else 0.0
+            # Key agreement on the decision label (see the disagreement test):
+            # the overlay compares against the decision label, which with a
+            # conformal certificate can disagree with ``is_anomaly``.
+            base_label = baseline["decision"]["decision_label"]
+            if base_label is None:
+                base_label = int(baseline["is_anomaly"])
+            agreeing = 1.0 if base_label == 1 else 0.0
             monkeypatch.setattr(fusion, "detection_probability", lambda fused: agreeing)
             monkeypatch.setattr(fusion, "detection_head", object())
             monkeypatch.setattr(

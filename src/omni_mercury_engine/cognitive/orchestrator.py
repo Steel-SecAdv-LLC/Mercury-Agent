@@ -396,6 +396,88 @@ class CognitiveOrchestrator(LoggerMixin):
                     max(0.0, 1.0 - float(satisfaction))
                 )
 
+        # === ETHICAL GATES — enforced BEFORE any persistent side effect ===
+        # Both hard gates used to run at the END of analyze(), after the
+        # knowledge graph had stored the raw caller context, CBR solved,
+        # plasticity adapted, indicators evaluated and the anomaly history
+        # grew -- so a refused request still left durable traces (including
+        # the refused text itself, in the graph).  They now run first: a
+        # request the gate refuses leaves no trace in any persistent state.
+        #
+        # Score on a controlled action description that reflects the
+        # orchestrator's inherent safety posture.  ``sanitize_domain`` from
+        # ``cognitive.ethical_bounding`` is the canonical whitelist (Wave B
+        # Vector 2-6 closure) so a hostile or typo'd value like
+        # ``"damage_control"`` is collapsed to ``"general"`` before reaching
+        # the scorer.
+        safe_domain = sanitize_domain(context.get("domain", _DEFAULT_DOMAIN))
+        # Hard gate 1 of 2: the shared fail-closed harm-uplift choke point over
+        # the *real* analysis decision. The superseded control was a benevolence
+        # pass-bar over a canned keyword string with caller data withheld — see
+        # ``cognitive.decision_gate`` for why that could not discriminate.
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+        from omni_mercury_engine.security.sigma_immutable_gate import (
+            PERMITTED_ETHICAL_POSTURE,
+        )
+
+        try:
+            verdict = enforce_decision_boundary(
+                DecisionSubject(
+                    surface="CognitiveOrchestrator.analyze",
+                    operation=(
+                        "run the enabled cognitive components over the caller's input "
+                        "and emit an explainable analysis verdict"
+                    ),
+                    domain=safe_domain,
+                    payload={"severity": round(severity, 4), "context": context},
+                ),
+                advisory_scorer=self._benevolence_scorer,
+            )
+        except EthicalConstraintViolationError as exc:
+            # Record timing on the local result before re-raising so the
+            # measurement is captured in any logging path that handles
+            # the partial result; the timing is also surfaced on the
+            # exception via ``analysis_time_ms`` for caller inspection.
+            result.analysis_time_ms = (time.time() - start_time) * 1000
+            result.ethical_permissible = False
+            exc.analysis_time_ms = result.analysis_time_ms
+            raise
+
+        result.benevolence_score = (
+            verdict.benevolence if verdict.benevolence is not None else float("nan")
+        )
+        result.ethical_permissible = True
+
+        # σ_Immutable second hard ethical gate (Wave B item 1).  Build a
+        # synthetic 256-dim scalar vector from the analysis context so
+        # the gate can score the cognitive verdict on the same surface
+        # as the engine boundary.  The first 27 columns carry the system's
+        # configured ethical posture (σ_Immutable is a configuration-integrity
+        # check — see ``PERMITTED_ETHICAL_POSTURE``), the remaining 153 used
+        # columns carry severity/anomaly_prob signal.
+        sigma_vector = self._build_sigma_immutable_vector(
+            benevolence_score=PERMITTED_ETHICAL_POSTURE,
+            severity=severity,
+            anomaly_prob=anomaly_prob,
+        )
+        try:
+            self._sigma_immutable_gate.enforce(
+                action=f"CognitiveOrchestrator.analyze:{safe_domain}",
+                scalar_vector=sigma_vector,
+                details={
+                    "boundary": "CognitiveOrchestrator.analyze",
+                    "domain": safe_domain,
+                    "severity": severity,
+                    "anomaly_prob": anomaly_prob,
+                },
+            )
+        except EthicalConstraintViolationError:
+            result.analysis_time_ms = (time.time() - start_time) * 1000
+            raise
+
         # === STEP 1: UNCERTAINTY QUANTIFICATION ===
         if raw_data is not None:
             predictions = np.array([anomaly_score])
@@ -629,84 +711,8 @@ class CognitiveOrchestrator(LoggerMixin):
         if len(self._anomaly_history) > 1000:
             self._anomaly_history = self._anomaly_history[-500:]
 
-        # === ETHICAL GATE — mandatory benevolence check ===
-        # Score on a controlled action description that reflects the
-        # orchestrator's inherent safety posture.  Caller-supplied
-        # ``context`` is NOT passed to the scorer — arbitrary text
-        # could inject harm keywords ("damage", "control", "track",
-        # "expose", …) and trip a false EthicalConstraintViolationError.
-        # ``sanitize_domain`` from ``cognitive.ethical_bounding`` is the
-        # canonical whitelist (Wave B Vector 2-6 closure) so a hostile or
-        # typo'd value like ``"damage_control"`` is collapsed to
-        # ``"general"`` before reaching the scorer.
-        safe_domain = sanitize_domain(context.get("domain", _DEFAULT_DOMAIN))
-        # Hard gate 1 of 2: the shared fail-closed harm-uplift choke point over
-        # the *real* analysis decision. The superseded control was a benevolence
-        # pass-bar over a canned keyword string with caller data withheld — see
-        # ``cognitive.decision_gate`` for why that could not discriminate.
-        from omni_mercury_engine.cognitive.decision_gate import (
-            DecisionSubject,
-            enforce_decision_boundary,
-        )
-        from omni_mercury_engine.security.sigma_immutable_gate import (
-            PERMITTED_ETHICAL_POSTURE,
-        )
-
-        try:
-            verdict = enforce_decision_boundary(
-                DecisionSubject(
-                    surface="CognitiveOrchestrator.analyze",
-                    operation=(
-                        "run the enabled cognitive components over the caller's input "
-                        "and emit an explainable analysis verdict"
-                    ),
-                    domain=safe_domain,
-                    payload={"severity": round(severity, 4), "context": context},
-                ),
-                advisory_scorer=self._benevolence_scorer,
-            )
-        except EthicalConstraintViolationError as exc:
-            # Record timing on the local result before re-raising so the
-            # measurement is captured in any logging path that handles
-            # the partial result; the timing is also surfaced on the
-            # exception via ``analysis_time_ms`` for caller inspection.
-            result.analysis_time_ms = (time.time() - start_time) * 1000
-            result.ethical_permissible = False
-            exc.analysis_time_ms = result.analysis_time_ms
-            raise
-
-        result.benevolence_score = (
-            verdict.benevolence if verdict.benevolence is not None else float("nan")
-        )
-        result.ethical_permissible = True
-
-        # σ_Immutable second hard ethical gate (Wave B item 1).  Build a
-        # synthetic 256-dim scalar vector from the analysis context so
-        # the gate can score the cognitive verdict on the same surface
-        # as the engine boundary.  The first 27 columns carry the system's
-        # configured ethical posture (σ_Immutable is a configuration-integrity
-        # check — see ``PERMITTED_ETHICAL_POSTURE``), the remaining 153 used
-        # columns carry severity/anomaly_prob signal.
-        sigma_vector = self._build_sigma_immutable_vector(
-            benevolence_score=PERMITTED_ETHICAL_POSTURE,
-            severity=severity,
-            anomaly_prob=anomaly_prob,
-        )
-        try:
-            self._sigma_immutable_gate.enforce(
-                action=f"CognitiveOrchestrator.analyze:{safe_domain}",
-                scalar_vector=sigma_vector,
-                details={
-                    "boundary": "CognitiveOrchestrator.analyze",
-                    "domain": safe_domain,
-                    "severity": severity,
-                    "anomaly_prob": anomaly_prob,
-                },
-            )
-        except EthicalConstraintViolationError:
-            result.analysis_time_ms = (time.time() - start_time) * 1000
-            raise
-
+        # (Both hard ethical gates ran at the TOP of this method, before any
+        # persistent write -- see "ETHICAL GATES" above.)
         result.analysis_time_ms = (time.time() - start_time) * 1000
 
         return result

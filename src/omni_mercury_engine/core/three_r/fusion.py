@@ -322,13 +322,28 @@ class OmniAvaEquation:
         insufficient history it returns ``is_stable=False`` rather than asserting
         stability that has not been measured.
 
+        The estimator compares the variance of the most recent ``window_size``
+        scores against the first ``window_size`` scores.  For a trajectory
+        whose amplitude decays as ``exp(-lambda * t)`` the window *variance*
+        decays as ``exp(-2 * lambda * t)``, and the time separating the two
+        windows is ``len(history) - window_size`` steps (the offset between
+        their starts), not the total ``time_step`` -- so the rate is
+        ``-log(var_recent / var_initial) / (2 * elapsed)``.  Stability
+        additionally requires the measured rate to reach
+        ``LYAPUNOV.MIN_CONVERGENCE_RATIO`` of the configured target rate: a
+        barely-positive contraction is not the designed decay schedule.
+
         Args:
             window_size: Number of recent samples to analyze
 
         Returns:
             Tuple of (is_stable, estimated_decay_rate), where ``is_stable`` is
-            ``True`` only when a positive contraction rate was actually measured.
+            ``True`` only when a contraction rate of at least
+            ``MIN_CONVERGENCE_RATIO * convergence_rate_param`` was actually
+            measured.
         """
+        from omni_mercury_engine.core.centralized_constants import LYAPUNOV
+
         if len(self.convergence_history) < window_size:
             return False, self.lambda_lyapunov
 
@@ -336,6 +351,13 @@ class OmniAvaEquation:
 
         if len(recent) < 2:
             return False, self.lambda_lyapunov
+
+        # Steps between the start of the initial window and the start of the
+        # recent window: the time the variance ratio actually spans.
+        elapsed = len(self.convergence_history) - window_size
+        if elapsed <= 0:
+            # The two windows coincide: no decay interval to measure over.
+            return False, 0.0
 
         variance = np.var(recent)
         initial_variance = np.var(
@@ -345,7 +367,8 @@ class OmniAvaEquation:
         if initial_variance > 0:
             ratio = variance / initial_variance
             if ratio > 0:
-                estimated_lambda = -np.log(ratio) / self.time_step
+                # Variance of an exp(-lambda t) trajectory decays at 2*lambda.
+                estimated_lambda = -np.log(ratio) / (2.0 * elapsed)
             else:
                 # Degenerate recent window (zero variance): no rate is
                 # measurable. Returning the configured target here reported
@@ -355,7 +378,11 @@ class OmniAvaEquation:
             # Degenerate initial window: nothing to measure against.
             return False, 0.0
 
-        is_stable = bool(estimated_lambda > 0)
+        # "Stable" means contracting at (at least a configured share of) the
+        # designed rate, not merely "any positive number": a trajectory
+        # decaying at 1e-3 against a 0.25 target is not the decay schedule.
+        required = LYAPUNOV.MIN_CONVERGENCE_RATIO * self.convergence_rate_param
+        is_stable = bool(estimated_lambda >= required)
         return is_stable, float(estimated_lambda)
 
     def get_dominance_proof(self) -> dict[str, Any]:

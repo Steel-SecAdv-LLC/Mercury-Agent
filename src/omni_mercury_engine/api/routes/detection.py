@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
 from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
+    FUSION_WEIGHTS,
     as_matrix,
     column_statistics,
     deseasonalize,
@@ -70,6 +71,53 @@ def _raise_if_too_large_to_assess(refusal: Exception) -> None:
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"Request not assessed by the harm-uplift decision gate: {too_much}.",
         ) from refusal
+
+
+def _enforce_route_gate(surface: str, operation: str, payload: Any) -> None:
+    """Run the fail-closed harm-uplift gate over a detection route's request.
+
+    ``cognitive/decision_gate.py`` is "the single fail-closed choke point every
+    public decision surface passes through"; /fusion, /three-r, /tier and /rca
+    are public decision surfaces, so they pass through it exactly like
+    ``/detect/neurosymbolic`` does: the gate reads the caller's whole payload
+    (every string in it, at any depth), a refusal maps to HTTP 403 (or 413 when
+    the request carried more text than the gate reads), and an unavailable or
+    broken gate is a 503/403, never a silent allow.
+
+    Raises:
+        HTTPException: 503 when the gate machinery cannot be imported, 413 when
+            the request was too large to assess, 403 when the gate refuses
+            (including fail-closed on any internal gate error).
+    """
+    # Import the gate machinery up front so a missing module is a clean 503
+    # (a genuine environment fault), mirroring the neuro-symbolic endpoint.
+    try:
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+    except ImportError as e:
+        logger.error("Harm-uplift gate unavailable for %s: %s", surface, e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The decision gate is not available in this environment.",
+        ) from e
+
+    try:
+        enforce_decision_boundary(
+            DecisionSubject(surface=surface, operation=operation, payload=payload)
+        )
+    except EthicalConstraintViolationError as e:
+        # Fail closed: the harm-uplift gate refused this request.
+        logger.warning("%s blocked by harm-uplift gate '%s'", surface, e.check)
+        _raise_if_too_large_to_assess(e)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
+        ) from e
 
 
 def _served_flagship_engine() -> Any:
@@ -475,11 +523,45 @@ async def detect_fusion(
     user: User | None = Depends(_get_optional_user),
 ) -> FusionResponse:
     """Perform multi-detector fusion analysis."""
+    # Fail-closed harm-uplift gate, first, over the whole request (the
+    # ``detectors`` list is caller text).  Same choke point as /neurosymbolic.
+    _enforce_route_gate(
+        surface="api.detect_fusion",
+        operation="multi-detector fusion anomaly detection over a caller-supplied series",
+        payload=request.model_dump(),
+    )
+
+    # M3: a detector list is validated against the engine's actual detector
+    # set.  Unknown names used to be silently dropped, so a typo'd list scored
+    # nothing and answered a *confident normal* (fused_score 0, is_anomaly
+    # False, confidence 1.0).  An empty or unknown selection is the caller's
+    # error: 422, never a fabricated verdict.
+    unknown = sorted(set(request.detectors) - set(FUSION_WEIGHTS))
+    if not request.detectors or unknown:
+        known = ", ".join(sorted(FUSION_WEIGHTS))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"unknown detector name(s): {unknown!r}; " if unknown else "empty detector list; "
+            )
+            + f"valid detectors are: {known}",
+        )
+
+    # Rows of features (a 1-D series is one feature), standardised per
+    # feature: the components the batch job's fusion scores per sample,
+    # so the two routes agree on multi-feature input too.  A ragged 2-D
+    # array is a malformed request (422), not an internal error (it used to
+    # surface as a 500 from numpy's inhomogeneous-shape ValueError).
     try:
-        # Rows of features (a 1-D series is one feature), standardised per
-        # feature: the components the batch job's fusion scores per sample,
-        # so the two routes agree on multi-feature input too.
         matrix = as_matrix(request.data)
+    except (TypeError, ValueError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'data' must be a rectangular 1-D or 2-D numeric array "
+            "(every row the same length).",
+        ) from e
+
+    try:
         # A dominant periodic component is removed before the point components
         # score (a spike riding a strong season is one seasonal amplitude above
         # the crest, a z of 2 against the whole series' spread); the spectral
@@ -596,6 +678,14 @@ async def detect_three_r(
     user: User | None = Depends(_get_optional_user),
 ) -> ThreeRResponse:
     """Perform 3R mechanism analysis."""
+    # Fail-closed harm-uplift gate: /three-r is a public decision surface and
+    # passes through the same choke point as every other one.
+    _enforce_route_gate(
+        surface="api.detect_three_r",
+        operation="3R (recursion-resonance-refactoring) anomaly analysis over a series",
+        payload=request.model_dump(),
+    )
+
     try:
         from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 
@@ -809,6 +899,14 @@ async def detect_tier(
     user: User | None = Depends(_get_optional_user),
 ) -> dict[str, Any]:
     """Run the detector-tier ensemble on a 1-D series."""
+    # Fail-closed harm-uplift gate, before any work: ``subset``, ``method``
+    # and ``counterfactual_method`` carry caller text.
+    _enforce_route_gate(
+        surface="api.detect_tier",
+        operation="streaming detector-tier ensemble detection over a 1-D series",
+        payload=request.model_dump(),
+    )
+
     try:
         from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
 
@@ -1058,6 +1156,14 @@ async def detect_rca(
     user: User | None = Depends(_get_optional_user),
 ) -> dict[str, Any]:
     """Localise the root cause of a multivariate anomaly."""
+    # Fail-closed harm-uplift gate, before any work: ``node_names`` carries
+    # caller text.
+    _enforce_route_gate(
+        surface="api.detect_rca",
+        operation="graph-based root-cause localization over multivariate observations",
+        payload=request.model_dump(),
+    )
+
     try:
         from omni_mercury_engine.detectors.detection_tier import localize_root_cause
 

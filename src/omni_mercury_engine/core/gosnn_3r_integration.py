@@ -9,7 +9,9 @@ Implements bidirectional synaptic integration between:
 - Three-R Mechanism: Recursion-Resonance-Refactoring
 
 Key Features:
-1. 3R Refactoring engine dynamically adjusts GOSNN ethical thresholds
+1. 3R feedback tunes an instance-local working ethical threshold (tighten-only:
+   it is floored at the GOSNN's configured domain threshold and never written
+   back to the process-global gate)
 2. GOSNN scalar categories weight 3R fusion coefficients (w_R, w_H, w_O)
 3. Gradient flow from 3R loss back to detector heads
 4. Sliding window normalization for time-series inputs
@@ -312,6 +314,17 @@ class GOSNN3RIntegration:
         # Integration state
         self.state = IntegrationState()
 
+        # The configured gate threshold for THIS integration's GOSNN (already
+        # domain-resolved at construction, with the trained 0.93 floor applied
+        # by ``get_sigma_immutable_threshold``).  It is the hard floor for the
+        # feedback adjustment below: input-derived state may tighten the
+        # instance-local working threshold above it, never loosen it below,
+        # and the process-global gate is never written at all.
+        self._ethical_threshold_floor = float(self.gosnn.sigma_immutable_threshold)
+        self.state.ethical_threshold = max(
+            self.state.ethical_threshold, self._ethical_threshold_floor
+        )
+
         # Initialize weights from GOSNN
         self._sync_weights_from_gosnn()
 
@@ -389,7 +402,12 @@ class GOSNN3RIntegration:
         }
 
     def _adjust_gosnn_from_3r(self, fusion_result: AnomalyFusionResult) -> None:
-        """Adjust GOSNN thresholds based on 3R performance."""
+        """Tune the instance-local working ethical threshold from 3R performance.
+
+        Tighten-only relative to the configured gate: the threshold never
+        drops below ``self._ethical_threshold_floor`` and the process-global
+        GOSNN gate is never mutated (see the inline invariants below).
+        """
         if self.feedback_direction not in (
             FeedbackDirection.THREE_R_TO_GOSNN,
             FeedbackDirection.BIDIRECTIONAL,
@@ -406,7 +424,21 @@ class GOSNN3RIntegration:
         self.state.is_stable = is_stable
         self.state.convergence_rate = estimated_rate
 
-        # Adjust ethical threshold based on fusion performance
+        # Adjust the INSTANCE-LOCAL working ethical threshold based on fusion
+        # performance.  Two invariants make this fail-closed:
+        #
+        # 1. The configured/domain gate threshold is a hard floor.  The old
+        #    ``max(0.90, ...)`` let steady, low-variance input scores walk the
+        #    threshold below the configured value (0.96 default; the trained
+        #    floor is ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD = 0.93) --
+        #    input-derived state must never LOWER a safety gate.  Raising
+        #    (tightening) remains permitted, capped at 0.99.
+        # 2. The adjustment never writes the process-global GOSNN.  Writing
+        #    ``self.gosnn.ethical_gate.threshold`` / ``sigma_immutable_threshold``
+        #    overwrote the shared singleton's domain-resolved threshold for
+        #    every other domain using it.  The working threshold reaches the
+        #    fusion equation through ``ethical_threshold_override`` in
+        #    :meth:`process`; the GOSNN gate keeps its configured threshold.
         if len(self.state.fusion_score_history) >= 10:
             recent_mean = np.mean(self.state.fusion_score_history[-10:])
             recent_std = np.std(self.state.fusion_score_history[-10:])
@@ -415,14 +447,14 @@ class GOSNN3RIntegration:
             if recent_std > 0.1:
                 adjustment = 0.01 * self.learning_rate
                 self.state.ethical_threshold = min(0.99, self.state.ethical_threshold + adjustment)
-            # If fusion scores are stable and low, decrease threshold slightly
+            # If fusion scores are stable and low, relax a previous tightening
+            # slightly -- but never below the configured gate threshold.
             elif recent_std < 0.02 and recent_mean < 0.5:
                 adjustment = 0.005 * self.learning_rate
-                self.state.ethical_threshold = max(0.90, self.state.ethical_threshold - adjustment)
-
-        # Update GOSNN ethical gate threshold
-        self.gosnn.ethical_gate.threshold = self.state.ethical_threshold
-        self.gosnn.sigma_immutable_threshold = self.state.ethical_threshold
+                self.state.ethical_threshold = max(
+                    self._ethical_threshold_floor,
+                    self.state.ethical_threshold - adjustment,
+                )
 
     def process(
         self,
@@ -821,7 +853,9 @@ class CrossDomainTransferManager:
         new_threshold = (1 - transfer_ratio * 0.5) * target_threshold + (
             transfer_ratio * 0.5
         ) * source_threshold
-        target.state.ethical_threshold = new_threshold
+        # The target's configured gate threshold stays a hard floor: a
+        # transfer from a laxer domain may never loosen the target's gate.
+        target.state.ethical_threshold = max(target._ethical_threshold_floor, new_threshold)
 
         logger.info(
             f"Transferred weights from {source_domain} to {target_domain} "

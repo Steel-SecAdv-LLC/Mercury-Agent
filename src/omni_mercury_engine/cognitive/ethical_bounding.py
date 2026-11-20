@@ -1743,26 +1743,51 @@ USE_SHIPPED_CLASSIFIER = _UseShippedClassifier()
 
 _SHIPPED_CLASSIFIER_CACHE: list[Any] = []
 
+#: Bounded backoff for a FAILED shipped-classifier import: after a failure the
+#: gate runs lexical-only, and every this-many calls the import is retried, so
+#: a transient failure (cold filesystem, half-finished install) does not
+#: permanently weaken the gate for the process lifetime.  A successful import
+#: is cached for good; a persistent failure costs one retry per window.
+_SHIPPED_CLASSIFIER_RETRY_EVERY = 16
+_shipped_classifier_failed_calls = 0
+
 
 def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
     """Map a ``harm_classifier`` argument to an actual callable or ``None``.
 
     The shipped classifier is resolved lazily and cached: importing it eagerly
     would pull the weight artifact into every process that merely imports the
-    ethics gate, and this module is deliberately cheap to import.
+    ethics gate, and this module is deliberately cheap to import.  A failed
+    import is NOT cached forever: it is logged at WARNING (the gate is running
+    with meaning-level coverage missing) and retried on a bounded call-count
+    backoff (:data:`_SHIPPED_CLASSIFIER_RETRY_EVERY`).
     """
+    global _shipped_classifier_failed_calls
     if harm_classifier is not USE_SHIPPED_CLASSIFIER:
         return harm_classifier
-    if not _SHIPPED_CLASSIFIER_CACHE:
-        try:
-            from omni_mercury_engine.cognitive.meaning_level import (
-                meaning_level_harm_classifier,
-            )
+    if _SHIPPED_CLASSIFIER_CACHE:
+        if _SHIPPED_CLASSIFIER_CACHE[0] is not None:
+            return _SHIPPED_CLASSIFIER_CACHE[0]
+        # Cached failure: stay lexical-only through the backoff window, then
+        # drop the cached ``None`` and try the import again below.
+        _shipped_classifier_failed_calls += 1
+        if _shipped_classifier_failed_calls % _SHIPPED_CLASSIFIER_RETRY_EVERY:
+            return None
+        _SHIPPED_CLASSIFIER_CACHE.clear()
+    try:
+        from omni_mercury_engine.cognitive.meaning_level import (
+            meaning_level_harm_classifier,
+        )
 
-            _SHIPPED_CLASSIFIER_CACHE.append(meaning_level_harm_classifier())
-        except Exception as exc:  # pragma: no cover - fail-open to lexical-only
-            logger.info("shipped meaning-level classifier unavailable (%s)", exc)
-            _SHIPPED_CLASSIFIER_CACHE.append(None)
+        _SHIPPED_CLASSIFIER_CACHE.append(meaning_level_harm_classifier())
+    except Exception as exc:
+        logger.warning(
+            "shipped meaning-level classifier unavailable (%s: %s); the harm "
+            "gate is running lexical-only until a retried import succeeds",
+            type(exc).__name__,
+            exc,
+        )
+        _SHIPPED_CLASSIFIER_CACHE.append(None)
     return _SHIPPED_CLASSIFIER_CACHE[0]
 
 
