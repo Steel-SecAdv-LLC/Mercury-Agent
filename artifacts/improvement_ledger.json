@@ -1,0 +1,109 @@
+{
+  "schema": "mercury.governance.improvement_ledger/v1",
+  "generated_at": "2026-11-20T21:30:00+00:00",
+  "note": "Committed, measured adaptive-change decisions. Every entry states what was changed or proposed, why, the harness that measured it, the measured impact, the verdict, and the rollback. Runtime adaptations are recorded separately by the process-wide ImprovementLedger (governance/improvement_ledger.py) and served at GET /api/v1/detect/flagship/improvements.",
+  "decisions": [
+    {
+      "component": "detectors.statistical.adaptive_weights",
+      "change": "Entropy-constrained re-selection of the R/K/IG component weights: sweep the whole weight simplex (step 0.05, 231 vectors) and select the best mean-rank vector inside the normalised-entropy band [0.30, 0.95].",
+      "reason": "The fusion-mode ablation showed a fully peaked weight vector (single best component) beating the adaptive R/K/IG fusion - the collapse an entropy constraint exists to examine.",
+      "verdict": "recorded_not_adopted",
+      "impact": {
+        "harness": "research/ensembles/harness_weight_entropy.py",
+        "artifact": "artifacts/fusion_weight_entropy.json",
+        "winner": [0.65, 0.15, 0.2],
+        "winner_normalized_entropy": 0.8069,
+        "winner_mean_auroc": 0.8922,
+        "shipped_adaptive_mean_auroc": 0.8897,
+        "fixed_prior_40_30_30_mean_auroc": 0.881,
+        "winner_mean_rank": 39.0,
+        "shipped_mean_rank": 68.5,
+        "rank_universe": 232,
+        "tables": ["pima_real", "cardio", "breastw", "wbc", "thyroid"],
+        "seeds": [0, 1, 2]
+      },
+      "why_not_adopted": "The winner was selected on the same five tables it is scored on; a +0.0025 in-sample margin is selection-bias territory. Adoption requires the margin to survive on tables the selection never saw.",
+      "rollback": "Nothing shipped: the served path keeps _compute_adaptive_weights unchanged. The artifact and harness remain for re-measurement on held-out tables."
+    },
+    {
+      "component": "core.three_r.recursion_depth",
+      "change": "Locally-adaptive 3R recursion depth: depth = 3 + round(4 * (1 - spectral_entropy)), clipped to [3, 7] - structured windows recurse deeper, broadband stay shallow.",
+      "reason": "Phase 2 item: make recursion depth a function of local signal properties, keeping the adaptation only where it improves Mercury's own metrics.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/omni_equation/harness_adaptive_depth.py",
+        "artifact": "artifacts/oae_adaptive_depth.json",
+        "adaptive_mean_rank": 3.25,
+        "adaptive_mean_depth": 3.86,
+        "served_depth_5_mean_rank": 4.875,
+        "adaptive_auroc_gain_over_served": 0.0017,
+        "adaptive_latency_saving_vs_served": "41% lower R-stream latency",
+        "fixed_depth_3_mean_rank": 2.875,
+        "fixed_depth_3_mean_auc": 0.7992,
+        "flat_band_from_global_sweep": 0.003
+      },
+      "why_refused": "Fixed depth 3 outranks both the adaptation and the served depth 5, and every difference sits inside the 0.003 flat band the global sensitivity sweep measured. The adoption bar requires clearing that band; an adaptation that cannot beat a constant is complexity without evidence.",
+      "rollback": "Nothing shipped: the served depth stays 5. tests pin the rule's semantics and the refusal."
+    },
+    {
+      "component": "core.three_r.lyapunov_lambda",
+      "change": "Adaptive Lyapunov convergence rate (lambda) as a function of local signal properties.",
+      "reason": "Phase 2 item: adapt lambda where harnesses improve.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/omni_equation/harness_oae_sensitivity.py",
+        "artifact": "artifacts/oae_sensitivity.json",
+        "measurement": "The fused score is exactly flat in lambda on the recorded NAB windows: no lambda adaptation can improve any detection metric by construction."
+      },
+      "why_refused": "A dial the output is flat in cannot be improved by adapting it. Lambda remains a stability-bound parameter (LyapunovConstants.LAMBDA_CONVERGENCE = 0.25), not a detection lever.",
+      "rollback": "Nothing shipped; the constant stays centralized in core/centralized_constants.py."
+    },
+    {
+      "component": "detectors.math_arrest.live_contributor_ranking",
+      "change": "Probe-local calibration and ranking only on live contributors: (a) PHI^-rank with live contributors (decorrelation multiplier >= 0.75) taking the top affinity ranks, (b) uniform fusion of live contributors only, (c) per-probe ECDF calibration of held-out scores against each probe's own fit-time distribution.",
+      "reason": "Phase 2 item: probe/detector-local calibration and ranking applied only to live contributors.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/math_arrest/harness_live_contributor_ranking.py",
+        "artifact": "artifacts/math_arrest_live_ranking.json",
+        "shipped_uniform_mean_auc": 0.6917,
+        "phi_affinity_live_mean_delta": -0.1081,
+        "uniform_live_mean_delta": -0.0151,
+        "local_rank_mean_delta": -0.0624,
+        "n_evaluations": 19,
+        "bar": "adopt only if mean delta > +0.003 with no dataset below -0.002"
+      },
+      "why_refused": "Every candidate degrades the shipped uniform fusion: rank-concentration (PHI^-rank) loses ~0.11 mean AUC even when ranks are assigned among live contributors only, dropping demoted probes outright costs 0.015, and probe-local ECDF calibration costs 0.062 against the fit-scale normalizer the probes already carry. The shipped per-probe normalizer + uniform weights + decorrelation multipliers stand as measured.",
+      "rollback": "Nothing shipped; the harness and artifact remain for re-measurement if the probe set changes."
+    },
+    {
+      "component": "detectors.math_arrest.decorrelator",
+      "change": "Correlation-aware probe decorrelation: pairwise |r| clustering at threshold 0.85, redundant-cluster members down-weighted at fit time (CorrelationAwareDecorrelator.calibrate).",
+      "reason": "Measured probe redundancy: five probes form a |r| >= 0.8 cluster with the additive probe (harmonic_oscillator, r3_recursion_resonance, quantum_annealing, modified_zscore, exponential_decay with catalan).",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "research/math_arrest/harness_probe_redundancy.py",
+        "artifact": "artifacts/math_arrest_probe_correlation.json",
+        "full_ensemble_mean_auc": {"nab": 0.7494, "adbench": 0.6763, "overall": 0.7088},
+        "note": "The 'decorrelated' preset (16 probes) measures better than 'all'; 'all' stays the default because the 21-column feature surface is a released contract (detectors/math_arrest/arrest.py PROBE_PRESETS)."
+      },
+      "rollback": "Do not call calibrate_decorrelator (multipliers stay 1.0), or construct with preset='all' (the default)."
+    },
+    {
+      "component": "detectors.math_arrest.contrastive_refinement",
+      "change": "Contrastive probe refinement from the fused score's own mistakes (refine_contrastive, eta in (0, 1]).",
+      "reason": "The ensemble's calibration discordance is reducible using only its own disagreement signal - no labels consumed.",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "research/math_arrest/harness_contrastive_refinement.py",
+        "artifact": "artifacts/math_arrest_contrastive_refinement.json",
+        "calibration_discordance_before": 0.3128,
+        "calibration_discordance_after_eta_0_5": 0.2793,
+        "improving_etas": [0.25, 0.5, 1.0],
+        "tables": ["pima_real", "cardio", "breastw", "wbc", "thyroid"],
+        "seeds": [0, 1, 2]
+      },
+      "rollback": "eta=0, or do not call refine_contrastive; the probes' fitted state is untouched unless the call is made."
+    }
+  ]
+}

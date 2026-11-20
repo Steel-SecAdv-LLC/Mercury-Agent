@@ -613,6 +613,25 @@ class AnomalyMathArrest:
                 factors[name] = max(1.0 + eta * (2.0 * rate - 1.0), 0.05)
             self._decorrelator.scale_multipliers(factors)
         after, _ = discordance()
+        if factors:
+            # Improvement ledger: probe weights were refined from the fused
+            # score's own mistakes — an adaptive change, recorded with the
+            # measured before/after discordance it was applied for.
+            from omni_mercury_engine.governance.improvement_ledger import (
+                record_adaptive_change,
+            )
+
+            record_adaptive_change(
+                "math_arrest.contrastive_refinement",
+                "contrastive refinement rescaled probe weight multipliers",
+                reason=(
+                    f"calibration discordance {before:.4f} on the labelled fold; " f"eta={eta:g}"
+                ),
+                before={"discordance": before},
+                after={"discordance": after, "factors": factors},
+                impact={"discordance_delta": after - before},
+                rollback="re-fit without refine_contrastive (multipliers reset)",
+            )
         return {
             "discordant_before": before,
             "discordant_after": after,
@@ -717,7 +736,29 @@ class AnomalyMathArrest:
         probe_names = [r.probe_name for r in results]
         fit_qualities = {r.probe_name: r.trajectory_fit_quality for r in results}
 
-        return self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        multipliers = self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        if multipliers and any(abs(m - 1.0) > 1e-12 for m in multipliers.values()):
+            # Improvement ledger: redundant probes were down-weighted from the
+            # ensemble's own correlation structure — an adaptive change to the
+            # live probe weights, recorded with its rollback.
+            from omni_mercury_engine.governance.improvement_ledger import (
+                record_adaptive_change,
+            )
+
+            record_adaptive_change(
+                "math_arrest.decorrelator",
+                "correlation-aware decorrelation down-weighted redundant probes",
+                reason=(
+                    f"pairwise |r| clustering over {len(probe_names)} fitted probes "
+                    f"on {n} calibration rows (threshold "
+                    f"{self._decorrelator.threshold:g})"
+                ),
+                before=dict.fromkeys(multipliers, 1.0),
+                after=dict(multipliers),
+                impact=None,
+                rollback="re-fit without calibrate_decorrelator (multipliers stay 1.0)",
+            )
+        return multipliers
 
     def get_probe_diagnostics(self) -> list[dict[str, Any]]:
         """Per-probe fit quality and status for full transparency."""

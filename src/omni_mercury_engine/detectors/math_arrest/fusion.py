@@ -48,6 +48,11 @@ class CorrelationAwareDecorrelator:
         return self._is_calibrated
 
     @property
+    def threshold(self) -> float:
+        """The pairwise |r| above which two probes count as redundant."""
+        return self._threshold
+
+    @property
     def weight_multipliers(self) -> dict[str, float]:
         """Copy of weight multipliers; empty if not calibrated."""
         return dict(self._weight_multipliers)

@@ -1230,6 +1230,10 @@ class OmniMercuryEngine(LoggerMixin):
         # only DEFER on drift). None = disabled (exact legacy behaviour).
         self._adaptive_conformal: Any = None
         self._recalibration_warmup: int = 30
+        # The adaptive operating threshold most recently written to the
+        # improvement ledger; None until the warmup first crosses. Used to
+        # record threshold *moves* (>= 0.01) rather than one entry per call.
+        self._last_recorded_adaptive_threshold: float | None = None
         # Bounded sample of the fusion training features, captured by
         # fit_fusion(). Used as the SHAP background for the opt-in GDPR report
         # (detect_with_fusion(gdpr_report=True)); None until a fit has run.
@@ -2120,6 +2124,23 @@ class OmniMercuryEngine(LoggerMixin):
         # labels are scarce.
         n_positive = int(np.count_nonzero(np.asarray(y).reshape(-1) >= 0.5))
         symbolic_weight_eff = resolve_symbolic_weight(symbolic_weight, n_positive)
+        if symbolic_weight == "adaptive":
+            # Improvement ledger: the label-scarcity schedule chose the
+            # symbolic-constraint weight for this fit — an adaptive change to
+            # what the shipped loss optimises, recorded with its rollback.
+            from omni_mercury_engine.governance.improvement_ledger import (
+                record_adaptive_change,
+            )
+
+            record_adaptive_change(
+                "engine.fit_fusion.symbolic_weight",
+                "label-scarcity schedule resolved the symbolic-constraint weight",
+                reason=f"symbolic_weight='adaptive' with n_positive={int(n_positive)}",
+                before="adaptive",
+                after=float(symbolic_weight_eff),
+                impact=None,
+                rollback="pass symbolic_weight=<float> to pin the weight explicitly",
+            )
 
         # Detector-consensus scores for symbolic co-training (only when enabled,
         # to avoid the extra detect() pass on the purely-neural default path).
@@ -4265,10 +4286,40 @@ class OmniMercuryEngine(LoggerMixin):
         else:
             probs = self.score_fusion(X_cal)
         y = np.asarray(y_cal).astype(int).ravel()
+        previous = self._fusion_conformal
+        previous_n = self._fusion_conformal_n_calibration
         self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
         # Recorded for model provenance: the certificate's calibration-set size.
         self._fusion_conformal_n_calibration = int(y.size)
         report = self._fusion_conformal.coverage_report(probs, y)
+        # Improvement ledger: replacing the serving certificate is an adaptive
+        # change to what "calibrated" means on every later decision.
+        from omni_mercury_engine.governance.improvement_ledger import record_adaptive_change
+
+        record_adaptive_change(
+            "engine.conformal_certificate",
+            "fitted the conformal certificate that serves prediction sets",
+            reason=f"calibrate_fusion_conformal() on {int(y.size)} held-out rows",
+            before=(
+                {
+                    "coverage": float(previous.coverage),
+                    "coverage_achieved": float(previous.coverage_achieved),
+                    "n_calibration": previous_n,
+                }
+                if previous is not None
+                else None
+            ),
+            after={
+                "coverage": float(coverage),
+                "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+                "n_calibration": int(y.size),
+            },
+            impact={"coverage_report_thresholds": report["thresholds"]},
+            rollback=(
+                "reload the previous checkpoint (load_model restores its "
+                "conformal_state), or refit on the previous calibration split"
+            ),
+        )
         logger.info(
             "Fusion conformal calibrated: coverage=%.2f thresholds=%s (n_cal=%d)",
             coverage,
@@ -7240,7 +7291,41 @@ class OmniMercuryEngine(LoggerMixin):
             if np.isfinite(candidate):
                 adaptive_threshold = float(candidate)
                 if self._adaptive_conformal.n_updates >= self._recalibration_warmup:
+                    static_threshold = threshold
                     threshold = adaptive_threshold
+                    # Improvement ledger: an adaptive change to the live
+                    # operating point is recorded with its rollback — once at
+                    # the warmup crossing, then on every move >= 0.01, never
+                    # per call (the recalibrator moves a little every tick).
+                    last = self._last_recorded_adaptive_threshold
+                    if last is None or abs(adaptive_threshold - last) >= 0.01:
+                        from omni_mercury_engine.governance.improvement_ledger import (
+                            record_adaptive_change,
+                        )
+
+                        record_adaptive_change(
+                            "engine.online_recalibration",
+                            (
+                                "online drift recalibration took over the operating threshold"
+                                if last is None
+                                else "online drift recalibration moved the operating threshold"
+                            ),
+                            reason=(
+                                f"adaptive conformal tracker past warmup "
+                                f"({self._adaptive_conformal.n_updates} updates, "
+                                f"warmup {self._recalibration_warmup}); coverage stats "
+                                f"{adaptive_stats}"
+                            ),
+                            before=(static_threshold if last is None else last),
+                            after=adaptive_threshold,
+                            impact=None,
+                            rollback=(
+                                "disable_online_recalibration() restores the static "
+                                "threshold path; the static threshold this call "
+                                f"computed was {static_threshold:.6f}"
+                            ),
+                        )
+                        self._last_recorded_adaptive_threshold = adaptive_threshold
 
         result = {
             "anomaly_prob": anomaly_prob_val,

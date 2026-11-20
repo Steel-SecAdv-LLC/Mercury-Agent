@@ -1214,6 +1214,37 @@ async def flagship_decision_summary(
     return summary
 
 
+@router.get(
+    "/flagship/improvements",
+    summary="Improvement Ledger: every adaptive change, with its rollback",
+    description="""
+Two trails. `runtime` is the bounded, process-wide Improvement Ledger: every
+adaptive change applied in this server since it started — an online-recalibrated
+operating threshold taking over or moving, a conformal certificate refit, the
+label-scarcity schedule resolving the symbolic weight, probe decorrelation or
+contrastive refinement rescaling weights — each with what changed, why, the
+measured impact where one exists, and how to roll it back. `committed` is the
+shipped record of measured adaptive-change *decisions* (adopted or refused,
+each with its harness numbers), from `artifacts/improvement_ledger.json`.
+""",
+)
+async def flagship_improvement_ledger(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Serve the runtime Improvement Ledger and the committed decisions."""
+    from omni_mercury_engine.governance.improvement_ledger import (
+        default_improvement_ledger,
+        published,
+    )
+
+    ledger = default_improvement_ledger()
+    recent = [entry.to_dict() for entry in ledger.entries()[-64:]]
+    return {
+        "runtime": {"summary": ledger.summary(), "recent": recent},
+        "committed": published(),
+    }
+
+
 @router.post(
     "/flagship",
     summary="Flagship Neuro-Symbolic Fusion Detection",
