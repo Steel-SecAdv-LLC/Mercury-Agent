@@ -348,6 +348,11 @@ class Component extends DCLogic {
     if (!r.ok) {
       const rows = [this.row("✗ " + r.status + " " + (r.kind || "") + " · " + (typeof r.error === "string" ? r.error : JSON.stringify(r.error)), "var(--anomaly-soft)")];
       if (r.kind === "auth") rows.push(Object.assign(this.row("▸ Create an API key in the account dashboard (" + (this.A.cfg.baseUrl || "") + "/dashboard) and add it under the connection badge.", "var(--mercury-200)"), { act: () => this.setState({ conn: true }) }));
+      if (r.kind === "forbidden") {
+        const eth = r.data && r.data.ethics && typeof r.data.ethics === "object" ? r.data.ethics : null;
+        rows.push(this.row("▸ Forbidden: " + ((r.data && (r.data.detail || r.data.message)) || (typeof r.error === "string" && r.error ? r.error : "the server refused this request")) + " — a policy refusal, not a missing API key.", "var(--warning)"));
+        if (eth) [["check", eth.check], ["score", eth.score], ["threshold", eth.threshold], ["ruleset", eth.ruleset_version], ["details", eth.details]].forEach(([k, v]) => { if (v != null && v !== "") rows.push(this.row("    " + k + " · " + (typeof v === "number" ? (+v).toFixed(3) : typeof v === "object" ? JSON.stringify(v).slice(0, 160) : String(v).slice(0, 160)), "var(--fg-2)")); });
+      }
       if (r.kind === "validation" && r.data) rows.push(this.row("  " + JSON.stringify(r.data).slice(0, 400), "var(--fg-3)"));
       rows.push(this.row(""));
       this.append(rows);
@@ -365,8 +370,14 @@ class Component extends DCLogic {
     const summary = { samples: recs.length, anomalies: an.length, rate: recs.length ? an.length / recs.length : 0, critical: cnt("CRITICAL"), high: cnt("HIGH"), medium: cnt("MEDIUM"), low: cnt("LOW"), meanConf: (() => { const c = recs.map((r) => r.conf).filter((v) => typeof v === "number"); return c.length ? c.reduce((a, b) => a + b, 0) / c.length : null; })(), maxScore: recs.length ? Math.max.apply(null, recs.map((x) => x.score)) : 0, runtime: String(((r.meta && r.meta.ms) || 0) / 1000), threshold: thr, source: "live" };
     const rule = "=".repeat(64);
     rows.push(this.row(rule, F), this.row("  RESPONSE · " + r.status + " · " + (r.meta ? r.meta.ms + " ms" : "") + (r.meta && r.meta.correlationId ? " · " + r.meta.correlationId : ""), "var(--mercury-300)"));
-    if (d.explanation) rows.push(this.row("  " + d.explanation));
+    if (d.explanation) rows.push(this.row("  " + this.explText(d.explanation)));
     if (d.method) rows.push(this.row("  method " + d.method + " · threshold " + thr));
+    if (d.decision && typeof d.decision === "object") {
+      const dec = d.decision, c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));
+      rows.push(this.row("  decision " + [dec.state, dec.disposition].filter((x) => x != null && x !== "").join(" · ") + (dec.abstained != null ? " · abstained " + dec.abstained : "") + (dec.calibrated != null ? " · calibrated " + dec.calibrated : "") + (typeof dec.coverage === "number" ? " · coverage " + (dec.coverage * 100).toFixed(1) + "%" : ""), dec.abstained ? "var(--warning)" : "var(--normal)"));
+      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x) => rows.push(this.row("    reason · " + c100(x), "var(--fg-2)")));
+      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x) => rows.push(this.row("    caveat · " + c100(x), "var(--fg-3)")));
+    }
     if (d.calibration_basis) { const cb = d.calibration_basis; rows.push(this.row("  calibration " + cb + " · " + (cb === "reference" ? "known-normal reference (" + (d.n_reference != null ? d.n_reference + " points" : "supplied") + "): the cut rests on evidence independent of this input" : cb === "labels" ? "calibrated on the label-0 points" : "self-calibrated on the scored series: the flag rate is set by the parameters, not evidence · add --reference 0.15 to calibrate on a known-normal prefix"), cb === "scored_series" ? "var(--warning)" : "var(--normal)")); }
     if (d.conformal_alpha != null) rows.push(this.row("  conformal α " + d.conformal_alpha + (d.n_conformal_flagged != null ? " · " + d.n_conformal_flagged + " flagged" : "") + (typeof d.conformal_threshold === "number" ? " · cut " + (+d.conformal_threshold).toFixed(4) : "")));
     if (d.excluded_members && Object.keys(d.excluded_members).length) rows.push(this.row("  excluded " + Object.keys(d.excluded_members).join(", ") + " · " + Object.values(d.excluded_members)[0], "var(--fg-3)"));
@@ -726,6 +737,23 @@ class Component extends DCLogic {
     const scale = /univariate|tier/.test(route) ? "z-score" : /multivariate/.test(route) ? "L2 distance" : "0–1";
     return { d, sc, fl: fl0 || sc.map((v) => thr != null && v >= thr), thr, pts, fc, n: sc.length, method: d.method || null, scale, series: cur.body && Array.isArray(cur.body.data) ? cur.body.data : null };
   }
+  // An object explanation (the flagship Integrated-Gradients dict, or a gdpr_report Shapley
+  // block) renders method, top attributions and faithfulness, not "[object Object]".
+  explText(e) {
+    if (e == null) return "";
+    if (typeof e !== "object") return String(e);
+    const parts = [], method = e.method || e.explanation_type || e.type;
+    if (method) parts.push(String(method));
+    let fa = null;
+    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);
+    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);
+    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }
+    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }
+    const fs = e.faithfulness_scores || e.faithfulness;
+    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));
+    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }
+    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);
+  }
   dossierVals(cur) {
     const D = this.dossierOf(cur); if (!D) return { hasDossier: false, hasDossierSel: false };
     const s = this.state, flagged = D.sc.map((v, i) => i).filter((i) => D.fl[i]), cand = flagged.length ? flagged : D.sc.map((v, i) => i).sort((a, b) => D.sc[b] - D.sc[a]).slice(0, 5);
@@ -737,8 +765,8 @@ class Component extends DCLogic {
     const locate = [["sample", i + " of " + D.n], ["value", valS], ["route", cur.route], ["method", D.method || "—"], ["received", String(cur.at || "").replace("T", " ").slice(0, 19) + " UTC"], ["correlation", cur.corr || "—"]];
     let bars = [], text = "";
     if (D.fc) { bars = Object.keys(D.fc).filter((k) => Array.isArray(D.fc[k]) && typeof D.fc[k][i] === "number").map((k) => ({ k, v: D.fc[k][i] })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 6); text = "Per-feature contributions for this sample, from the response's feature_contributions."; }
-    else if (D.d.detector_contributions && typeof D.d.detector_contributions === "object") { bars = Object.entries(D.d.detector_contributions).filter(([, v]) => typeof v === "number").map(([k, v]) => ({ k, v })); text = D.d.explanation ? String(D.d.explanation) : "Detector contributions, from the response."; }
-    else if (D.d.explanation) text = String(D.d.explanation);
+    else if (D.d.detector_contributions && typeof D.d.detector_contributions === "object") { bars = Object.entries(D.d.detector_contributions).filter(([, v]) => typeof v === "number").map(([k, v]) => ({ k, v })); text = D.d.explanation ? this.explText(D.d.explanation) : "Detector contributions, from the response."; }
+    else if (D.d.explanation) text = this.explText(D.d.explanation);
     else text = "This route returns per-sample scores only; it carries no attribution field, so none is shown.";
     const mx = Math.max(1e-9, ...bars.map((b) => Math.abs(b.v)));
     const dsBars = bars.map((b) => ({ k: b.k, v: (b.v >= 0 ? "+" : "") + (+b.v).toFixed(3), w: Math.round((Math.abs(b.v) / mx) * 100) + "%", c: b.v >= 0 ? "var(--anomaly)" : "var(--normal)" }));
@@ -749,7 +777,7 @@ class Component extends DCLogic {
     const D = this.dossierOf(cur); if (!D || i == null || i >= D.n) return null; const sc = D.sc[i], fl = D.fl[i], pt = D.pts.find((q) => q && q.index === i);
     const top = D.fc ? Object.keys(D.fc).filter((k) => Array.isArray(D.fc[k]) && typeof D.fc[k][i] === "number").map((k) => [k, D.fc[k][i]]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 3) : [];
     const steps = ["result · " + cur.label + " · " + cur.route, "sample " + i + " of " + D.n + " · score " + (+sc).toFixed(4) + " (" + D.scale + ")" + (D.thr != null ? " vs threshold " + (+D.thr).toFixed(4) : ""), fl ? "flagged" + (pt && pt.severity ? " · severity " + String(pt.severity).toUpperCase() : "") : "not flagged"].concat(top.length ? ["top contributions · " + top.map(([k, v]) => k + " " + (v >= 0 ? "+" : "") + (+v).toFixed(3)).join(", ")] : []).concat(cur.corr ? ["correlation " + cur.corr] : []);
-    const text = (fl ? "Sample " + i + " reads ANOMALY: its score " + (+sc).toFixed(3) + " on the " + D.scale + " scale " + (D.thr != null ? "crosses the threshold " + (+D.thr).toFixed(3) + "." : "was flagged by the detector.") : "Sample " + i + " reads NORMAL: score " + (+sc).toFixed(3) + (D.thr != null ? " stays under the threshold " + (+D.thr).toFixed(3) : "") + ".") + (top.length ? " The response attributes it mostly to " + top[0][0] + "." : "") + (D.d.explanation ? " Engine explanation: " + String(D.d.explanation) : "") + (D.d._simulated ? " (Simulated engine.)" : "");
+    const text = (fl ? "Sample " + i + " reads ANOMALY: its score " + (+sc).toFixed(3) + " on the " + D.scale + " scale " + (D.thr != null ? "crosses the threshold " + (+D.thr).toFixed(3) + "." : "was flagged by the detector.") : "Sample " + i + " reads NORMAL: score " + (+sc).toFixed(3) + (D.thr != null ? " stays under the threshold " + (+D.thr).toFixed(3) : "") + ".") + (top.length ? " The response attributes it mostly to " + top[0][0] + "." : "") + (D.d.explanation ? " Engine explanation: " + this.explText(D.d.explanation) : "") + (D.d._simulated ? " (Simulated engine.)" : "");
     return { grounded: true, steps, text, acts: [{ label: "Narrate this result", act: () => this.narrateData(cur.data, cur.label) }, { label: "Open in RESULTS", act: () => this.setState({ ws: "res", resSel: cur.id }) }] };
   }
   postureAnswer() {

@@ -65,6 +65,24 @@
     if (Array.isArray(e) && e.length && e[0] && typeof e[0] === "object") { const f = e[0], at = Array.isArray(f.loc) ? f.loc.filter((x) => x !== "body").join(".") : ""; return (e.length > 1 ? e.length + " validation errors · " : "") + clip((at ? at + ": " : "") + (f.msg || JSON.stringify(f))); }
     return clip(String(d.kind) + " error" + (e ? " · " + JSON.stringify(e) : ""));
   }
+  // An object explanation (flagship explain: true -> the Integrated-Gradients dict; a
+  // gdpr_report Shapley block) renders its substance -- method, top attributions,
+  // faithfulness -- instead of String()'s "[object Object]".
+  function explText(e) {
+    if (e == null) return null;
+    if (typeof e !== "object") return String(e).slice(0, 220);
+    const parts = [], method = e.method || e.explanation_type || e.type;
+    if (method) parts.push(String(method));
+    let fa = null;
+    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);
+    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);
+    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }
+    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }
+    const fs = e.faithfulness_scores || e.faithfulness;
+    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));
+    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }
+    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);
+  }
   function summarize(data) {
     const d = data || {}, kv = [];
     const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value)).filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null);
@@ -72,8 +90,8 @@
     let headline = "";
     if (flags) { const n = flags.filter(Boolean).length; headline = n + " of " + flags.length + " flagged"; }
     else if (typeof d.is_anomaly === "boolean") headline = d.is_anomaly ? "ANOMALY" : "NORMAL";
-    else if (typeof d.fusion_score === "number") headline = "fusion " + d.fusion_score.toFixed(3) + (d.is_stable === false ? " · UNSTABLE" : "");
-    else if (typeof d.overall_score === "number") headline = "score " + d.overall_score.toFixed(3) + (d.decision ? " · " + d.decision : "");
+    else if (typeof d.fusion_score === "number") headline = "fusion " + d.fusion_score.toFixed(3) + (d.stability_evaluated === false ? " · stability not evaluated (series too short)" : d.is_stable === false ? " · UNSTABLE" : "");
+    else if (typeof d.overall_score === "number") headline = "score " + d.overall_score.toFixed(3) + (d.decision && typeof d.decision === "object" ? " · " + String(d.decision.disposition || d.decision.state || "") : d.decision ? " · " + d.decision : "");
     else if (Array.isArray(d.root_causes) && d.root_causes.length) headline = "top cause " + (d.root_causes[0].node || d.root_causes[0].name || "?") + (d.root_causes[0].score != null ? " · " + (+d.root_causes[0].score).toFixed(3) : "");
     else if (d.image) headline = (d.content_type || "image") + (d.bytes ? " · " + Math.round(d.bytes / 1024) + " KB" : "");
     else if (d.type === "FeatureCollection") headline = (d.features || []).length + " GeoJSON features";
@@ -84,13 +102,24 @@
     else if (typeof d.message === "string") headline = d.message.length > 90 ? d.message.slice(0, 88) + "…" : d.message;
     else if (d.status) headline = String(d.status);
     [["fused_score", 3], ["confidence", 3], ["threshold", 3], ["overall_score", 3], ["overall_confidence", 3], ["fusion_score", 3], ["recursion_score", 3], ["resonance_score", 3], ["lyapunov_bound", 3], ["neural_contribution", 3], ["symbolic_contribution", 3]].forEach(([k, p]) => { if (typeof d[k] === "number") kv.push([k, d[k].toFixed(p)]); });
-    ["method", "decision", "is_stable", "patterns_detected", "rules_fired", "threshold_source"].forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });
-    if (d.decision && typeof d.decision === "object") kv.push(["decision", d.decision.disposition || JSON.stringify(d.decision).slice(0, 80)]);
+    ["method", "decision", "patterns_detected", "rules_fired", "threshold_source"].forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });
+    if (d.stability_evaluated === false) kv.push(["is_stable", "not evaluated (series too short)"]); else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);
+    if (d.decision && typeof d.decision === "object") {
+      const dec = d.decision, c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));
+      kv.push(["decision", dec.disposition || JSON.stringify(dec).slice(0, 80)]);
+      if (dec.state != null) kv.push(["· state", String(dec.state)]);
+      if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);
+      if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);
+      if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);
+      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));
+      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));
+    }
     if (d.detector_scores && typeof d.detector_scores === "object") Object.entries(d.detector_scores).slice(0, 6).forEach(([k, v]) => kv.push(["· " + k, typeof v === "number" ? v.toFixed(3) : String(v)]));
     const rc = arr(d.root_causes) || arr(d.ranking) || arr(d.top_k) || arr(d.causes);
     if (rc) rc.slice(0, 5).forEach((x, i) => kv.push(["cause " + (i + 1), typeof x === "object" ? (x.node || x.name || x.feature || JSON.stringify(x)).toString().slice(0, 60) + (x.score != null ? " · " + (+x.score).toFixed(3) : "") : String(x)]));
     if (d.summary && typeof d.summary === "object") Object.entries(d.summary).slice(0, 4).forEach(([k, v]) => kv.push([k, typeof v === "object" ? JSON.stringify(v).slice(0, 60) : String(v)]));
-    if (d.explanation) kv.push(["explanation", String(d.explanation).slice(0, 220)]);
+    if (d.explanation) { const ex = explText(d.explanation); if (ex) kv.push(["explanation", ex.slice(0, 300)]); }
+    if (d.gdpr_report && typeof d.gdpr_report === "object") { const g = d.gdpr_report.explanation || d.gdpr_report.shapley, gx = g ? explText(g) : null; if (gx) kv.push(["gdpr report", gx.slice(0, 300)]); }
     const image = d.image_base64 || d.png_base64 || d.image || null;
     return { scores, flags, headline: headline || "response received", kv, image: image && typeof image === "string" ? (image.startsWith("data:") ? image : "data:image/png;base64," + image) : null, geojson: d.type === "FeatureCollection" ? (d.features || []).length + " features" : null };
   }

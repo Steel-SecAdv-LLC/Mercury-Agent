@@ -2600,6 +2600,227 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
 )
 
 
+# The flagship decision surface reaches the operator intact. A flagship
+# response carries a decision record (state, disposition, abstention,
+# calibration, coverage, reasons, caveats), a ``detector_importance`` map, an
+# Integrated-Gradients explanation OBJECT and ``is_stable`` paired with
+# ``stability_evaluated``; the console rendered one word of the decision, no
+# importance chart, "[object Object]" for the explanation and UNSTABLE for a
+# series too short to evaluate. A 403 was also folded into kind "auth", so an
+# ethical-gate refusal told the operator to create an API key.
+# tests/api/test_console_response_rendering.py (Node units on the pure
+# functions) and tests/api/test_console_decision_forbidden_browser.py (the
+# served page against a canned engine) drive all five.
+_EXPL_TEXT_MASS = (
+    "  // An object explanation (flagship explain: true -> the Integrated-Gradients dict; a\n"
+    "  // gdpr_report Shapley block) renders its substance -- method, top attributions,\n"
+    '  // faithfulness -- instead of String()\'s "[object Object]".\n'
+    "  function explText(e) {\n"
+    "    if (e == null) return null;\n"
+    '    if (typeof e !== "object") return String(e).slice(0, 220);\n'
+    "    const parts = [], method = e.method || e.explanation_type || e.type;\n"
+    "    if (method) parts.push(String(method));\n"
+    "    let fa = null;\n"
+    "    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);\n"
+    "    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);\n"
+    '    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }\n'
+    '    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }\n'
+    "    const fs = e.faithfulness_scores || e.faithfulness;\n"
+    '    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));\n'
+    '    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }\n'
+    '    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);\n'
+    "  }\n"
+)
+
+MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + (
+    (
+        "object explanations get a formatter",
+        "  function summarize(data) {",
+        _EXPL_TEXT_MASS + "  function summarize(data) {",
+    ),
+    (
+        "3R headline: the stability verdict only when stability was evaluated",
+        'd.fusion_score.toFixed(3) + (d.is_stable === false ? " · UNSTABLE" : "")',
+        'd.fusion_score.toFixed(3) + (d.stability_evaluated === false ? " · stability not evaluated '
+        '(series too short)" : d.is_stable === false ? " · UNSTABLE" : "")',
+    ),
+    (
+        "neuro headline: an object decision names its disposition, not [object Object]",
+        'headline = "score " + d.overall_score.toFixed(3) + (d.decision ? " · " + d.decision : "");',
+        'headline = "score " + d.overall_score.toFixed(3) + (d.decision && typeof d.decision === '
+        '"object" ? " · " + String(d.decision.disposition || d.decision.state || "") : d.decision ? '
+        '" · " + d.decision : "");',
+    ),
+    (
+        "the is_stable row says when stability was not evaluated (a short series read as UNSTABLE)",
+        '["method", "decision", "is_stable", "patterns_detected", "rules_fired", "threshold_source"]'
+        '.forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });',
+        '["method", "decision", "patterns_detected", "rules_fired", "threshold_source"]'
+        '.forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });\n'
+        '    if (d.stability_evaluated === false) kv.push(["is_stable", "not evaluated (series too short)"]); '
+        'else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);',
+    ),
+    (
+        "the decision record renders whole: state, abstention, calibration, coverage, reasons, caveats",
+        'if (d.decision && typeof d.decision === "object") kv.push(["decision", d.decision.disposition '
+        "|| JSON.stringify(d.decision).slice(0, 80)]);",
+        'if (d.decision && typeof d.decision === "object") {\n'
+        '      const dec = d.decision, c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));\n'
+        '      kv.push(["decision", dec.disposition || JSON.stringify(dec).slice(0, 80)]);\n'
+        '      if (dec.state != null) kv.push(["· state", String(dec.state)]);\n'
+        '      if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);\n'
+        '      if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);\n'
+        '      if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);\n'
+        '      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));\n'
+        '      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));\n'
+        "    }",
+    ),
+    (
+        "an object explanation and the gdpr report render their substance",
+        'if (d.explanation) kv.push(["explanation", String(d.explanation).slice(0, 220)]);',
+        'if (d.explanation) { const ex = explText(d.explanation); if (ex) kv.push(["explanation", ex.slice(0, 300)]); }\n'
+        '    if (d.gdpr_report && typeof d.gdpr_report === "object") { const g = d.gdpr_report.explanation '
+        '|| d.gdpr_report.shapley, gx = g ? explText(g) : null; if (gx) kv.push(["gdpr report", gx.slice(0, 300)]); }',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-viz.js"] = MODULE_PATCHES["mercury-cli-viz.js"] + (
+    (
+        "the contribution chart reads detector_importance (the flagship response's map)",
+        "function contrib(d) { return barsFrom(d.detector_contributions || d.detector_scores || "
+        'd.attribution || d.weights, d.detector_contributions ? "DETECTOR CONTRIBUTION TO FUSED SCORE" : '
+        'd.attribution ? "TIER ATTRIBUTION · mean score per member" : d.detector_scores ? '
+        '"DETECTOR SCORES" : "FUSION WEIGHTS", C.cy); }',
+        "function contrib(d) { return barsFrom(d.detector_contributions || d.detector_importance || "
+        "d.detector_scores || d.attribution || d.weights, d.detector_contributions ? "
+        '"DETECTOR CONTRIBUTION TO FUSED SCORE" : d.detector_importance ? '
+        '"DETECTOR IMPORTANCE · fusion weight per detector" : d.attribution ? '
+        '"TIER ATTRIBUTION · mean score per member" : d.detector_scores ? '
+        '"DETECTOR SCORES" : "FUSION WEIGHTS", C.cy); }',
+    ),
+    (
+        "a response with detector_importance is a fusion response for the recommended charts",
+        'd.detector_contributions || d.detector_scores ? "fusion"',
+        'd.detector_contributions || d.detector_importance || d.detector_scores ? "fusion"',
+    ),
+    (
+        "3R bar colour: unstable only when stability was evaluated",
+        '["fusion", d.fusion_score, d.is_stable === false ? C.red : C.grn]',
+        '["fusion", d.fusion_score, d.stability_evaluated !== false && d.is_stable === false ? C.red : C.grn]',
+    ),
+    (
+        "3R title: a short series (stability_evaluated false) is not UNSTABLE",
+        '(d.is_stable === false ? "UNSTABLE" : "STABLE")',
+        '(d.stability_evaluated === false ? "stability not evaluated (series too short)" : '
+        'd.is_stable === false ? "UNSTABLE" : "STABLE")',
+    ),
+    (
+        "fusion network title: the same stability gate",
+        '(d.is_stable === false ? " · UNSTABLE" : " · stable")',
+        '(d.stability_evaluated === false ? " · stability not evaluated" : '
+        'd.is_stable === false ? " · UNSTABLE" : " · stable")',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "a 403 is kind forbidden, not auth: an ethical-gate refusal is not a missing key (sim engine)",
+        'kind: r.status === 401 || r.status === 403 ? "auth" : r.status === 429 ? "ratelimit" : '
+        'r.status === 422 ? "validation" : "http"',
+        'kind: r.status === 401 ? "auth" : r.status === 403 ? "forbidden" : r.status === 429 ? '
+        '"ratelimit" : r.status === 422 ? "validation" : "http"',
+    ),
+    (
+        "a 403 is kind forbidden, not auth: an ethical-gate refusal is not a missing key (live server)",
+        'kind: res.status === 401 || res.status === 403 ? "auth" : res.status === 429 ? "ratelimit" : '
+        'res.status === 422 ? "validation" : "http"',
+        'kind: res.status === 401 ? "auth" : res.status === 403 ? "forbidden" : res.status === 429 ? '
+        '"ratelimit" : res.status === 422 ? "validation" : "http"',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "a 403 renders the server's refusal (detail plus any ethics fields), not the API-key advice",
+        'if (r.kind === "auth") rows.push(Object.assign(this.row("▸ Create an API key in the account '
+        'dashboard (" + (this.A.cfg.baseUrl || "") + "/dashboard) and add it under the connection '
+        'badge.", "var(--mercury-200)"), { act: () => this.setState({ conn: true }) }));',
+        'if (r.kind === "auth") rows.push(Object.assign(this.row("▸ Create an API key in the account '
+        'dashboard (" + (this.A.cfg.baseUrl || "") + "/dashboard) and add it under the connection '
+        'badge.", "var(--mercury-200)"), { act: () => this.setState({ conn: true }) }));\n'
+        '      if (r.kind === "forbidden") {\n'
+        '        const eth = r.data && r.data.ethics && typeof r.data.ethics === "object" ? r.data.ethics : null;\n'
+        '        rows.push(this.row("▸ Forbidden: " + ((r.data && (r.data.detail || r.data.message)) || '
+        '(typeof r.error === "string" && r.error ? r.error : "the server refused this request")) + '
+        '" — a policy refusal, not a missing API key.", "var(--warning)"));\n'
+        '        if (eth) [["check", eth.check], ["score", eth.score], ["threshold", eth.threshold], '
+        '["ruleset", eth.ruleset_version], ["details", eth.details]].forEach(([k, v]) => { if (v != null '
+        '&& v !== "") rows.push(this.row("    " + k + " · " + (typeof v === "number" ? (+v).toFixed(3) : '
+        'typeof v === "object" ? JSON.stringify(v).slice(0, 160) : String(v).slice(0, 160)), "var(--fg-2)")); });\n'
+        "      }",
+    ),
+    (
+        "the terminal explanation line renders an object explanation's substance",
+        'if (d.explanation) rows.push(this.row("  " + d.explanation));',
+        'if (d.explanation) rows.push(this.row("  " + this.explText(d.explanation)));',
+    ),
+    (
+        "the terminal renders the decision record whole",
+        'if (d.method) rows.push(this.row("  method " + d.method + " · threshold " + thr));',
+        'if (d.method) rows.push(this.row("  method " + d.method + " · threshold " + thr));\n'
+        '    if (d.decision && typeof d.decision === "object") {\n'
+        '      const dec = d.decision, c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));\n'
+        '      rows.push(this.row("  decision " + [dec.state, dec.disposition].filter((x) => x != null && '
+        'x !== "").join(" · ") + (dec.abstained != null ? " · abstained " + dec.abstained : "") + '
+        '(dec.calibrated != null ? " · calibrated " + dec.calibrated : "") + (typeof dec.coverage === '
+        '"number" ? " · coverage " + (dec.coverage * 100).toFixed(1) + "%" : ""), dec.abstained ? '
+        '"var(--warning)" : "var(--normal)"));\n'
+        "      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x) => "
+        'rows.push(this.row("    reason · " + c100(x), "var(--fg-2)")));\n'
+        "      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x) => "
+        'rows.push(this.row("    caveat · " + c100(x), "var(--fg-3)")));\n'
+        "    }",
+    ),
+    (
+        "the dossier narrative renders an object explanation's substance (contributions present)",
+        'text = D.d.explanation ? String(D.d.explanation) : "Detector contributions, from the response.";',
+        'text = D.d.explanation ? this.explText(D.d.explanation) : "Detector contributions, from the response.";',
+    ),
+    (
+        "the dossier narrative renders an object explanation's substance (explanation only)",
+        "else if (D.d.explanation) text = String(D.d.explanation);",
+        "else if (D.d.explanation) text = this.explText(D.d.explanation);",
+    ),
+    (
+        "the agent's per-sample explanation renders an object explanation's substance",
+        '" Engine explanation: " + String(D.d.explanation)',
+        '" Engine explanation: " + this.explText(D.d.explanation)',
+    ),
+    (
+        "the explanation formatter for object explanations",
+        "  dossierVals(cur) {",
+        "  // An object explanation (the flagship Integrated-Gradients dict, or a gdpr_report Shapley\n"
+        '  // block) renders method, top attributions and faithfulness, not "[object Object]".\n'
+        "  explText(e) {\n"
+        '    if (e == null) return "";\n'
+        '    if (typeof e !== "object") return String(e);\n'
+        "    const parts = [], method = e.method || e.explanation_type || e.type;\n"
+        "    if (method) parts.push(String(method));\n"
+        "    let fa = null;\n"
+        "    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);\n"
+        "    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);\n"
+        '    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }\n'
+        '    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }\n'
+        "    const fs = e.faithfulness_scores || e.faithfulness;\n"
+        '    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));\n'
+        '    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }\n'
+        '    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);\n'
+        "  }\n"
+        "  dossierVals(cur) {",
+    ),
+)
+
+
 def _apply(text: str, patches: tuple[tuple[str, str, str], ...], where: str) -> str:
     for desc, old, new in patches:
         count = text.count(old)
