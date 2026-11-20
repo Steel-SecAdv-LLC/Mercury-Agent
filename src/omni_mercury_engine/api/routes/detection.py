@@ -9,7 +9,9 @@ Provides univariate, multivariate, and advanced detection methods.
 from __future__ import annotations
 
 import logging
+import math
 import threading
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -54,6 +56,54 @@ router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])
 # ---------------------------------------------------------------------------
 _flagship_lock = threading.Lock()
 _flagship_engine: Any = None
+
+
+def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
+    """Structured 403 payload for an ethical refusal.
+
+    The exception has carried ``check``, ``score``, ``threshold`` and
+    ``details`` all along; the route used to flatten them to a one-line
+    string naming only the check, so an operator could not see what refused
+    at what margin, under which ruleset — and the console showed the refusal
+    as an authentication problem. The payload is bounded and JSON-safe:
+    ``details`` values are truncated, never echoed at full length.
+
+    Args:
+        refusal: The ``EthicalConstraintViolationError`` (or compatible).
+        message: The human-readable first line, kept for existing consumers.
+
+    Returns:
+        ``{"message", "ethics": {check, score, threshold, ruleset_version,
+        details}}``.
+    """
+    from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+    def bounded(value: Any, depth: int = 0) -> Any:
+        if isinstance(value, bool) or value is None:
+            return value
+        if isinstance(value, (int, float)):
+            as_float = float(value)
+            return as_float if math.isfinite(as_float) else None
+        if isinstance(value, str):
+            return value[:240]
+        if depth >= 2:
+            return str(value)[:240]
+        if isinstance(value, Mapping):
+            return {str(k)[:60]: bounded(v, depth + 1) for k, v in list(value.items())[:12]}
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return [bounded(v, depth + 1) for v in list(value)[:8]]
+        return str(value)[:240]
+
+    return {
+        "message": message,
+        "ethics": {
+            "check": str(getattr(refusal, "check", "unknown")),
+            "score": bounded(getattr(refusal, "score", None)),
+            "threshold": bounded(getattr(refusal, "threshold", None)),
+            "ruleset_version": int(ETHICAL.RULESET_VERSION),
+            "details": bounded(getattr(refusal, "details", None) or {}),
+        },
+    }
 
 
 def _raise_if_too_large_to_assess(refusal: Exception) -> None:
@@ -116,7 +166,9 @@ def _enforce_route_gate(surface: str, operation: str, payload: Any) -> None:
         _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
+            detail=_ethical_refusal_detail(
+                e, f"Request refused by the harm-uplift decision gate (check={e.check})."
+            ),
         ) from e
 
 
@@ -483,7 +535,9 @@ async def detect_neurosymbolic(
         _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
+            detail=_ethical_refusal_detail(
+                e, f"Request refused by the harm-uplift decision gate (check={e.check})."
+            ),
         ) from e
     except ImportError as e:
         logger.error("Neuro-symbolic module not available: %s", e)
@@ -1158,7 +1212,9 @@ async def detect_flagship(
         _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Detection blocked by the '{e.check}' ethical gate.",
+            detail=_ethical_refusal_detail(
+                e, f"Detection blocked by the '{e.check}' ethical gate."
+            ),
         ) from e
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

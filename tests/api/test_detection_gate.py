@@ -75,7 +75,9 @@ def test_neurosymbolic_refuses_harm_uplift(client: TestClient) -> None:
     assert (
         resp.status_code == 403
     ), f"harm-uplift record not refused: {resp.status_code} {resp.text[:160]}"
-    assert "harm_uplift" in resp.json().get("detail", "")
+    # The 403 detail is structured (message + ethics payload); the check name
+    # still has to reach the caller, which is all this test needs.
+    assert "harm_uplift" in str(resp.json().get("detail", ""))
 
 
 def test_neurosymbolic_allows_benign_numeric_records(client: TestClient) -> None:
@@ -195,7 +197,7 @@ class TestAllDecisionRoutesAreGated:
         assert (
             resp.status_code == 403
         ), f"harm-uplift text not refused on {path}: {resp.status_code} {resp.text[:160]}"
-        assert "harm_uplift" in resp.json().get("detail", "")
+        assert "harm_uplift" in str(resp.json().get("detail", ""))
 
     @pytest.mark.parametrize("path", sorted(_BENIGN_BODIES))
     def test_benign_numeric_payloads_still_run(self, client: TestClient, path: str) -> None:

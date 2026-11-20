@@ -546,7 +546,51 @@ class TestDetectionRoutes:
             json={"data": [[1.0, 2.0], [3.0, 4.0]]},
         )
         assert response.status_code == 403
-        assert "sigma_immutable" in response.json()["detail"]
+        detail = response.json()["detail"]
+        assert "sigma_immutable" in detail["message"]
+        # The refusal explains itself: which check, at what margin, under
+        # which ruleset. It used to be a one-line string naming the check.
+        from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+        ethics = detail["ethics"]
+        assert ethics["check"] == "sigma_immutable"
+        assert ethics["score"] == pytest.approx(0.10)
+        assert ethics["threshold"] == pytest.approx(0.96)
+        assert ethics["ruleset_version"] == ETHICAL.RULESET_VERSION
+        assert isinstance(ethics["details"], dict)
+
+    def test_ethical_refusal_payload_is_bounded_and_json_safe(
+        self, client: Any, monkeypatch: Any
+    ) -> None:
+        """A refusal's structured details are truncated, never echoed at length."""
+        pytest.importorskip("torch")
+        from omni_mercury_engine.api.routes import detection as det
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+
+        def _blocked(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            raise EthicalConstraintViolationError(
+                "blocked",
+                0.2,
+                0.93,
+                check="benevolence",
+                details={
+                    "hazard_domain": "x" * 5000,
+                    "signals": list(range(100)),
+                    "numpy_score": np.float64(0.25),
+                    "nested": {"deep": {"deeper": {"deepest": "y" * 500}}},
+                },
+            )
+
+        monkeypatch.setattr(det, "_run_flagship_detection", _blocked)
+        response = client.post("/api/v1/detect/flagship", json={"data": [[1.0, 2.0], [3.0, 4.0]]})
+        assert response.status_code == 403
+        details = response.json()["detail"]["ethics"]["details"]
+        assert len(details["hazard_domain"]) == 240
+        assert len(details["signals"]) == 8
+        assert details["numpy_score"] == pytest.approx(0.25)
+        assert len(str(details["nested"])) < 800
 
     def test_root_cause_localization(self, client: Any) -> None:
         """Graph-based root-cause attribution is reachable over HTTP."""
