@@ -21,18 +21,22 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn
 
+from omni_mercury_engine.core.exceptions import DataException
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
+    IncompatibleCheckpointError,
     VisualDetectorConfig,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +73,17 @@ class PaDiMDetector(BaseVisualDetector):
         >>> detector.fit(normal_images)
         >>> results = detector.detect(test_images)
     """
+
+    #: v2: per-position Gaussians on the largest (layer1) feature grid.
+    scoring_version = 2
+    scoring_changes = {
+        2: (
+            "the per-position Gaussians are fitted on the largest feature grid (layer1's, "
+            "e.g. 56x56 = 3136 positions at 224 px) instead of the smallest (14x14 = 196), "
+            "so the saved mean / covariance have one row per position of a grid this build "
+            "no longer extracts, and the scores they gave are not comparable."
+        ),
+    }
 
     decision_source = (
         DecisionSource(
@@ -193,6 +208,63 @@ class PaDiMDetector(BaseVisualDetector):
 
         return patches, (h, w)
 
+    def _accumulate_reduced_features(self, data: torch.Tensor) -> torch.Tensor:
+        """Backbone features of ``data``, reduced batch by batch: ``[N, H*W, d]``.
+
+        The seeded projection is drawn once, from the first batch's feature
+        width, and every batch is projected before it is stored, into a
+        tensor preallocated at the reduced width.  Accumulating the
+        unprojected ``[N, H*W, C]`` features first (as ``fit`` did) costs
+        ``C / d`` times the memory -- 5.4 MB per image on resnet18 at 224 px
+        against 1.2 MB reduced, about four times that again on
+        wide_resnet50_2 -- and ``torch.cat`` doubled it at the peak.
+
+        Sets :attr:`projection` (``None`` when the features are already at
+        most ``d_reduced`` wide) and the fitted spatial shape.
+
+        Args:
+            data: Preprocessed images ``[N, 3, H, W]``.
+
+        Returns:
+            Reduced patch features ``[N, H*W, d]``.
+
+        Raises:
+            DataException: If ``data`` holds no image.
+        """
+        d_reduced = self.padim_config.d_reduced
+        batch_size = self.padim_config.batch_size
+        accumulated: torch.Tensor | None = None
+
+        for i in range(0, len(data), batch_size):
+            with torch.no_grad():
+                features = self.backbone(data[i : i + batch_size])
+            patches, spatial_shape = self._aggregate_features(features)
+
+            if accumulated is None:
+                feature_dim = patches.shape[2]
+                self._spatial_shape = spatial_shape
+                self.projection = None
+                if feature_dim > d_reduced:
+                    self.projection = self._get_random_projection(feature_dim, d_reduced).to(
+                        self.device
+                    )
+                    logger.info(f"Random projection per batch: {feature_dim} -> {d_reduced}")
+                accumulated = torch.empty(
+                    len(data),
+                    patches.shape[1],
+                    min(feature_dim, d_reduced),
+                    dtype=patches.dtype,
+                    device=patches.device,
+                )
+
+            if self.projection is not None:
+                patches = torch.matmul(patches, self.projection)
+            accumulated[i : i + patches.shape[0]] = patches
+
+        if accumulated is None:
+            raise DataException("PaDiM needs at least one image to fit; got an empty batch")
+        return accumulated
+
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PaDiMDetector:
         """Fit detector by computing Gaussian parameters for each position.
 
@@ -202,51 +274,21 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
         n_samples = data.shape[0]
         logger.info(f"Fitting PaDiM on {n_samples} images")
 
-        # Collect all features
-        all_features = []
-        batch_size = self.padim_config.batch_size
-
-        for i in range(0, len(data), batch_size):
-            batch = data[i : i + batch_size]
-
-            with torch.no_grad():
-                features = self.backbone(batch)
-
-            patches, spatial_shape = self._aggregate_features(features)
-            all_features.append(patches)
-
-            if self._spatial_shape is None:
-                self._spatial_shape = spatial_shape
-
-        # Stack all features: [N, H*W, C]
-        all_features_tensor = torch.cat(all_features, dim=0)
+        # Reduced features of every image: [N, H*W, d]
+        all_features_tensor = self._accumulate_reduced_features(data)
         n_positions = all_features_tensor.shape[1]
-        feature_dim = all_features_tensor.shape[2]
 
         logger.info(
             f"Feature shape: {n_samples} samples, {n_positions} positions, "
-            f"{feature_dim} dimensions"
+            f"{all_features_tensor.shape[2]} dimensions"
         )
-
-        # Create random projection if needed
-        if feature_dim > self.padim_config.d_reduced:
-            self.projection = self._get_random_projection(
-                feature_dim, self.padim_config.d_reduced
-            ).to(self.device)
-
-            # Apply projection
-            all_features_tensor = torch.matmul(all_features_tensor, self.projection)
-            logger.info(
-                f"Applied random projection: {feature_dim} -> " f"{self.padim_config.d_reduced}"
-            )
 
         d = all_features_tensor.shape[2]
 
@@ -289,8 +331,7 @@ class PaDiMDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         original_size = self._input_spatial_size(data)
         data = self.preprocess(data)
@@ -366,6 +407,42 @@ class PaDiMDetector(BaseVisualDetector):
             "spatial_shape": self._spatial_shape,
         }
 
+    def _validate_checkpoint(self, checkpoint: dict[str, Any], path: str) -> None:
+        """Refuse per-position statistics on a grid this detector does not extract.
+
+        The saved ``spatial_shape`` (and the row count of ``mean``) must be
+        the feature grid this detector's backbone produces at the
+        checkpoint's ``image_size``.  They differ when the checkpoint was
+        fitted with other ``layers``; scoring would then subtract a mean of
+        the wrong length (an opaque tensor-size error) or, at an equal row
+        count, compare positions that do not correspond.
+
+        Raises:
+            IncompatibleCheckpointError: If the grids differ.
+        """
+        super()._validate_checkpoint(checkpoint, path)
+        state = checkpoint.get("fitted_state") or {}
+        mean = state.get("mean")
+        if mean is None:
+            return
+        config = checkpoint["config"]
+        size = config["image_size"] if isinstance(config, dict) else config.image_size
+        probe = torch.zeros(1, 3, int(size[0]), int(size[1]), device=self.device)
+        with torch.no_grad():
+            _, expected = self._aggregate_features(self.backbone(probe))
+        shape = state.get("spatial_shape")
+        saved = tuple(int(v) for v in shape) if shape is not None else None
+        if saved != expected or int(mean.shape[0]) != expected[0] * expected[1]:
+            raise IncompatibleCheckpointError(
+                f"Checkpoint at '{path}' holds PaDiM statistics for {int(mean.shape[0])} "
+                f"positions on a {saved} feature grid, but this detector extracts a "
+                f"{expected} grid ({expected[0] * expected[1]} positions) from "
+                f"{int(size[0])}x{int(size[1])} images with layers "
+                f"{list(self.padim_config.layers)}. The statistics cannot be scored on "
+                "another grid. A refit is required: fit the detector on normal images with "
+                "this configuration and save a new checkpoint."
+            )
+
     def _restore_fitted_state(self, state: dict[str, Any]) -> None:
         """Reinstate the Gaussians, projection and spatial shape on this device."""
         for name in ("mean", "cov_inv", "projection"):
@@ -416,8 +493,7 @@ class PaDiMDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data = self.preprocess(data)
 

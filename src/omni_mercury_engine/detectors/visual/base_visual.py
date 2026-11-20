@@ -11,9 +11,9 @@ from __future__ import annotations
 import logging
 import math
 from abc import abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar, Self, cast
 
 import numpy as np
 import torch
@@ -33,6 +33,89 @@ logger = logging.getLogger(__name__)
 #: (or a save/load round trip) must map features to the fusion space with the
 #: same random matrix, bit for bit.
 _FUSION_PROJECTION_SEED = 0x4D455243  # "MERC"
+
+
+class IncompatibleCheckpointError(RuntimeError):
+    """A checkpoint this build cannot score correctly, refused on ``load``.
+
+    Raised when a visual-detector checkpoint was written under a different
+    scoring / fitted-state layout than the running code (or carries fitted
+    statistics on a feature grid this detector does not extract).  Loading
+    it would not crash where it matters -- it would score on another scale
+    than its threshold was calibrated on -- so ``load`` refuses and says
+    what changed.  A ``RuntimeError`` subclass, like every other ``load``
+    refusal.
+    """
+
+
+class ConfigAliasMixin:
+    """Alias fields of a dataclass config that mirror a canonical field.
+
+    A config keeps released alias names next to their canonical fields
+    (``PatchCoreConfig.k_nearest`` for ``num_neighbors``).  Resolving the
+    pair by comparing values against the defaults cannot tell "explicitly
+    set to the default" from "unset", so ``dataclasses.replace(config,
+    num_neighbors=9)`` back to the default was ignored and a value mutated
+    back to the default reverted on an ``asdict`` -> reconstruct round trip.
+    This mixin resolves the pair from what the constructor was actually
+    GIVEN:
+
+    * ``__new__`` records the names of the arguments passed to the
+      constructor, so a canonical field given explicitly is known as such
+      whatever its value;
+    * an alias field declares ``None`` as its "unset" default.  In
+      :meth:`_resolve_aliases` (called from ``__post_init__``) a canonical
+      field that was given always wins; otherwise a given alias sets it;
+    * after construction the alias reads back the effective (canonical)
+      value, and assigning either name updates both, so the pair can never
+      disagree.
+
+    ``asdict`` -> reconstruct and ``dataclasses.replace`` pass every field,
+    so the canonical value always survives them.  The one thing a caller
+    cannot do is ``replace(config, <alias>=...)``: ``replace`` also passes
+    the old canonical value, which wins -- change the canonical name
+    instead.
+
+    (``detectors.vlm.base_vlm`` carries the same mixin: the ``visual`` and
+    ``vlm`` extras install independently, so neither package imports the
+    other.)
+    """
+
+    #: alias field name -> the canonical field it mirrors.
+    _FIELD_ALIASES: ClassVar[dict[str, str]] = {}
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
+        """Record which constructor arguments were given, then build."""
+        self = super().__new__(cls)
+        init_names = [f.name for f in fields(cast("Any", cls)) if f.init]
+        given = frozenset(init_names[: len(args)]) | frozenset(kwargs)
+        object.__setattr__(self, "_given_fields", given)
+        object.__setattr__(self, "_aliases_live", False)
+        return self
+
+    def _was_given(self, name: str) -> bool:
+        """Whether ``name`` was passed to the constructor (not defaulted)."""
+        return name in self.__dict__.get("_given_fields", frozenset())
+
+    def _resolve_aliases(self) -> None:
+        """Reconcile every alias pair; call from ``__post_init__``."""
+        for alias, canonical in self._FIELD_ALIASES.items():
+            value = getattr(self, alias)
+            if value is not None and not self._was_given(canonical):
+                object.__setattr__(self, canonical, value)
+            object.__setattr__(self, alias, getattr(self, canonical))
+        object.__setattr__(self, "_aliases_live", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Assign ``name``; once constructed, keep its alias twin in step."""
+        object.__setattr__(self, name, value)
+        if not self.__dict__.get("_aliases_live", False):
+            return
+        for alias, canonical in self._FIELD_ALIASES.items():
+            if name == alias:
+                object.__setattr__(self, canonical, value)
+            elif name == canonical:
+                object.__setattr__(self, alias, value)
 
 
 class BackboneType(Enum):
@@ -120,6 +203,16 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         device: Computation device
     """
 
+    #: Version of this detector's scoring rule and fitted-state layout.  It
+    #: is stamped into every checkpoint and checked by :meth:`load`: bump it
+    #: (and describe the change in :attr:`scoring_changes`) whenever scores,
+    #: or the meaning of the saved state, stop being comparable with what an
+    #: earlier build wrote.  A checkpoint without a stamp predates the
+    #: stamp and is read as version 1.
+    scoring_version: ClassVar[int] = 1
+    #: ``version -> what changed at that version``, quoted by the refusal.
+    scoring_changes: ClassVar[dict[int, str]] = {}
+
     def __init__(self, config: VisualDetectorConfig | dict[str, Any] | None = None) -> None:
         """Initialize visual detector.
 
@@ -185,21 +278,33 @@ class BaseVisualDetector(BaseDetector, nn.Module):
     def config(self, value: VisualDetectorConfig | dict[str, Any]) -> None:
         """Set the detector configuration.
 
+        Every reference the detector holds to its previous config follows
+        the new one.  Each detector also keeps the config under its own typed
+        name (``patchcore_config``, ``padim_config`` ...) and READS ITS
+        SETTINGS THROUGH IT; left behind (as it was), a loaded detector
+        reported the checkpoint's config while scoring with the
+        constructor's.
+
         Args:
             value: VisualDetectorConfig instance or dict.
         """
-        if isinstance(value, VisualDetectorConfig):
-            self._visual_config_ref = value
-            self.visual_config = value
-        elif isinstance(value, dict):
+        previous = getattr(self, "_visual_config_ref", None)
+        if isinstance(value, dict):
             # Rebuild the detector's own config dataclass: a saved
             # ``PatchCoreConfig`` dict carries subclass fields
             # (``coreset_sampling_ratio`` ...) that the base
             # ``VisualDetectorConfig`` rejects, which made every concrete
             # visual detector impossible to ``load``.
-            config_cls = type(getattr(self, "_visual_config_ref", None) or VisualDetectorConfig())
-            self._visual_config_ref = config_cls(**value)
-            self.visual_config = self._visual_config_ref
+            config_cls = type(previous or VisualDetectorConfig())
+            value = config_cls(**value)
+        elif not isinstance(value, VisualDetectorConfig):
+            return
+        if previous is not None:
+            for name, held in list(vars(self).items()):
+                if held is previous:
+                    setattr(self, name, value)
+        self._visual_config_ref = value
+        self.visual_config = value
 
     @property
     def backbone(self) -> nn.Module:
@@ -227,6 +332,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         )
         self._backbone.eval()
         self._backbone.to(self.device)
+        # What was actually built: ``load`` may replace the config, never the
+        # extractor, so a checkpoint must have been fitted on this one.
+        self._built_architecture = (
+            str(self.visual_config.backbone),
+            tuple(self.visual_config.layers),
+        )
 
         # Compute feature dimension
         with torch.no_grad():
@@ -242,10 +353,12 @@ class BaseVisualDetector(BaseDetector, nn.Module):
 
         Scaling to [0, 1] is explicit and per-sample, never keyed on the
         batch maximum (which wrongly divided already-normalized images that
-        shared a batch with 8-bit ones): ``uint8`` input is always divided by
-        255; float (and other integer) input is taken as-is unless a sample's
-        own maximum exceeds 1.5, in which case that sample alone is treated
-        as 0-255 data and divided by 255.
+        shared a batch with 8-bit ones): ``uint8`` input (NumPy or torch) is
+        always divided by 255 -- decided on the input's own dtype by
+        :meth:`_as_float_images`, before any float cast; float (and other
+        integer) input is taken as-is unless a sample's own maximum exceeds
+        1.5, in which case that sample alone is treated as 0-255 data and
+        divided by 255.
 
         Args:
             images: Input images [B, C, H, W] or [B, H, W, C], values in [0, 255] or [0, 1]
@@ -258,13 +371,7 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 channels (off-modality input, e.g. a generic 2-D feature
                 array).
         """
-        if isinstance(images, np.ndarray):
-            is_uint8 = images.dtype == np.uint8
-            images = torch.from_numpy(images).float()
-        else:
-            is_uint8 = images.dtype == torch.uint8
-            if not torch.is_floating_point(images):
-                images = images.float()
+        images = self._as_float_images(images)
 
         if images.dim() != 4 or (images.shape[1] not in (1, 3) and images.shape[-1] not in (1, 3)):
             raise InputModalityError(
@@ -282,20 +389,19 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         if images.shape[1] not in (1, 3) and images.shape[-1] in (1, 3):
             images = images.permute(0, 3, 1, 2)
 
-        # Scale to [0, 1]: uint8 is by definition 0-255; float input is
-        # taken as-is unless a sample's own max exceeds 1.5 (heuristic for
-        # float 0-255 input), decided per sample so one 8-bit image cannot
-        # rescale the already-normalized images in the same batch.
-        if is_uint8:
-            images = images / 255.0
-        else:
-            sample_max = images.reshape(images.shape[0], -1).amax(dim=1)
-            divisor = torch.where(
-                sample_max > 1.5,
-                torch.full_like(sample_max, 255.0),
-                torch.ones_like(sample_max),
-            )
-            images = images / divisor.view(-1, 1, 1, 1)
+        # Scale to [0, 1].  uint8 input was already divided by 255 above (it
+        # is by definition 0-255, and now lies in [0, 1], which this rule
+        # leaves alone); float input is taken as-is unless a sample's own max
+        # exceeds 1.5 (heuristic for float 0-255 input), decided per sample
+        # so one 8-bit image cannot rescale the already-normalized images in
+        # the same batch.
+        sample_max = images.reshape(images.shape[0], -1).amax(dim=1)
+        divisor = torch.where(
+            sample_max > 1.5,
+            torch.full_like(sample_max, 255.0),
+            torch.ones_like(sample_max),
+        )
+        images = images / divisor.view(-1, 1, 1, 1)
 
         # Resize if needed
         if images.shape[-2:] != self.visual_config.image_size:
@@ -311,6 +417,37 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         images = (images - self._norm_mean) / self._norm_std  # type: ignore[operator, unused-ignore]
 
         return images
+
+    @staticmethod
+    def _as_float_images(images: torch.Tensor | np.ndarray[Any, Any]) -> torch.Tensor:
+        """Convert a raw image batch to a float tensor, 8-bit input scaled to [0, 1].
+
+        The one place the input dtype is read.  ``uint8`` -- a NumPy array or
+        a torch tensor alike -- is 0-255 by definition and is divided by 255
+        here, while the dtype is still known.  Every ``fit`` / ``detect`` /
+        ``extract_features`` entry point calls this first and none casts on
+        its own: a bare ``torch.from_numpy(data).float()`` erased the dtype,
+        left NumPy ``uint8`` input to the per-sample ``max > 1.5`` rule of
+        :meth:`preprocess`, and a near-black 8-bit frame (values 0/1) was
+        then read as an already-normalized full-contrast image.
+
+        Float input is returned unscaled (the per-sample rule in
+        :meth:`preprocess` owns it); other integer dtypes are cast to float
+        and treated like float input.
+
+        Args:
+            images: Raw input batch.
+
+        Returns:
+            A floating-point tensor; ``uint8`` input scaled to [0, 1].
+        """
+        if isinstance(images, np.ndarray):
+            if images.dtype == np.uint8:
+                return torch.from_numpy(images).float() / 255.0
+            return torch.from_numpy(images).float()
+        if images.dtype == torch.uint8:
+            return images.float() / 255.0
+        return images if torch.is_floating_point(images) else images.float()
 
     @staticmethod
     def _input_spatial_size(images: torch.Tensor | np.ndarray[Any, Any]) -> tuple[int, int]:
@@ -624,6 +761,87 @@ class BaseVisualDetector(BaseDetector, nn.Module):
     def _restore_fitted_state(self, state: dict[str, Any]) -> None:
         """Reinstate :meth:`_fitted_state` after the weights are loaded."""
 
+    def _check_scoring_version(self, checkpoint: dict[str, Any], path: str) -> None:
+        """Refuse a checkpoint written under another scoring version.
+
+        Args:
+            checkpoint: The loaded checkpoint payload.
+            path: Where it was read from (for the message).
+
+        Raises:
+            IncompatibleCheckpointError: If the stamp differs from
+                :attr:`scoring_version`.
+        """
+        current = int(self.scoring_version)
+        stamped = "scoring_version" in checkpoint
+        saved = checkpoint.get("scoring_version", 1)
+        if isinstance(saved, int) and not isinstance(saved, bool) and saved == current:
+            return
+        if not isinstance(saved, int) or isinstance(saved, bool) or saved > current:
+            raise IncompatibleCheckpointError(
+                f"Checkpoint at '{path}' carries {self._name} scoring version {saved!r}, "
+                f"newer than (or unknown to) this build, which scores at version {current}. "
+                "It was written by a newer release: load it with that release, or refit "
+                "the detector on normal images with this one."
+            )
+        changes = " ".join(
+            f"[v{version}] {self.scoring_changes[version]}"
+            for version in range(saved + 1, current + 1)
+            if version in self.scoring_changes
+        )
+        origin = (
+            f"scoring version {saved}"
+            if stamped
+            else f"no scoring version (the original format, version {saved})"
+        )
+        raise IncompatibleCheckpointError(
+            f"Checkpoint at '{path}' was written by {self._name} with {origin}; this build "
+            f"scores at version {current}. What changed: {changes or 'see the release notes.'} "
+            "Loading it would score on a different scale than the saved state and threshold "
+            "were produced on, so it is refused. A refit is required: fit the detector on "
+            "normal images with this build and save a new checkpoint."
+        )
+
+    def _validate_checkpoint(self, checkpoint: dict[str, Any], path: str) -> None:
+        """Refuse fitted state this detector cannot score.
+
+        Called by :meth:`load` after the version check and before anything
+        is restored, so a refusal leaves the detector untouched.  The base
+        check: the checkpoint's ``backbone`` and ``layers`` must be the ones
+        this detector's feature extractor was built with -- ``load`` replaces
+        the config but cannot swap the extractor, and fitted state is only
+        meaningful on the features it was fitted on.  Subclasses extend it
+        (and call ``super()``).
+
+        Args:
+            checkpoint: The loaded checkpoint payload.
+            path: Where it was read from (for the message).
+
+        Raises:
+            IncompatibleCheckpointError: If the checkpoint was fitted on
+                another backbone or other layers.
+        """
+        built = getattr(self, "_built_architecture", None)
+        config = checkpoint.get("config")
+        if built is None or config is None:
+            return
+        if isinstance(config, dict):
+            backbone, layers = config.get("backbone"), config.get("layers")
+        else:
+            backbone, layers = getattr(config, "backbone", None), getattr(config, "layers", None)
+        if backbone is None or layers is None:
+            return
+        saved = (str(backbone), tuple(layers))
+        if saved != built:
+            raise IncompatibleCheckpointError(
+                f"Checkpoint at '{path}' was fitted by {self._name} on backbone "
+                f"{saved[0]!r} with layers {list(saved[1])}, but this detector was built "
+                f"with backbone {built[0]!r} and layers {list(built[1])}. load() restores "
+                "fitted state into the feature extractor the detector was constructed "
+                "with; it cannot swap it. Construct the detector with the checkpoint's "
+                "backbone and layers, then load."
+            )
+
     def _load_probe(self) -> torch.Tensor:
         """A zero batch at the configured input size, for shape inference."""
         height, width = self.visual_config.image_size
@@ -639,9 +857,15 @@ class BaseVisualDetector(BaseDetector, nn.Module):
         instance would not be on the safe-globals list. The on-disk
         schema is now ``{"config": dict, "state_dict": ..., "is_fitted":
         bool}`` regardless of any future config field additions.
+
+        ``scoring_version`` stamps the scoring rule / fitted-state layout
+        the state was produced under (see :attr:`scoring_version`), so
+        :meth:`load` can refuse a checkpoint the running code would
+        mis-score.
         """
         torch.save(
             {
+                "scoring_version": int(self.scoring_version),
                 "config": asdict(self.visual_config),
                 "state_dict": self.state_dict(),
                 "is_fitted": self._is_fitted,
@@ -674,7 +898,17 @@ class BaseVisualDetector(BaseDetector, nn.Module):
             object will fail under ``weights_only=True`` and must be
             re-saved.
 
+        Compatibility: the checkpoint's ``scoring_version`` stamp must equal
+        this detector's :attr:`scoring_version` (a checkpoint with no stamp
+        is the original format, version 1).  A mismatch is refused before
+        anything is restored -- the detector is left exactly as it was --
+        with an error naming what changed; such a checkpoint cannot be
+        migrated, the detector must be refitted.
+
         Raises:
+            IncompatibleCheckpointError: If the checkpoint was written under
+                another scoring version, or holds fitted state this detector
+                cannot score (:meth:`_validate_checkpoint`).
             RuntimeError: If the checkpoint cannot load with
                 ``weights_only=True``.
             TypeError: If the saved config dict references fields
@@ -690,6 +924,10 @@ class BaseVisualDetector(BaseDetector, nn.Module):
                 "fallback was removed because pickle has no role in the Mercury "
                 f"Agent runtime. Original error: {e}"
             ) from e
+
+        # Refuse an incompatible checkpoint BEFORE touching this detector.
+        self._check_scoring_version(checkpoint, path)
+        self._validate_checkpoint(checkpoint, path)
 
         config_payload = checkpoint["config"]
         if isinstance(config_payload, (VisualDetectorConfig, dict)):

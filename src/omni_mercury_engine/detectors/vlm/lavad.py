@@ -29,23 +29,28 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.detectors.provenance import DecisionSource
-from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
-from omni_mercury_engine.detectors.vlm.lvlm_cache import get_frozen_cached_backend
+from omni_mercury_engine.detectors.vlm.base_vlm import (
+    BaseVLMDetector,
+    ConfigAliasMixin,
+    VLMConfig,
+)
+from omni_mercury_engine.detectors.vlm.lvlm_cache import (
+    get_frozen_cached_backend,
+    touch_cached_backend,
+)
 from omni_mercury_engine.detectors.vlm.text_match import content_words, find_word_matches
 
 logger = logging.getLogger(__name__)
 
-#: Released default values of the canonical model fields and their alias
-#: fields.  ``__post_init__`` compares against these to tell "left at the
-#: default" from "explicitly set" when reconciling each alias pair.
+#: Released default values of the canonical model fields.  Their alias
+#: fields (``vlm_model`` / ``llm_model``) default to ``None`` -- "not given"
+#: -- and read back these values once the config is constructed.
 _CAPTION_MODEL_DEFAULT = "Salesforce/blip-image-captioning-base"
 _REASONING_MODEL_DEFAULT = "Qwen/Qwen2.5-0.5B-Instruct"
-_LLM_MODEL_DEFAULT = "meta-llama/Meta-Llama-3-8B-Instruct"
-_VLM_MODEL_DEFAULT = "Salesforce/blip-image-captioning-base"
 
 
 @dataclass
-class LAVADConfig(VLMConfig):
+class LAVADConfig(ConfigAliasMixin, VLMConfig):
     """Configuration for LAVAD detector.
 
     Attributes:
@@ -68,10 +73,14 @@ class LAVADConfig(VLMConfig):
             neighbouring captions are in the prompt).
         window_size: Number of captions for temporal context
         use_llm_reasoning: Use LLM for anomaly reasoning
-        llm_model: Released alias for ``reasoning_model``, wired in
-            ``__post_init__``: setting either field takes effect, the
-            canonical ``reasoning_model`` wins when both are set, and after
-            construction the alias always equals the canonical field.
+        llm_model: Released alias for ``reasoning_model``.  ``None`` means
+            "not given": either name can be passed, the canonical
+            ``reasoning_model`` wins whenever it is given (at any value, its
+            default included), and after construction the alias reads back
+            the model that will actually load (see
+            :class:`ConfigAliasMixin`).  The field's old declared default,
+            ``meta-llama/Meta-Llama-3-8B-Instruct``, was never loaded; passed
+            explicitly it now selects that model like any other value.
         vlm_model: Released alias for ``caption_model``; same wiring
             contract as ``llm_model``.
         sampling_fps: Caption sampling rate in frames per second.  Used when
@@ -80,10 +89,9 @@ class LAVADConfig(VLMConfig):
             this rate (stride ``round(source_fps / sampling_fps)``) and
             uncaptioned frames inherit the nearest captioned frame's caption
             and score.  Without ``source_fps`` every frame is captioned.
-        temporal_window: Alias for the ``window_size`` field above.
-            ``LAVADDetector.__init__`` propagates an explicit value onto
-            ``window_size`` so the field is not inert; ``None`` (the
-            default) means "do not override".
+        temporal_window: Alias for the ``window_size`` field above; same
+            wiring contract as ``llm_model`` (resolved in the config itself,
+            so it reads back the effective window, 5 by default).
     """
 
     # Shipped default: the SHA-pinned, CPU-runnable BLIP captioner
@@ -98,32 +106,30 @@ class LAVADConfig(VLMConfig):
     window_size: int = 5
     use_llm_reasoning: bool = True
     # Released alias fields (wired in __post_init__; they were declared but
-    # never read before the B4 audit cure). The declared defaults are the
-    # released ones; after construction each alias mirrors its canonical
-    # field, so the pair can never disagree.
-    llm_model: str = _LLM_MODEL_DEFAULT  # Alias for reasoning_model
-    vlm_model: str = _VLM_MODEL_DEFAULT  # Alias for caption_model
+    # never read before the B4 audit cure).  ``None`` is "not given"; after
+    # construction each alias mirrors its canonical field, so the pair can
+    # never disagree.
+    llm_model: str | None = None  # Alias for reasoning_model
+    vlm_model: str | None = None  # Alias for caption_model
     sampling_fps: float = 2.0  # Caption sampling rate (see docstring)
     temporal_window: int | None = None  # Alias for window_size (see docstring)
+
+    _FIELD_ALIASES = {
+        "llm_model": "reasoning_model",
+        "vlm_model": "caption_model",
+        "temporal_window": "window_size",
+    }
 
     def __post_init__(self) -> None:
         """Wire the released alias fields onto their canonical fields.
 
-        Setting either name has effect: an alias changed from its released
-        default propagates onto a canonical field left at its default; when
-        both are set, the canonical field wins; and after construction each
-        alias equals its canonical field, so reads through either name see
-        the model that will actually load.
+        Setting either name has effect: an alias that was given propagates
+        onto a canonical field that was not; when both are given, the
+        canonical field wins; and after construction each alias equals its
+        canonical field, so reads through either name see the model (and
+        window) that will actually be used.
         """
-        if self.reasoning_model == _REASONING_MODEL_DEFAULT and (
-            self.llm_model != _LLM_MODEL_DEFAULT
-        ):
-            self.reasoning_model = self.llm_model
-        self.llm_model = self.reasoning_model
-
-        if self.caption_model == _CAPTION_MODEL_DEFAULT and self.vlm_model != _VLM_MODEL_DEFAULT:
-            self.caption_model = self.vlm_model
-        self.vlm_model = self.caption_model
+        self._resolve_aliases()
 
 
 class LAVADDetector(BaseVLMDetector):
@@ -179,9 +185,9 @@ class LAVADDetector(BaseVLMDetector):
             config = LAVADConfig(**config)
 
         # ``temporal_window`` is an alias for ``window_size`` (it was a dead
-        # field): an explicit value overrides, ``None`` keeps the default.
-        if config.temporal_window is not None:
-            config.window_size = config.temporal_window
+        # field); the config resolves the pair itself and keeps both names in
+        # step, so nothing is re-applied here -- re-applying a stale alias
+        # would undo a ``window_size`` set after construction.
 
         super().__init__(config)
         self.lavad_config: LAVADConfig = config
@@ -249,7 +255,9 @@ class LAVADDetector(BaseVLMDetector):
         The captioning backend comes through the process-wide cache
         (:func:`get_frozen_cached_backend`), so repeated detector instances
         reuse one loaded model; a cached instance with a different frozen
-        configuration is never reused.  The default is the shipped
+        configuration is never reused.  The detector keeps its own reference:
+        a cache eviction only drops the cache's, so the backend held here
+        stays fully usable.  The default is the shipped
         SHA-pinned BLIP captioner; a missing transformers install or an
         unpinned/unlisted model still fails loud through the backend and
         SafeHFLoader — never a silent mock.
@@ -272,6 +280,9 @@ class LAVADDetector(BaseVLMDetector):
                 device=str(self.device),
                 revision=self.lavad_config.reasoning_revision,
             )
+        # Every use goes through this property: tell the cache, so its LRU
+        # order follows use rather than first fetch.
+        touch_cached_backend(self._reasoning_model)
         return self._reasoning_model
 
     @property
@@ -279,6 +290,7 @@ class LAVADDetector(BaseVLMDetector):
         """Get captioning model."""
         if self._caption_model is None:
             self._initialize_model()
+        touch_cached_backend(self._caption_model)
         return self._caption_model
 
     def _create_prompt(

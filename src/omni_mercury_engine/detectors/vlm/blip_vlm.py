@@ -175,8 +175,9 @@ class BLIPConfig(VLMConfig):
         use_vqa: When True, the prompt built by ``_create_prompt`` (the
             anomaly description plus any context) is passed to the BLIP
             processor as conditional text, steering caption generation
-            toward the anomaly question; the echoed prompt prefix is
-            stripped from the decoded caption before the keyword vote.
+            toward the anomaly question; the echoed prompt tokens are
+            dropped from the generated ids before decoding, so the keyword
+            vote only ever sees the generated caption.
             When False (default), captions are unconditional.
         caption_max_length: Maximum caption length
         revision: HuggingFace revision (commit SHA preferred) for the
@@ -493,26 +494,52 @@ class BLIPVLMDetector(BaseVLMDetector):
         return images
 
     @staticmethod
-    def _strip_prompt_echo(caption: str, prompt: str) -> str:
-        """Remove the conditional-text prefix BLIP echoes into its output.
+    def _drop_prompt_tokens(output_ids: Any, prompt_ids: Any) -> Any:
+        """Drop the conditional-text tokens BLIP echoes at the start of its output.
 
-        BLIP conditional generation completes the given text, so the decoded
-        string starts with the prompt itself.  The prompt names the anomaly
-        description, so leaving it in the caption would make the keyword
-        vote match the detector's own question.
+        BLIP conditional generation continues the given text, so the
+        generated ids begin with the prompt's own tokens.  The prompt names
+        the anomaly description; left in, the keyword vote matches the
+        detector's own question and every frame alarms.
+
+        The echo is removed on TOKEN IDS, before decoding.  Comparing decoded
+        strings cannot work: BLIP's BERT-uncased tokenizer lowercases and
+        re-spaces punctuation, so ``"...anomalies: fire"`` decodes as
+        ``"... anomalies : fire"`` and never starts with the prompt.
+
+        ``BlipForConditionalGeneration.generate`` overwrites the prompt's
+        first token with BOS and drops its trailing SEP before the text
+        decoder continues it, so the echo is one token SHORTER than the
+        processor's ``input_ids``.  Rather than hard-code that length, the
+        echo is measured: it is the run of positions (after the start token)
+        at which the output equals the prompt.  It is dropped only when it
+        covers the whole prompt body (or the whole, truncated, output) --
+        otherwise the model did not echo and nothing is removed.
 
         Args:
-            caption: Decoded BLIP output.
-            prompt: The conditional text that was passed to the processor.
+            output_ids: Generated token ids for one image (1-D).
+            prompt_ids: The processor's ``input_ids`` for the prompt (1-D).
 
         Returns:
-            The caption with a leading (case-insensitive) prompt echo removed.
+            ``output_ids`` without the echoed prompt tokens.
         """
-        stripped = caption.strip()
-        prompt_clean = prompt.strip()
-        if prompt_clean and stripped.lower().startswith(prompt_clean.lower()):
-            return stripped[len(prompt_clean) :].strip()
-        return stripped
+        output = [
+            int(v) for v in (output_ids.tolist() if hasattr(output_ids, "tolist") else output_ids)
+        ]
+        prompt = [
+            int(v) for v in (prompt_ids.tolist() if hasattr(prompt_ids, "tolist") else prompt_ids)
+        ]
+        if prompt and output[: len(prompt)] == prompt:
+            return output_ids[len(prompt) :]  # echoed verbatim, special tokens included
+        limit = min(len(output), len(prompt))
+        echoed = 1  # position 0: the decoder start token over the prompt's [CLS]
+        while echoed < limit and output[echoed] == prompt[echoed]:
+            echoed += 1
+        # The prompt body is prompt[1:-1]; its final token is the [SEP] that
+        # generate() drops, so a complete echo reaches at least len - 1.
+        if echoed >= len(prompt) - 1 or echoed == len(output):
+            return output_ids[echoed:]
+        return output_ids
 
     def _encode_features(self, inputs: Any) -> torch.Tensor:
         """Project one processed image's BLIP vision features to ``feature_dim``.
@@ -555,9 +582,9 @@ class BLIPVLMDetector(BaseVLMDetector):
 
         With ``use_vqa=True`` the prompt from :meth:`_create_prompt` is
         passed as BLIP's conditional text, steering generation toward the
-        anomaly description; the echoed prompt prefix is stripped from the
-        decoded caption so the keyword vote never matches the question
-        itself.
+        anomaly description; the echoed prompt tokens are dropped from the
+        generated ids before decoding (:meth:`_drop_prompt_tokens`) so the
+        keyword vote never matches the question itself.
 
         A caption-generation failure is explicit, never a silent neutral:
         the frame scores the documented neutral 0.5 and does not alarm (the
@@ -619,9 +646,10 @@ class BLIPVLMDetector(BaseVLMDetector):
                         **inputs,
                         max_length=self.blip_config.caption_max_length,
                     )
-                caption = self._processor.decode(output_ids[0], skip_special_tokens=True)
+                caption_ids = output_ids[0]
                 if vqa_prompt is not None:
-                    caption = self._strip_prompt_echo(caption, vqa_prompt)
+                    caption_ids = self._drop_prompt_tokens(caption_ids, inputs["input_ids"][0])
+                caption = self._processor.decode(caption_ids, skip_special_tokens=True).strip()
             except Exception as e:
                 logger.warning(f"BLIP inference failed: {e}")
                 failure_reason = str(e)

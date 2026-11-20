@@ -30,6 +30,7 @@ from torch import nn
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
+    ConfigAliasMixin,
     VisualDetectorConfig,
 )
 
@@ -37,14 +38,16 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class PatchCoreConfig(VisualDetectorConfig):
+class PatchCoreConfig(ConfigAliasMixin, VisualDetectorConfig):
     """Configuration for PatchCore detector.
 
     Attributes:
         coreset_sampling_ratio: Fraction of patches to keep in memory bank
-        coreset_ratio: Alias for coreset_sampling_ratio; resolved in
-            ``__post_init__`` (setting either takes effect, the canonical
-            field wins when both are customized and they disagree)
+        coreset_ratio: Alias for coreset_sampling_ratio.  ``None`` means
+            "not given"; either name can be passed, the canonical field
+            wins whenever it is given (at any value, its default included),
+            and after construction the alias reads back the effective value
+            (see :class:`ConfigAliasMixin`)
         num_neighbors: Number of memory items over which the image score is
             re-weighted (the paper's ``b``)
         k_nearest: Alias for num_neighbors; resolved like coreset_ratio
@@ -56,22 +59,22 @@ class PatchCoreConfig(VisualDetectorConfig):
     """
 
     coreset_sampling_ratio: float = 0.1  # Keep 10% of patches
-    coreset_ratio: float = 0.1  # Alias, resolved in __post_init__
+    coreset_ratio: float | None = None  # Alias; None = not given
     num_neighbors: int = 9
-    k_nearest: int = 9  # Alias, resolved in __post_init__
+    k_nearest: int | None = None  # Alias; None = not given
     faiss_on_gpu: bool = True
     anomaly_score_num_nn: int = 1
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
     seed: int | None = None
 
+    _FIELD_ALIASES = {
+        "coreset_ratio": "coreset_sampling_ratio",
+        "k_nearest": "num_neighbors",
+    }
+
     def __post_init__(self) -> None:
         """Resolve the alias fields so setting either name takes effect."""
-        if self.coreset_ratio != 0.1 and self.coreset_sampling_ratio == 0.1:
-            self.coreset_sampling_ratio = self.coreset_ratio
-        self.coreset_ratio = self.coreset_sampling_ratio
-        if self.k_nearest != 9 and self.num_neighbors == 9:
-            self.num_neighbors = self.k_nearest
-        self.k_nearest = self.num_neighbors
+        self._resolve_aliases()
 
 
 class PatchCoreDetector(BaseVisualDetector):
@@ -91,6 +94,18 @@ class PatchCoreDetector(BaseVisualDetector):
         >>> print(results['scores'])  # Image-level scores
         >>> print(results['anomaly_maps'].shape)  # Pixel-level maps
     """
+
+    #: v2: re-weighted image score, plain L2 on every k-NN backend.
+    scoring_version = 2
+    scoring_changes = {
+        2: (
+            "the image score is the max patch distance re-weighted over its "
+            "num_neighbors nearest memory items (Roth et al., eq. 7) instead of the plain "
+            "1-NN maximum, and nearest-neighbour distances are plain L2 on every backend "
+            "(the faiss backend used to return squared L2) -- a threshold calibrated "
+            "before is on another score scale."
+        ),
+    }
 
     decision_source = (
         DecisionSource(
@@ -405,8 +420,7 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
@@ -468,8 +482,7 @@ class PatchCoreDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         # Read the input's spatial size with the same channel-layout rule as
         # preprocess: shape[-2:] of a channel-last batch would be (W, C).
@@ -593,8 +606,7 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data = self.preprocess(data)
 

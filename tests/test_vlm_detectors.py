@@ -62,13 +62,14 @@ class _ScriptedLVLM:
                 if bright:
                     return "A person collapsing amid a blinding bright flash."
                 return "People walking normally through a dim hallway."
-            # CONFIDENCE is the probability THAT THE SCENE IS ANOMALOUS
-            # (the B3 parse contract), so a NO verdict states a low number.
+            # CONFIDENCE is the model's confidence IN ITS STATED VERDICT (only
+            # an explicit ANOMALY_PROBABILITY is P(anomaly)), so a sure NO
+            # states a high number -- as this stub did on origin/main.
             if bright:
                 return (
                     "ANOMALY_DETECTED: YES\nCONFIDENCE: 0.9\nEXPLANATION: Bright anomalous flash."
                 )
-            return "ANOMALY_DETECTED: NO\nCONFIDENCE: 0.1\nEXPLANATION: Nominal."
+            return "ANOMALY_DETECTED: NO\nCONFIDENCE: 0.9\nEXPLANATION: Nominal."
         # Text-only reasoning prompt (LAVAD stage 2): flag anomalous captions.
         flagged = [
             line.split(":")[0].split()[-1]

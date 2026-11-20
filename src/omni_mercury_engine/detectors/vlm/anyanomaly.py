@@ -35,7 +35,10 @@ from omni_mercury_engine.detectors.vlm.context_providers import (
     PositionContextProvider,
     TemporalContextProvider,
 )
-from omni_mercury_engine.detectors.vlm.lvlm_cache import get_frozen_cached_backend
+from omni_mercury_engine.detectors.vlm.lvlm_cache import (
+    get_frozen_cached_backend,
+    touch_cached_backend,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,16 +68,42 @@ _VERDICT_WORD = re.compile(r"\b(YES|NO)\b", re.IGNORECASE)
 #: has answered nothing, so they are removed before any parsing.
 _TEMPLATE_ECHO = re.compile(r"\[\s*(?:YES\s*/\s*NO|0\.0\s*-\s*1\.0)\s*\]", re.IGNORECASE)
 
-#: Probability patterns, most specific first.  ``ANOMALY_PROBABILITY`` is
-#: the field the reworded prompt asks for; ``CONFIDENCE`` keeps backend and
-#: legacy responses parseable (both now mean the probability THAT THE SCENE
-#: IS ANOMALOUS, never "confidence in my verdict", which inverted NO-verdict
-#: scores).
-_PROBABILITY_PATTERNS = (
-    re.compile(r"ANOMALY[_\s]?PROBABILITY\s*:\s*\[?\s*([\d.]+)", re.IGNORECASE),
-    re.compile(r"CONFIDENCE\s*:\s*\[?\s*([\d.]+)", re.IGNORECASE),
-    re.compile(r"([\d.]+)\s*%?\s*confident", re.IGNORECASE),
+#: One number, optionally written as a percentage: group 1 the digits,
+#: group 2 the ``%`` sign.  A well-formed decimal only, so the full stop that
+#: ends a sentence ("CONFIDENCE: 0.9.") is not swallowed into the number.
+_NUMBER = r"(\d+(?:\.\d+)?|\.\d+)\s*(%)?"
+
+#: The ONE field that states the probability that the scene is anomalous --
+#: the field the prompt asks for.
+_ANOMALY_PROBABILITY = re.compile(r"ANOMALY[_\s]?PROBABILITY\s*:\s*\[?\s*" + _NUMBER, re.IGNORECASE)
+
+#: A model's confidence IN ITS OWN STATED VERDICT, never P(anomaly) by
+#: itself: "NO, CONFIDENCE: 0.95" is a 5% anomaly.  Read as P(anomaly) (as
+#: these were), every confident NO alarmed.
+_VERDICT_CONFIDENCE_PATTERNS = (
+    re.compile(r"\bCONFIDENCE\s*:\s*\[?\s*" + _NUMBER, re.IGNORECASE),
+    re.compile(_NUMBER + r"\s*confident", re.IGNORECASE),
 )
+
+
+@dataclass(frozen=True)
+class ParsedResponse:
+    """What one LVLM answer says about a segment.
+
+    Attributes:
+        is_anomaly: Whether the segment is flagged.
+        probability: The segment's anomaly score, always in ``[0, 1]``.
+        explanation: The model's explanation text.
+        verdict_conflict: ``True`` when an explicit YES/NO verdict and an
+            explicit ``ANOMALY_PROBABILITY`` disagree about the flag.  The
+            alarming reading was kept (the conservative one for an anomaly
+            detector); the mark lets a caller audit or discount it.
+    """
+
+    is_anomaly: bool
+    probability: float
+    explanation: str
+    verdict_conflict: bool = False
 
 
 @dataclass
@@ -274,7 +303,9 @@ class AnyAnomalyDetector(BaseVLMDetector):
         (:func:`get_frozen_cached_backend`); a cached instance whose frozen
         configuration (device, generation settings, revision) differs from
         this detector's is never reused — a dedicated backend is built
-        instead, so no state leaks across instances.
+        instead, so no state leaks across instances.  The detector keeps its
+        own reference: a cache eviction only drops the cache's, so the
+        backend held here stays fully usable.
         """
         self._backend = get_frozen_cached_backend(
             model_type=self.vlm_config.model_type.value,
@@ -290,6 +321,9 @@ class AnyAnomalyDetector(BaseVLMDetector):
         """Get the LVLM backend."""
         if self._backend is None:
             self._initialize_model()
+        # Every query goes through this property: tell the cache, so its LRU
+        # order follows use rather than first fetch.
+        touch_cached_backend(self._backend)
         return self._backend
 
     def _create_prompt(
@@ -331,8 +365,9 @@ The following is considered normal: {self.vlm_config.normal_description}
 
 """
         # Add task instruction.  The number asked for is the probability
-        # THAT THE SCENE IS ANOMALOUS — not "confidence in your answer",
-        # whose NO-verdict readings inverted the score (B3 audit cure).
+        # THAT THE SCENE IS ANOMALOUS, under its own field name -- not
+        # "confidence in your answer", which qualifies the verdict and is
+        # parsed as such (see _parse_response_detail).
         prompt += """TASK:
 Analyze the image(s) carefully and determine:
 1. Is there any anomalous activity matching the definition above?
@@ -349,26 +384,58 @@ EXPLANATION: [Your detailed explanation]
         return prompt
 
     @staticmethod
-    def _parse_anomaly_probability(response: str) -> float | None:
-        """Extract the stated probability that the scene is anomalous.
+    def _stated_number(pattern: re.Pattern[str], response: str) -> float | None:
+        """The fraction in ``[0, 1]`` a pattern's first match states, if valid.
+
+        A bare number must already lie in ``[0, 1]``; a number written with a
+        ``%`` sign must lie in ``[0, 100]`` and is divided by 100.  Anything
+        else is DISCARDED -- an out-of-range number is evidence of nothing,
+        and rescaling it by guesswork (``1.5`` used to become ``0.015``)
+        invents a score the model never gave.
+
+        Args:
+            pattern: A pattern built on ``_NUMBER`` (digits, optional ``%``).
+            response: Model response text (template echoes already removed).
+
+        Returns:
+            The stated fraction, or ``None`` when nothing valid is stated.
+        """
+        match = pattern.search(response)
+        if not match:
+            return None
+        value = float(match.group(1))
+        if match.group(2):
+            return value / 100.0 if value <= 100.0 else None
+        return value if value <= 1.0 else None
+
+    @classmethod
+    def _parse_anomaly_probability(cls, response: str) -> float | None:
+        """Extract an explicit ``ANOMALY_PROBABILITY`` value.
 
         Args:
             response: Model response text (template echoes already removed).
 
         Returns:
-            The clamped probability, or ``None`` when no number parses.
+            The stated probability that the scene is anomalous, or ``None``
+            when the field is absent or its number is out of range.
         """
-        for pattern in _PROBABILITY_PATTERNS:
-            match = pattern.search(response)
-            if not match:
-                continue
-            try:
-                value = float(match.group(1))
-            except ValueError:
-                continue  # Invalid number, try the next pattern
-            if value > 1:  # Percentage
-                value /= 100
-            return min(max(value, 0.0), 1.0)
+        return cls._stated_number(_ANOMALY_PROBABILITY, response)
+
+    @classmethod
+    def _parse_verdict_confidence(cls, response: str) -> float | None:
+        """Extract the model's confidence in its own stated verdict.
+
+        Args:
+            response: Model response text (template echoes already removed).
+
+        Returns:
+            The first valid ``CONFIDENCE:`` / "N% confident" value, or
+            ``None``.
+        """
+        for pattern in _VERDICT_CONFIDENCE_PATTERNS:
+            value = cls._stated_number(pattern, response)
+            if value is not None:
+                return value
         return None
 
     @staticmethod
@@ -394,42 +461,70 @@ EXPLANATION: [Your detailed explanation]
             return match.group(1).upper() == "YES"
         return None
 
-    def _parse_response(self, response: str) -> tuple[bool, float, str]:
-        """Parse LVLM response to extract detection result.
+    def _parse_response_detail(self, response: str) -> ParsedResponse:
+        """Parse an LVLM answer into a flag, a score and a conflict mark.
 
-        The returned ``confidence`` is the probability that the scene is
-        anomalous (what the prompt asks for), so it is the frame score
-        directly for either verdict.  Resolution order (B3 audit cure):
+        The score is the probability that the scene is anomalous.  Two kinds
+        of number can appear in an answer and they mean different things:
 
-        1. A parsed number is that probability and decides the flag
-           (``> confidence_threshold``), whatever the verdict says — this
-           removes the "confidence in a NO" inversion class entirely.
-        2. With no number, a parsed YES defaults to the documented
-           :data:`YES_DEFAULT_PROBABILITY` (0.6, above the default
-           threshold, so a bare YES alarms), a parsed NO to
-           :data:`NO_DEFAULT_PROBABILITY` (0.4).
-        3. With neither, the neutral :data:`NO_EVIDENCE_PROBABILITY` (0.5)
-           — never an alarm.
+        * ``ANOMALY_PROBABILITY`` -- the field the prompt asks for -- is that
+          probability, for either verdict or none.
+        * ``CONFIDENCE`` / "N% confident" is the model's confidence in the
+          verdict it stated: with an explicit YES the probability is the
+          confidence, with an explicit NO it is ``1 - confidence``, and with
+          no explicit verdict the number says nothing about the scene and is
+          ignored.
+
+        Resolution order:
+
+        1. A valid ``ANOMALY_PROBABILITY`` decides the flag
+           (``> confidence_threshold``).  If an explicit verdict contradicts
+           that flag (YES with 0.05, NO with 0.95) neither reading is
+           silently preferred: the alarming one is kept -- a YES scores the
+           documented :data:`YES_DEFAULT_PROBABILITY`, a NO keeps the stated
+           probability -- and the result is marked ``verdict_conflict``.
+        2. Otherwise an explicit verdict with a valid confidence scores as
+           above and is flagged when that score exceeds the threshold.
+        3. Otherwise a bare YES defaults to :data:`YES_DEFAULT_PROBABILITY`
+           (0.6, above the default threshold, so a bare YES alarms) and a
+           bare NO to :data:`NO_DEFAULT_PROBABILITY` (0.4).
+        4. With neither, the neutral :data:`NO_EVIDENCE_PROBABILITY` (0.5)
+           -- never an alarm.
+
+        A number outside its valid range is discarded (see
+        :meth:`_stated_number`), so the score is always within ``[0, 1]``.
 
         Args:
             response: Model response text
 
         Returns:
-            Tuple of (is_anomaly, confidence, explanation)
+            The parsed flag, score, explanation and conflict mark.
         """
         cleaned = _TEMPLATE_ECHO.sub(" ", response)
+        threshold = self.vlm_config.confidence_threshold
 
         probability = self._parse_anomaly_probability(cleaned)
         verdict = self._parse_verdict(cleaned)
+        verdict_conflict = False
 
         if probability is not None:
-            confidence = probability
-            is_anomaly = probability > self.vlm_config.confidence_threshold
+            score = probability
+            is_anomaly = probability > threshold
+            if verdict is not None and verdict != is_anomaly:
+                verdict_conflict = True
+                is_anomaly = True
+                if verdict:
+                    score = max(probability, YES_DEFAULT_PROBABILITY)
         elif verdict is not None:
-            confidence = YES_DEFAULT_PROBABILITY if verdict else NO_DEFAULT_PROBABILITY
-            is_anomaly = verdict
+            confidence = self._parse_verdict_confidence(cleaned)
+            if confidence is None:
+                score = YES_DEFAULT_PROBABILITY if verdict else NO_DEFAULT_PROBABILITY
+                is_anomaly = verdict
+            else:
+                score = confidence if verdict else 1.0 - confidence
+                is_anomaly = score > threshold
         else:
-            confidence = NO_EVIDENCE_PROBABILITY
+            score = NO_EVIDENCE_PROBABILITY
             is_anomaly = False
 
         # Extract explanation
@@ -444,7 +539,24 @@ EXPLANATION: [Your detailed explanation]
                 explanation = match.group(1).strip()
                 break
 
-        return is_anomaly, confidence, explanation
+        return ParsedResponse(is_anomaly, score, explanation, verdict_conflict)
+
+    def _parse_response(self, response: str) -> tuple[bool, float, str]:
+        """Parse LVLM response to extract detection result.
+
+        The returned ``confidence`` is the probability that the scene is
+        anomalous, i.e. the frame score directly for either verdict; see
+        :meth:`_parse_response_detail` for how it is derived (and for the
+        ``verdict_conflict`` mark this tuple cannot carry).
+
+        Args:
+            response: Model response text
+
+        Returns:
+            Tuple of (is_anomaly, confidence, explanation)
+        """
+        parsed = self._parse_response_detail(response)
+        return parsed.is_anomaly, parsed.probability, parsed.explanation
 
     def _segment_video(
         self,
@@ -486,7 +598,9 @@ EXPLANATION: [Your detailed explanation]
                 - is_anomaly: Binary anomaly flags [T]
                 - explanations: Natural language explanations
                 - features: Extracted features for fusion
-                - segment_results: Per-segment detection results
+                - segment_results: Per-segment detection results; each
+                  carries ``verdict_conflict`` (the model's explicit verdict
+                  contradicted its stated probability; the alarm was kept)
         """
         data = self._validate_frames(data)
         t = data.shape[0]
@@ -520,7 +634,12 @@ EXPLANATION: [Your detailed explanation]
             # backend outage silently marked the whole clip anomalous.
             try:
                 response = self.backend.generate(images, prompt)
-                is_anomaly, confidence, explanation = self._parse_response(response)
+                parsed = self._parse_response_detail(response)
+                is_anomaly, confidence, explanation = (
+                    parsed.is_anomaly,
+                    parsed.probability,
+                    parsed.explanation,
+                )
             except Exception as e:
                 logger.warning(f"LVLM query failed: {e}")
                 failed_segments.append((start, end, str(e)))
@@ -532,6 +651,7 @@ EXPLANATION: [Your detailed explanation]
                         "confidence": 0.0,
                         "explanation": f"LVLM backend failed: {e}",
                         "backend_failed": True,
+                        "verdict_conflict": False,
                     }
                 )
                 continue
@@ -545,14 +665,13 @@ EXPLANATION: [Your detailed explanation]
                     "confidence": confidence,
                     "explanation": explanation,
                     "backend_failed": False,
+                    "verdict_conflict": parsed.verdict_conflict,
                 }
             )
 
-            # Update frame scores.  ``confidence`` is already the model's
-            # probability that the scene is anomalous (see _parse_response),
-            # so it is the score for either verdict — the old
-            # ``1 - confidence`` reading for NO inverted responses such as
-            # "NO, CONFIDENCE: 0.1" into a 0.9 anomaly score.
+            # Update frame scores.  ``confidence`` is already the probability
+            # that the scene is anomalous (see _parse_response_detail), so it
+            # is the score for either verdict.
             score = confidence
             for i in range(start, end):
                 frame_scores[i] += score

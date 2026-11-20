@@ -21,9 +21,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
@@ -34,6 +33,9 @@ from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
     VisualDetectorConfig,
 )
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -296,8 +298,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
@@ -413,8 +414,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         original_size: tuple[int, int] = self._input_spatial_size(data)
         data = self.preprocess(data)
@@ -533,8 +533,7 @@ class ReverseDistillationDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data = self.preprocess(data)
 

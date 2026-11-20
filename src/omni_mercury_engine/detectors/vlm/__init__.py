@@ -45,13 +45,13 @@ from omni_mercury_engine.detectors.vlm.blip_vlm import (
     create_blip_detector,
 )
 from omni_mercury_engine.detectors.vlm.context_providers import (
-    CombinedContextProvider,
+    CombinedContextProvider as BasicCombinedContextProvider,
     PositionContextProvider,
     TemporalContextProvider,
 )
 from omni_mercury_engine.detectors.vlm.context_providers_extended import (
     AppearanceContextProvider,
-    CombinedContextProvider as ExtendedCombinedContextProvider,
+    CombinedContextProvider,
     FrequencyContextProvider,
     SemanticContextProvider,
 )
@@ -65,6 +65,10 @@ from omni_mercury_engine.detectors.vlm.lvlm_cache import (
 )
 from omni_mercury_engine.detectors.vlm.statistical_vlm import StatisticalVLMDetector
 
+#: A second, explicit name for the extended provider (the released
+#: ``CombinedContextProvider`` export): the same class object.
+ExtendedCombinedContextProvider = CombinedContextProvider
+
 __all__ = [
     # Detectors
     "AnyAnomalyDetector",
@@ -73,11 +77,13 @@ __all__ = [
     "BLIPConfig",
     "BLIPVLMDetector",
     "BaseVLMDetector",
-    # ``CombinedContextProvider`` is the basic provider the detectors
-    # actually use (AnyAnomalyDetector); the extended provider with the
-    # same class name is exported as ``ExtendedCombinedContextProvider``
-    # to resolve the former name collision, under which the package
-    # exported a class the detectors never used.
+    # Two classes are named ``CombinedContextProvider``.  The released
+    # export of that name is the EXTENDED provider
+    # (``context_providers_extended``) and stays exactly that class; it is
+    # also reachable as ``ExtendedCombinedContextProvider``.  The basic
+    # provider the detectors actually use (AnyAnomalyDetector) has its own
+    # export name, ``BasicCombinedContextProvider``.
+    "BasicCombinedContextProvider",
     "CombinedContextProvider",
     "ExtendedCombinedContextProvider",
     "FrequencyContextProvider",

@@ -24,6 +24,9 @@ defect is fixed:
   Python loop.
 * A10 -- ``preprocess`` scaled by the batch max (batch-dependent); dead
   config fields ``normalize_features``/``pool_strategy`` were never read.
+  The "uint8 is always divided by 255" rule is tested through the public
+  ``fit`` / ``detect`` / ``extract_features`` path: every entry point used to
+  cast NumPy input to float before ``preprocess`` could see its dtype.
 * A11 -- repeated detector construction re-loaded the backbone from disk.
 """
 
@@ -482,13 +485,85 @@ class TestPreprocessScaling:
             detector.preprocess(images), self._expected(images), rtol=1e-5, atol=1e-6
         )
 
-    def test_uint8_input_is_always_divided_by_255(self) -> None:
-        """uint8 input divides by 255 even when its max is 1 (a near-black image)."""
+    @staticmethod
+    def _uint8_batch_with_a_near_black_frame(n: int, seed: int) -> Any:
+        """Ordinary 8-bit frames, the first replaced by one whose values are 0/1.
+
+        The near-black frame is the case a value heuristic gets wrong: its
+        maximum is 1, so read as float it looks already normalized.
+        """
+        rng = np.random.default_rng(seed)
+        images = rng.integers(0, 256, size=(n, 3, 64, 64)).astype(np.uint8)
+        images[0] = rng.integers(0, 2, size=(3, 64, 64)).astype(np.uint8)
+        return images
+
+    @pytest.mark.parametrize("name", sorted(DETECTORS))
+    def test_uint8_input_is_divided_by_255_through_detect(self, name: str) -> None:
+        """detect() scores NumPy uint8 and torch uint8 input identically.
+
+        Regression: every entry point ran ``torch.from_numpy(data).float()``
+        before ``preprocess``, erasing the dtype, so a NumPy near-black frame
+        fell to the ``max > 1.5`` rule and was scored as a full-contrast
+        image -- while the same bytes as a torch tensor were divided by 255
+        (measured with PaDiM: first-frame score 41.3 vs 68.7).
+        """
+        torch.manual_seed(0)
+        detector = _tiny_detector(name)
+        detector.fit(_train_batch(4))
+
+        images = self._uint8_batch_with_a_near_black_frame(3, seed=0)
+        from_numpy = detector.detect(images)
+        from_torch = detector.detect(torch.from_numpy(images))
+        as_unit_float = detector.detect(images.astype(np.float32) / 255.0)
+
+        np.testing.assert_allclose(from_numpy["scores"], from_torch["scores"], rtol=0, atol=0)
+        np.testing.assert_allclose(from_numpy["scores"], as_unit_float["scores"], rtol=1e-5)
+        np.testing.assert_allclose(
+            from_numpy["anomaly_maps"], from_torch["anomaly_maps"], rtol=0, atol=0
+        )
+
+    @pytest.mark.parametrize("name", sorted(DETECTORS))
+    def test_uint8_input_is_divided_by_255_through_extract_features(self, name: str) -> None:
+        """extract_features() agrees on NumPy uint8 and torch uint8 input."""
+        torch.manual_seed(0)
+        detector = _tiny_detector(name)
+        detector.fit(_train_batch(4))
+        images = self._uint8_batch_with_a_near_black_frame(3, seed=1)
+        torch.testing.assert_close(
+            detector.extract_features(images),
+            detector.extract_features(torch.from_numpy(images)),
+            rtol=0.0,
+            atol=0.0,
+        )
+
+    @pytest.mark.parametrize("name", sorted(DETECTORS))
+    def test_uint8_input_is_divided_by_255_through_fit(self, name: str) -> None:
+        """fit() learns the same model from NumPy uint8 and torch uint8 images."""
+        images = self._uint8_batch_with_a_near_black_frame(5, seed=2)
+        torch.manual_seed(0)
+        from_numpy = _tiny_detector(name).fit(images)
+        torch.manual_seed(0)
+        from_torch = _tiny_detector(name).fit(torch.from_numpy(images))
+        if name in ("padim", "patchcore"):
+            learned = "mean" if name == "padim" else "memory_bank"
+            torch.testing.assert_close(
+                getattr(from_numpy, learned), getattr(from_torch, learned), rtol=0.0, atol=0.0
+            )
+        test = torch.from_numpy(self._uint8_batch_with_a_near_black_frame(3, seed=3))
+        np.testing.assert_allclose(
+            from_numpy.detect(test)["scores"], from_torch.detect(test)["scores"], rtol=1e-5
+        )
+
+    def test_preprocess_itself_divides_uint8_of_either_kind(self) -> None:
+        """The rule also holds for a direct ``preprocess`` call."""
         detector = _tiny_detector("padim", image_size=(SIZE, SIZE))
         rng = np.random.default_rng(0)
         images = rng.integers(0, 2, size=(2, 3, SIZE, SIZE)).astype(np.uint8)
         expected = self._expected(torch.from_numpy(images).float() / 255.0)
         torch.testing.assert_close(detector.preprocess(images), expected, rtol=1e-5, atol=1e-6)
+        torch.testing.assert_close(
+            detector.preprocess(torch.from_numpy(images)), expected, rtol=1e-5, atol=1e-6
+        )
 
     def test_float_scaling_is_decided_per_sample(self) -> None:
         """A [0, 1] sample next to a [0, 255] sample keeps its own scale."""

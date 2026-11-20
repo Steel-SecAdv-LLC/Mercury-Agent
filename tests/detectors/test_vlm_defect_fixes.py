@@ -12,6 +12,7 @@ are deterministic by construction.
 from __future__ import annotations
 
 import dataclasses
+import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -49,33 +50,79 @@ class _FakeInputs(dict[str, Any]):
 
 
 class _FakeBlipProcessor:
-    """Counts encodings; echoes a conditional-text prefix like BLIP does."""
+    """Counts encodings; tokenizes and decodes the way BERT-uncased does.
+
+    BLIP's tokenizer lowercases, splits punctuation into tokens of its own,
+    and ``decode`` joins tokens with single spaces -- so a prompt's ``":"``
+    comes back as ``" : "`` and the decoded text never starts with the
+    prompt string.  (The previous fake returned the prompt verbatim, which
+    is exactly what the real tokenizer does not do.)
+    """
+
+    CLS, SEP, BOS = 101, 102, 30522
+    SPECIAL = frozenset({CLS, SEP, BOS})
 
     def __init__(self, caption: str) -> None:
         self.caption = caption
         self.encode_calls = 0
         self.texts: list[str | None] = []
+        self._vocab: dict[str, int] = {}
+        self._words: dict[int, str] = {}
+
+    def tokenize(self, text: str) -> list[int]:
+        ids = []
+        for word in re.findall(r"[a-z0-9]+|[^a-z0-9\s]", text.lower()):
+            if word not in self._vocab:
+                self._vocab[word] = 1000 + len(self._vocab)
+                self._words[self._vocab[word]] = word
+            ids.append(self._vocab[word])
+        return ids
 
     def __call__(self, img: Any, text: str | None = None, return_tensors: str = "pt") -> Any:
         self.encode_calls += 1
         self.texts.append(text)
-        return _FakeInputs(pixel_values=torch.ones(1, 3, 4, 4))
+        inputs = _FakeInputs(pixel_values=torch.ones(1, 3, 4, 4))
+        if text is not None:
+            inputs["input_ids"] = torch.tensor([[self.CLS, *self.tokenize(text), self.SEP]])
+        return inputs
 
     def decode(self, ids: Any, skip_special_tokens: bool = True) -> str:
-        prefix = self.texts[-1]
-        if prefix is not None:
-            return f"{prefix} {self.caption}"
-        return self.caption
+        values = [int(v) for v in (ids.tolist() if hasattr(ids, "tolist") else ids)]
+        return " ".join(self._words[v] for v in values if v not in self.SPECIAL)
 
 
 class _FakeBlipModel:
-    def __init__(self, fail_generate: bool = False) -> None:
-        self.fail_generate = fail_generate
+    """Generates the scripted caption, echoing a conditional prompt like BLIP.
 
-    def generate(self, **kwargs: Any) -> list[list[int]]:
+    ``BlipForConditionalGeneration.generate`` overwrites the first prompt
+    token with BOS, drops the prompt's trailing SEP and lets the text decoder
+    continue it, so the returned ids are ``[BOS, prompt..., caption..., SEP]``
+    (``echo="blip"``).  ``echo="full"`` keeps the prompt's SEP as well -- the
+    other layout a prompt-length slice would have to guess between.
+    """
+
+    def __init__(
+        self,
+        fail_generate: bool = False,
+        processor: _FakeBlipProcessor | None = None,
+        echo: str = "blip",
+    ) -> None:
+        self.fail_generate = fail_generate
+        self.processor = processor
+        self.echo = echo
+
+    def generate(self, **kwargs: Any) -> Any:
         if self.fail_generate:
             raise RuntimeError("synthetic generation failure")
-        return [[0, 1, 2]]
+        assert self.processor is not None
+        proc = self.processor
+        caption = proc.tokenize(proc.caption)
+        prompt_ids = kwargs.get("input_ids")
+        if prompt_ids is None:
+            return torch.tensor([[proc.BOS, *caption, proc.SEP]])
+        prompt = [int(v) for v in prompt_ids[0].tolist()]
+        prefix = prompt[1:-1] if self.echo == "blip" else prompt[1:]
+        return torch.tensor([[proc.BOS, *prefix, *caption, proc.SEP]])
 
     def vision_model(self, pixel_values: Any = None) -> Any:
         return SimpleNamespace(pooler_output=torch.ones(1, 768), last_hidden_state=None)
@@ -98,7 +145,7 @@ def _blip_detector(
     detector = blip_vlm.BLIPVLMDetector(blip_vlm.BLIPConfig(device="cpu", **config))
     processor = _FakeBlipProcessor(caption)
     detector._processor = processor
-    detector._model = _FakeBlipModel(fail_generate)
+    detector._model = _FakeBlipModel(fail_generate, processor)
     detector._feature_projection = _FakeProjection()
     return detector, processor
 
@@ -191,23 +238,82 @@ class TestB2BlipDetectPipeline:
         assert result["features"].shape == (3, 128)
         assert torch.allclose(result["features"].norm(dim=-1), torch.ones(3))
 
-    def test_use_vqa_passes_the_prompt_and_strips_its_echo(
-        self, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize("echo", ["blip", "full"])
+    def test_use_vqa_never_lets_the_vote_see_the_prompt(
+        self, monkeypatch: pytest.MonkeyPatch, echo: str
     ) -> None:
-        """With use_vqa the prompt conditions generation but never biases the vote."""
+        """With use_vqa the prompt conditions generation but never biases the vote.
+
+        Regression: the echo was stripped by ``decoded.startswith(prompt)``.
+        The real tokenizer decodes ``"...anomalies: fire or smoke"`` as
+        ``"... anomalies : fire or smoke"``, so the prefix never matched, the
+        description's own words counted as anomaly evidence, and "a man
+        walking a dog" scored (True, 1.0) on every frame.
+        """
         detector, processor = _blip_detector(
             monkeypatch,
             caption="a man walking a dog",
             use_vqa=True,
             anomaly_description="fire or smoke",
         )
+        detector._model.echo = echo
+        voted: list[str] = []
+        real_vote = blip_vlm.caption_keyword_vote
+
+        def _spy(caption: str, *args: Any, **kwargs: Any) -> Any:
+            voted.append(caption)
+            return real_vote(caption, *args, **kwargs)
+
+        monkeypatch.setattr(blip_vlm, "caption_keyword_vote", _spy)
         result = detector.detect(np.full((1, 3, 8, 8), 0.4, dtype=np.float32))
-        expected_prompt = detector._create_prompt("fire or smoke")
-        assert processor.texts[0] == expected_prompt
-        # The echoed prompt names 'fire'/'smoke'; stripped, the caption must
-        # not alarm on the detector's own question.
+
+        prompt = detector._create_prompt("fire or smoke")
+        assert processor.texts[0] == prompt
+        # The premise of the regression: decoding the prompt re-spaces it.
+        decoded_prompt = processor.decode(processor.tokenize(prompt))
+        assert decoded_prompt == "analyze this image for anomalies : fire or smoke"
+        assert not decoded_prompt.startswith(prompt.lower())
+
+        assert voted == ["a man walking a dog"]
+        for prompt_word in ("analyze", "anomalies", "fire", "smoke", ":"):
+            assert prompt_word not in voted[0]
         assert result["captions"][0] == "a man walking a dog"
         assert bool(result["is_anomaly"][0]) is False
+        assert result["scores"][0] == pytest.approx(blip_vlm.NO_EVIDENCE_CONFIDENCE)
+        assert result["details"][0] == {
+            "caption_failed": False,
+            "anomaly_evidence": 0,
+            "normal_evidence": 0,
+        }
+
+    def test_use_vqa_keeps_a_caption_that_really_names_the_anomaly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Stripping the echo must not strip evidence the caption itself carries."""
+        detector, _ = _blip_detector(
+            monkeypatch,
+            caption="smoke rising from a burning car",
+            use_vqa=True,
+            anomaly_description="fire or smoke",
+        )
+        result = detector.detect(np.full((1, 3, 8, 8), 0.4, dtype=np.float32))
+        assert result["captions"][0] == "smoke rising from a burning car"
+        assert bool(result["is_anomaly"][0]) is True
+
+    def test_use_vqa_keeps_everything_when_the_model_echoes_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No echo in the output ids: no token is dropped on a guess."""
+        detector, processor = _blip_detector(
+            monkeypatch, caption="a red bus", use_vqa=True, anomaly_description="fire"
+        )
+
+        def _no_echo(**kwargs: Any) -> Any:
+            return torch.tensor([[processor.BOS, *processor.tokenize("a red bus"), processor.SEP]])
+
+        detector._model.generate = _no_echo
+        result = detector.detect(np.full((1, 3, 8, 8), 0.4, dtype=np.float32))
+        assert result["captions"][0] == "a red bus"
 
 
 class _StaticBackend:
@@ -275,11 +381,26 @@ class TestB3AnyAnomalyParsing:
         assert "Rate your confidence" not in prompt
 
     def test_no_with_low_probability_scores_low_not_inverted(self) -> None:
-        """'NO, CONFIDENCE: 0.1' must score 0.1 — the old path scored 0.9."""
+        """'NO, ANOMALY_PROBABILITY: 0.1' scores 0.1 — the field the prompt asks for.
+
+        Changed with the review of the B3 cure: this test used to send
+        ``"NO, CONFIDENCE: 0.1"`` and pin 0.1, which read a model's
+        confidence IN ITS VERDICT as the probability of an anomaly (so
+        "NO, CONFIDENCE: 0.95" alarmed).  Only ``ANOMALY_PROBABILITY`` is
+        P(anomaly); a confidence qualifies the stated verdict.
+        """
         detector = AnyAnomalyDetector(AnyAnomalyConfig(segment_length=4, segment_overlap=0))
-        detector._backend = _StaticBackend("NO, CONFIDENCE: 0.1")
+        detector._backend = _StaticBackend("NO, ANOMALY_PROBABILITY: 0.1")
         result = detector.detect(np.full((4, 3, 16, 16), 0.2, dtype=np.float32))
         assert np.allclose(result["scores"], 0.1)
+        assert result["anomaly_frames"] == []
+
+    def test_no_with_high_confidence_is_a_confident_no(self) -> None:
+        """'NO, CONFIDENCE: 0.95' is a 5% anomaly, not a 95% one."""
+        detector = AnyAnomalyDetector(AnyAnomalyConfig(segment_length=4, segment_overlap=0))
+        detector._backend = _StaticBackend("NO, CONFIDENCE: 0.95")
+        result = detector.detect(np.full((4, 3, 16, 16), 0.2, dtype=np.float32))
+        assert np.allclose(result["scores"], 0.05)
         assert result["anomaly_frames"] == []
 
 
@@ -299,7 +420,9 @@ class TestB3BlipVQABackendEmission:
             [np.zeros((3, 8, 8), dtype=np.float32)], "Does this image show a cat?"
         )
         assert "ANOMALY: no" in response
-        assert "CONFIDENCE: 0.2500" in response  # p(anomalous), not 1 - p
+        # p(anomalous), not 1 - p, under the one field name that means it.
+        assert "ANOMALY_PROBABILITY: 0.2500" in response
+        assert "CONFIDENCE" not in response
 
     def test_yes_probability_encodes_the_image_once(self) -> None:
         """B7: the image+question pair was encoded once per candidate answer."""
@@ -507,12 +630,24 @@ class TestB7ExportsCacheAndVectorization:
     """B7: export collision, backend cache wiring, per-pixel loops."""
 
     def test_the_package_exports_the_provider_the_detectors_use(self) -> None:
+        """Both providers are exported, the released name on its released class.
+
+        Changed with the review of the B7 cure: that fix repointed
+        ``vlm.CombinedContextProvider`` from the extended provider (what the
+        name resolved to on origin/main) to the basic one, silently changing
+        a released import to a class with another constructor.  The name is
+        restored; the basic provider the detectors use is exported as
+        ``BasicCombinedContextProvider``.
+        """
         from omni_mercury_engine.detectors import vlm
 
-        assert vlm.CombinedContextProvider is BasicCombinedContextProvider
+        assert vlm.CombinedContextProvider is ExtCombinedContextProvider
         assert vlm.ExtendedCombinedContextProvider is ExtCombinedContextProvider
-        assert isinstance(AnyAnomalyDetector().context_provider, vlm.CombinedContextProvider)
-        assert "ExtendedCombinedContextProvider" in vlm.__all__
+        assert vlm.BasicCombinedContextProvider is BasicCombinedContextProvider
+        assert isinstance(AnyAnomalyDetector().context_provider, vlm.BasicCombinedContextProvider)
+        assert {"BasicCombinedContextProvider", "ExtendedCombinedContextProvider"} <= set(
+            vlm.__all__
+        )
 
     def test_anyanomaly_initializes_through_the_frozen_cache(
         self, monkeypatch: pytest.MonkeyPatch

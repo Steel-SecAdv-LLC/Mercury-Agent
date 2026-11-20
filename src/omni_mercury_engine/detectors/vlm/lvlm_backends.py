@@ -467,12 +467,12 @@ class BLIPVQABackend(LVLMBackend):
 
         The segment's anomaly probability is the maximum per-frame "yes"
         probability (an anomaly visible in any key frame marks the
-        segment).  ``CONFIDENCE`` is that probability itself — the
-        probability THAT THE SCENE IS ANOMALOUS, for either verdict —
-        matching the detectors' parse contract where the stated number is
-        the anomaly score directly (the old "probability of the emitted
-        verdict" reading required the parser to invert NO answers, the
-        exact inversion class the B3 audit cured).
+        segment).  It is emitted as ``ANOMALY_PROBABILITY`` — the
+        probability THAT THE SCENE IS ANOMALOUS, for either verdict — the
+        one field the detectors read as the anomaly score directly.  It is
+        deliberately not labelled ``CONFIDENCE``: a confidence qualifies the
+        stated verdict (a NO at confidence 0.9 is a 10% anomaly), which is
+        how the parser reads that word.
         """
         self._ensure_initialized()
         question = self._question_from_prompt(prompt)
@@ -480,7 +480,7 @@ class BLIPVQABackend(LVLMBackend):
         verdict = "yes" if p_yes > 0.5 else "no"
         return (
             f"ANOMALY: {verdict}\n"
-            f"CONFIDENCE: {p_yes:.4f}\n"
+            f"ANOMALY_PROBABILITY: {p_yes:.4f}\n"
             f"EXPLANATION: BLIP VQA p(yes)={p_yes:.4f} for {question!r}"
         )
 

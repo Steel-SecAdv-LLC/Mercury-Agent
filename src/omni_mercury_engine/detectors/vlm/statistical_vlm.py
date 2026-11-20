@@ -126,6 +126,16 @@ class StatisticalVLMDetector(BaseVLMDetector):
         in either direction — so texture-rich normal scenes stop flagging,
         and frames meaningfully smoother *or* busier than the reference do.
 
+        The interval's ends are actual reference scores, taken at
+        finite-sample ranks (the ``alpha / 2`` quantile rounded DOWN to an
+        order statistic, the ``1 - alpha / 2`` quantile rounded UP), so at
+        most ``alpha`` of the reference frames fall outside it.  An
+        interpolated quantile lies strictly inside ``[min, max]`` and so
+        always flagged both reference extremes, however small the set (2 of
+        2 frames, 2 of 5, 2 of 10).  With fewer than ``2 / alpha`` frames
+        (40 at the default) no frame can be spared for either tail and the
+        interval is the reference minimum and maximum.
+
         Args:
             data: Reference (normal) images/video, any supported layout.
 
@@ -134,10 +144,13 @@ class StatisticalVLMDetector(BaseVLMDetector):
         """
         scores = self._salience_scores(self.extract_features(data)).detach().cpu().numpy()
         alpha = float(self._contamination)
-        self._fitted_score_interval = (
-            float(np.quantile(scores, alpha / 2)),
-            float(np.quantile(scores, 1 - alpha / 2)),
-        )
+        if scores.size * alpha < 2.0:
+            self._fitted_score_interval = (float(scores.min()), float(scores.max()))
+        else:
+            self._fitted_score_interval = (
+                float(np.quantile(scores, alpha / 2, method="lower")),
+                float(np.quantile(scores, 1 - alpha / 2, method="higher")),
+            )
         self._is_fitted = True
         return self
 
