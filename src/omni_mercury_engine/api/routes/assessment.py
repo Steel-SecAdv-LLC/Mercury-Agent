@@ -28,7 +28,6 @@ Refusals: 403 carries ``check`` (``harm_uplift``, ``covert_sensing``,
 from __future__ import annotations
 
 import logging
-import os
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
@@ -36,6 +35,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.serving_limits import serving_limits
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -46,8 +46,10 @@ router = APIRouter(prefix="/api/v1/assessment", tags=["Assessment"])
 
 #: Largest request body accepted by these routes (bytes). Vital-signs arrays
 #: are the large case; ``service.MAX_SIGNAL_VALUES`` bounds them again after
-#: parsing.
-MAX_BODY_BYTES = int(os.environ.get("MERCURY_ASSESSMENT_MAX_BODY_BYTES", str(64 * 1024 * 1024)))
+#: parsing. Read from the single source of serving bounds, which the
+#: body-size middleware enforces as the body streams (this module's own check
+#: sees only a declared length).
+MAX_BODY_BYTES = serving_limits().assessment_max_body_bytes
 
 
 def _principal(permission: Permission) -> Callable[..., User]:

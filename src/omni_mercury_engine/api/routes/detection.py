@@ -324,26 +324,17 @@ def _describe_flagship_model() -> dict[str, Any]:
         }
 
 
-def _run_flagship_detection(
-    matrix: np.ndarray[Any, Any],
-    domain: str | None,
-    explain: bool,
-    gdpr_report: bool = False,
-    subject_id: str | None = None,
-) -> dict[str, Any]:
-    """Build (once) and run the flagship fusion engine under the serialization lock.
+def _admit_flagship_call() -> None:
+    """Take one slot of the flagship admission bound, or refuse with 429.
 
-    Runs in a worker thread via :func:`run_in_threadpool`. Holding
-    ``_flagship_lock`` across both the one-time build and every detection makes
-    the shared engine safe against the auto-fit race and the GOSNN-singleton
-    scalar bleed described above. Any :class:`EthicalConstraintViolationError`
-    propagates to the caller, which maps it to HTTP 403.
+    The caller releases it (``_admission_stats.release()`` and
+    ``_flagship_admission.release()``) when its work is done.
     """
     if not _flagship_admission.acquire(blocking=False):
-        # The queue for the single-engine lock is full: refuse now rather
-        # than park another threadpool token behind it (see the admission
-        # bound's comment at the module top). Counted, so how often the
-        # bound is hit is measured, not guessed.
+        # The queue is full: refuse now rather than park another threadpool
+        # token behind it (see the admission bound's comment at the module
+        # top). Counted, so how often the bound is hit is measured, not
+        # guessed.
         _admission_stats.reject()
         from omni_mercury_engine.core.metrics import record_flagship_admission_rejected
 
@@ -357,6 +348,55 @@ def _run_flagship_detection(
             headers={"Retry-After": "1"},
         )
     _admission_stats.admit()
+
+
+def _replay_served(
+    record: dict[str, Any],
+    data: np.ndarray[Any, Any] | None,
+    reference: np.ndarray[Any, Any] | None,
+) -> list[dict[str, Any]]:
+    """Replay a caller's record under the bounds a shared server needs.
+
+    The record is whatever the caller sent, and so are the width and lag its
+    causal artifact asks to be recomputed at; unbounded, one request could
+    hold a threadpool thread for minutes. Two bounds apply. The recomputation
+    is limited to what the shipped instrument produces
+    (``SERVED_REPLAY_BOUNDS``; anything larger is CANNOT_REPLAY with the
+    reason and the offline command). And a replay that recomputes from
+    supplied numbers takes a slot of the flagship admission bound, so the
+    heavy work in flight on this server stays within one limit; a replay from
+    the record alone is a few hundred arithmetic operations and takes none.
+    """
+    from omni_mercury_engine.discovery import SERVED_REPLAY_BOUNDS, replay_record
+
+    if data is None and reference is None:
+        return replay_record(record, bounds=SERVED_REPLAY_BOUNDS)
+    _admit_flagship_call()
+    try:
+        return replay_record(record, data=data, reference=reference, bounds=SERVED_REPLAY_BOUNDS)
+    finally:
+        _admission_stats.release()
+        _flagship_admission.release()
+
+
+def _run_flagship_detection(
+    matrix: np.ndarray[Any, Any],
+    domain: str | None,
+    explain: bool,
+    gdpr_report: bool = False,
+    subject_id: str | None = None,
+    reference_scope: str | None = None,
+    disclose_reference: bool = True,
+) -> dict[str, Any]:
+    """Build (once) and run the flagship fusion engine under the serialization lock.
+
+    Runs in a worker thread via :func:`run_in_threadpool`. Holding
+    ``_flagship_lock`` across both the one-time build and every detection makes
+    the shared engine safe against the auto-fit race and the GOSNN-singleton
+    scalar bleed described above. Any :class:`EthicalConstraintViolationError`
+    propagates to the caller, which maps it to HTTP 403.
+    """
+    _admit_flagship_call()
     try:
         with _flagship_lock:
             result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
@@ -365,6 +405,8 @@ def _run_flagship_detection(
                 explain=explain,
                 gdpr_report=gdpr_report,
                 subject_id=subject_id,
+                reference_scope=reference_scope,
+                disclose_reference=disclose_reference,
             )
             return result
     finally:
@@ -1354,6 +1396,93 @@ async def flagship_serving_limits(
     }
 
 
+class ReplayRequest(BaseModel):
+    """A decision record to replay, with optional data to replay it against."""
+
+    record: dict[str, Any] = Field(
+        ...,
+        description=(
+            "A decision record (the `decision` of a flagship response), a whole "
+            "flagship response, or its `cognitive_analysis`."
+        ),
+    )
+    data: list[list[float]] | None = Field(
+        default=None,
+        max_length=_LIMITS.flagship_max_rows,
+        description=(
+            "The window a causal finding was computed on. Its statistics are "
+            "recomputed from it; it must be the same window (digest-checked)."
+        ),
+    )
+    reference: list[list[float]] | None = Field(
+        default=None,
+        max_length=_LIMITS.flagship_max_rows,
+        description=(
+            "A reference of your own, one observation per row: is the recorded "
+            "observation novel against it?"
+        ),
+    )
+
+
+@router.post(
+    "/flagship/replay",
+    summary="Replay a decision record's discovery artifacts",
+    description="""
+Re-run the discovery artifacts a decision record carries — the novelty verdict,
+the causal edges, the derived hypothesis — from the numbers in the record, with
+the procedure that produced them, and report whether each claim comes out:
+**HOLDS**, **FAILS** or **CANNOT_REPLAY** (with the reason; never read as
+holding). The hypothesis is replayed against the other two, so a premise that
+no longer holds withdraws the conclusion.
+
+Stateless and pure arithmetic: no model runs, nothing is stored, and the record
+need not have been issued by this server. `data` recomputes a causal finding's
+statistics from the window itself; `reference` asks whether a novelty verdict
+holds against a reference of your own. The same replay is available offline as
+`mercury-agent replay record.json`.
+
+Bounded, because the record is yours and so is the work it asks for: a causal
+finding is recomputed only up to what the shipped instrument produces (five
+columns, lags up to five); a larger one is **CANNOT_REPLAY** with the reason,
+and replays offline. A replay that recomputes from `data` or `reference` takes
+a slot of the flagship admission bound and is refused with 429 when it is full.
+
+The response is `{"verdict", "artifacts", "replay"}`: `verdict` is the worst
+outcome among the artifacts (**FAILS** over **CANNOT_REPLAY** over **HOLDS**),
+or `NO_ARTIFACTS` when the record carries none; `replay` holds one report per
+artifact.
+""",
+)
+async def replay_flagship_record(
+    request: ReplayRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Replay the discovery artifacts of a decision record."""
+    from omni_mercury_engine.discovery import CANNOT_REPLAY, FAILS, HOLDS
+
+    try:
+        data = np.asarray(request.data, dtype=float) if request.data is not None else None
+        reference = (
+            np.asarray(request.reference, dtype=float) if request.reference is not None else None
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="'data' and 'reference' must be rectangular numeric matrices",
+        ) from exc
+    reports = await run_in_threadpool(_replay_served, request.record, data, reference)
+    statuses = {report["status"] for report in reports}
+    if not reports:
+        verdict = "NO_ARTIFACTS"
+    elif FAILS in statuses:
+        verdict = FAILS
+    elif CANNOT_REPLAY in statuses:
+        verdict = CANNOT_REPLAY
+    else:
+        verdict = HOLDS
+    return {"verdict": verdict, "artifacts": len(reports), "replay": reports}
+
+
 @router.get(
     "/flagship/improvements",
     summary="Improvement Ledger: every adaptive change, with its rollback",
@@ -1434,6 +1563,13 @@ async def detect_flagship(
             request.explain,
             request.gdpr_report,
             request.subject_id,
+            # Novelty is judged against what THIS caller has shown before. A
+            # signed-in caller has a reference of their own and gets it back
+            # in the artifact, so the verdict replays from the record. Callers
+            # without credentials share one reference, built from each
+            # other's data, so it is not disclosed to any of them.
+            f"user:{user.id}" if user else "anonymous",
+            user is not None,
         )
 
         user_id = user.id if user else "anonymous"

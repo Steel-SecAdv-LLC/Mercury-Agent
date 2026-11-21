@@ -103,6 +103,48 @@ class TestScoping:
         assert middleware._limit_for("/api/v1/detect/flagship") == middleware.default_limit
         assert middleware.upload_limit > middleware.default_limit
 
+    def test_the_assessment_surface_keeps_its_documented_allowance(self) -> None:
+        """Fails on the prior code, where the every-route cap cut 64 MiB to 10 MiB.
+
+        One vital-signs request may carry two million signal values, which
+        does not fit in 10 MiB; ``MERCURY_ASSESSMENT_MAX_BODY_BYTES`` has
+        always documented 64 MiB for this surface.
+        """
+        from omni_mercury_engine.api.routes import assessment
+        from omni_mercury_engine.assessment import service
+
+        middleware = BodySizeLimitMiddleware(_consuming_app)
+        path = "/api/v1/assessment/vital-signs"
+        assert middleware._limit_for(path) == middleware.assessment_limit
+        assert middleware.assessment_limit == assessment.MAX_BODY_BYTES == 64 * 1024 * 1024
+        # Two million values at even eight bytes apiece exceed the default cap.
+        assert middleware.default_limit < service.MAX_SIGNAL_VALUES * 8
+        # A declared 12 MiB body on that surface is let through to the route...
+        declared = [(b"content-length", str(12 * 1024 * 1024).encode())]
+        assert _run([b"{}"], declared, path=path, limit=10 * 1024 * 1024) == 200
+        # ...and refused everywhere else.
+        assert (
+            _run([b"{}"], declared, path="/api/v1/detect/flagship", limit=10 * 1024 * 1024) == 413
+        )
+
+    def test_the_assessment_cap_is_enforced_as_the_body_streams(self) -> None:
+        """The surface's own guard read only a declared length; a chunked body had none."""
+        middleware = BodySizeLimitMiddleware(_consuming_app)
+        middleware.assessment_limit = 1000
+        sent: list[MutableMapping[str, Any]] = []
+        queue = [b"x" * 600, b"x" * 600]
+
+        async def receive() -> dict[str, Any]:
+            body = queue.pop(0)
+            return {"type": "http.request", "body": body, "more_body": bool(queue)}
+
+        async def send(message: MutableMapping[str, Any]) -> None:
+            sent.append(message)
+
+        scope = {"type": "http", "path": "/api/v1/assessment/vital-signs", "headers": []}
+        asyncio.run(middleware(scope, receive, send))
+        assert sent[0]["status"] == 413
+
     def test_non_http_scopes_pass_through(self) -> None:
         middleware = BodySizeLimitMiddleware(_consuming_app)
         passed: list[str] = []

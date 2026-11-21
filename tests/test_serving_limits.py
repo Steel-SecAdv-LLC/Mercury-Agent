@@ -37,6 +37,7 @@ _ROOT = Path(__file__).resolve().parents[1]
 _EXPECTED_KEYS = {
     "max_body_bytes",
     "max_upload_body_bytes",
+    "assessment_max_body_bytes",
     "flagship_max_queue",
     "flagship_max_rows",
     "flagship_max_domain_chars",
@@ -58,6 +59,7 @@ class TestValidation:
             monkeypatch.delenv(key, raising=False)
         limits = load_serving_limits()
         assert limits.max_body_bytes == 10 * 1024 * 1024
+        assert limits.assessment_max_body_bytes == 64 * 1024 * 1024
         assert limits.flagship_max_queue == 8
         assert limits.ipv6_rate_limit_prefix == 64
 

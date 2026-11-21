@@ -198,7 +198,11 @@ def admitted(monkeypatch: pytest.MonkeyPatch) -> list[tuple[tuple[int, ...], Any
         explain: bool,
         gdpr_report: bool = False,
         subject_id: str | None = None,
+        reference_scope: str | None = None,
+        disclose_reference: bool = True,
     ) -> dict[str, Any]:
+        # An unauthenticated caller shares a reference and is never handed it.
+        assert (reference_scope, disclose_reference) == ("anonymous", False)
         seen.append((matrix.shape, domain, subject_id))
         return {"anomaly_prob": 0.1, "is_anomaly": False, "severity": 0.0}
 

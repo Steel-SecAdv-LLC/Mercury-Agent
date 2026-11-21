@@ -288,12 +288,16 @@ class TestServedRoutes:
         from omni_mercury_engine.api.server import app
 
         engine_backed = {"/api/v1/detect/flagship"}
+        # A replay re-runs arithmetic on a record the caller already holds. No
+        # detector runs, so there is no detection to count.
+        not_a_detection = {"/api/v1/detect/flagship/replay"}
         served = {
             path
             for path, methods in app.openapi()["paths"].items()
             if path.startswith("/api/v1/detect/") and "post" in methods
         }
-        assert served - engine_backed == {path for path, _body in _ROUTES.values()}
+        recorded = {path for path, _body in _ROUTES.values()}
+        assert served - engine_backed - not_a_detection == recorded
 
     def test_the_warm_up_is_not_counted_as_traffic(self) -> None:
         """The server calls two of its own handlers at startup; those are not requests."""

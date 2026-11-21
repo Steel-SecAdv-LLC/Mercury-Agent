@@ -105,6 +105,17 @@ _SPECS: tuple[tuple[str, str, int, int, int | None, str, str], ...] = (
         "upload handler enforces its own 500 MB streaming bound",
     ),
     (
+        "assessment_max_body_bytes",
+        "MERCURY_ASSESSMENT_MAX_BODY_BYTES",
+        64 * 1024 * 1024,
+        1,
+        None,
+        "bytes",
+        "request body cap on the /api/v1/assessment surface, whose contactless "
+        "vital-signs arrays are the large case (their values are bounded again "
+        "after parsing)",
+    ),
+    (
         "flagship_max_queue",
         "MERCURY_FLAGSHIP_MAX_QUEUE",
         8,
@@ -112,8 +123,9 @@ _SPECS: tuple[tuple[str, str, int, int, int | None, str, str], ...] = (
         None,
         "requests",
         "flagship detections admitted concurrently (running or waiting on the "
-        "single engine lock); beyond this a caller is refused with 429 rather "
-        "than parking a threadpool thread",
+        "single engine lock), and replays that recompute from supplied data; "
+        "beyond this a caller is refused with 429 rather than parking a "
+        "threadpool thread",
     ),
     (
         "flagship_max_rows",
@@ -209,6 +221,7 @@ class ServingLimits:
 
     max_body_bytes: int
     max_upload_body_bytes: int
+    assessment_max_body_bytes: int
     flagship_max_queue: int
     flagship_max_rows: int
     flagship_max_domain_chars: int

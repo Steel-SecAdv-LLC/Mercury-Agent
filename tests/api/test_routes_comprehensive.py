@@ -535,6 +535,8 @@ class TestDetectionRoutes:
             explain: Any,
             gdpr_report: Any = False,
             subject_id: Any = None,
+            reference_scope: Any = None,
+            disclose_reference: Any = True,
         ) -> dict[str, Any]:
             raise EthicalConstraintViolationError(
                 "blocked matrix", 0.10, 0.96, check="sigma_immutable"

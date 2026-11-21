@@ -1047,6 +1047,38 @@ class MemoryMonitor:
         }
 
 
+def _ledger_record(record: Any, wire: dict[str, Any]) -> Any:
+    """The decision as the ledger keeps it: discovery artifacts without their inputs.
+
+    A discovery artifact's inputs are the caller's own numbers (an
+    observation vector, the sums of squares of their window).  They are
+    returned with the decision; the ledger, which outlives the request and is
+    bounded by count, keeps each artifact's claim and digest only
+    (:func:`omni_mercury_engine.discovery.ledger_form`).  A record without
+    artifacts is kept as it is.
+    """
+    cognitive = (wire.get("signals") or {}).get("cognitive")
+    if not isinstance(cognitive, dict):
+        return record
+    discovery = cognitive.get("discovery")
+    if not isinstance(discovery, dict) or not discovery:
+        return record
+    from omni_mercury_engine.decision.record import DecisionRecord
+    from omni_mercury_engine.discovery import ledger_form
+
+    slim = {
+        **wire,
+        "signals": {
+            **wire["signals"],
+            "cognitive": {
+                **cognitive,
+                "discovery": {kind: ledger_form(item) for kind, item in discovery.items()},
+            },
+        },
+    }
+    return DecisionRecord.from_dict(slim)
+
+
 class OmniMercuryEngine(LoggerMixin):
     """Unified neuro-symbolic detection engine with hybrid fusion.
 
@@ -6785,6 +6817,9 @@ class OmniMercuryEngine(LoggerMixin):
         equation_profile: str | None = None,
         gdpr_report: bool = False,
         subject_id: str | None = None,
+        *,
+        reference_scope: str | None = None,
+        disclose_reference: bool = True,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with GOSNN synaptic integration.
 
@@ -6851,6 +6886,16 @@ class OmniMercuryEngine(LoggerMixin):
                 a unique per-report id (``anon-<hex>``) is generated when omitted,
                 so distinct data-subject audits never collapse onto one identifier
                 (the generated id is surfaced in the report's ``subject_id`` field).
+            reference_scope: Whose novelty reference this call is scored
+                against and adds to. A server passes the caller's identity so
+                "unlike what has been seen" means unlike what that caller has
+                shown; ``None`` (a library or command-line user) uses the
+                engine's own reference.
+            disclose_reference: Whether the novelty artifact may carry the
+                reference it was scored against. ``False`` when that
+                reference is shared between callers who may not see each
+                other's data: the artifact then carries digests and says it
+                cannot be replayed.
 
         Returns:
             Dictionary containing:
@@ -7428,6 +7473,8 @@ class OmniMercuryEngine(LoggerMixin):
                     "symbolic_consistency": result.get("symbolic_consistency"),
                     "gosnn_metadata": result.get("gosnn_metadata"),
                     "drift_detection": result.get("drift_detection"),
+                    "reference_scope": reference_scope,
+                    "disclose_reference": disclose_reference,
                 },
             )
             result["cognitive_analysis"] = cognitive.to_dict()
@@ -7493,9 +7540,9 @@ class OmniMercuryEngine(LoggerMixin):
         # step that turns the stream of decisions into a queryable trail.
         if self.decision_layer is not None:
             decision_record = self.decision_layer.decide(result, domain=domain)
-            if self.decision_ledger is not None:
-                self.decision_ledger.record(decision_record)
             result["decision"] = decision_record.to_dict()
+            if self.decision_ledger is not None:
+                self.decision_ledger.record(_ledger_record(decision_record, result["decision"]))
 
         return result
 

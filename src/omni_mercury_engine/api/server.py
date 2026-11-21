@@ -779,9 +779,15 @@ class BodySizeLimitMiddleware:
     * ``MERCURY_MAX_UPLOAD_BODY_BYTES`` — default 600 MiB, for the
       authenticated model-management surface (``/api/v1/models``), whose
       upload handler enforces its own 500 MB streaming bound.
+    * ``MERCURY_ASSESSMENT_MAX_BODY_BYTES`` — default 64 MiB, for the
+      assessment surface (``/api/v1/assessment``).  That surface accepts up
+      to two million signal values in one vital-signs request and has always
+      documented this cap; the every-route default above, added later,
+      silently lowered it to 10 MiB until this entry restored it.
     """
 
     _UPLOAD_PREFIX = "/api/v1/models"
+    _ASSESSMENT_PREFIX = "/api/v1/assessment"
 
     def __init__(self, app: ASGIApp) -> None:
         """Read the caps once; the per-request work is a counter."""
@@ -791,10 +797,13 @@ class BodySizeLimitMiddleware:
         limits = serving_limits()
         self.default_limit = limits.max_body_bytes
         self.upload_limit = limits.max_upload_body_bytes
+        self.assessment_limit = limits.assessment_max_body_bytes
 
     def _limit_for(self, path: str) -> int:
         if path.startswith(self._UPLOAD_PREFIX):
             return self.upload_limit
+        if path.startswith(self._ASSESSMENT_PREFIX):
+            return self.assessment_limit
         return self.default_limit
 
     @staticmethod

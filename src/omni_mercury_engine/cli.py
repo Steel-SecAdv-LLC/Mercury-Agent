@@ -4611,5 +4611,71 @@ def decouple_uninstall(
     _emit(plan, as_json, lines)
 
 
+@main.command("replay")
+@click.argument("record", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--data",
+    "-d",
+    default=None,
+    help=(
+        "The window a causal finding was computed on (CSV/NPY/JSON). Its sums "
+        "of squares are recomputed from it; the file must be the same window "
+        "(checked against the recorded digest)."
+    ),
+)
+@click.option(
+    "--reference",
+    "-r",
+    default=None,
+    help=(
+        "A reference of your own, one observation per row (CSV/NPY/JSON). Asks "
+        "whether the recorded observation is novel against it."
+    ),
+)
+@click.option("--json", "as_json", is_flag=True, help="Print the reports as JSON.")
+def replay(record: str, data: str | None, reference: str | None, as_json: bool) -> None:
+    """Replay the discovery artifacts in a decision record: do they still hold?
+
+    RECORD is a JSON file: a decision record, a whole detection result, or
+    the cognitive analysis inside one. Each discovery artifact it carries (a
+    novelty verdict, causal edges, a derived hypothesis) is re-run from the
+    numbers in the record, with the same procedure that produced it, and
+    reported as HOLDS, FAILS or CANNOT_REPLAY. Nothing here touches a model
+    or a server.
+
+    Exit status: 0 when every artifact holds; 1 when any fails; 2 when one
+    could not be replayed or the record carries none.
+    """
+    import json
+
+    from omni_mercury_engine.discovery import CANNOT_REPLAY, FAILS, replay_record
+
+    try:
+        with open(record, encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except (OSError, ValueError) as exc:
+        click.echo(f"Error: cannot read {record} as JSON: {exc}", err=True)
+        raise SystemExit(2) from exc
+    reports = replay_record(
+        loaded,
+        data=_load_input(data, "--data") if data else None,
+        reference=_load_input(reference, "--reference") if reference else None,
+    )
+    statuses = {report["status"] for report in reports}
+    code = 1 if FAILS in statuses else 2 if (not reports or CANNOT_REPLAY in statuses) else 0
+    if as_json:
+        click.echo(json.dumps({"reports": reports, "exit_status": code}, indent=2, default=str))
+        raise SystemExit(code)
+    if not reports:
+        click.echo("No discovery artifact in this record: nothing to replay.")
+        raise SystemExit(code)
+    for report in reports:
+        click.echo(f"{report['status']:14s} {report['kind']}: {report['detail']}")
+        recorded = report.get("recorded") or {}
+        if report["kind"] == "hypothesis" and recorded.get("statement"):
+            click.echo(f"{'':14s} claim: {recorded['statement']}")
+    raise SystemExit(code)
+
+
 if __name__ == "__main__":
     main()
