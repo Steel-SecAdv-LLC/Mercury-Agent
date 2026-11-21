@@ -4,9 +4,11 @@
 
 name: CI/CD Pipeline
 
+# Least privilege (OpenSSF Scorecard Token-Permissions): the default for
+# every job is read-only; the one job that uploads SARIF declares
+# security-events: write itself.
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -1978,6 +1980,9 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write  # upload-sarif (trivy-ci-blocking)
     needs: [core-tests, security-scan]
     if: github.event_name != 'schedule'
 
