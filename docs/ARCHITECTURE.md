@@ -223,15 +223,23 @@ OmniMercuryEngine / narrative engine / agentic operations subagent
         └─ Step 10: IntegratedAnomalyDetector (optional, DEFAULT-OFF)
 ```
 
-Steps 9 and 10 were added in PR #329 and are opt-in: `enable_curiosity`
-(`cognitive/orchestrator.py:209`) and `enable_enhanced_detection`
-(`cognitive/orchestrator.py:210`) both default to `False`, unlike Steps 4-8
-which default ON. Step 9 scores how novel a detected anomaly is relative to the
-distribution the `CuriosityEngine` has observed, setting `result.novelty_score`
-and `result.is_novel` (`cognitive/orchestrator.py:566-568`). Step 10 folds each
-observation into the `IntegratedAnomalyDetector` Bayesian/HMM predictive memory and
-surfaces a forecast for detected anomalies; it is constructed with
+Steps 9 and 10 were added in PR #329. In the orchestrator's own API both are
+opt-in (`enable_curiosity` and `enable_enhanced_detection` default to `False`,
+unlike Steps 4-8); the served flagship turns curiosity on. Step 9 scores how
+far a detected anomaly lies from what the caller has shown before
+(`CuriosityEngine`) and gives a verdict by rank: novel when the distance is in
+the top 5% of the reference's own distances. Step 9b then derives a hypothesis
+from the verdicts that hold (the detection flag, the novelty verdict, the
+strongest lagged dependence from Step 4) by chaining three explicit rules in
+the `MultiHopReasoner`. Step 10 folds each observation into the
+`IntegratedAnomalyDetector` Bayesian/HMM predictive memory and surfaces a
+forecast for detected anomalies; it is constructed with
 `use_simulated_sources=False`, so it performs no network I/O on the runtime path.
+
+Steps 4, 9 and 9b each report a *discovery artifact*: the claim, the procedure
+and the numbers it was computed from, so it can be re-run from the decision
+record (`mercury-agent replay`). What each rests on, its measured error rates
+and its limits are in [`DISCOVERY.md`](DISCOVERY.md).
 
 All cognitive modules are advisory — they augment results, never
 overwrite detector scores. Failure in any module is caught and logged;

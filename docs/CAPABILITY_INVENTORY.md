@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,190
-- **Capability-bearing classes:** 2,135 (excludes config/result/enum/error support types)
+- **Total top-level classes:** 3,194
+- **Capability-bearing classes:** 2,138 (excludes config/result/enum/error support types)
 - **Subsystems (top-level packages):** 51
 - **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,257 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,260 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1257 |
-| Support types (config / result / enum / error) | 1055 |
+| Other capability classes | 1260 |
+| Support types (config / result / enum / error) | 1056 |
 | Detection | 181 |
 | Neural models & layers | 164 |
 | Data sources & loaders | 114 |
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Classes by subsystem
 
-### `(top-level)/` — 70 classes (49 capability)
+### `(top-level)/` — 73 classes (52 capability)
 
 **Adapters & backends**
 
@@ -73,14 +73,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ExcludedEvidence` (`truth_decipher`) — An evidence item that bears on a claim but was not counted, and why.
 - `ExcludedQuestion` (`truth_decipher`) — A question that was not scored, and why.
 - `FeatureCache` (`engine`) — Thread-safe LRU cache for computed features.
+- `GrangerStats` (`discovery`) — One ordered pair's Granger test at the lag with the smallest p-value.
 - `HaversineTravelCheck` (`truth_decipher`) — Default travel check: haversine distance and a single speed limit.
 - `InventoryItem` (`decouple`) — One place Mercury keeps work on this machine.
 - `ItemWeight` (`truth_decipher`) — One evidence item's weight within its cluster.
 - `Limit` (`serving_limits`) — One enforced bound, as an operator sees it.
 - `LocatedObservation` (`truth_decipher`) — One subject at one place over one time interval.
 - `Location` (`truth_decipher`) — A circular location: centre in decimal degrees and an uncertainty radius in km.
+- `MeasurementEvidence` (`measurement`) — The artifact that proves one quantity was measured.
 - `Proportion` (`truth_decipher`) — A count-based proportion with a Wilson score interval.
 - `Reference` (`truth_decipher`) — Points at the claim, ordering or evidence item that a finding is about.
+- `ReplayBounds` (`discovery`) — The largest causal finding a replay will recompute.
 - `ReportSummary` (`truth_decipher`) — Aggregate counts of the evidence findings; it adds no judgement of its own.
 - `ResponseWindows` (`truth_decipher`) — Scoring windows, in seconds relative to stimulus onset (declared defaults).
 - `SUEIndicator` (`truth_decipher`) — Statement-evidence inconsistency for withheld versus disclosed evidence.
@@ -203,7 +206,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 177 classes (64 capability)
+### `api/` — 178 classes (64 capability)
 
 **Adapters & backends**
 
@@ -284,9 +287,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_BodyLimitExceeded` (`api.server`) — Raised inside the guarded receive when a body outgrows its cap.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (113)</summary>
+<details><summary>Support types (114)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `RouterRecord`, `RouterState`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WatchPhoneCodeRequest`, `WatchPhoneRequest`, `WatchPhoneResponse`, `WatchSubscriptionRequest`, `WatchSubscriptionResponse`, `WatchSubscriptionsResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReplayRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `RouterRecord`, `RouterState`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WatchPhoneCodeRequest`, `WatchPhoneRequest`, `WatchPhoneResponse`, `WatchSubscriptionRequest`, `WatchSubscriptionResponse`, `WatchSubscriptionsResponse`, `WeakPasswordError`
 
 </details>
 
