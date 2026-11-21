@@ -4535,7 +4535,12 @@ class OmniMercuryEngine(LoggerMixin):
         moving = z[:, usable]
         if moving.shape[1] >= 2 and moving.shape[0] >= 3:
             with np.errstate(divide="ignore", invalid="ignore"):
-                corr = np.nan_to_num(np.corrcoef(moving, rowvar=False))
+                # ``asarray``: older numpy stubs type ``nan_to_num`` of a
+                # correlation matrix as scalar-or-array; it is a matrix here
+                # (two or more columns), and typed as one on every supported numpy.
+                corr: np.ndarray[Any, Any] = np.asarray(
+                    np.nan_to_num(np.corrcoef(moving, rowvar=False)), dtype=np.float64
+                )
             off = corr[~np.eye(corr.shape[0], dtype=bool)]
             mean_corr = float(np.mean(np.abs(off)))
             eigen = np.linalg.eigvalsh(corr)
