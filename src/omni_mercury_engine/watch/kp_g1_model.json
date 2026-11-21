@@ -1,0 +1,67 @@
+{
+  "schema": "mercury.kp-g1-model/v1",
+  "version": "kp-g1/2025",
+  "features": [
+    "latest",
+    "max_24h",
+    "mean_24h",
+    "max_72h",
+    "recurrence_27d",
+    "recurrence_26_28d",
+    "mean_27d",
+    "semiannual_cos",
+    "semiannual_sin"
+  ],
+  "mean": [
+    2.059076,
+    3.362415,
+    2.173168,
+    4.260508,
+    3.388367,
+    4.271702,
+    2.172942,
+    -0.000675,
+    -0.000366
+  ],
+  "scale": [
+    1.381397,
+    1.49359,
+    1.196137,
+    1.455151,
+    1.491447,
+    1.453321,
+    0.593768,
+    0.706978,
+    0.707235
+  ],
+  "weights": [
+    0.511587,
+    0.190496,
+    -0.141502,
+    0.010301,
+    0.206983,
+    0.14521,
+    0.297498,
+    -0.116781,
+    0.076295
+  ],
+  "bias": -1.513586,
+  "climatology": 0.215181,
+  "persistence": {
+    "after_storm": 0.405706,
+    "after_quiet": 0.163761
+  },
+  "trained_through": "2025-12-31",
+  "fitted_on_days": 34306,
+  "l2": 0.001,
+  "conformal": {
+    "coverage": 0.9,
+    "coverage_achieved": 0.9,
+    "seed": 42,
+    "thresholds": {
+      "0": 0.27551140327594936,
+      "1": 0.9212152222045976
+    },
+    "n_calibration": 9497
+  }
+}

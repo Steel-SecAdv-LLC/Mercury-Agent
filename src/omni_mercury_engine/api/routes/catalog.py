@@ -26,6 +26,7 @@ from omni_mercury_engine.core.knowledge_profiles import (
     profile_dict,
 )
 from omni_mercury_engine.core.loader_declarations import loader_declarations
+from omni_mercury_engine.decision import hazard_evidence
 from omni_mercury_engine.detectors.hazard_diagnostics import KNOWN_HAZARDS
 
 __all__ = ["detector_record", "domain_record", "router"]
@@ -81,6 +82,9 @@ def domain_record(domain: str) -> dict[str, Any] | None:
         "loader": asdict(declaration) if declaration else None,
         "related_detectors": sorted(set(detectors)),
         "profile": profile_dict(profile) if profile else None,
+        # What decisions on this hazard were worth on real events held out
+        # (research/hazard_calibration); None where nothing has been measured.
+        "held_out_evidence": hazard_evidence.for_hazard(domain),
     }
 
 
@@ -129,6 +133,28 @@ def get_domain(domain: str) -> dict[str, Any]:
     if record is None:
         raise HTTPException(status_code=404, detail=f"No such domain: {domain}")
     return record
+
+
+@router.get(
+    "/hazard-evidence",
+    summary="Per hazard: calibration, certificate coverage and abstention on held-out real events",
+    description=(
+        "For each hazard with more than one real event, each event judged by a calibration "
+        "and a conformal certificate fitted on the hazard's other events, with the decision "
+        "layer as it ships: whether the calibrated probability says more than the base rate, "
+        "how often the certificate held the true label against its target, and how much was "
+        "abstained on. Hazards with one event, and those whose events could not be fetched, "
+        "are listed as not measured. Method: `research/hazard_calibration`."
+    ),
+)
+def get_hazard_evidence() -> dict[str, Any]:
+    """The published per-hazard evidence, whole.
+
+    Returns:
+        The evidence as ``research/hazard_calibration/measure.py`` recorded it,
+        or ``{"hazards": {}}`` when this install carries none.
+    """
+    return hazard_evidence.published() or {"hazards": {}}
 
 
 @router.get(

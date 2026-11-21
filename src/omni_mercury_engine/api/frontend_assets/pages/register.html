@@ -5,12 +5,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Register — Mercury Agent</title>
   <link rel="stylesheet" href="/static/mercury.css">
   <script src="/static/common.js" defer></script>
   <script src="/static/auth.js" defer></script>
 </head>
 <body data-page="register">
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="/">Mercury Agent</a>
     <nav aria-label="Account">
@@ -18,7 +20,7 @@
       <span data-nav-authed class="hidden"><a href="/dashboard">Dashboard</a></span>
     </nav>
   </header>
-  <main class="narrow">
+  <main id="main" class="narrow" tabindex="-1">
     <h1>Create your account</h1>
     <div class="card">
       <form id="register-form">

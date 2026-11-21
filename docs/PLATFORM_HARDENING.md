@@ -262,7 +262,7 @@ All variables are optional; unset values keep the pre-platform behaviour.
 | `MERCURY_HSTS_INCLUDE_SUBDOMAINS` | `true` | Append `includeSubDomains` to the HSTS value. Turn off when sibling sub-domains are not all HTTPS-capable. |
 | `MERCURY_SMTP_HOST` etc. | *(unset → console)* | SMTP delivery (`_PORT/_USERNAME/_PASSWORD/_FROM/_STARTTLS`) |
 | `MERCURY_MAIL_OUTBOX` | `~/.local/state/mercury-agent/outbox` | Where the development mailer files each message (owner-only `.txt`, plus `.html` when there is an HTML part) when `MERCURY_SMTP_HOST` is unset. The log names the file, never the body: logged links would be redacted to `token=<redacted>` |
-| `MERCURY_PUBLIC_BASE_URL` | `https://mercuryagent.global` | Base URL for email links |
+| `MERCURY_PUBLIC_BASE_URL` | *(unset → `http://127.0.0.1:<port>` with the development mailer; **required** when `MERCURY_SMTP_HOST` is set)* | Address users reach this server at; verification, password-reset and email-change links are built from it. The server refuses to build the account service with SMTP configured and this unset, rather than mail links that do not point at it |
 | `MERCURY_CONTACT_EMAIL` | `contact@mercuryagent.global` | `List-Unsubscribe` contact |
 | `MERCURY_DATA_ENC_KEY` | *(unset)* | 64-hex at-rest key (`python scripts/generate_secret_key.py`) sealing the TOTP secrets and the language-model provider keys an administrator stores from the console (`api/provider_store.py`; without a stable key the provider store refuses keys) |
 | `MERCURY_DATA_ENC_KEY_OLD` | *(unset)* | Retiring at-rest key, read by `scripts/reseal_totp_secrets.py` during key rotation (TOTP secrets and provider keys) |

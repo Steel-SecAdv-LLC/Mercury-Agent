@@ -30,6 +30,10 @@
     C("flagship", "Flagship · GOSNN domain-tuned", "Ensembles", "POST /api/v1/detect/flagship", (d, ctx) => ({ data: d ? d.matrix : widthSample(ctx.flagshipWidth), domain: ctx.domain || null, explain: true }), { rec: 1, prep: flagshipContract, block: (d, ctx) => (d && ctx && ctx.flagshipWidth && d.cols !== ctx.flagshipWidth ? "the served fusion model was fitted on " + ctx.flagshipWidth + " feature columns; this dataset has " + d.cols + " (train one on it: mercury-agent train --install)" : null) }),
     C("rca", "Root cause · last row as the anomaly", "Explain", "POST /api/v1/detect/rca", (d) => ({ observations: matrix(d), top_k: 3 }), { needsCols: 2 }),
   ];
+  // The demonstration window (mercury-agent demo): one committed decision that shows the
+  // three answers. Built from the bundled model's training data; it belongs to that model.
+  const DEMO_WINDOW = [[-3.5472,-1.9744,-7.25,9.9024,-2.5689,-3.8343,-5.3141,3.1546,-5.7214,2.7816,-5.0465,2.55,-2.4549,1.4795,0.2887,-0.1919],[-4.1377,0.3675,-6.418,8.4737,-2.4791,-4.1814,-6.878,5.4092,-2.8595,2.7444,-5.604,2.8999,-3.9365,0.0245,2.0241,-0.3748],[-4.4861,-0.4825,-5.9162,8.5377,-2.8886,-4.0549,-5.73,5.8815,-6.9446,1.2902,-6.0692,3.3632,-2.7512,1.8888,1.4488,0.0752],[-4.5898,-1.5547,-5.941,8.8732,-2.1177,-4.6574,-7.1662,2.8266,-6.7467,1.6612,-2.6651,2.0112,-2.3091,2.4003,1.3937,1.3512],[-4.5651,-1.5836,-7.5387,8.8576,-2.4305,-5.4819,-7.4734,4.8078,-5.7373,3.0247,-2.5031,1.0401,-1.2416,0.4204,0.7801,1.3416],[-5.9827,-1.4961,-6.9981,8.8896,-2.4046,-4.5876,-6.143,4.8519,-4.3205,3.0092,-4.0531,1.9788,-3.5233,0.2397,2.1387,-0.9655],[-3.4437,-2.3427,-7.2109,8.5146,-3.6162,-4.7045,-6.0677,5.7081,-5.9825,1.7379,-4.4353,3.7349,-3.5965,-0.0057,0.9318,0.5112],[-4.2128,-0.4467,-5.4149,8.2774,-1.9144,-4.1388,-7.0966,5.5536,-6.4317,2.596,-5.5653,2.1505,-3.4069,1.7307,2.7711,1.2083],[-4.4015,-2.0512,-8.3581,7.9048,-2.4248,-4.1851,-6.6765,4.8449,-5.285,-0.6347,-3.3939,2.3002,-3.0561,2.7248,2.6875,-1.1243],[-3.5385,0.0027,-7.884,7.4296,-3.5181,-3.8475,-9.3597,4.1011,-6.4213,1.7177,-3.6347,2.2985,-3.726,-1.3325,0.5271,0.6622],[-5.3662,-0.4298,-7.7572,8.8278,-5.615,-5.7093,-7.264,3.8561,-6.1344,2.4092,-5.2148,2.2976,-4.0348,0.7576,2.1649,0.0767],[-2.5393,-2.9535,-6.702,9.5252,-4.2178,-4.7399,-5.805,3.5841,-6.1659,0.7913,-3.891,3.5007,-2.7361,0.9161,1.6844,-0.0605],[-3.3865,-1.1799,-5.5018,8.2878,-3.8548,-3.6648,-9.3649,3.3063,-7.5817,1.5767,-4.1513,2.1024,-2.7641,-0.091,1.4158,0.6006],[-4.7872,-1.6593,-7.5289,7.9584,-3.0619,-2.3401,-3.7013,3.3806,-7.5611,2.5884,-3.2277,1.5289,-3.0349,3.143,1.3485,0.7275],[-3.9683,-1.9305,-5.1602,8.982,-2.8015,-4.1543,-7.6463,4.3175,-5.9744,0.9816,-3.8831,1.5941,-2.0251,2.015,2.3742,0.5771],[-4.2113,-1.4366,-6.0782,8.0371,-3.5064,-3.8646,-7.2566,4.9134,-7.2934,2.4506,-2.3194,2.984,-3.5351,0.0499,-0.1692,1.7049],[-3.6379,-0.2397,-7.5689,8.6058,-3.5223,-2.7716,-7.7633,6.2436,-5.3382,1.5222,-4.1495,4.4448,-2.3308,0.8114,2.732,0.126],[-3.9309,-1.32,-7.6666,7.3247,-2.6447,-3.8113,-7.0238,5.7174,-5.5028,1.3061,-3.5893,2.5015,-2.0785,1.8102,2.6398,1.9577],[-4.2857,-0.6309,-3.3171,7.3096,-4.0579,-3.0826,-6.5178,4.6825,-5.8507,3.6759,-3.6078,2.3329,-2.1757,1.0722,0.6295,1.5303],[-3.4041,-2.416,-6.9228,9.4919,-3.0547,-5.564,-7.5174,5.2599,-6.9263,0.5281,-3.8619,1.5953,-3.4705,1.649,1.0768,0.1363],[-3.994,-0.2022,-5.5982,6.8052,-2.8546,-4.6482,-8.1107,5.3869,-5.5736,2.2196,-3.5106,3.6498,-2.3975,0.3862,2.4303,1.894],[-3.6391,-2.1665,-5.9788,9.319,-3.8841,-3.2455,-5.5371,4.3404,-4.9576,1.4706,-3.092,5.1139,-3.5897,0.2515,3.347,1.3944],[-4.1305,-0.6997,-5.4712,8.6178,-4.1228,-3.9192,-7.4823,5.0082,-6.7111,2.7307,-5.7098,3.8609,-2.6159,1.9491,1.7821,0.433],[-4.0278,-1.4667,-5.9341,8.3965,-3.9727,-3.7073,-6.7927,4.7298,-4.913,2.1337,-1.8607,2.5594,-2.5482,0.8815,0.409,2.2058],[-4.2736,-1.3122,-5.595,7.6417,-3.4635,-5.5456,-5.7436,5.6164,-5.703,0.396,-3.0028,2.1481,-2.8345,1.0359,1.5475,-1.036],[-3.5252,-2.565,-5.5575,9.4213,-2.2427,-3.5002,-7.6892,6.1704,-4.9451,2.0415,-3.3871,3.2851,-5.3309,-0.2191,1.6413,1.326],[-4.6551,-2.0928,-4.6436,7.9359,-3.2637,-0.388,-7.2745,5.3385,-4.9487,3.4006,-1.8802,2.0082,-3.3232,2.499,1.6812,1.5395],[-4.3223,-1.274,-8.9297,7.5708,-4.458,-4.8642,-6.9749,3.947,-5.4844,2.0799,-3.39,4.1399,-3.6018,1.4599,1.8369,0.0726],[-4.3246,-0.5541,-6.709,9.3627,-2.6555,-4.6419,-6.1487,7.1117,-6.8632,0.4668,-3.7385,2.2936,-3.2697,1.9734,1.7421,0.0542],[-4.9255,-1.7255,-7.1851,7.2175,-4.2835,-5.0536,-6.6911,5.3428,-6.0388,3.0479,-3.4179,1.1995,-3.1974,1.1379,2.0576,-0.6348],[-3.4486,-4.1121,-5.6566,8.746,-3.2012,-3.684,-7.5201,4.1668,-5.1496,0.8696,-3.0177,3.3597,-2.894,1.5866,0.9802,1.3662],[-3.4026,-1.4399,-6.8638,8.2045,-3.9157,-3.1473,-6.1305,3.7747,-6.9805,1.5342,-2.9384,3.5609,-1.8323,-0.0066,1.8453,-0.3299],[-3.4792,-2.5209,-6.2262,10.4093,-4.3897,-3.4518,-8.4197,3.8614,-5.6859,-0.2535,-1.4281,2.7638,-2.5665,1.1893,2.2705,0.7396],[-4.5204,-1.3415,-6.4439,7.6515,-2.952,-4.324,-6.8376,5.7106,-4.8873,0.9833,-5.672,3.8215,-2.9244,1.3736,0.4638,0.7969],[-3.1452,-2.587,-4.7729,7.7656,-0.2954,-4.1175,-6.9301,5.2405,-5.2216,3.6115,-3.8579,4.5963,-4.1345,1.1697,2.8983,0.5596],[-3.627,-0.6883,-5.9411,8.9027,-4.4151,-2.7168,-5.6585,5.2897,-4.5555,2.6894,-3.9001,4.4819,-3.1981,1.0347,1.9927,0.4157],[-5.017,-2.7803,-5.8425,9.3456,-4.0251,-2.1848,-7.0803,3.9352,-7.767,1.352,-3.2815,3.7388,-3.0427,1.3503,0.9457,1.39],[-3.4739,-3.9752,-8.0669,8.9496,-4.4563,-2.9402,-6.5297,3.6623,-5.2727,0.8601,-3.3309,2.6708,-3.4127,0.2169,1.2324,0.5118],[-4.3829,-1.5101,-5.9665,8.1321,-2.7851,-3.7884,-7.5563,6.3113,-5.9622,1.9147,-3.4745,2.4402,-4.4417,0.1989,3.5584,0.6917],[-4.5149,-2.1617,-5.2471,6.8527,-2.4179,-3.7549,-8.0797,3.4392,-4.5276,2.3824,-4.4344,3.1503,-0.6722,1.5319,-0.6259,0.6495],[9.04,8.6015,-6.9542,-9.1615,-7.6934,-9.5721,-8.1635,8.7958,-8.6758,7.1328,-8.7653,9.4677,-10.478,9.3966,7.0881,-10.4968],[-1.847,-8.457,3.6617,2.0624,18.2352,7.5744,-6.5945,-8.9375,8.2781,-7.6399,5.1782,-2.3149,4.975,1.2425,3.2567,-1.2537],[9.3687,-10.8497,9.3742,9.0516,9.7532,-9.5164,-9.3687,9.097,10.1946,9.4887,-9.0087,9.3754,-9.6004,-8.5722,7.4885,-8.827],[5.5378,-9.4775,-6.2546,-22.4762,-1.2255,-2.3614,0.691,7.1024,-14.9938,9.5755,10.5445,10.4206,3.7558,-21.5272,-0.1818,8.1302],[-4.7824,-2.7847,-4.2629,8.0706,-3.2627,-4.9882,-6.623,4.9645,-4.3824,1.4208,-3.0995,4.2474,-5.7916,0.0361,2.5295,-0.5769],[-4.1291,-3.0312,-8.1129,9.2366,-2.5418,-5.2504,-8.1892,6.1421,-4.4823,2.8217,-3.5261,3.0509,-4.2199,1.2798,1.1345,0.388],[-4.601,-1.1371,-6.2141,7.7524,-2.392,-3.6835,-8.8345,5.1361,-6.2951,2.2515,-4.5164,1.2984,-2.6743,-0.1043,2.4909,-0.1679],[-5.0289,-3.2034,-6.5017,7.444,-3.0513,-2.7107,-5.9205,4.6204,-6.234,0.758,-4.4049,3.6621,-2.4834,1.0013,0.7637,0.3425],[-5.9796,-1.5706,-5.5001,8.0133,-4.4889,-3.6987,-5.673,4.0557,-4.5695,0.7611,-4.9998,3.3638,-5.8425,0.9813,1.9214,1.079],[-3.7135,-1.6873,-6.4916,6.4091,-3.519,-2.2632,-6.6863,4.0094,-5.4088,-0.1468,-3.3359,3.9962,-2.2618,-0.9091,-0.208,0.897],[-3.2768,-0.6253,-6.8192,10.4387,-4.0924,-1.6521,-6.0983,4.6878,-5.8783,1.2988,-6.2264,3.1016,-4.9159,-0.2538,1.4911,1.1972],[-3.7578,0.353,-6.6744,8.5697,-3.2107,-4.0891,-5.5099,4.702,-4.3435,1.3665,-4.8554,2.5301,-3.8882,3.3299,0.086,-0.0574],[-5.9212,-1.7952,-6.586,11.0358,-4.0779,-4.2119,-6.4548,4.7972,-5.9232,1.7808,-3.3365,5.4009,-1.7271,0.3514,0.9366,-0.8457],[-4.4288,-1.8871,-5.8502,7.698,-2.8845,-4.3623,-7.7935,5.1039,-6.6456,3.1712,-3.4185,2.8841,-4.8313,1.129,3.1519,0.8942],[-3.8697,-1.0744,-6.5608,7.0439,-3.5612,-3.0911,-7.3441,3.6065,-5.8073,2.0501,-3.8618,2.077,-3.5919,1.865,1.0435,0.4946],[-4.9365,-2.3527,-8.0441,8.6322,-4.3512,-5.7709,-6.728,4.4374,-4.7023,2.2087,-6.0044,3.2602,-2.746,1.9613,2.6753,1.7041],[-3.7363,-3.6155,-5.5424,9.3883,-3.3124,-4.9234,-7.4441,4.552,-5.1012,1.7906,-5.4263,2.396,-3.162,-0.383,2.4296,0.883],[-5.6479,-2.4983,-6.3173,9.3108,-4.1244,-4.9742,-6.8588,3.8232,-4.556,2.306,-3.1508,4.4505,-4.7262,1.2372,1.7508,-1.2184],[-4.7657,-2.9061,-7.5903,8.5919,-2.6509,-3.574,-6.671,4.2316,-4.8428,1.9245,-2.3821,3.1407,-4.644,1.0402,1.9437,0.9737],[-4.4073,-1.6097,-6.641,7.8942,-3.9437,-2.5856,-6.3969,5.4692,-5.2294,1.5965,-3.4884,0.892,-3.0922,-0.5371,2.2414,2.4219],[-4.5925,-2.227,-5.645,9.2628,-3.7852,-4.7491,-5.754,3.7798,-5.7971,0.6762,-5.2212,3.415,-2.9464,-0.1262,0.7706,0.0582],[-3.937,-2.8352,-7.3041,7.2968,-2.518,-4.7008,-7.2118,4.5458,-6.2131,2.2246,-1.8598,2.8016,-3.8451,-0.9903,1.9866,-0.1556],[-2.3115,-0.6527,-7.8458,6.9105,-3.1666,-3.1086,-5.8016,4.0096,-5.687,4.5471,-4.3876,3.1779,-4.0452,-0.5104,2.1252,1.0442],[-4.5721,-0.7017,-5.1652,7.0107,-4.4872,-4.1968,-6.8015,3.3245,-6.6521,1.8708,-1.6567,3.0563,-4.2767,1.3375,1.8927,0.1005],[-3.6299,-1.3137,-7.7376,8.7445,-3.2143,-3.5278,-7.1299,5.2588,-6.1988,1.4646,-4.6318,4.6561,-4.8903,1.7109,2.069,-0.0787],[-3.264,-1.0404,-6.698,8.3975,-4.6636,-3.7666,-6.3237,5.5441,-5.4295,1.6539,-1.85,5.5778,-3.9001,1.6552,0.0752,1.4996],[-5.1889,-0.1374,-6.6993,9.3528,-5.3367,-3.6314,-6.3868,5.9217,-6.0996,1.9042,-3.5771,2.2178,-2.7568,1.6675,3.1447,0.8426],[-4.6155,-2.3684,-6.9216,7.4261,-1.54,-5.9454,-7.3144,5.4878,-5.8291,2.2341,-4.1748,2.732,-4.0908,0.2483,1.8427,1.6556],[-5.3418,-1.8862,-5.1676,10.0504,-1.1417,-4.2445,-6.5403,5.6998,-5.1683,-0.0511,-3.9007,4.2584,-3.2114,0.1721,2.8598,0.3891],[-3.6055,-2.6238,-6.2154,10.2223,-3.2267,-2.3731,-7.271,3.5222,-4.9012,1.5939,-3.2469,3.3738,-2.2587,1.4765,1.5281,0.3514],[-4.5864,-2.4442,-6.1487,8.8094,-2.5574,-3.9721,-6.591,5.7764,-4.33,1.5991,-4.1524,1.2956,-2.9549,0.1768,0.9951,1.1309],[-2.953,-1.1623,-6.2798,8.0184,-4.0633,-4.1268,-6.4396,3.5748,-6.2386,2.3982,-4.4929,3.3315,-3.801,1.0961,0.6313,0.6291],[-5.7373,-1.2785,-5.4236,9.035,-3.4568,-2.6521,-7.6149,5.358,-6.6609,0.9296,-2.2093,3.9099,-3.9553,1.6544,-1.6481,0.6264],[-2.9752,-1.6391,-4.7756,8.2363,-4.4395,-3.9765,-7.3007,5.9551,-5.6602,2.5759,-2.5623,3.872,-3.4073,0.9246,2.1859,-0.9741],[-4.3056,-0.4145,-4.5149,8.3643,-3.0918,-5.7722,-6.8021,6.3899,-5.4884,1.394,-3.3204,3.4357,-1.902,1.6889,1.0396,-1.3119],[-4.5371,-1.654,-5.9505,10.0214,-3.5037,-4.1463,-7.4686,5.083,-6.2979,3.377,-5.136,3.7471,-2.4755,0.9585,1.9596,1.2224],[-3.9653,-1.8855,-5.5521,7.2433,-3.9002,-3.9522,-5.9361,4.8315,-6.6315,0.0041,-4.2077,1.4264,-3.5657,1.4355,1.4318,2.2062],[-3.1406,-1.4409,-6.1537,9.392,-2.4537,-3.9933,-5.6163,4.433,-4.9824,1.9679,-5.379,3.239,-3.5839,1.8437,0.9236,0.1467],[-4.9811,-1.2652,-6.5077,8.8337,-1.1156,-3.7306,-5.8188,5.5358,-6.0929,1.3276,-3.0691,5.4894,-1.7737,-0.7826,1.4701,0.3107],[-3.2966,-2.019,-5.8892,8.8858,-2.712,-4.4158,-6.6893,5.0102,-5.4375,2.0969,-4.7425,2.2178,-5.1514,1.0018,2.0062,1.304]];
+  CAPS.push(C("flagship-demo", "Flagship · three answers on one decision (demo window)", "Ensembles", "POST /api/v1/detect/flagship", () => ({ data: DEMO_WINDOW, domain: null, explain: false }), { prep: flagshipContract, block: (d, ctx) => (ctx && ctx.flagshipWidth && ctx.flagshipWidth !== 16 ? "the demo window is 16 columns wide and belongs to the bundled model; the served fusion model was fitted on " + ctx.flagshipWidth + " (run it offline: mercury-agent demo)" : null) }));
   const TIER = { temporal_streaming: ["spectral_residual", "bocpd", "hawkes"], state_space: ["particle_filter", "imm", "digital_twin"], probabilistic: ["spot_evt", "gaussian_process", "survival"], generative: ["energy_based", "deep_svdd"], neuromorphic: ["echo_state", "spiking"], systems: ["rca", "deeplog_sequence", "frequent_pattern"] };
   const TORCH_TIER = ["srcnn", "diffusion_ad"];
   Object.entries(TIER).forEach(([par, names]) => names.forEach((n) => CAPS.push(C("tier-" + n, n + " · " + par.replace(/_/g, " "), "Tier detectors (individual)", "POST /api/v1/detect/tier", (d) => ({ data: series(d), subset: [n], contamination: 0.1 }), { per: 1 }))));
@@ -65,15 +69,181 @@
     if (Array.isArray(e) && e.length && e[0] && typeof e[0] === "object") { const f = e[0], at = Array.isArray(f.loc) ? f.loc.filter((x) => x !== "body").join(".") : ""; return (e.length > 1 ? e.length + " validation errors · " : "") + clip((at ? at + ": " : "") + (f.msg || JSON.stringify(f))); }
     return clip(String(d.kind) + " error" + (e ? " · " + JSON.stringify(e) : ""));
   }
+  // An object explanation (flagship explain: true -> the Integrated-Gradients dict; a
+  // gdpr_report Shapley block) renders its substance -- method, top attributions,
+  // faithfulness -- instead of String()'s "[object Object]".
+  function explText(e) {
+    if (e == null) return null;
+    if (typeof e !== "object") return String(e).slice(0, 220);
+    const parts = [], method = e.method || e.explanation_type || e.type;
+    if (method) parts.push(String(method));
+    let fa = null;
+    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);
+    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);
+    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }
+    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }
+    const fs = e.faithfulness_scores || e.faithfulness;
+    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));
+    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }
+    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);
+  }
+
+  // A flagship decision, laid out as the three answers an operator needs before acting on a
+  // score: why this row, how sure, and the record they can replay and contest. Every field the
+  // record carries has a row here; tests/api/test_console_decision_complete.py pins that against
+  // decision/record.py and decision/evidence.py, so a field added there fails until it is shown.
+  function decisionRows(d) {
+    const dec = d.decision, kv = [];
+    const c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));
+    const num = (x, n) => (typeof x === "number" && isFinite(x) ? x.toFixed(n == null ? 3 : n) : null);
+    const obj = (x) => (x && typeof x === "object" && !Array.isArray(x) ? x : null);
+    const text = (x) => (x == null ? "" : typeof x === "object" ? JSON.stringify(x) : String(x));
+    const top = (o, n) => Object.entries(o).filter(([, v]) => typeof v === "number" && isFinite(v)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => k + " " + v.toFixed(3)).join(" · ");
+    const proof = (e) => (obj(e) && e.method ? String(e.method) + ", n=" + e.n : "");
+    const sig = obj(dec.signals), mp = sig && obj(sig.model_provenance), cog = sig && obj(sig.cognitive), pol = sig && obj(sig.policy);
+    const nc = cog && obj(cog.novelty_challenge), disc = cog && obj(cog.discovery);
+    kv.push(["decision", dec.disposition || JSON.stringify(dec).slice(0, 80)]);
+    if (dec.state != null) kv.push(["· state", String(dec.state)]);
+    if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);
+
+    // 1. Why this row.
+    kv.push(["1 · WHY THIS ROW", "which row carries the verdict, what each detector weighed, and what moved first"]);
+    const flaggedRows = Array.isArray(d.is_anomaly_rows) ? d.is_anomaly_rows : null;
+    if (Number.isInteger(d.top_row)) kv.push(["· row", "row " + d.top_row + (flaggedRows ? " of " + flaggedRows.length + " carries the verdict (its highest P(anomaly)) · " + flaggedRows.filter(Boolean).length + " row(s) flagged" : " carries the verdict")]);
+    const con = sig && obj(sig.contributions), imp = con && obj(con.detector_importance);
+    if (imp && Object.keys(imp).length) kv.push(["· contributions", top(imp, 5) + " · fusion weight per detector, top 5 of " + Object.keys(imp).length]);
+    if (con && con.integrated_gradients) kv.push(["· attribution", "integrated gradients · " + (explText(con.integrated_gradients) || "").slice(0, 260)]);
+    if (con && con.shapley) kv.push(["· shapley", (explText(con.shapley) || "").slice(0, 260)]);
+    const du = sig && obj(sig.detector_uncertainties);
+    if (du && Object.keys(du).length) kv.push(["· detector uncertainty", top(du, 5) + " · least certain first"]);
+    const skipped = sig && Array.isArray(sig.skipped_detectors) ? sig.skipped_detectors : null, sd = (sig && obj(sig.skipped_detail)) || {};
+    if (skipped && skipped.length) kv.push(["· skipped detectors", skipped.map((k) => k + (obj(sd[k]) && (sd[k].reason || sd[k].detail) ? " (" + c100([sd[k].reason, sd[k].detail].filter(Boolean).join(": ")) + ")" : "")).join(" · ") + " · the probability rests on partial evidence"]);
+    else if (skipped) kv.push(["· skipped detectors", "none" + (Object.keys(sd).length ? " of the trained ones · untrained: " + Object.keys(sd).join(", ") : "")]);
+    const oos = sig && Array.isArray(sig.out_of_support_rows) ? sig.out_of_support_rows : null;
+    if (oos) kv.push(["· out of support", oos.length ? oos.length + " row(s) outside the training envelope, floored at the detector consensus: " + oos.slice(0, 8).join(", ") + (oos.length > 8 ? ", …" : "") : "no row outside the training envelope"]);
+    if (cog && Array.isArray(cog.causal_factors) && cog.causal_factors.length) kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 220)]);
+    // Whether the causal test could be read at all, and how much it tested.
+    if (disc && disc.causal && disc.causal.claim) { const cc = disc.causal.claim; kv.push(["· causal test", cc.assessed === false ? "not assessed: " + c100(cc.not_assessed_because || "") : String(cc.pairs_tested) + " pairs tested, corrected for lags and pairs · " + (Array.isArray(cc.edges) ? cc.edges.length : 0) + " edge(s)"]); }
+    if (cog && obj(cog.hypothesis)) {
+      kv.push(["· hypothesis", String(cog.hypothesis.conclusion || "").slice(0, 170) + (cog.hypothesis.rule ? " · rule " + cog.hypothesis.rule : "") + (typeof cog.hypothesis.confidence === "number" ? " · conf " + cog.hypothesis.confidence.toFixed(2) : "")]);
+      const fz = cog.hypothesis.falsifier;
+      if (fz) kv.push(["· challenge it", "weakest premise: " + String(fz.weakest_step || "").slice(0, 110) + (typeof fz.margin === "number" ? " (margin x" + fz.margin.toFixed(2) + ")" : typeof fz.confidence === "number" ? " (conf " + fz.confidence.toFixed(2) + ")" : "") + (fz.withdrawn_if ? " · withdrawn if " + String(fz.withdrawn_if).slice(0, 70) : "")]);
+    }
+    if (cog && Array.isArray(cog.similar_cases) && cog.similar_cases.length) kv.push(["· similar cases", cog.similar_cases.slice(0, 3).map((x) => c100(text(x))).join(" · ")]);
+    if (cog && Array.isArray(cog.recommendations) && cog.recommendations.length) kv.push(["· recommendations", cog.recommendations.slice(0, 3).map((x) => c100(text(x))).join(" · ")]);
+
+    // 2. How sure.
+    kv.push(["2 · HOW SURE", "the probability against its threshold, the conformal certificate and its coverage, and whether it holds here"]);
+    if (dec.anomaly_prob !== undefined || dec.decision_label !== undefined) kv.push(["· verdict", (num(dec.anomaly_prob) != null ? "P(anomaly) " + num(dec.anomaly_prob) + (num(dec.threshold) != null ? " vs threshold " + num(dec.threshold) : "") : "no probability: nothing was scored") + (sig && typeof sig.is_anomaly === "boolean" ? (sig.is_anomaly ? " · flagged" : " · not flagged") : "") + (dec.decision_label != null ? " · label " + dec.decision_label : " · no label")]);
+    if (num(dec.severity) != null) kv.push(["· severity", num(dec.severity)]);
+    if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);
+    if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);
+    if (typeof dec.decision_confidence === "number") kv.push(["· confidence", dec.decision_confidence.toFixed(3)]);
+    else if (dec.decision_confidence === null) kv.push(["· confidence", "none stated" + (dec.abstained ? ": the decision abstained" : "")]);
+    if (sig) {
+      const mc = mp && obj(mp.conformal), basis = mc ? " · calibrated on " + mc.n_calibration + " held-out points" + (typeof mc.coverage_achieved === "number" ? ", " + (mc.coverage_achieved * 100).toFixed(1) + "% achieved" : "") : "";
+      if (sig.conformal_set_size != null) { const labels = Array.isArray(sig.conformal_labels) ? sig.conformal_labels : [], n = sig.conformal_set_size; kv.push(["· conformal set", "{" + labels.join(", ") + "}" + (n === 0 ? " · empty: no class explains this point at the target coverage" : n === 1 ? " · singleton: one class at the target coverage" : " · ambiguous: " + n + " classes cannot be told apart at the target coverage") + basis]); }
+      else if ("conformal_set_size" in sig) kv.push(["· conformal set", "none: this result carries no conformal certificate"]);
+      if (sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);
+      else if (sig.conformal_regime === "batch_max") kv.push(["· certificate", "batch-level" + (sig.conformal_rows != null ? " · covers whether this batch of " + sig.conformal_rows + " row(s) contains an anomaly, through its most anomalous row" : "")]);
+      else if (sig.conformal_regime) kv.push(["· certificate", String(sig.conformal_regime) + (sig.conformal_rows != null ? " · " + sig.conformal_rows + " row(s)" : "")]);
+      if (sig.drift_detected != null) kv.push(["· drift", sig.drift_detected ? "DETECTED · " + String(sig.drift_severity || "severity unknown") + " · the ordinary rows no longer look like the model's reference" : "none detected against the model's reference" + (sig.drift_severity && sig.drift_severity !== "NONE" ? " · " + sig.drift_severity : "")]);
+      else if ("drift_detected" in sig) kv.push(["· drift", "not tested"]);
+      if (num(sig.symbolic_satisfaction) != null) kv.push(["· symbolic agreement", num(sig.symbolic_satisfaction) + " · how far the symbolic rules agree with the verdict"]);
+      else if ("symbolic_satisfaction" in sig) kv.push(["· symbolic agreement", "not evaluated"]);
+      if (num(sig.gosnn_anomaly_prob) != null) kv.push(["· gosnn", "P(anomaly) " + num(sig.gosnn_anomaly_prob) + (num(sig.gosnn_demote_act_below) != null ? " · a positive is demoted below " + num(sig.gosnn_demote_act_below) : "") + (num(sig.gosnn_demote_clear_above) != null ? " · a negative above " + num(sig.gosnn_demote_clear_above) : "")]);
+      else if ("gosnn_anomaly_prob" in sig) kv.push(["· gosnn", "no second opinion on this result"]);
+    }
+    if (cog) kv.push(["· critique", (cog.is_reliable == null ? "reliability unknown" : cog.is_reliable ? "reliable" : "UNRELIABLE") + (typeof cog.confidence === "number" ? " · conf " + cog.confidence.toFixed(2) + (cog.confidence_calibrated === false ? " (uncalibrated)" : cog.confidence_calibrated ? " (calibrated: " + proof(cog.calibration_evidence) + ")" : "") : "") + (cog.epistemic_measured === false ? " · epistemic unmeasured" : cog.epistemic_measured ? " · epistemic " + num(cog.epistemic_uncertainty) + " (" + proof(cog.epistemic_evidence) + ")" : "") + (cog.aleatoric_measured === false ? " · aleatoric unmeasured" : cog.aleatoric_measured ? " · aleatoric " + num(cog.aleatoric_uncertainty) + " (" + proof(cog.aleatoric_evidence) + ")" : "")]);
+    // The novelty verdict with what it rests on: measured or undetermined, the p-value
+    // against its level, and how many reference distances.
+    if (cog && typeof cog.novelty_score === "number") kv.push(["· novelty", cog.novelty_score.toFixed(3) + (cog.novelty_measured === false ? " · verdict undetermined (too few reference observations)" : cog.is_novel ? " · NOVEL" : " · not novel") + (nc && typeof nc.p_value === "number" ? " · p=" + nc.p_value.toFixed(4) + " vs level " + (typeof nc.alpha === "number" ? nc.alpha : "?") : "") + (nc && typeof nc.standardized_distance === "number" && cog.novelty_measured ? " · distance " + nc.standardized_distance.toFixed(2) : "") + (cog.novelty_evidence && cog.novelty_evidence.n != null ? " · ranked among " + cog.novelty_evidence.n + " reference distances" : "")]);
+
+    // 3. The record.
+    kv.push(["3 · THE RECORD", "what was decided, on which model, under which gate and policy, and how to replay and contest it"]);
+    const rsp = obj(dec.response);
+    if (rsp) {
+      kv.push(["· response", String(rsp.action || "?") + (rsp.requires_human ? " · needs a human" : "") + (rsp.urgency != null && rsp.urgency !== "" ? " · urgency " + rsp.urgency : "") + (rsp.notify ? " · notifies" : "") + (rsp.fail_closed ? " · fail-closed" : "")]);
+      (Array.isArray(rsp.countermeasures) ? rsp.countermeasures : []).slice(0, 4).forEach((x, i) => kv.push(["· countermeasure " + (i + 1), c100(x)]));
+      if (rsp.rationale) kv.push(["· rationale", String(rsp.rationale).slice(0, 220)]);
+    }
+    if (mp) kv.push(["· model", String(mp.checkpoint || "?") + (mp.checkpoint_sha256 ? " · sha " + String(mp.checkpoint_sha256).slice(0, 12) : "") + (mp.conformal && mp.conformal.n_calibration != null ? " · conformal n=" + mp.conformal.n_calibration : "") + (num(mp.temperature) != null ? " · temperature " + num(mp.temperature) : "") + (Array.isArray(mp.trained_groups) ? " · " + mp.trained_groups.length + " trained feature groups" : "")]);
+    if (sig && ("ethical_gate_passed" in sig || sig.ethics_report)) {
+      const er = obj(sig.ethics_report), cmp = num(sig.ethical_score) != null && num(sig.ethical_threshold) != null ? " · score " + num(sig.ethical_score) + (sig.ethical_score >= sig.ethical_threshold ? " ≥ " : " < ") + "threshold " + num(sig.ethical_threshold) : num(sig.ethical_score) != null ? " · score " + num(sig.ethical_score) : "";
+      kv.push(["· ethics", (sig.ethical_gate_passed === true ? "gate passed" : sig.ethical_gate_passed === false ? "gate BLOCKED" : "gate not run on this result") + cmp + (er && er.check ? " · check " + er.check : "") + (er && er.ruleset_version ? " · ruleset " + er.ruleset_version : "") + (cog && cog.ethical_permissible != null ? " · critique: " + (cog.ethical_permissible ? "permissible" : "NOT permissible") : "")]);
+      if (er && er.details != null && er.details !== "") kv.push(["· ethics details", text(er.details).slice(0, 220)]);
+    }
+    if (pol) {
+      kv.push(["· policy", "indecision margin " + pol.indecision_margin + " · symbolic agreement floor " + pol.symbolic_agreement_floor + " · critique support floor " + pol.critique_support_confidence_floor + (pol.require_calibrated_for_act ? " · a calibrated certificate is required to act" : " · acts without a certificate only as an uncalibrated fallback")]);
+      kv.push(["· policy gates", [pol.defer_on_drift ? "defers on drift at " + (Array.isArray(pol.drift_defer_severities) ? pol.drift_defer_severities.join("/") : "any severity") : "does not defer on drift", pol.defer_on_gosnn_disagreement ? "defers on GOSNN disagreement" : "ignores GOSNN disagreement", pol.defer_on_unreliable_critique ? "defers on an unreliable critique" : "ignores the critique", pol.fail_closed_on_atypical ? "holds on an empty conformal set" : "does not hold on an empty set", pol.fail_closed_on_ethical_block ? "holds on an ethical block" : "does not hold on an ethical block"].join(" · ")]);
+    }
+    if (dec.domain != null || (sig && sig.domain != null)) kv.push(["· domain", String(dec.domain != null ? dec.domain : sig.domain)]);
+    else if ("domain" in dec) kv.push(["· domain", "none given"]);
+    // The challenge path, visible: which artifacts replay from this record, how to run it,
+    // and why any one cannot be.
+    if (disc) {
+      const kinds = Object.keys(disc).filter((k) => disc[k] && disc[k].digest);
+      if (kinds.length) kv.push(["· replay", kinds.map((k) => k + (disc[k].replayable === "from_record" ? " (from this record)" : " (cannot)")).join(" · ") + " · CHALLENGE THIS DECISION beside this panel, POST /api/v1/detect/flagship/replay, or mercury-agent replay"]);
+      kinds.filter((k) => disc[k].replayable !== "from_record").forEach((k) => kv.push(["· " + k + " not replayable", c100(disc[k].not_replayable_because || "")]));
+    }
+    if (sig) kv.push(["· trail", "churn and abstention rates are measured over the decision trail, not one record: GET /api/v1/detect/flagship/decisions (API form), rendered here when fetched"]);
+    (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));
+    (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));
+    return kv;
+  }
+  // The flagship decision trail's summary (GET /detect/flagship/decisions): counts, rates, churn
+  // and how often the admission bound was reached.
+  function trailRows(d) {
+    const kv = [], pct = (x) => (typeof x === "number" && isFinite(x) ? (x * 100).toFixed(1) + "%" : null), counts = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + " " + v).join(" · ") || "none";
+    kv.push(["decisions", d.recorded === false ? "none recorded: no flagship detection has run on this server yet" : String(d.total) + " in the trail (the most recent, up to 4096)"]);
+    if (d.by_state) kv.push(["· by state", counts(d.by_state)]);
+    if (d.by_disposition) kv.push(["· by disposition", counts(d.by_disposition)]);
+    if (d.by_response_action) kv.push(["· by response", counts(d.by_response_action)]);
+    if (pct(d.abstention_rate) != null) kv.push(["· abstention rate", pct(d.abstention_rate)]);
+    if (pct(d.calibrated_rate) != null) kv.push(["· calibrated rate", pct(d.calibrated_rate)]);
+    if ("churn" in d) kv.push(["· churn", pct(d.churn) != null ? pct(d.churn) + " of consecutive decisions changed disposition" : "not measurable: it needs at least two decisions"]);
+    const a = d.admission && typeof d.admission === "object" ? d.admission : null;
+    if (a) kv.push(["· admission", a.admitted_total + " admitted · " + a.rejected_total + " refused at the queue bound of " + a.max_queue + (pct(a.rejection_rate) != null ? " (" + pct(a.rejection_rate) + ")" : "") + " · " + a.in_flight + " in flight, peak " + a.peak_in_flight]);
+    return kv;
+  }
+
+  // An artifact review (POST /api/v1/review/upload or /inline): the upload, the segments the
+  // engine flagged and where they are, the three answers the server states in plain language,
+  // and the certificate's own statement of what it has been measured to cover. The complete
+  // decision record follows in the decision panel.
+  function reviewRows(d) {
+    const r = d.review, kv = [];
+    const c = (x, n) => (String(x).length > n ? String(x).slice(0, n - 1) + "…" : String(x));
+    const where = (s) => (!s || typeof s !== "object" ? "" : Array.isArray(s.characters) ? "characters " + s.characters[0] + "–" + s.characters[1] + (s.excerpt ? " · “" + c(s.excerpt, 70) + "”" : "") : Array.isArray(s.box) ? "tile " + s.box[2] + "×" + s.box[3] + " px at (" + s.box[0] + ", " + s.box[1] + ")" : Array.isArray(s.seconds) ? s.seconds[0] + "–" + s.seconds[1] + " s" : "");
+    const feats = (s) => (Array.isArray(s && s.top_features) ? s.top_features.map((f) => f.name + " " + (f.robust_z > 0 ? "+" : "") + f.robust_z).join(" · ") : "");
+    kv.push(["REVIEW", (r.filename || "upload") + " · " + r.kind + " (" + r.format + ") · " + r.bytes + " bytes · " + r.segments + " segments"]);
+    kv.push(["flagged segments", r.flagged_count + " of " + r.segments]);
+    if (r.top_segment) { kv.push(["top segment", "#" + r.top_segment.index + " · p " + (+r.top_segment.probability).toFixed(3) + " · " + where(r.top_segment)]); kv.push(["sets it apart", feats(r.top_segment) + " (robust z against the rest of this " + r.kind + ")"]); }
+    (Array.isArray(r.flagged_segments) ? r.flagged_segments : []).slice(0, 8).forEach((s) => kv.push(["· segment #" + s.index, "p " + (+s.probability).toFixed(3) + " · " + where(s) + " · " + feats(s)]));
+    if (r.answers && typeof r.answers === "object") [["why_this_segment", "ANSWER 1 · WHY THIS SEGMENT"], ["how_sure", "ANSWER 2 · HOW SURE"], ["the_record", "ANSWER 3 · THE RECORD"]].forEach(([k, label]) => { if (r.answers[k] && r.answers[k].plain) kv.push([label, String(r.answers[k].plain)]); });
+    if (r.basis) kv.push(["basis", String(r.basis)]);
+    if (r.certificate_scope) kv.push(["certificate scope", String(r.certificate_scope)]);
+    if (r.harm_gate && typeof r.harm_gate === "object") kv.push(["harm gate", (r.harm_gate.passed ? "passed" : "not passed") + " · read " + r.harm_gate.read + " (" + r.harm_gate.characters_read + " characters)"]);
+    if (r.harm_gate && typeof r.harm_gate === "object" && r.harm_gate.not_inspected) kv.push(["harm gate did not inspect", String(r.harm_gate.not_inspected)]);
+    if (r.sha256) kv.push(["sha256", String(r.sha256)]);
+    if (r.segmentation && typeof r.segmentation === "object") kv.push(["segmentation", Object.entries(r.segmentation).map(([k, v]) => k + " " + (v && typeof v === "object" ? JSON.stringify(v) : v)).join(" · ")]);
+    return kv;
+  }
+  // What a review decided, in three words an operator can act on.
+  function reviewHeadline(d) {
+    const dec = d.decision && typeof d.decision === "object" ? d.decision : null, r = d.review;
+    const verdict = !dec ? "REVIEWED" : dec.abstained ? "ABSTAINED" : dec.decision_label ? "ANOMALOUS SEGMENT" : "NO ANOMALOUS SEGMENT";
+    return verdict + " · " + r.flagged_count + " of " + r.segments + " segments flagged · " + r.kind;
+  }
   function summarize(data) {
     const d = data || {}, kv = [];
-    const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value)).filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null);
-    const flags = arr(d.anomalies) || arr(d.is_anomaly) || arr(d.flags) || (scores && typeof d.threshold === "number" ? scores.map((s) => s >= d.threshold) : null);
+    const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value)).filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null) || arr(d.anomaly_probs);
+    const flags = arr(d.anomalies) || arr(d.is_anomaly) || arr(d.is_anomaly_rows) || arr(d.flags) || (scores && typeof d.threshold === "number" ? scores.map((s) => s >= d.threshold) : null);
     let headline = "";
     if (flags) { const n = flags.filter(Boolean).length; headline = n + " of " + flags.length + " flagged"; }
     else if (typeof d.is_anomaly === "boolean") headline = d.is_anomaly ? "ANOMALY" : "NORMAL";
-    else if (typeof d.fusion_score === "number") headline = "fusion " + d.fusion_score.toFixed(3) + (d.is_stable === false ? " · UNSTABLE" : "");
-    else if (typeof d.overall_score === "number") headline = "score " + d.overall_score.toFixed(3) + (d.decision ? " · " + d.decision : "");
+    else if (typeof d.fusion_score === "number") headline = "fusion " + d.fusion_score.toFixed(3) + (d.stability_evaluated === false ? " · stability not evaluated (series too short)" : d.is_stable === false ? " · UNSTABLE" : "");
+    else if (typeof d.overall_score === "number") headline = "score " + d.overall_score.toFixed(3) + (d.decision && typeof d.decision === "object" ? " · " + String(d.decision.disposition || d.decision.state || "") : d.decision ? " · " + d.decision : "");
     else if (Array.isArray(d.root_causes) && d.root_causes.length) headline = "top cause " + (d.root_causes[0].node || d.root_causes[0].name || "?") + (d.root_causes[0].score != null ? " · " + (+d.root_causes[0].score).toFixed(3) : "");
     else if (d.image) headline = (d.content_type || "image") + (d.bytes ? " · " + Math.round(d.bytes / 1024) + " KB" : "");
     else if (d.type === "FeatureCollection") headline = (d.features || []).length + " GeoJSON features";
@@ -84,13 +254,21 @@
     else if (typeof d.message === "string") headline = d.message.length > 90 ? d.message.slice(0, 88) + "…" : d.message;
     else if (d.status) headline = String(d.status);
     [["fused_score", 3], ["confidence", 3], ["threshold", 3], ["overall_score", 3], ["overall_confidence", 3], ["fusion_score", 3], ["recursion_score", 3], ["resonance_score", 3], ["lyapunov_bound", 3], ["neural_contribution", 3], ["symbolic_contribution", 3]].forEach(([k, p]) => { if (typeof d[k] === "number") kv.push([k, d[k].toFixed(p)]); });
-    ["method", "decision", "is_stable", "patterns_detected", "rules_fired", "threshold_source"].forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });
-    if (d.decision && typeof d.decision === "object") kv.push(["decision", d.decision.disposition || JSON.stringify(d.decision).slice(0, 80)]);
+    ["method", "decision", "patterns_detected", "rules_fired", "threshold_source"].forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });
+    if (d.stability_evaluated === false) kv.push(["is_stable", "not evaluated (series too short)"]); else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);
+    if (d.review && typeof d.review === "object" && d.review.kind) { headline = reviewHeadline(d); reviewRows(d).forEach((row) => kv.push(row)); }
+    if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));
+    if (d.admission && typeof d.admission === "object" && "total" in d) { if (!headline) headline = d.recorded === false ? "no decisions recorded on this server yet" : d.total + " decision(s) in the trail"; trailRows(d).forEach((row) => kv.push(row)); }
+    if (Array.isArray(d.replay) && typeof d.verdict === "string") {
+      kv.push(["replay", d.verdict + " · " + d.replay.length + " artifact(s)"]);
+      d.replay.forEach((r) => { if (r && typeof r === "object") kv.push(["· " + String(r.kind), String(r.status) + " · " + String(r.detail || "").slice(0, 150)]); });
+    }
     if (d.detector_scores && typeof d.detector_scores === "object") Object.entries(d.detector_scores).slice(0, 6).forEach(([k, v]) => kv.push(["· " + k, typeof v === "number" ? v.toFixed(3) : String(v)]));
     const rc = arr(d.root_causes) || arr(d.ranking) || arr(d.top_k) || arr(d.causes);
     if (rc) rc.slice(0, 5).forEach((x, i) => kv.push(["cause " + (i + 1), typeof x === "object" ? (x.node || x.name || x.feature || JSON.stringify(x)).toString().slice(0, 60) + (x.score != null ? " · " + (+x.score).toFixed(3) : "") : String(x)]));
     if (d.summary && typeof d.summary === "object") Object.entries(d.summary).slice(0, 4).forEach(([k, v]) => kv.push([k, typeof v === "object" ? JSON.stringify(v).slice(0, 60) : String(v)]));
-    if (d.explanation) kv.push(["explanation", String(d.explanation).slice(0, 220)]);
+    if (d.explanation) { const ex = explText(d.explanation); if (ex) kv.push(["explanation", ex.slice(0, 300)]); }
+    if (d.gdpr_report && typeof d.gdpr_report === "object") { const g = d.gdpr_report.explanation || d.gdpr_report.shapley, gx = g ? explText(g) : null; if (gx) kv.push(["gdpr report", gx.slice(0, 300)]); }
     const image = d.image_base64 || d.png_base64 || d.image || null;
     return { scores, flags, headline: headline || "response received", kv, image: image && typeof image === "string" ? (image.startsWith("data:") ? image : "data:image/png;base64," + image) : null, geojson: d.type === "FeatureCollection" ? (d.features || []).length + " features" : null };
   }

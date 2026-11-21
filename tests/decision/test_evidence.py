@@ -20,6 +20,17 @@ class TestExtraction:
         assert ev.severity == 0.6
         assert ev.calibrated is False
 
+    def test_severity_keeps_the_records_documented_range(self) -> None:
+        """Fails on the prior code, which passed the regression head's raw value through.
+
+        The record documents severity in [0, 1] and the response layer bands
+        it on that scale; the fusion severity head is an unbounded regression,
+        and a real served record carried -0.041.
+        """
+        low = Evidence.from_detection({"anomaly_prob": 0.9, "severity": -0.041})
+        high = Evidence.from_detection({"anomaly_prob": 0.9, "severity": 1.7})
+        assert (low.severity, high.severity) == (0.0, 1.0)
+
     def test_reads_conformal_certificate(self) -> None:
         ev = Evidence.from_detection(
             {
@@ -65,13 +76,31 @@ class TestExtraction:
 class TestDefensiveParsing:
     def test_empty_result_does_not_raise(self) -> None:
         ev = Evidence.from_detection({})
-        assert ev.anomaly_prob == 0.0
+        assert ev.anomaly_prob is None
+        assert ev.is_anomaly is False
         assert ev.calibrated is False
         assert ev.ethical_gate_passed is None
 
-    def test_non_finite_probability_is_dropped_to_zero(self) -> None:
-        ev = Evidence.from_detection({"anomaly_prob": math.nan})
+    def test_non_finite_probability_is_absent_not_zero(self) -> None:
+        """Changed behaviour (fail-closed restoration).
+
+        This test used to pin ``NaN -> 0.0``, which turned an unusable signal
+        into the *strongest possible* "normal" evidence: the decider's
+        threshold-band stage grounded it as CLEAR with confidence 1.0.  A
+        missing or non-finite probability is now preserved as ``None``
+        ("signal absent this run") so the decider abstains instead of
+        fabricating a confident verdict.
+        """
+        for bad in (math.nan, math.inf, -math.inf, None):
+            ev = Evidence.from_detection({"anomaly_prob": bad})
+            assert ev.anomaly_prob is None, bad
+
+    def test_genuine_zero_probability_is_a_real_probability(self) -> None:
+        # ``0.0 or 0.0`` is also falsy: absent/NaN must be distinguished from a
+        # genuine 0.0 exactly, so a real zero stays a number, never ``None``.
+        ev = Evidence.from_detection({"anomaly_prob": 0.0})
         assert ev.anomaly_prob == 0.0
+        assert ev.anomaly_prob is not None
 
     def test_malformed_sections_are_ignored(self) -> None:
         ev = Evidence.from_detection(
@@ -110,14 +139,16 @@ class _BadItem:
 
 class TestScalarCoercionEdges:
     def test_item_that_raises_is_treated_as_absent(self) -> None:
-        # ``.item()`` raising must collapse to the 0.0 fallback, never propagate.
+        # ``.item()`` raising must collapse to "absent", never propagate.  The
+        # probability stays ``None`` (a gate signal); severity keeps its
+        # documented 0.0-when-absent default (it only scales the response).
         ev = Evidence.from_detection({"anomaly_prob": _BadItem(), "severity": _BadItem()})
-        assert ev.anomaly_prob == 0.0
+        assert ev.anomaly_prob is None
         assert ev.severity == 0.0
 
     def test_unfloatable_value_is_treated_as_absent(self) -> None:
         ev = Evidence.from_detection({"anomaly_prob": "not-a-number"})
-        assert ev.anomaly_prob == 0.0
+        assert ev.anomaly_prob is None
 
     def test_conformal_set_size_without_prediction_set_is_no_certificate(self) -> None:
         # A bare set_size with no usable label set must NOT masquerade as a
@@ -168,3 +199,25 @@ class TestScalarCoercionEdges:
                 {"anomaly_prob": 0.5, "gosnn_metadata": {"ethical_gate_passed": bad}}
             )
             assert ev.ethical_gate_passed is None, bad
+
+
+class TestSkippedDetectors:
+    def test_absent_section_means_nothing_was_skipped(self) -> None:
+        assert Evidence.from_detection({"anomaly_prob": 0.5}).skipped_detectors == ()
+
+    def test_only_trained_sources_count_against_the_verdict(self) -> None:
+        ev = Evidence.from_detection(
+            {
+                "anomaly_prob": 0.5,
+                "skipped_detectors": {
+                    "temporal": {"reason": "timeout", "trained_group": True},
+                    "geo_movement": {"reason": "declined", "trained_group": False},
+                    "statistical": {"reason": "saturated"},
+                },
+            }
+        )
+        assert ev.skipped_detectors == ("statistical", "temporal")
+        assert ev.to_dict()["skipped_detectors"] == ["statistical", "temporal"]
+
+    def test_malformed_section_is_ignored(self) -> None:
+        assert Evidence.from_detection({"skipped_detectors": 3}).skipped_detectors == ()

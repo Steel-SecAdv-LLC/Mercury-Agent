@@ -267,7 +267,15 @@ def roc_auc_score(y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[An
 def average_precision_score(
     y_true: NDArray[np.number[Any]], y_score: NDArray[np.number[Any]]
 ) -> float:
-    """Compute Average Precision (area under precision-recall curve)."""
+    """Compute Average Precision (area under precision-recall curve).
+
+    Tie-aware: samples sharing a score form one threshold group (the same
+    deduplication :func:`precision_recall_curve` applies), so the result is
+    invariant to the input order of tied samples. A per-sample sum over an
+    arbitrary tie order instead rewards whichever permutation argsort happened
+    to emit (e.g. all-tied scores with 50% positives scored anywhere between
+    ~0.31 and 1.0 depending on label order; the tie-grouped value is 0.5).
+    """
     y_true = np.asarray(y_true).ravel()
     y_score = np.asarray(y_score).ravel()
 
@@ -276,13 +284,22 @@ def average_precision_score(
 
     desc_idx = np.argsort(y_score)[::-1]
     y_true_sorted = y_true[desc_idx]
+    y_score_sorted = y_score[desc_idx]
 
     n_pos = float(np.sum(y_true == pos_label))
     if n_pos == 0:
         return 0.0
 
     tps = np.cumsum(y_true_sorted == pos_label).astype(np.float64)
-    precision = tps / np.arange(1, len(y_true_sorted) + 1, dtype=np.float64)
+    fps = np.cumsum(y_true_sorted != pos_label).astype(np.float64)
+
+    # Deduplicate at tied thresholds: evaluate only at the last index of each
+    # distinct score, i.e. with every tied sample included at once.
+    distinct = np.concatenate([np.where(np.diff(y_score_sorted))[0], [len(y_score_sorted) - 1]])
+    tps = tps[distinct]
+    fps = fps[distinct]
+
+    precision = tps / (tps + fps)
     recall_change = np.diff(np.concatenate([[0.0], tps / n_pos]))
 
     return float(np.sum(precision * recall_change))
@@ -1044,13 +1061,51 @@ class SGDClassifier:
         self._classes: NDArray[np.number[Any]] | None = None
         self._t: int = 0
 
+    def _eta(self, t: int) -> float:
+        """Learning rate at update ``t`` under the configured schedule.
+
+        ``constant`` (the default, and the historical behavior) returns
+        ``eta0``; ``invscaling`` decays as ``eta0 / t**0.5``; ``optimal``
+        uses the classical ``1 / (alpha * t)`` schedule.
+        """
+        if self.learning_rate == "constant":
+            return float(self.eta0)
+        if self.learning_rate == "invscaling":
+            return float(self.eta0) / float(t) ** 0.5
+        if self.learning_rate == "optimal":
+            return 1.0 / (max(self.alpha, 1e-12) * float(t))
+        raise ValueError(
+            f"unknown learning_rate schedule {self.learning_rate!r}; "
+            "expected 'constant', 'invscaling', or 'optimal'"
+        )
+
+    def fit(
+        self,
+        X: NDArray[np.number[Any]],
+        y: NDArray[np.number[Any]],
+        classes: NDArray[np.number[Any]] | None = None,
+    ) -> SGDClassifier:
+        """Fit with ``max_iter`` passes over the data.
+
+        Each pass is one :meth:`partial_fit` sweep; unless ``warm_start`` is
+        set, fitting starts from fresh weights.
+        """
+        if not self.warm_start:
+            self._w = None
+            self._b = 0.0
+            self._classes = None
+            self._t = 0
+        for _ in range(max(1, int(self.max_iter))):
+            self.partial_fit(X, y, classes=classes)
+        return self
+
     def partial_fit(
         self,
         X: NDArray[np.number[Any]],
         y: NDArray[np.number[Any]],
         classes: NDArray[np.number[Any]] | None = None,
     ) -> SGDClassifier:
-        """Partial fit."""
+        """Partial fit (a single pass; ``max_iter`` applies to :meth:`fit`)."""
         X = np.asarray(X, dtype=np.float64)
         y = np.asarray(y).ravel()
         if classes is not None:
@@ -1066,7 +1121,7 @@ class SGDClassifier:
 
         for i in range(len(X)):
             self._t += 1
-            eta = self.eta0
+            eta = self._eta(self._t)
             xi, yi = X[i], y_bin[i]
             margin = yi * (xi @ self._w + self._b)
 
@@ -1593,10 +1648,6 @@ def mutual_info_classif(
 
 
 # =====================================================================
-# Isotonic Regression
-# =====================================================================
-
-# =====================================================================
 # Synthetic Data Generators
 # =====================================================================
 
@@ -1690,50 +1741,55 @@ class IsotonicRegression:
         self._y: NDArray[np.floating[Any]] | None = None
 
     def fit(self, X: NDArray[np.number[Any]], y: NDArray[np.number[Any]]) -> IsotonicRegression:
-        """Fit."""
+        """Fit the isotonic step function.
+
+        Tied ``X`` values are first pooled to their (weighted) mean target --
+        the standard pre-processing step of PAV. Without it the fit depends on
+        the (unstable) sort order of the ties and ``predict`` interpolates
+        across duplicated x knots, so e.g. ``fit([.5,.5,.5,.5], [0,1,0,1])``
+        predicted 1.0 at 0.5 instead of the tie-pooled mean 0.5. The pooled
+        blocks then run through the stack-based Pool Adjacent Violators pass
+        (O(n) after the O(n log n) sort, replacing the quadratic
+        ``np.delete`` loop).
+        """
         X = np.asarray(X, dtype=np.float64).ravel()
         y = np.asarray(y, dtype=np.float64).ravel()
 
-        # Sort by X
-        order = np.argsort(X)
-        X_sorted = X[order]
-        y_sorted = y[order].copy()
+        # Group ties: one block per unique x, holding the mean y and the count.
+        x_unique, inverse = np.unique(X, return_inverse=True)
+        counts = np.bincount(inverse).astype(np.float64)
+        y_grouped = np.bincount(inverse, weights=np.asarray(y, dtype=np.float64)) / counts
 
-        # Pool Adjacent Violators
-        n = len(y_sorted)
-        blocks = list(range(n))
-        values: NDArray[np.float64] = y_sorted.astype(np.float64)
-        weights: NDArray[np.float64] = np.ones(n, dtype=np.float64)
+        # Stack-based Pool Adjacent Violators: push blocks left to right and
+        # merge backwards while the monotonicity constraint is violated.
+        # ``weights`` carries sample counts (for the weighted means) and
+        # ``spans`` how many unique-x knots each block covers.
+        values: list[float] = []
+        weights: list[float] = []
+        spans: list[int] = []
+        for val, w in zip(y_grouped, counts):
+            values.append(float(val))
+            weights.append(float(w))
+            spans.append(1)
+            while len(values) > 1 and values[-2] > values[-1]:
+                merged_w = weights[-2] + weights[-1]
+                merged_v = (values[-2] * weights[-2] + values[-1] * weights[-1]) / merged_w
+                values.pop()
+                weights.pop()
+                merged_span = spans.pop()
+                values[-1] = merged_v
+                weights[-1] = merged_w
+                spans[-1] += merged_span
 
-        i = 0
-        while i < len(values) - 1:
-            if values[i] > values[i + 1]:
-                # Merge
-                total_w = weights[i] + weights[i + 1]
-                values[i] = (weights[i] * values[i] + weights[i + 1] * values[i + 1]) / total_w
-                weights[i] = total_w
-                values = np.delete(values, i + 1)
-                weights = np.delete(weights, i + 1)
-                blocks.pop(i + 1)
-                if i > 0:
-                    i -= 1
-            else:
-                i += 1
-
-        # Expand back
-        result: NDArray[np.float64] = np.zeros(n, dtype=np.float64)
+        # Expand the fitted block values back onto the unique-x knots.
+        fitted = np.empty(len(x_unique), dtype=np.float64)
         idx = 0
-        for val, w in zip(values, weights):
-            count = int(w)
-            result[idx : idx + count] = val
-            idx += count
-        # Handle any remaining due to float rounding
-        if idx < n:
-            result[idx:] = values[-1]
+        for val, span in zip(values, spans):
+            fitted[idx : idx + span] = val
+            idx += span
 
-        result = np.clip(result, self.y_min, self.y_max)
-        self._x = X_sorted.astype(np.float64)
-        self._y = result
+        self._x = x_unique
+        self._y = np.clip(fitted, self.y_min, self.y_max)
         return self
 
     def predict(self, X: NDArray[np.number[Any]]) -> NDArray[np.number[Any]]:

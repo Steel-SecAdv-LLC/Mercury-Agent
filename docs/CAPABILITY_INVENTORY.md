@@ -7,34 +7,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,118
-- **Capability-bearing classes:** 2,091 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 50
-- **Refined via base-class analysis:** 92 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,219 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Total top-level classes:** 3,201
+- **Capability-bearing classes:** 2,143 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 52
+- **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
+- **Unresolved (`Other`):** 1,265 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1219 |
-| Support types (config / result / enum / error) | 1027 |
+| Other capability classes | 1265 |
+| Support types (config / result / enum / error) | 1058 |
 | Detection | 181 |
-| Neural models & layers | 162 |
-| Data sources & loaders | 113 |
+| Neural models & layers | 164 |
+| Data sources & loaders | 114 |
 | Adapters & backends | 108 |
 | Engines & orchestration | 102 |
-| Training & optimization | 65 |
+| Training & optimization | 66 |
 | Analysis & scoring | 59 |
 | Monitoring | 27 |
-| Prediction & forecasting | 21 |
-| Ethics & governance | 14 |
+| Prediction & forecasting | 22 |
+| Ethics & governance | 15 |
 | Solvers & scorers | 12 |
 | Biometric & recognition | 8 |
 
 ## Classes by subsystem
 
-### `(top-level)/` — 67 classes (47 capability)
+### `(top-level)/` — 73 classes (52 capability)
 
 **Adapters & backends**
 
@@ -73,18 +73,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ExcludedEvidence` (`truth_decipher`) — An evidence item that bears on a claim but was not counted, and why.
 - `ExcludedQuestion` (`truth_decipher`) — A question that was not scored, and why.
 - `FeatureCache` (`engine`) — Thread-safe LRU cache for computed features.
+- `GrangerStats` (`discovery`) — One ordered pair's Granger test at the lag with the smallest p-value.
 - `HaversineTravelCheck` (`truth_decipher`) — Default travel check: haversine distance and a single speed limit.
 - `InventoryItem` (`decouple`) — One place Mercury keeps work on this machine.
 - `ItemWeight` (`truth_decipher`) — One evidence item's weight within its cluster.
+- `Limit` (`serving_limits`) — One enforced bound, as an operator sees it.
 - `LocatedObservation` (`truth_decipher`) — One subject at one place over one time interval.
 - `Location` (`truth_decipher`) — A circular location: centre in decimal degrees and an uncertainty radius in km.
+- `MeasurementEvidence` (`measurement`) — The artifact that proves one quantity was measured.
 - `Proportion` (`truth_decipher`) — A count-based proportion with a Wilson score interval.
 - `Reference` (`truth_decipher`) — Points at the claim, ordering or evidence item that a finding is about.
+- `ReplayBounds` (`discovery`) — The largest causal finding a replay will recompute.
 - `ReportSummary` (`truth_decipher`) — Aggregate counts of the evidence findings; it adds no judgement of its own.
 - `ResponseWindows` (`truth_decipher`) — Scoring windows, in seconds relative to stimulus onset (declared defaults).
 - `SUEIndicator` (`truth_decipher`) — Statement-evidence inconsistency for withheld versus disclosed evidence.
 - `SelfModelLedger` (`self_model`) — Append-only, hash-chained (and optionally ML-DSA-65-signed) self-model history.
 - `SelfModelSnapshot` (`self_model`) — One self-model snapshot: a JSON-safe body and its canonical digest.
+- `ServingLimits` (`serving_limits`) — Every serving bound, typed, plus the operator-facing :class:`Limit` view.
 - `SpeakerConsistency` (`truth_decipher`) — Consistency findings for one speaker's statements, in chronological order.
 - `Statement` (`truth_decipher`) — One account given by a speaker at a time.
 - `TableSourceReliability` (`truth_decipher`) — Default reliability model: the item's own reliability, else a per-source table.
@@ -101,9 +106,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `StatementVerifier` (`truth_decipher`) — Verifies statements against evidence and reports evidence-grounded findings.
 
-<details><summary>Support types (20)</summary>
+<details><summary>Support types (21)</summary>
 
-`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryDecoupledError`, `MercuryProductionConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
+`AdaptationEvent`, `AllenRelation`, `CITConfig`, `CITQuestionResult`, `CITResult`, `Channel`, `ConsentRecord`, `ConsentRequiredError`, `ContradictionKind`, `ContradictionScope`, `CorroborationStatus`, `InsufficientDataError`, `MercuryDecoupledError`, `MercuryProductionConfigError`, `ServingLimitConfigError`, `Stance`, `ToolError`, `TravelFeasibilityCheck`, `VerifiabilityResult`, `VerificationReport`, `VerifierConfig`
 
 </details>
 
@@ -201,7 +206,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 165 classes (60 capability)
+### `api/` — 179 classes (64 capability)
 
 **Adapters & backends**
 
@@ -237,6 +242,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `AuthService` (`api.auth_service`) — Coordinates the account lifecycle over a store, mailer, sealer, and 2FA.
 - `BatchJob` (`api.routes.batch`) — Batch job tracking record.
 - `BatchJobStore` (`api.routes.batch`) — In-memory batch job store with TTL-based cleanup.
+- `BodySizeLimitMiddleware` (`api.server`) — Refuse request bodies over a byte cap, before parsing spends on them.
 - `ComponentHealth` (`api.health`) — Health status of a single component.
 - `ConsoleMailer` (`api.mailer`) — Mailer that files each message in a local outbox instead of sending it.
 - `CorrelationIDMiddleware` (`api.server`) — Middleware for request correlation ID tracking.
@@ -263,6 +269,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `QuotaSnapshot` (`api.quota`) — An account's in-window usage next to its effective ceilings.
 - `RateLimitMiddleware` (`api.server`) — Token bucket rate limiting middleware.
 - `RequestRateLimiter` (`api.auth`) — Request-aware rate limiter wrapper.
+- `RouterMount` (`api.router_manifest`) — Handle yielded by :func:`mounting` for the surface being attached.
 - `SecretSealer` (`api.secret_sealer`) — Seals/opens short account secrets with AAD-bound at-rest encryption.
 - `SecurityHeadersMiddleware` (`api.security_headers`) — Attach the security header set to every response that reaches it.
 - `Session` (`api.identity_store`) — A browser login session (only the token hash is stored).
@@ -276,11 +283,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `TraceContext` (`api.trace_context`) — The trace this request belongs to.
 - `UsageSummary` (`api.usage_ledger`) — Aggregated usage for an account over a time window.
 - `User` (`api.auth`) — Authenticated user information.
+- `_AdmissionStats` (`api.routes.detection`) — How often the flagship admission bound is reached, and how close.
+- `_BodyLimitExceeded` (`api.server`) — Raised inside the guarded receive when a body outgrows its cap.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (105)</summary>
+<details><summary>Support types (115)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InlineReviewRequest`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReplayRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `RouterRecord`, `RouterState`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WatchPhoneCodeRequest`, `WatchPhoneRequest`, `WatchPhoneResponse`, `WatchSubscriptionRequest`, `WatchSubscriptionResponse`, `WatchSubscriptionsResponse`, `WeakPasswordError`
 
 </details>
 
@@ -398,7 +407,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `cognitive/` — 280 classes (185 capability)
+### `cognitive/` — 289 classes (190 capability)
 
 **Analysis & scoring**
 
@@ -516,6 +525,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `GodelTNorm` (`cognitive.differentiable_logic`) — Godel t-norm (minimum/maximum).
 - `GrangerCausalityTest` (`cognitive.causal_discovery`) — Granger causality test using VAR models.
 - `HarmReducer` (`cognitive.ethical_bounding`) — Evaluates and minimizes potential harm from actions.
+- `Haystack` (`cognitive.harm_normalization`) — The bundle of :func:`normalized_haystack`, with where its collapsed variants lie.
 - `HeuristicEvaluation` (`cognitive.reflexion`) — Evaluation using heuristic function.
 - `HeuristicEvaluator` (`cognitive.reflexion`) — Evaluates decisions using heuristic functions.
 - `HierarchicalPlan` (`cognitive.hierarchical_planning`) — A complete hierarchical plan.
@@ -593,6 +603,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `Warning` (`cognitive.indicator_system`) — A warning generated from an indicator.
 - `WeaponsRiskAssessment` (`cognitive.ethical_bounding`) — Result of the two-axis weapons/mass-casualty uplift assessment.
 - `_GateEvidence` (`cognitive.ethical_bounding`) — Routed Axis-A/Axis-B evidence for a query (pre-disposition).
+- `_Labels` (`cognitive.decision_gate`) — The cells of a table: an array, a column of a frame, its row labels.
+- `_Names` (`cognitive.decision_gate`) — Stands on the stack of :func:`_payload_readings` before what ``key`` names.
+- `_Reader` (`cognitive.decision_gate`) — What :func:`_payload_readings` has read, and the rule for reading a record's keys.
+- `_ShippedClassifierNotTried` (`cognitive.ethical_bounding`) — Sentinel: the shipped classifier's import has not been attempted yet.
 
 **Prediction & forecasting**
 
@@ -612,9 +626,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `ConstraintSolver` (`cognitive.formal_verification`) — Solver for constraint satisfaction problems.
 - `SafetyVerifier` (`cognitive.formal_verification`) — Verifier for safety properties.
 
-<details><summary>Support types (95)</summary>
+<details><summary>Support types (99)</summary>
 
-`AbstractionLevel`, `ActionResult`, `ActionRisk`, `AdaptationEvent`, `AdaptationResult`, `AdaptationType`, `AgentRole`, `AgentState`, `AgentStatus`, `AnomalyCategory`, `ApprovalRequest`, `ApprovalStatus`, `BeliefState`, `BenefitCategory`, `CalibrationResult`, `CaseOutcome`, `CausalRelationType`, `CognitiveAnalysisResult`, `ConfidenceLevel`, `ConfidenceLevel`, `ConsensusMethod`, `ConsensusResult`, `ConsistencyResult`, `ConstraintType`, `CoordinationStrategy`, `CounterfactualResult`, `CourseOfAction`, `DataType`, `DecisionType`, `DetectionResult`, `DiagnosticResult`, `EdgeType`, `EnvironmentDomain`, `EscalationRecord`, `EthicalConstraintViolationError`, `EthicalPrinciple`, `ExplanationType`, `ExplanationType`, `ExplorationResult`, `ExternalSourceCategory`, `FaithfulnessMetric`, `FeedbackQuality`, `FeedbackType`, `FusionResult`, `FusionStrategy`, `GoalStatus`, `HarmCategory`, `HazardDomain`, `ImprovementPriority`, `IndicatorStatus`, `IndicatorType`, `InferenceResult`, `InferenceStatus`, `InterventionType`, `LogicalConnective`, `MemoryType`, `Message`, `MessageType`, `NodeType`, `OntologyClassType`, `OperationalIntent`, `OutcomeType`, `PatternType`, `PlanExecutionState`, `PlannerType`, `PlasticityMode`, `PlasticityRule`, `PolicyUpdate`, `PredicateType`, `PredictionError`, `PredictionType`, `PredictionType`, `PredictiveResult`, `ProcessingLevel`, `PropertyType`, `PropertyType`, `ReasoningStrategy`, `ReasoningType`, `RefinementResult`, `ReflectionType`, `RelabelingStrategy`, `RetrievalResult`, `RuleType`, `SequenceType`, `SimilarityMetric`, `TemporalOperator`, `ThoughtType`, `ThreatCategory`, `TraversalResult`, `UncertaintyType`, `UpdateMode`, `VerificationReport`, `VerificationResult`, `WarningLevel`, `WeaponsDisposition`
+`AbstractionLevel`, `ActionResult`, `ActionRisk`, `AdaptationEvent`, `AdaptationResult`, `AdaptationType`, `AgentRole`, `AgentState`, `AgentStatus`, `AnomalyCategory`, `ApprovalRequest`, `ApprovalStatus`, `BeliefState`, `BenefitCategory`, `CalibrationResult`, `CaseOutcome`, `CausalRelationType`, `CognitiveAnalysisResult`, `ConfidenceLevel`, `ConfidenceLevel`, `ConsensusMethod`, `ConsensusResult`, `ConsistencyResult`, `ConstraintType`, `CoordinationStrategy`, `CounterfactualResult`, `CourseOfAction`, `DataType`, `DecisionType`, `DetectionResult`, `DiagnosticResult`, `EdgeType`, `EnvironmentDomain`, `EscalationRecord`, `EthicalConstraintViolationError`, `EthicalPrinciple`, `ExplanationType`, `ExplanationType`, `ExplorationResult`, `ExternalSourceCategory`, `FaithfulnessMetric`, `FeedbackQuality`, `FeedbackType`, `FusionResult`, `FusionStrategy`, `GoalStatus`, `HarmCategory`, `HazardDomain`, `ImprovementPriority`, `IndicatorStatus`, `IndicatorType`, `InferenceResult`, `InferenceStatus`, `InterventionType`, `LogicalConnective`, `MemoryType`, `Message`, `MessageType`, `NodeType`, `OntologyClassType`, `OperationalIntent`, `OutcomeType`, `PatternType`, `PlanExecutionState`, `PlannerType`, `PlasticityMode`, `PlasticityRule`, `PolicyUpdate`, `PredicateType`, `PredictionError`, `PredictionType`, `PredictionType`, `PredictiveResult`, `ProcessingLevel`, `PropertyType`, `PropertyType`, `ReasoningStrategy`, `ReasoningType`, `RefinementResult`, `ReflectionType`, `RelabelingStrategy`, `RetrievalResult`, `RuleType`, `SequenceType`, `SimilarityMetric`, `TemporalOperator`, `ThoughtType`, `ThreatCategory`, `TraversalResult`, `UnassessableSubjectError`, `UncertaintyType`, `UpdateMode`, `VerificationReport`, `VerificationResult`, `WarningLevel`, `WeaponsDisposition`, `_FeedbackRecord`, `_Reading`, `_Record`
 
 </details>
 
@@ -663,7 +677,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `core/` — 352 classes (222 capability)
+### `core/` — 355 classes (224 capability)
 
 **Adapters & backends**
 
@@ -887,6 +901,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `USLawPolling` (`core.ethical_risk_matrix`) — Dynamic US-only law compliance polling.
 - `UncertaintyEstimate` (`core.adaptive_fusion`) — Uncertainty quantification result with confidence intervals.
 - `ValidationEvidence` (`core.detector_ontology`) — One admissible validation claim: a domain plus its committed proof.
+- `VectorConformalBinary` (`core.vector_calibration`) — Mondrian split-conformal prediction sets over {normal, anomaly}.
 - `_CallTicket` (`core.detector_registry`) — Agreement between a registry call's worker and its caller on who reports it.
 - `_GuardedDetectorMeta` (`core.base`) — Builds each detector class with its own ``detect`` already guarded.
 - `_IdentityCalibration` (`core.calibration`) — No-op calibrator (exact-reducing fallback for the accept-gate).
@@ -917,12 +932,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `OAEWeightOptimizer` (`core.three_r.fusion`) — Optimizer for OAE weights using gradient-based methods.
 - `ParetoOptimizer` (`core.benevolence_optimization`) — Pareto optimization for multi-objective benevolence optimization.
 - `PlattScalingCalibrator` (`core.adaptive_domain_thresholding`) — Platt scaling for probability calibration.
+- `VectorIsotonicCalibrator` (`core.vector_calibration`) — Isotonic probability calibration on a weighted index of a score matrix.
 - `VennAbersCalibrator` (`core.conformal_prediction`) — Inductive Venn-Abers predictor (Vovk, Petej & Fedorova 2015).
 - `_LegacyOAEWeightOptimizer` (`core.three_r_mechanism`) — Supervised optimizer for OAE weights: maximize F1 on labeled data.
 
-<details><summary>Support types (130)</summary>
+<details><summary>Support types (131)</summary>
 
-`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeatureWidthMismatchError`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
+`AdaptiveThresholdResult`, `AnomalyDetectionMethod`, `AnomalyFusionResult`, `AnomalyType`, `BenchmarkResult`, `BenchmarkResult`, `BlockedActionCategory`, `BlockingGateResult`, `CalibrationMethod`, `CalibrationResult`, `CalibrationResult`, `CalibrationStrategy`, `CircuitState`, `CircularDependencyError`, `CoherenceReport`, `ComplianceRegime`, `ConfidenceLevel`, `ConfidenceReport`, `ConfigException`, `ConfigurableProtocol`, `ConfigurationError`, `ConformalMisconfigurationError`, `CoverageResult`, `DataCharacteristics`, `DataException`, `DataQualityConfig`, `DatasetInfo`, `DetectorCategory`, `DetectorConfig`, `DetectorConfig`, `DetectorException`, `DetectorInfo`, `DetectorProtocol`, `DetectorProtocol`, `DetectorProtocol`, `DetectorResult`, `DetectorStatus`, `DeviceType`, `DeviceType`, `Domain`, `DomainCalibrationResult`, `DomainConfig`, `DomainFeatureConfig`, `DomainFeatureResult`, `DomainThresholdConfig`, `DomainType`, `DomainType`, `DomainType`, `DriftResult`, `EfficiencyConfig`, `EncoderProtocol`, `EngineConfig`, `EngineConfig`, `EngineConfig`, `EnhancementResult`, `EthicalConfig`, `EthicalConfig`, `EthicalPrinciple`, `EthicalPrinciple`, `EthicsConfig`, `EthicsResult`, `EvolutionConfig`, `EvolutionMode`, `EvolutionState`, `EvolutionStrategy`, `EvolutionStrategy`, `ExecutorSaturatedError`, `FeatureExtractionResult`, `FeatureExtractionResult`, `FeatureWidthMismatchError`, `FeedbackDirection`, `FilterConfig`, `FilterType`, `FusionConfig`, `FusionException`, `FusionMode`, `FusionMode`, `FusionMode`, `FusionResult`, `FusionStrategy`, `FusionWeightConfig`, `FusionWeightConfig`, `GatedFusionResult`, `HandoffResult`, `InputModalityError`, `IntegrationResult`, `IntegrationState`, `InvalidObservationError`, `IssueSeverity`, `IssueType`, `Learnable3RConfig`, `Learnable3RResult`, `Lifecycle`, `MercuryEngineConfig`, `MercuryEngineConfig`, `MetricResult`, `ModelConfig`, `ModelException`, `ModelProtocol`, `ModelResult`, `NeurosymbolicConfig`, `ObjectiveResult`, `OmniAnomalyException`, `OptimizationResult`, `OptimizationResult`, `OracleActivation`, `OutcomeStatus`, `PermaculturePrinciple`, `PrivacyLevel`, `ReadinessLevel`, `RefactoringConfig`, `RefactoringResult`, `RiskLevel`, `ScalarCategory`, `ScalarGroup`, `ScalarState`, `ScalingStrategy`, `ScoringFunction`, `SecurityException`, `ServiceNotFoundError`, `SlidingWindowConfig`, `TermType`, `ThreatLevel`, `ThreeRConfig`, `ThreeRConfig`, `ThresholdConfig`, `ThresholdRecord`, `ThresholdResult`, `ThresholdStatus`, `TrainingPhase`, `_LegacyRefactoringConfig`
 
 </details>
 
@@ -1069,7 +1085,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `detectors/` — 460 classes (335 capability)
+### `detectors/` — 466 classes (337 capability)
 
 **Adapters & backends**
 
@@ -1234,7 +1250,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SpectralResidualDetector` (`detectors.spectral_residual`) — Streaming saliency detector built on the Spectral-Residual transform.
 - `SpectralVibrationDetector` (`detectors.spectral_vibration`) — Advanced spectral vibration anomaly detector.
 - `SpikingNetworkDetector` (`detectors.spiking`) — Leaky integrate-and-fire population spike-rate novelty detector.
-- `StatisticalVLMDetector` (`detectors.vlm.statistical_vlm`) — Offline, deterministic concrete VLM detector (no network, no weights).
+- `StatisticalVLMDetector` (`detectors.vlm.statistical_vlm`) — Offline, deterministic statistical texture heuristic (not a language model).
 - `SubsidenceDetector` (`detectors.geological.subsidence_detector`) — Subsidence and sinkhole-precursor detector for InSAR-style series.
 - `SurvivalHazardDetector` (`detectors.survival`) — Kaplan-Meier + Cox proportional-hazards inter-event-time detector.
 - `TemporalAnomalyDetector` (`detectors.temporal`) — Time series anomaly detection using:.
@@ -1304,6 +1320,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `SpectralGraphLayer` (`detectors.spectral_vibration`) — Graph Neural Network layer for spectral analysis.
 - `StudentNetwork` (`detectors.visual.stfpm`) — Lightweight student network that learns to mimic teacher.
 - `TemporalConvBlock` (`detectors.advanced.multi_scale_transformer`) — Temporal convolution block for local pattern extraction.
+- `TimmFeatureBackbone` (`detectors.visual.backbone`) — A timm ``features_only`` model behind the named layer-dict contract.
 - `WildfireCNN` (`detectors.fire.wildfire`) — Enhanced CNN for wildfire detection from thermal/NDVI satellite inputs.
 - `_Denoiser` (`detectors.diffusion_ad`) — MLP that predicts the noise added to a window, conditioned on timestep.
 - `_EnsembleModel` (`detectors.drone.detector`) — Ensemble fitted on a rolling window, with per-stream fit-time references.
@@ -1376,6 +1393,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `PhysicsGOSNNScalars` (`detectors.physics_integration`) — GOSNN scalar network for physics-based anomaly detection.
 - `PointAdjustmentEvaluator` (`detectors.advanced.point_adjustment`) — Evaluator with point-adjustment for time-series anomaly detection.
 - `PointKinematics` (`detectors.geological.subsidence_detector`) — Per-point kinematic estimates from one LOS displacement series.
+- `PointScoreAlignment` (`detectors.detection_tier`) — A detector's scores laid out one per input point, and how they got there.
 - `PositionContextProvider` (`detectors.vlm.context_providers`) — Position context provider for spatial awareness.
 - `PositionalContextExtractor` (`detectors.vlm.context_providers`) — Alias for PositionContextProvider for test compatibility.
 - `QuantumAnnealingProbe` (`detectors.math_arrest.probes.quantum_annealing`) — Detect thermodynamic outliers via Boltzmann negative log-likelihood.
@@ -1433,9 +1451,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_PlattCalibrator` (`detectors.detection_tier`) — Platt-scaling calibrator: logistic score->P(anomaly) from labels.
 - `_ScoreCalibrator` (`detectors.detection_tier`) — Per-detector monotone map from a raw score column into a calibrated ``[0, 1]``.
 
-<details><summary>Support types (125)</summary>
+<details><summary>Support types (129)</summary>
 
-`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
+`ARAssessmentResult`, `AccelerationAnomalyResult`, `AccelerationDynamicsConfig`, `AdjacencyShapeError`, `AdversarialAEConfig`, `AnomalyCategory`, `AnomalyResult`, `AnyAnomalyConfig`, `AvalancheDangerLevel`, `AvalanchePredictionResult`, `BLIPConfig`, `BackboneType`, `BiodiversityPredictionResult`, `CFlowConfig`, `COPODConfig`, `CascadeStage`, `CascadeStage`, `CascadeState`, `ChangeStatus`, `ConfigAliasMixin`, `ConfigAliasMixin`, `ContextInfo`, `ContextType`, `ContrastiveConfig`, `CrisisSeverity`, `CrisisType`, `CycloneType`, `DatasetProfile`, `DerechoResult`, `DetectionConfig`, `DetectionResult`, `DetectorProtocol`, `DomainBandInfo`, `DriftIncomparableError`, `DriftResult`, `DriftSeverity`, `DriftType`, `DroneState`, `DroughtAssessmentResult`, `DroughtCategory`, `DynamicThresholdState`, `EMPPredictionResult`, `EMPType`, `EarthquakeMagnitude`, `EarthquakePredictionResult`, `EcosystemHealth`, `EnergyState`, `EruptionType`, `EvidenceRecord`, `FaultType`, `FinancialCrisisPredictionResult`, `FireDebrisFlowResult`, `FireRiskLevel`, `FloodPredictionResult`, `FloodSeverity`, `FloodType`, `FreezeThawResult`, `FrequencyBandResult`, `FrequencyWeighting`, `FusionResult`, `FusionStrategy`, `GWOEnsembleConfig`, `HeatRiskCategory`, `HeatwaveAssessmentResult`, `HeatwaveEvent`, `HeatwaveSeverity`, `HurricanePredictionResult`, `IVTResult`, `IceAccretionResult`, `IncompatibleCheckpointError`, `IntegratedPhysicsResult`, `InteractionType`, `InverseVelocityResult`, `LAVADConfig`, `LVLMType`, `LandslidePredictionResult`, `LandslideRiskLevel`, `LandslideType`, `LightningJumpResult`, `MissionPhase`, `ModelState`, `MotionState`, `MultiScaleTransformerConfig`, `NaNPolicy`, `NewSnowLoadingAssessment`, `NonFinitePolicyError`, `PaDiMConfig`, `ParsedResponse`, `PatchCoreConfig`, `PhysicsDetectorType`, `PhysicsIntegrationConfig`, `PrecipType`, `ProbeResult`, `ReverseDistillationConfig`, `RockfallHazardLevel`, `RockfallPredictionResult`, `SK38Result`, `STFPMConfig`, `SaffirSimpsonCategory`, `ScreeningProduct`, `ScreeningResult`, `SegmentInfo`, `SolarFlareClass`, `SpectralAnalysisMode`, `SpectralDomainFrequencyConfig`, `SpectralVibrationConfig`, `StatisticalMethod`, `SubsidencePredictionResult`, `SubsidenceSeverity`, `TemperatureGradientAssessment`, `ThreatLevel`, `TornadoIntensity`, `TornadoPredictionResult`, `TornadoThreatLevel`, `TrajectoryShapeError`, `TsunamiPredictionResult`, `TsunamiSeverity`, `UIUXAnomalyResult`, `UIUXConfig`, `UserBehaviorClass`, `VLMConfig`, `VQAResult`, `VibrationSignatureType`, `VisualDetectorConfig`, `VolcanicActivityLevel`, `VolcanicPredictionResult`, `WildfirePredictionResult`, `WindReport`, `_ThreadLocalState`
 
 </details>
 
@@ -1660,7 +1678,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 - `FederatedAggregator` (`federation.aggregator`) — Aggregates FittedStatistics from multiple federated nodes.
 
-### `governance/` — 15 classes (10 capability)
+### `governance/` — 17 classes (12 capability)
 
 **Other capability classes**
 
@@ -1671,6 +1689,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `GovernanceRegistry` (`governance.contract`) — Registers only *GROUNDED*, *metric-only* governance scalars into the GOSNN.
 - `GovernanceReview` (`governance.self_improvement`) — Outcome of a governance review over a single proposal.
 - `GovernanceScalar` (`governance.contract`) — A single descriptive governance measurement, or a transparent abstention.
+- `ImprovementEntry` (`governance.improvement_ledger`) — One adaptive change, stated completely.
+- `ImprovementLedger` (`governance.improvement_ledger`) — A bounded, thread-safe, JSON-round-trippable trail of adaptive changes.
 - `MeasurementGovernance` (`governance.self_improvement`) — Explicit measurement policy: authorise the change to measure its effect.
 - `ProposedRecalibration` (`governance.self_improvement`) — A drift-/performance-triggered recalibration awaiting governance.
 - `ProposedThresholdChange` (`governance.self_improvement`) — A Reflexion-proposed operating-threshold change awaiting governance.
@@ -1879,7 +1899,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `loaders/` — 29 classes (27 capability)
+### `loaders/` — 30 classes (28 capability)
 
 **Data sources & loaders**
 
@@ -1888,6 +1908,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `DroughtLoader` (`loaders.drought_loader`) — Loader for drought data from NOAA NCEI GSOM monthly summaries.
 - `EarthquakeLoader` (`loaders.earthquake_loader`) — Loader for earthquake data from the USGS Earthquake Hazards Program.
 - `EnergyLoader` (`loaders.energy_loader`) — Loader for EMP/energy grid data from NOAA SWPC and EIA.
+- `FEMAActivityLoader` (`loaders.fema_activity_loader`) — Daily tropical-cyclone declaration activity, labelled by NOAA's catalogue.
 - `FEMALoader` (`loaders.fema_loader`) — Domain loader for FEMA disaster declaration data from OpenFEMA.
 - `FinancialLoader` (`loaders.financial_loader`) — Loader for financial crisis data from the FRED API.
 - `FloodLoader` (`loaders.flood_loader`) — Loader for flood data from USGS Water Services and FEMA.
@@ -2639,6 +2660,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `RetryPolicy` (`resilience.retry`) — Retry policy with exponential backoff.
 - `_CircuitBreakerWrapper` (`resilience.api_circuit_breakers`) — Type stub for wrapped functions with circuit_breaker attribute.
 
+### `review/` — 6 classes (5 capability)
+
+**Other capability classes**
+
+- `DecodeBounds` (`review.decode`) — How far a decoder may expand an upload.
+- `Decoded` (`review.decode`) — What a decoder recovered.
+- `Prepared` (`review.__init__`) — An upload that has been decoded, read by the harm-uplift gate, and measured.
+- `Segmented` (`review.features`) — An artifact as segments x features.
+- `_VisibleText` (`review.decode`) — The text a reader sees: no scripts, no styles, blocks on their own lines.
+
+<details><summary>Support types (1)</summary>
+
+`ReviewError`
+
+</details>
+
 ### `safeguards/` — 3 classes (2 capability)
 
 **Analysis & scoring**
@@ -2903,14 +2940,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `streaming/` — 2 classes (2 capability)
+### `streaming/` — 4 classes (4 capability)
 
 **Detection**
 
 - `StreamingDetector` (`streaming.streaming_detector`) — Rolling-window anomaly detector for streaming data.
 
+**Ethics & governance**
+
+- `HysteresisGate` (`streaming.hysteresis`) — Stateful two-threshold verdict gate.
+
 **Other capability classes**
 
+- `CausalMathArrest` (`streaming.causal_math_arrest`) — Fixed-window causal execution mode of :class:`AnomalyMathArrest`.
 - `EngineStreamSession` (`streaming.engine_stream`) — Stateful one-sample-at-a-time detection over an engine's detectors.
 
 ### `tools/` — 7 classes (5 capability)
@@ -3050,6 +3092,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <details><summary>Support types (4)</summary>
 
 `AnalyzerConfig`, `EnvironmentReport`, `StreamEvent`, `VisualAnomalyReport`
+
+</details>
+
+### `watch/` — 34 classes (24 capability)
+
+**Neural models & layers**
+
+- `Model` (`watch.forecast`) — The fitted forecaster.
+
+**Other capability classes**
+
+- `Canary` (`watch.canary`) — Sends test messages the way findings are sent, and learns whether they arrived.
+- `DeclarationFeed` (`watch.feeds`) — FEMA tropical-cyclone declarations: new ones, and the year's busiest week.
+- `EarthquakeFeed` (`watch.feeds`) — USGS earthquakes of the past hour, by magnitude class.
+- `Feed` (`watch.feeds`) — One live source and its judgment.
+- `Felt` (`watch.shaking`) — What USGS says of an earthquake at one place.
+- `Finding` (`watch.model`) — One thing a feed showed that is worth a person's attention.
+- `ForecastLedger` (`watch.ledger`) — The append-only record of forecasts and their outcomes, in the watch's store.
+- `GdacsFeed` (`watch.world`) — Disasters GDACS rates Orange or Red: cyclones, floods, volcanoes, wildfires.
+- `ImapMailbox` (`watch.canary`) — A mailbox read over IMAP with TLS from the first byte (RFC 8314).
+- `Judgment` (`watch.feeds`) — What a feed made of one read.
+- `Notifier` (`watch.notify`) — Delivers the findings that stand to the people they concern.
+- `Outcome` (`watch.model`) — What a later, authoritative record says about a finding.
+- `RiverGaugeFeed` (`watch.feeds`) — NWS river gauges: a gauge the National Weather Service classes as in flood.
+- `SpaceWeatherFeed` (`watch.feeds`) — Planetary Kp and the solar wind (NOAA SWPC), by the NOAA G scale.
+- `Targets` (`watch.canary`) — Where the watch's own canary goes, from the deployment's settings.
+- `TsunamiBuoyFeed` (`watch.feeds`) — NOAA DART buoys: a buoy in event mode has itself detected a disturbance.
+- `TwilioSms` (`watch.sms`) — Sends through Twilio's Programmable Messaging API.
+- `VolcanoFeed` (`watch.feeds`) — USGS-monitored volcanoes: one above NORMAL on the USGS volcano alert levels.
+- `WarningsFeed` (`watch.feeds`) — National Weather Service alerts in effect: the official warnings themselves.
+- `WatchStore` (`watch.store`) — SQLite-backed memory of the watch.
+- `Watcher` (`watch.watcher`) — Reads feeds on their cadences and keeps the store current.
+- `WorldWarningsFeed` (`watch.world`) — Alerts in effect at subscribed places, from the national authority that issued them.
+
+**Prediction & forecasting**
+
+- `Forecaster` (`watch.forecast`) — Issues tomorrow's forecast when it can be made, and resolves the ones that are over.
+
+<details><summary>Support types (10)</summary>
+
+`FeedStatus`, `LedgerError`, `Mailbox`, `PhoneLimitError`, `Severity`, `SmsOptedOutError`, `SmsRefusedError`, `SmsSender`, `SmsUnreachableError`, `SubscriptionLimitError`
 
 </details>
 

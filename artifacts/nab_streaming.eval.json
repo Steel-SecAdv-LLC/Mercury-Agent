@@ -1,42 +1,157 @@
 {
   "dataset": "NAB (Numenta Anomaly Benchmark, MIT; committed fixture)",
   "detector": "MercuryAnomalyDetector (trained statistical ensemble)",
+  "math_arrest_causal": {
+    "detector": "CausalMathArrest (fixed trailing window over the 21-probe ensemble)",
+    "window": 256,
+    "per_stream": {
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
+        "auroc": 0.6652,
+        "alarm_rate_normal_points": 0.0086,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0,
+        "threshold": 0.4309
+      },
+      "realAdExchange/exchange-3_cpc_results.csv": {
+        "auroc": 0.6977,
+        "alarm_rate_normal_points": 0.0017,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0,
+        "threshold": 0.3843
+      },
+      "realKnownCause/rogue_agent_key_hold.csv": {
+        "auroc": 0.5391,
+        "alarm_rate_normal_points": 0.0078,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0,
+        "threshold": 0.3715
+      },
+      "realTraffic/speed_7578.csv": {
+        "auroc": 0.7817,
+        "alarm_rate_normal_points": 0.0285,
+        "false_abstention_rate": 0.0,
+        "abstention_rate_in_windows": 0.0086,
+        "threshold": 0.4734
+      }
+    },
+    "mean_auroc": 0.6709,
+    "nab_standard_score": 43.93,
+    "mean_alarm_rate_normal_points": 0.0117,
+    "mean_false_abstention_rate": 0.0
+  },
   "protocol": {
     "feature_window": 20,
     "warmup_fraction": 0.15,
+    "causal_window": 256,
     "features": [
       "value",
       "rolling_zscore",
       "first_difference",
       "rolling_std"
     ],
-    "leak_free": "causal features; fitted on warmup prefix preceding all labeled windows"
+    "leak_free": "causal features; fitted on the warmup prefix preceding all labeled windows; each point scored from its trailing 256-sample window only, so no future sample influences any score (prefix-invariant)"
   },
   "per_stream": {
     "realTraffic/speed_7578.csv": {
       "n_points": 1127,
       "n_anomalous": 116,
       "warmup": 169,
-      "auroc": 0.8395855516422311
+      "window": 256,
+      "auroc": 0.8171533295110165,
+      "decision_stability": {
+        "enter_threshold": 0.6302831963379497,
+        "exit_threshold": 0.4434723111208191,
+        "raw": {
+          "churn": 0.047021943573667714,
+          "precision": 0.4827586206896552,
+          "recall": 0.7241379310344828,
+          "f1": 0.5793103448275863
+        },
+        "hysteresis": {
+          "churn": 0.034482758620689655,
+          "precision": 0.4158415841584158,
+          "recall": 0.7241379310344828,
+          "f1": 0.5283018867924528
+        }
+      }
     },
     "realKnownCause/rogue_agent_key_hold.csv": {
       "n_points": 1882,
       "n_anomalous": 190,
       "warmup": 282,
-      "auroc": 0.6613885778275476
+      "window": 256,
+      "auroc": 0.6918402388951101,
+      "decision_stability": {
+        "enter_threshold": 0.8400036597450078,
+        "exit_threshold": 0.3414383869962896,
+        "raw": {
+          "churn": 0.031269543464665414,
+          "precision": 0.1893939393939394,
+          "recall": 0.6578947368421053,
+          "f1": 0.2941176470588235
+        },
+        "hysteresis": {
+          "churn": 0.01125703564727955,
+          "precision": 0.1875,
+          "recall": 0.868421052631579,
+          "f1": 0.30841121495327106
+        }
+      }
     },
     "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": {
       "n_points": 1243,
       "n_anomalous": 126,
       "warmup": 186,
-      "auroc": 0.6862479327570628
+      "window": 256,
+      "auroc": 0.6653368114162959,
+      "decision_stability": {
+        "enter_threshold": 0.5684631383117762,
+        "exit_threshold": 0.2880915861904231,
+        "raw": {
+          "churn": 0.00946969696969697,
+          "precision": 0.1875,
+          "recall": 0.023809523809523808,
+          "f1": 0.04225352112676056
+        },
+        "hysteresis": {
+          "churn": 0.00946969696969697,
+          "precision": 0.35135135135135137,
+          "recall": 0.10317460317460317,
+          "f1": 0.15950920245398773
+        }
+      }
     },
     "realAdExchange/exchange-3_cpc_results.csv": {
       "n_points": 1538,
       "n_anomalous": 153,
       "warmup": 230,
-      "auroc": 0.7284441049146931
+      "window": 256,
+      "auroc": 0.7486348074583369,
+      "decision_stability": {
+        "enter_threshold": 0.4982498117027016,
+        "exit_threshold": 0.2934884330250756,
+        "raw": {
+          "churn": 0.00612088752869166,
+          "precision": 0.9393939393939394,
+          "recall": 0.20261437908496732,
+          "f1": 0.33333333333333337
+        },
+        "hysteresis": {
+          "churn": 0.00612088752869166,
+          "precision": 0.9444444444444444,
+          "recall": 0.3333333333333333,
+          "f1": 0.49275362318840576
+        }
+      }
     }
   },
-  "mean_auroc": 0.7289165417853837
+  "mean_auroc": 0.7307412968201898,
+  "decision_stability": {
+    "enter_quantile": 0.95,
+    "exit_quantile": 0.8,
+    "mean_raw_churn": 0.0235,
+    "mean_hysteresis_churn": 0.0153,
+    "mean_raw_f1": 0.3123,
+    "mean_hysteresis_f1": 0.3722
+  }
 }

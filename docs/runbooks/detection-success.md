@@ -3,6 +3,13 @@
 **Fires when** `sum(rate(omni_detection_success_total[5m])) / sum(rate(omni_detection_requests_total[5m])) < 0.95`
 for 10 minutes (`monitoring/prometheus/prometheus-rules.yaml`).
 
+`OmniMercuryDetectorFailing` is the same ratio per `detector_type`, over 10
+minutes, below 80%, for a component with at least five detections in the
+window. It exists because the ratio above is taken over everything: a route
+with 4% of the traffic can fail every request and leave the total at 96%.
+Its label names the component, so start at step 1 below with that
+`detector_type`.
+
 ## What the series count
 
 `core.metrics.time_detection` wraps every component `detect`/`predict` call in
@@ -10,6 +17,17 @@ for 10 minutes (`monitoring/prometheus/prometheus-rules.yaml`).
 `detect_with_fusion`) and every message scored by the streaming worker
 (`detector_type="stream"`). A call that returns counts a request and a
 success; a call that raises counts a request only.
+
+Seven API detection routes compute in the route and never reach the engine:
+univariate, multivariate, fusion, tier, neurosymbolic, three-r and rca, plus
+the batch worker. `api/detection_metrics.py::records_detection` writes the
+same series for each under `detector_type="api_<route>"` (`api_univariate`,
+`api_three_r`, `api_batch`, ...), so a route never shares a label with an
+engine detector of the same name. Only `/api/v1/detect/flagship` runs the
+engine and appears as its individual detectors. For a route, a request it
+refuses with a 4xx (invalid input, missing credential, rate limit) is not an
+attempt and counts nothing; a 5xx or an unhandled exception counts a request
+without a success.
 
 A component that *declines* input of a modality it does not process
 (`InputModalityError`) is not a request at all. It increments

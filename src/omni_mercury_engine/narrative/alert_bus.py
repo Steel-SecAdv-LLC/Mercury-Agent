@@ -29,6 +29,7 @@ from collections import deque
 from typing import TYPE_CHECKING, Any
 
 from omni_mercury_engine.narrative.conversation import describe_detection
+from omni_mercury_engine.serving_limits import serving_limits
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -40,12 +41,35 @@ __all__ = ["QUEUE_SIZE", "AlertBus", "get_alert_bus", "principal_may_see", "to_a
 #: Entries a slow subscriber may lag before the oldest are dropped.
 QUEUE_SIZE = 256
 
+#: Concurrent SSE subscribers the bus accepts; each live stream holds a
+#: connection, a queue and a heartbeat for as long as it stays open, so an
+#: unbounded count let anonymous callers exhaust file descriptors and memory.
+#: From the single source of truth (MERCURY_ALERT_BUS_MAX_SUBSCRIBERS).
+MAX_SUBSCRIBERS = serving_limits().alert_bus_max_subscribers
+
+
+#: What an alert says when its record's fields cannot be worded.
+UNREADABLE_RECORD = "A detection was recorded, but its record could not be read."
+
 
 def principal_may_see(requested: str | None, recorded: str | None) -> bool:
-    """The retriever's visibility rule: unowned entries to all, owned to their owner."""
+    """The retriever's visibility rule: unowned entries to all, owned to their owner.
+
+    An anonymous viewer has no identity to own records with.  Every entry
+    recorded under the ``"anonymous"`` principal belongs to some *other*
+    unauthenticated caller, so treating all anonymous callers as one owner
+    streamed every anonymous user's flagged detections (full record included)
+    to every other anonymous SSE subscriber — a cross-caller data leak.
+    Unowned entries (``recorded is None``: the watch's own broadcasts) stay
+    visible to all; owned entries are visible only to an *authenticated*
+    matching principal.
+    """
     if recorded is None:
         return True
-    return str(recorded) == (requested or "anonymous")
+    viewer = requested or "anonymous"
+    if viewer == "anonymous":
+        return False
+    return str(recorded) == viewer
 
 
 def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
@@ -55,10 +79,26 @@ def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
     fraction, ``domain``, and ``message``; the full record travels under
     ``event`` so "Explain the latest detection" and the alert agree.
     """
-    record = dict(entry.get("detection") or {})
+    ready = entry.get("alert")
+    if isinstance(ready, dict):
+        # A watch finding arrives already worded: its headline and what to do.
+        return dict(ready)
+    # An entry read back from the shared store is not guaranteed its shape: a
+    # ``detection`` that is not a mapping is an empty record (a clean run with
+    # nothing to say), never an exception that ends the subscriber's stream.
+    detection = entry.get("detection")
+    record = dict(detection) if isinstance(detection, dict) else {}
     timestamp = entry.get("timestamp")
     flagged = bool(record.get("anomaly_detected", False))
     label = record.get("severity_label")
+    try:
+        message = describe_detection(record, timestamp)
+    except Exception as exc:  # a record that cannot be worded is still an alert
+        # The wording reads typed fields (counts, positions, a timestamp). A
+        # record whose fields are not those types raised here, inside the
+        # subscriber's stream, and ended it. The alert goes out saying so.
+        logger.warning("alert for a malformed detection record: %s", type(exc).__name__)
+        message = UNREADABLE_RECORD
     return {
         "initiative_type": (
             f"{label}_anomaly"
@@ -67,7 +107,7 @@ def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
         ),
         "severity": record.get("severity"),
         "domain": entry.get("domain"),
-        "message": describe_detection(record, timestamp),
+        "message": message,
         "timestamp": timestamp,
         "event": record,
     }
@@ -95,10 +135,17 @@ class AlertBus:
         self.dropped = 0
 
     def subscribe(self, principal: str | None) -> tuple[int, asyncio.Queue[dict[str, Any]]]:
-        """Register the running loop's queue for ``principal``; returns ``(token, queue)``."""
+        """Register the running loop's queue for ``principal``; returns ``(token, queue)``.
+
+        Raises:
+            RuntimeError: When :data:`MAX_SUBSCRIBERS` streams are already
+                live (the caller maps this to HTTP 503).
+        """
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=QUEUE_SIZE)
         with self._lock:
+            if len(self._subscribers) >= MAX_SUBSCRIBERS:
+                raise RuntimeError(f"alert bus is full ({MAX_SUBSCRIBERS} live subscribers)")
             token = self._next_id
             self._next_id += 1
             self._subscribers[token] = _Subscriber(loop, queue, principal)
@@ -111,7 +158,7 @@ class AlertBus:
 
     @property
     def subscriber_count(self) -> int:
-        """Live subscribers."""
+        """Live subscribers (also the capacity pre-check at the SSE route)."""
         with self._lock:
             return len(self._subscribers)
 

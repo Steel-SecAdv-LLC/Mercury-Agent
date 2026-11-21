@@ -55,7 +55,7 @@ def test_cache_archives_exclude_the_deleak_schema(
 
 
 def test_every_reader_goes_through_the_filtered_listing() -> None:
-    for script in ("eval_offline.py", "measure.py", "method_bakeoff.py"):
+    for script in ("eval_offline.py", "measure.py", "method_bakeoff.py", "score_events.py"):
         text = (_SCRIPTS / script).read_text(encoding="utf-8")
         assert 'glob("*.npz")' not in text, script
         assert "cache_archives()" in text, script

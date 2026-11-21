@@ -288,3 +288,98 @@ class TestDomainBlock:
         )
         # Backslashes in the block are literal text, never regex group references.
         assert readme.read_text(encoding="utf-8") == f"keep \\d+\n{new_block}\nkeep\n"
+
+
+class TestHeadlineBlock:
+    """The "Headline results" tables are regenerated, not typed beside the block.
+
+    They were hand-typed, so each benchmark refresh left them describing the
+    previous run and the refresh's own pull request failed the README-claims
+    tests (0.7665 against a measured 0.7640, "54 genuine-label datasets"
+    against 55).
+    """
+
+    def test_rows_come_from_the_run(self, update_readme_benchmarks: Any) -> None:
+        block = update_readme_benchmarks.render_headline_block(
+            {
+                "summary": {
+                    "mean_auc": 0.81234,
+                    "median_auc": 0.9,
+                    "std_auc": 0.12345,
+                    "mean_oracle_f1": 0.61,
+                    "median_oracle_f1": 0.72,
+                    "n_genuine_labeled": 7,
+                    "successful": 9,
+                },
+                "component_summary": {
+                    "resonance": {"mean_auc": 0.71, "median_auc": 0.72},
+                    "kinematic": {"mean_auc": 0.61, "median_auc": 0.62},
+                    "info_geometry": {"mean_auc": 0.81, "median_auc": 0.82},
+                },
+            }
+        )
+        assert (
+            "| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7100 | 0.7200 |" in block
+        )
+        assert "| KinematicScore | 30% |" in block and "| 0.6100 | 0.6200 |" in block
+        assert "| **0.8123** | **0.9000** |" in block
+        assert "| Aggregate (7 genuine-label datasets of 9 successful) | Value |" in block
+        assert "| Mean AUC / Median AUC | 0.8123 / 0.9000 |" in block
+        assert "| Std AUC | 0.1235 |" in block
+        assert "| Mean / Median Oracle F1 | 0.6100 / 0.7200 |" in block
+
+    def test_the_committed_readme_block_is_the_committed_run(
+        self, update_readme_benchmarks: Any
+    ) -> None:
+        module = update_readme_benchmarks
+        current = json.loads(
+            (_REPO_ROOT / "benchmarks" / "mercury_benchmark_results.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        readme = (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        assert module.render_headline_block(current) in readme
+
+    def test_main_rewrites_all_three_blocks(
+        self, update_readme_benchmarks: Any, tmp_path: Path
+    ) -> None:
+        module = update_readme_benchmarks
+        results = tmp_path / "results.json"
+        results.write_text(
+            json.dumps(
+                {
+                    "metadata": {"git_commit": "abc1234", "timestamp": "2026-11-15T00:00:00+00:00"},
+                    "summary": {
+                        "mean_auc": 0.5,
+                        "median_auc": 0.5,
+                        "std_auc": 0.1,
+                        "mean_oracle_f1": 0.5,
+                        "median_oracle_f1": 0.5,
+                        "n_genuine_labeled": 1,
+                        "successful": 1,
+                        "total_datasets": 1,
+                    },
+                    "component_summary": {},
+                    "per_dataset": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "\n".join(
+                f"{start}\nstale\n{end}"
+                for start, end in (
+                    (module.START_MARKER, module.END_MARKER),
+                    (module.DOMAINS_START_MARKER, module.DOMAINS_END_MARKER),
+                    (module.HEADLINE_START_MARKER, module.HEADLINE_END_MARKER),
+                )
+            ),
+            encoding="utf-8",
+        )
+
+        assert module.main(["--results", str(results), "--readme", str(readme)]) == 0
+
+        text = readme.read_text(encoding="utf-8")
+        assert "stale" not in text
+        assert "| Aggregate (1 genuine-label datasets of 1 successful) | Value |" in text

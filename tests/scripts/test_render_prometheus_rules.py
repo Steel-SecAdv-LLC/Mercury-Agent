@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
 from pathlib import Path
@@ -12,6 +13,8 @@ from typing import Any
 
 import pytest
 import yaml
+
+from omni_mercury_engine.api.router_manifest import METRIC_NAME as ROUTER_STATE_METRIC
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROM_DIR = REPO_ROOT / "monitoring" / "prometheus"
@@ -31,9 +34,14 @@ render_rules = _load_script()
 
 
 def _emitted_series() -> set[str]:
-    """Metric names core/metrics.py registers (histograms also expose _bucket/_count/_sum)."""
+    """Metric names the code emits.
+
+    ``core/metrics.py`` registers the application metrics (histograms also
+    expose ``_bucket``/``_count``/``_sum``); the API router state is rendered by
+    hand beside the health gauges on ``/metrics`` (``api/router_manifest.py``).
+    """
     source = (REPO_ROOT / "src" / "omni_mercury_engine" / "core" / "metrics.py").read_text()
-    names: set[str] = set()
+    names: set[str] = {ROUTER_STATE_METRIC}
     for kind, name in re.findall(r'_create_(counter|histogram|gauge)\(\s*"([a-z0-9_]+)"', source):
         names.add(name)
         if kind == "histogram":
@@ -157,6 +165,55 @@ class TestEveryQueriedSeriesIsEmitted:
         assert queried, "rule file references no application series"
         missing = queried - _emitted_series()
         assert not missing, f"rules query series no code emits: {sorted(missing)}"
+
+    def test_grafana_dashboard_panels(self) -> None:
+        """Every panel reads a recording rule or a series the code emits.
+
+        A panel on a series nothing writes shows "No data" for ever and looks
+        like a quiet system. The Kubernetes-sourced panels (``kube_*``,
+        ``container_*``) are outside this check: they are empty under docker
+        compose by design (docs/DEPLOYMENT.md, "Grafana dashboards").
+        """
+        dashboard = json.loads(
+            (
+                REPO_ROOT / "monitoring" / "grafana" / "dashboards" / "mercury-agent-overview.json"
+            ).read_text()
+        )
+        expressions = [
+            target["expr"]
+            for panel in dashboard["panels"]
+            for target in panel.get("targets", [])
+            if target.get("expr")
+        ]
+        assert len(expressions) >= 14
+        recorded = set(
+            re.findall(r"record:\s*(\S+)", (PROM_DIR / "prometheus-rules.yaml").read_text())
+        )
+        for expression in expressions:
+            for rule in re.findall(r"\bomni_mercury:[a-z0-9_:]+", expression):
+                assert rule in recorded, f"panel reads a recording rule that does not exist: {rule}"
+            missing = _queried_app_series(expression) - _emitted_series()
+            assert not missing, f"panel queries series no code emits: {sorted(missing)}"
+
+    def test_dashboard_shows_router_state(self) -> None:
+        text = (
+            REPO_ROOT / "monitoring" / "grafana" / "dashboards" / "mercury-agent-overview.json"
+        ).read_text()
+        assert f'{ROUTER_STATE_METRIC}{{app=\\"mercury-agent\\",state=\\"unavailable\\"}}' in text
+
+    def test_error_rate_is_zero_not_absent_on_a_healthy_service(self) -> None:
+        """Without a 5xx there is no status=~"5.." series; the rule must still report 0."""
+        crd = yaml.safe_load((PROM_DIR / "prometheus-rules.yaml").read_text())
+        rule = next(
+            r
+            for group in crd["spec"]["groups"]
+            for r in group["rules"]
+            if r.get("record") == "omni_mercury:http_errors:rate5m"
+        )
+        expr = " ".join(rule["expr"].split())
+        assert 'status=~"5.."}[5m])) by (service) or sum(rate(' in expr
+        assert "by (service) * 0 )" in expr
+        assert expr.endswith("by (service) > 0)")
 
     def test_hpa_metrics_resolve_through_the_adapter(self) -> None:
         adapter = yaml.safe_load((PROM_DIR / "prometheus-adapter-rules.yaml").read_text())

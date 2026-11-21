@@ -37,7 +37,14 @@
 # at runtime (``ama_cryptography._find_native_library`` searches there first).
 #
 # Environment overrides:
-#   AMA_REF                git tag/ref to build (default: v5.0.0)
+#   AMA_REF                git TAG to build (default: v5.0.0). A tag, not a commit
+#                          id: the prebuilt archive, the wheel version and the
+#                          clone are all keyed on it.
+#   AMA_COMMIT             optional 40-hex commit the tag must resolve to. A tag
+#                          can be moved; with this set, a source checkout that
+#                          resolves anywhere else is refused before anything is
+#                          installed. (A prebuilt archive is not a checkout: it
+#                          is verified against its release's SHA256SUMS instead.)
 #   AMA_REPO               repository URL (default: upstream Steel-SecAdv-LLC/AMA-Cryptography)
 #   AMA_BUILD_DIR          scratch checkout/build directory (default: /tmp/ama-cryptography)
 #   AMA_PREBUILT           0 skips the prebuilt download and builds from source
@@ -76,6 +83,20 @@ JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSO
 AMA_REF="${AMA_REF:-v5.0.0}"
 AMA_REPO="${AMA_REPO:-https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git}"
 AMA_BUILD_DIR="${AMA_BUILD_DIR:-/tmp/ama-cryptography}"
+AMA_COMMIT="${AMA_COMMIT:-}"
+
+# A commit id is not a ref this script can use: the prebuilt lookup, the wheel
+# version and ``git clone --branch`` all need the tag. Say so here, rather than
+# fail later inside git with "Remote branch <sha> not found".
+if [[ "${AMA_REF}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo "ERROR: AMA_REF takes a tag (e.g. v5.0.0), not a commit id." >&2
+  echo "  To pin the commit the tag must resolve to, set AMA_COMMIT=${AMA_REF}." >&2
+  exit 1
+fi
+if [[ -n "${AMA_COMMIT}" && ! "${AMA_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ERROR: AMA_COMMIT must be a full 40-character lowercase commit id, got '${AMA_COMMIT}'." >&2
+  exit 1
+fi
 
 # Install into the active interpreter: pip when it has one, otherwise uv's pip
 # front end (an environment ``uv sync`` created ships no pip).
@@ -173,6 +194,21 @@ fi
 
 echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 
+# Check out first, and check WHAT was checked out, before anything is
+# installed into the interpreter: a refused checkout leaves it untouched.
+rm -rf "${AMA_BUILD_DIR}"
+git clone --branch "${AMA_REF}" --depth 1 "${AMA_REPO}" "${AMA_BUILD_DIR}"
+if [ -n "${AMA_COMMIT}" ]; then
+  resolved="$(git -C "${AMA_BUILD_DIR}" rev-parse HEAD)"
+  if [ "${resolved}" != "${AMA_COMMIT}" ]; then
+    echo "ERROR: AMA ${AMA_REF} resolved to ${resolved}, expected ${AMA_COMMIT}." >&2
+    echo "  The tag has moved, or the pin is stale. Nothing was built or installed." >&2
+    rm -rf "${AMA_BUILD_DIR}"
+    exit 1
+  fi
+  echo "==> AMA ${AMA_REF} is the pinned commit ${AMA_COMMIT}"
+fi
+
 # PEP 517 build-system floors AMA's setup.py enforces when installing with
 # --no-build-isolation: setuptools>=84.0.0 (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5,
 # raised to 84.0.0 by AMA v5.0.0 — anything older fails its preflight with
@@ -188,9 +224,6 @@ echo "==> Building AMA Cryptography native PQC backend (ref ${AMA_REF})"
 # AMA's preflight on exactly the lanes CI does not cover.
 py_install --upgrade \
   "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
-
-rm -rf "${AMA_BUILD_DIR}"
-git clone --branch "${AMA_REF}" --depth 1 "${AMA_REPO}" "${AMA_BUILD_DIR}"
 
 cmake -S "${AMA_BUILD_DIR}" -B "${AMA_BUILD_DIR}/build" \
   -DCMAKE_BUILD_TYPE=Release \

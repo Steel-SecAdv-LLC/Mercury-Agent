@@ -203,6 +203,57 @@ def test_every_blocking_gate_applies_ledger_and_policy_together() -> None:
         )
 
 
+def test_a_failed_sarif_gate_names_its_findings_in_the_log() -> None:
+    """The gate that writes SARIF is followed by the same scan printed as a table.
+
+    SARIF goes to a file, so a red gate says nothing in the job log about what
+    it found. On 2026-11-21 the ci.yml gate failed three runs on an advisory
+    the vulnerability DB had just published (CVE-2026-124709, openssl), and the
+    finding had to be reconstructed offline from the package versions in the
+    build log. The step held here prints it. It must read the gate's own
+    severities, package types, ledger and policy, or it would list something
+    other than what failed; and it must not be able to change the result.
+    """
+    doc = yaml.safe_load((_WORKFLOWS / "ci.yml").read_text(encoding="utf-8"))
+    located = [
+        (job, index)
+        for job in (doc.get("jobs") or {}).values()
+        for index, step in enumerate(job.get("steps") or [])
+        if "aquasecurity/trivy-action" in str(step.get("uses", ""))
+        and str((step.get("with") or {}).get("format")) == "sarif"
+        and str((step.get("with") or {}).get("exit-code")) == "1"
+    ]
+    assert len(located) == 1, "expected exactly one blocking SARIF gate in ci.yml"
+    job, index = located[0]
+    gate, listing = job["steps"][index], job["steps"][index + 1]
+
+    inputs = gate["with"]
+    assert gate.get("id"), "the gate needs an id for the listing step to key on"
+    assert "continue-on-error" not in gate
+    assert inputs["severity"] == "CRITICAL,HIGH"
+    assert inputs["vuln-type"] == "os,library"
+    assert inputs["ignore-unfixed"] is False
+
+    condition = str(listing.get("if", ""))
+    assert "failure()" in condition
+    assert f"steps.{gate['id']}.outcome == 'failure'" in condition
+    assert "continue-on-error" not in listing
+    assert (listing.get("env") or {}).get("IMAGE_REF") == inputs["image-ref"]
+
+    command = shlex.split(str(listing.get("run", "")).replace("\\\n", " "))
+    assert command[:2] == ["trivy", "image"]
+    assert command[-1] == "$IMAGE_REF"
+    options = dict(zip(command[2:-1:2], command[3:-1:2], strict=True))
+    assert options == {
+        "--severity": inputs["severity"],
+        "--pkg-types": inputs["vuln-type"],
+        "--ignorefile": inputs["trivyignores"],
+        "--ignore-policy": inputs["ignore-policy"],
+        "--format": "table",
+        "--timeout": inputs["timeout"],
+    }
+
+
 def _apt_package_names(text: str) -> set[str]:
     """Package names an ``apt-get install`` in ``text`` would install, normalised.
 

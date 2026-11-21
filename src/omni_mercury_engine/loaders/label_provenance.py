@@ -21,17 +21,19 @@ reconstruct the entire series from documented event statistics:
 * ``hurricane``   -- 24h wind delta >= 30 kt rapid-intensification window on
   the scored wind-delta feature.
 * ``tornado``     -- ``mag >= 3`` (EF3+) on feature[0] ``ef_scale``.
-* ``fema``        -- (declarationType == ``DR``) AND ``iaProgramDeclared``
+* ``fema``        -- (declarationType == ``DR``) AND individual assistance (IA or IH)
   AND ``paProgramDeclared`` -- ``ia_program`` and ``hm_program`` flags are
   features 4 and 5.
 * ``marine``      -- (baseline_richness - event_richness) / baseline > 0.70,
   while ``richness_loss`` is a scored feature.
 * ``pandemic``    -- 7-day rolling new_cases > 2 * 30-day baseline mean, on
-  the same 7d-smoothed feature; ``ebola_2014`` additionally reconstructs the
-  series (no live WHO GHO feed).
-* ``energy``      -- ``kp >= 7`` on feature[0]; series reconstructed.
-* ``tsunami``     -- external arrival-time window labels, but series is
-  reconstructed (NDBC files rotate out after ~45 days).
+  the same 7d-smoothed feature; ``ebola_2014`` has no recorded series at all
+  (WHO GHO serves none) and is marked not-benchmarkable.
+* ``energy``      -- ``kp >= 7`` on feature[0] (storms), served demand 20%
+  below forecast (grid event); recorded series (OMNI2, EIA-930).
+* ``tsunami``     -- a catalogued window per event (origin time to a fixed
+  end), not a per-sample annotation; the series is the recorded one, from
+  NDBC's yearly DART archive.
 * ``financial``   -- (VIX > 30 AND yield_curve < 0) OR VIX > 45, on scored
   features.
 * ``flood``       -- ``gauge_height_ft >= NWS_flood_stage`` on feature[0].
@@ -128,6 +130,11 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
         "statistical",
         "Labels = ``mag >= 3`` (EF3+) and feature[0] is the same ``ef_scale`` column.",
     ),
+    "fema_activity_loader.FEMAActivityLoader": (
+        "expert_annotated",
+        "Labels = NOAA NCEI billion-dollar tropical cyclone windows (event dates plus the "
+        "30-day request window); no scored column is derived from them.",
+    ),
     "fema_loader.FEMALoader": (
         "statistical",
         "Labels = DR + IA + PA program flags; ia/hm program flags are scored features.",
@@ -139,15 +146,17 @@ LABEL_PROVENANCE_REGISTRY: dict[str, tuple[str, str]] = {
     "pandemic_loader.PandemicLoader": (
         "statistical",
         "Labels = 7d rolling > 2x 30d baseline on the same 7d-smoothed new_cases feature; "
-        "ebola_2014 additionally reconstructs the series.",
+        "ebola_2014 has no recorded series (WHO GHO serves none) and is not benchmarkable.",
     ),
     "energy_loader.EnergyLoader": (
         "statistical",
-        "Labels = ``kp >= 7`` on feature[0]; series reconstructed from documented Kp storm profiles.",
+        "Labels = ``kp >= 7`` on feature[0] for the storms and a 20% shortfall of served "
+        "demand against forecast for the grid event; the series are recorded (OMNI2, EIA-930).",
     ),
     "tsunami_loader.TsunamiLoader": (
         "statistical",
-        "Arrival-time labels are external, but the BPR series itself is reconstructed.",
+        "Labels are one catalogued window per event (origin time to a fixed end), not a "
+        "per-sample annotation; the BPR series is recorded (NDBC DART archive).",
     ),
     "financial_loader.FinancialLoader": (
         "statistical",

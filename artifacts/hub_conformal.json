@@ -1,0 +1,212 @@
+{
+  "schema": "mercury.research.hub_conformal/v1",
+  "generated_at": "2026-11-20T21:20:57.099276+00:00",
+  "protocol": {
+    "split": "calibration drawn before the encoder fit; stratified Platt/conformal halves; certificate on rows no fitted component touched",
+    "n_evaluations": 15
+  },
+  "per_dataset": {
+    "pima_real/seed0": {
+      "auc_sound_split": 0.8024166666666667,
+      "auc_encoder_on_all_train": 0.7776666666666666,
+      "brier_calibrated": 0.17040990153184393,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 53,
+        "empirical_coverage": 0.9652173913043478,
+        "singleton_rate": 0.26521739130434785,
+        "ambiguous_rate": 0.7347826086956522,
+        "empty_rate": 0.0
+      }
+    },
+    "pima_real/seed1": {
+      "auc_sound_split": 0.8146666666666667,
+      "auc_encoder_on_all_train": 0.7979166666666667,
+      "brier_calibrated": 0.17145394928237453,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 53,
+        "empirical_coverage": 0.9782608695652174,
+        "singleton_rate": 0.1782608695652174,
+        "ambiguous_rate": 0.8217391304347826,
+        "empty_rate": 0.0
+      }
+    },
+    "pima_real/seed2": {
+      "auc_sound_split": 0.78925,
+      "auc_encoder_on_all_train": 0.7795833333333333,
+      "brier_calibrated": 0.17928436859829638,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 53,
+        "empirical_coverage": 0.9130434782608695,
+        "singleton_rate": 0.5608695652173913,
+        "ambiguous_rate": 0.4391304347826087,
+        "empty_rate": 0.0
+      }
+    },
+    "cardio/seed0": {
+      "auc_sound_split": 0.9988756203473945,
+      "auc_encoder_on_all_train": 0.9979838709677419,
+      "brier_calibrated": 0.010025917938927579,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 128,
+        "empirical_coverage": 0.8868613138686131,
+        "singleton_rate": 0.8996350364963503,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.10036496350364964
+      }
+    },
+    "cardio/seed1": {
+      "auc_sound_split": 0.9968982630272953,
+      "auc_encoder_on_all_train": 0.9970339640198511,
+      "brier_calibrated": 0.012368212318670238,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 128,
+        "empirical_coverage": 0.9507299270072993,
+        "singleton_rate": 0.9708029197080292,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.029197080291970802
+      }
+    },
+    "cardio/seed2": {
+      "auc_sound_split": 0.9955994106699751,
+      "auc_encoder_on_all_train": 0.9971502791563276,
+      "brier_calibrated": 0.022456731178399403,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 128,
+        "empirical_coverage": 0.9306569343065694,
+        "singleton_rate": 0.9397810218978102,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.060218978102189784
+      }
+    },
+    "breastw/seed0": {
+      "auc_sound_split": 0.9835857248755692,
+      "auc_encoder_on_all_train": 0.9833739277771895,
+      "brier_calibrated": 0.05558753234195842,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 47,
+        "empirical_coverage": 0.9215686274509803,
+        "singleton_rate": 0.9607843137254902,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.0392156862745098
+      }
+    },
+    "breastw/seed1": {
+      "auc_sound_split": 0.9921635073599492,
+      "auc_encoder_on_all_train": 0.9923753044583289,
+      "brier_calibrated": 0.01938095983567982,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 47,
+        "empirical_coverage": 0.946078431372549,
+        "singleton_rate": 0.9656862745098039,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.03431372549019608
+      }
+    },
+    "breastw/seed2": {
+      "auc_sound_split": 0.9952345652864556,
+      "auc_encoder_on_all_train": 0.9959758551307847,
+      "brier_calibrated": 0.04407947186304989,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 47,
+        "empirical_coverage": 0.9362745098039216,
+        "singleton_rate": 0.9656862745098039,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.03431372549019608
+      }
+    },
+    "wbc/seed0": {
+      "auc_sound_split": 0.8042328042328042,
+      "auc_encoder_on_all_train": 0.798941798941799,
+      "brier_calibrated": 0.06979879687864007,
+      "conformal": {
+        "stated_coverage": 0.9,
+        "n_calibration": 15,
+        "empirical_coverage": 0.9393939393939394,
+        "singleton_rate": 0.06060606060606061,
+        "ambiguous_rate": 0.9393939393939394,
+        "empty_rate": 0.0
+      }
+    },
+    "wbc/seed1": {
+      "auc_sound_split": 0.798941798941799,
+      "auc_encoder_on_all_train": 0.9841269841269841,
+      "brier_calibrated": 0.04549762751787341,
+      "conformal": {
+        "stated_coverage": 0.5,
+        "n_calibration": 15,
+        "empirical_coverage": 0.9090909090909091,
+        "singleton_rate": 0.5454545454545454,
+        "ambiguous_rate": 0.45454545454545453,
+        "empty_rate": 0.0
+      }
+    },
+    "wbc/seed2": {
+      "auc_sound_split": 0.7195767195767195,
+      "auc_encoder_on_all_train": 0.9735449735449735,
+      "brier_calibrated": 0.05578235412488814,
+      "conformal": {
+        "stated_coverage": 0.5,
+        "n_calibration": 15,
+        "empirical_coverage": 0.9848484848484849,
+        "singleton_rate": 0.8939393939393939,
+        "ambiguous_rate": 0.10606060606060606,
+        "empty_rate": 0.0
+      }
+    },
+    "thyroid/seed0": {
+      "auc_sound_split": 0.9989926463181223,
+      "auc_encoder_on_all_train": 0.9985897048453712,
+      "brier_calibrated": 0.004542693098116453,
+      "conformal": {
+        "stated_coverage": 0.875,
+        "n_calibration": 264,
+        "empirical_coverage": 0.9088495575221239,
+        "singleton_rate": 0.9088495575221239,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.09115044247787611
+      }
+    },
+    "thyroid/seed1": {
+      "auc_sound_split": 0.9952990161512374,
+      "auc_encoder_on_all_train": 0.9949968100466741,
+      "brier_calibrated": 0.009680608487276492,
+      "conformal": {
+        "stated_coverage": 0.8888888888888888,
+        "n_calibration": 264,
+        "empirical_coverage": 0.8601769911504424,
+        "singleton_rate": 0.8654867256637168,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.13451327433628318
+      }
+    },
+    "thyroid/seed2": {
+      "auc_sound_split": 0.9972801450589301,
+      "auc_encoder_on_all_train": 0.9973137235149928,
+      "brier_calibrated": 0.0068643079933630256,
+      "conformal": {
+        "stated_coverage": 0.75,
+        "n_calibration": 264,
+        "empirical_coverage": 0.9097345132743363,
+        "singleton_rate": 0.911504424778761,
+        "ambiguous_rate": 0.0,
+        "empty_rate": 0.08849557522123894
+      }
+    }
+  },
+  "mean": {
+    "auc_sound_split": 0.9122,
+    "auc_encoder_on_all_train": 0.9378,
+    "split_cost_upper_bound": 0.0256,
+    "empirical_coverage": 0.9294,
+    "stated_coverage": 0.8343
+  }
+}

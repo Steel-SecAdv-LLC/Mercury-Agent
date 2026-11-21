@@ -36,6 +36,10 @@ logger = logging.getLogger(__name__)
 # Ground-truth event catalog
 # ---------------------------------------------------------------------------
 
+#: Rows of CICIDS 2017 kept for an event frame (a seeded uniform sample of the
+#: ~2.8 million), so the cached frame stays a size JSON can hold.
+_CICIDS_MAX_ROWS: int = 200_000
+
 _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "nsl_kdd": {
         "name": "NSL-KDD Network Intrusion Dataset",
@@ -152,7 +156,12 @@ class NetworkSecurityLoader(BaseDomainLoader):
     Attributes:
         DOMAIN: ``"network_security"``
         SOURCE_URL: CIC IDS-2017 reference page.
-        REQUIRES_API_KEY: ``False`` -- all datasets are freely available.
+        REQUIRES_API_KEY: ``False`` -- no dataset needs an API key. NSL-KDD and
+            BATADAL download directly. CICIDS 2017 does not: as of 2026-11-20
+            its Distrinet mirror returns 404 and the CIC page redirects to a
+            registration form, so it loads only from an operator-pinned
+            Hugging Face revision or a local copy (the dataset loader's error
+            names both), and otherwise fails closed.
     """
 
     DOMAIN: str = "network_security"
@@ -259,7 +268,9 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENT_CATALOG)}"
             )
 
-        cache_key = f"network_security_historical_{event_id}"
+        # Cache schema v2: BATADAL gaps are now filled with the column median
+        # (not a fabricated 0.0), so a pre-fix cached BATADAL frame differs.
+        cache_key = f"network_security_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -413,9 +424,13 @@ class NetworkSecurityLoader(BaseDomainLoader):
         if categorical_cols:
             df = df.drop(columns=categorical_cols)
 
-        # Convert to numeric, coercing errors
+        # Convert to numeric, coercing errors -- and to float64 before any
+        # arithmetic. The dataset loader hands over float32 and the JSON cache
+        # hands the same values back as float64, so ``log1p`` ran in a
+        # different precision on a cached frame than on a fetched one and the
+        # two feature matrices differed (by up to 9.2e-7 on NSL-KDD).
         for col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype(np.float64)
 
         # Log1p transform for heavy-tailed features
         for col in self._LOG_TRANSFORM_COLUMNS:
@@ -604,9 +619,14 @@ class NetworkSecurityLoader(BaseDomainLoader):
             from omni_mercury_engine.datasets.base import DatasetConfig
             from omni_mercury_engine.datasets.security import CICIDSLoader
 
+            # The full dataset is about 2.8 million rows of 79 columns, and
+            # this loader caches an event's frame as JSON: unbounded, one
+            # successful load would write a multi-gigabyte cache file. The
+            # dataset loader draws a seeded uniform sample.
             config = DatasetConfig(
                 name="cicids",
                 preprocessing={"binary": True},
+                max_samples=_CICIDS_MAX_ROWS,
             )
             loader = CICIDSLoader(config)
             features, labels = loader.load_data()
@@ -689,6 +709,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
         }
 
         dfs: list[pd.DataFrame] = []
+        loaded: set[str] = set()
         for name, url in urls.items():
             try:
                 raw_bytes = self._fetch_url(url)
@@ -696,6 +717,7 @@ class NetworkSecurityLoader(BaseDomainLoader):
                 frame = pd.read_csv(io.StringIO(text))
                 frame.columns = frame.columns.str.strip()
                 dfs.append(frame)
+                loaded.add(name)
                 logger.info(
                     "network_security: downloaded BATADAL %s (%d rows).",
                     name,
@@ -711,11 +733,29 @@ class NetworkSecurityLoader(BaseDomainLoader):
         if not dfs:
             raise ConnectionError("network_security: failed to download any BATADAL data.")
 
+        # The attack labels live ONLY in the "test" file (dataset04); the
+        # "train" file (dataset03) is attack-free.  If the test file did not
+        # load, every row is normal and the "attack-detection" benchmark has
+        # no attacks to detect.  Returning that all-normal set (the old
+        # behaviour) silently scored a degenerate single-class problem.
+        # Refuse instead, so a missing attack file is an error, not a
+        # suspiciously perfect-looking benchmark.
+        if "test" not in loaded:
+            raise ConnectionError(
+                "network_security: BATADAL attack (test) file failed to "
+                "download; only the attack-free training file is available. "
+                "Refusing to serve an all-normal dataset as an attack-"
+                "detection benchmark."
+            )
+
         df = pd.concat(dfs, ignore_index=True)
 
-        # Extract labels and rename to standard column
+        # Extract labels and rename to standard column.  Coerce ATT_FLAG
+        # numerically: concatenating a train file that lacks the column with
+        # a test file that has it yields NaN flags for the train rows, which
+        # a bare ``.astype(int)`` would choke on.
         if "ATT_FLAG" in df.columns:
-            raw_flags = df["ATT_FLAG"].values.astype(int)
+            raw_flags = pd.to_numeric(df["ATT_FLAG"], errors="coerce").fillna(0)
             df["label"] = (raw_flags == 1).astype(np.int64)
             df = df.drop(columns=["ATT_FLAG"])
         else:
@@ -724,11 +764,27 @@ class NetworkSecurityLoader(BaseDomainLoader):
         # Drop datetime column (not a numeric feature)
         df = df.drop(columns=["DATETIME"], errors="ignore")
 
-        # Clean numeric values
-        for col in df.columns:
-            if col != "label":
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-        df = df.fillna(0.0)
+        # Clean numeric values.  A non-numeric cell becomes NaN under the
+        # coercion above; filling it with 0.0 (the previous behaviour) would
+        # inject a *valid-looking* zero sensor reading (zero pressure/flow is
+        # a real, meaningful BATADAL value), biasing the features.  Fill each
+        # column with its own finite median instead, falling back to 0.0 only
+        # for a column that is entirely missing.
+        feature_cols = [c for c in df.columns if c != "label"]
+        for col in feature_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        for col in feature_cols:
+            median = df[col].median()
+            df[col] = df[col].fillna(median if np.isfinite(median) else 0.0)
+
+        # Final guard: even with the test file present, if the parsed labels
+        # contain no attacks the benchmark is still degenerate.
+        if int(df["label"].sum()) == 0:
+            raise ValueError(
+                "network_security: BATADAL data loaded but contains no attack "
+                "rows (ATT_FLAG never 1); cannot benchmark attack detection "
+                "on an all-normal set."
+            )
 
         logger.info(
             "network_security: loaded %d BATADAL records, %d attacks.",

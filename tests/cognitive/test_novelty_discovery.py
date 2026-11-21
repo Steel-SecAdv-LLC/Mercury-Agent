@@ -1,0 +1,269 @@
+# Copyright (C) 2025 Steel Security Advisors LLC
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Curiosity novelty: measured, read-only scorable, and on the record.
+
+Before this, the CuriosityEngine was opt-in and advisory: no number said its
+score separates unseen structure from seen (so nothing could justify serving
+it), scoring an observation always mutated the running estimate (so a
+measurement drifted toward what it measured), and the decision record's
+cognitive summary carried no novelty at all.  These tests pin the read-only
+scorer, the measured artifact and its floor, the record surfacing, and the
+recorded adoption.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pytest
+
+from omni_mercury_engine.cognitive.cognitive_evolution_engine import CuriosityEngine
+
+_ROOT = Path(__file__).resolve().parents[2]
+_ARTIFACT = _ROOT / "artifacts" / "novelty_discovery.json"
+
+
+class TestReadOnlyScorer:
+    def test_novelty_does_not_move_the_estimate(self) -> None:
+        engine = CuriosityEngine()
+        rng = np.random.default_rng(0)
+        for row in rng.normal(size=(50, 4)):
+            engine.explore("fit", row)
+        seen = engine.observations_seen
+        far = np.full(4, 25.0)
+        first = engine.novelty("held", far)
+        second = engine.novelty("held", far)
+        assert engine.observations_seen == seen
+        assert first.novelty_score == pytest.approx(second.novelty_score)
+        assert first.measured is True
+        assert first.is_novel is True
+
+    def test_explore_does_move_it(self) -> None:
+        engine = CuriosityEngine()
+        rng = np.random.default_rng(0)
+        for row in rng.normal(size=(50, 4)):
+            engine.explore("fit", row)
+        far = np.full(4, 25.0)
+        first = engine.explore("held", far).novelty_score
+        # The estimate absorbed the far point, so the same point is less novel.
+        second = engine.explore("held", far).novelty_score
+        assert second < first
+
+    def test_dimension_mismatch_is_unmeasured_not_a_reset(self) -> None:
+        engine = CuriosityEngine()
+        for row in np.random.default_rng(1).normal(size=(10, 4)):
+            engine.explore("fit", row)
+        seen = engine.observations_seen
+        result = engine.novelty("held", np.zeros(7))
+        assert result.measured is False
+        assert engine.observations_seen == seen  # read-only even on mismatch
+
+    def test_warmup_is_declared_unmeasured(self) -> None:
+        engine = CuriosityEngine()
+        result = engine.novelty("held", np.zeros(3))
+        assert result.measured is False
+        assert result.is_novel is False
+
+
+class TestMeasuredArtifact:
+    @pytest.fixture(scope="class")
+    def artifact(self) -> dict[str, Any]:
+        assert _ARTIFACT.is_file(), "run research/cognitive/harness_novelty_discovery.py"
+        data: dict[str, Any] = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+        return data
+
+    def test_fifteen_evaluations_two_protocols(self, artifact: dict[str, Any]) -> None:
+        assert artifact["protocol"]["n_evaluations"] == 15
+        # Two ranking protocols, and the verdict's operating point under each
+        # rule (the score cut it replaced and the rank test that ships).
+        expected = {
+            "read_only_auroc",
+            "absorbing_auroc",
+            "score_cut_normal_called_novel",
+            "score_cut_anomalies_called_novel",
+            "rank_normal_called_novel",
+            "rank_anomalies_called_novel",
+        }
+        for values in artifact["per_dataset"].values():
+            assert set(values) == expected
+
+    def test_the_signal_clears_a_real_floor(self, artifact: dict[str, Any]) -> None:
+        """The adoption rested on ~0.93 mean; 0.85 is the never-regress floor."""
+        assert artifact["mean"]["read_only_auroc"] >= 0.85
+
+    def test_ledger_records_the_adoption(self, artifact: dict[str, Any]) -> None:
+        from omni_mercury_engine.governance.improvement_ledger import published
+
+        data = published()
+        assert data is not None
+        entry = next(
+            d for d in data["decisions"] if d["component"] == "cognitive.curiosity_novelty"
+        )
+        assert entry["verdict"] == "adopted"
+        assert entry["impact"]["read_only_mean_auroc"] == pytest.approx(
+            artifact["mean"]["read_only_auroc"], abs=1e-4
+        )
+
+
+class TestRecordSurfacing:
+    def test_cognitive_summary_carries_novelty_and_causal_factors(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary(
+            {
+                "is_reliable": True,
+                "confidence": 0.8,
+                "novelty_score": 0.91,
+                "is_novel": True,
+                "causal_factors": ["pressure drop precedes the spike", "x" * 500],
+            }
+        )
+        assert summary is not None
+        assert summary["novelty_score"] == pytest.approx(0.91)
+        assert summary["is_novel"] is True
+        assert len(summary["causal_factors"]) == 2
+        assert len(summary["causal_factors"][1]) <= 160  # bounded
+
+    def test_absent_component_stays_absent(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary({"is_reliable": True})
+        assert summary is not None
+        assert summary["novelty_score"] is None
+        assert summary["is_novel"] is None
+        assert summary["causal_factors"] == []
+
+
+class TestHypothesisOnTheRecord:
+    def test_chain_conclusion_reaches_the_summary(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary(
+            {
+                "is_reliable": True,
+                "reasoning_chain": [
+                    {"step": 0, "rule": "modus_ponens", "conclusion": "a", "confidence": 0.9},
+                    {
+                        "step": 1,
+                        "rule": "abduction",
+                        "conclusion": "sensor drift best explains the deviation",
+                        "confidence": 0.74,
+                    },
+                ],
+            }
+        )
+        assert summary is not None
+        hypothesis = summary["hypothesis"]
+        assert hypothesis["conclusion"].startswith("sensor drift")
+        assert hypothesis["confidence"] == pytest.approx(0.74)
+        assert hypothesis["rule"] == "abduction"
+        assert hypothesis["chain_depth"] == 2
+
+    def test_no_chain_no_fabricated_hypothesis(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary({"is_reliable": True, "reasoning_chain": []})
+        assert summary is not None
+        assert summary["hypothesis"] is None
+
+
+class TestChallengeGrounds:
+    def test_novelty_challenge_carries_distance_threshold_and_recipe(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary(
+            {
+                "is_reliable": True,
+                "novelty_score": 0.91,
+                "is_novel": True,
+                "novelty_distance": 2.41,
+                "novelty_p_value": 0.012,
+                "novelty_alpha": 0.05,
+            }
+        )
+        assert summary is not None
+        challenge = summary["novelty_challenge"]
+        assert challenge["standardized_distance"] == pytest.approx(2.41)
+        assert challenge["p_value"] == pytest.approx(0.012)
+        assert challenge["alpha"] == pytest.approx(0.05)
+        # The recipe is something the record's holder can run: a replay of
+        # the artifact the record carries, not a call into the live engine.
+        assert "replay discovery.novelty" in challenge["falsifiable_by"]
+
+    def test_no_novelty_no_fabricated_challenge(self) -> None:
+        from omni_mercury_engine.decision.evidence import _cognitive_summary
+
+        summary = _cognitive_summary({"is_reliable": True})
+        assert summary is not None
+        assert summary["novelty_challenge"] is None
+
+    def test_hypothesis_falsifier_names_the_weakest_step(self) -> None:
+        from omni_mercury_engine.decision.evidence import _chain_hypothesis
+
+        hypothesis = _chain_hypothesis(
+            [
+                {"step": 0, "rule": "modus_ponens", "conclusion": "a", "confidence": 0.95},
+                {"step": 1, "rule": "abduction", "conclusion": "weak link", "confidence": 0.4},
+                {"step": 2, "rule": "modus_ponens", "conclusion": "final", "confidence": 0.8},
+            ]
+        )
+        assert hypothesis is not None
+        falsifier = hypothesis["falsifier"]
+        assert falsifier["weakest_step"] == "weak link"
+        assert falsifier["confidence"] == pytest.approx(0.4)
+        assert "re-test the weakest step" in falsifier["falsifiable_by"]
+
+    def test_orchestrator_result_serializes_the_challenge_fields(self) -> None:
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveAnalysisResult
+        from omni_mercury_engine.measurement import MeasurementEvidence
+
+        ranked = MeasurementEvidence.from_samples(
+            "conformal_rank", list(range(40)), statistic=0.012, threshold=0.05
+        )
+        result = CognitiveAnalysisResult(
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
+            novelty_score=0.8,
+            is_novel=True,
+            novelty_distance=1.7,
+            novelty_p_value=0.012,
+            novelty_alpha=0.05,
+            novelty_evidence=ranked,
+        )
+        payload = result.to_dict()
+        assert payload["novelty_distance"] == pytest.approx(1.7)
+        assert payload["novelty_p_value"] == pytest.approx(0.012)
+        assert payload["novelty_alpha"] == pytest.approx(0.05)
+        # Measured because it carries the evidence, and only because of that.
+        assert payload["novelty_measured"] is True
+        assert payload["novelty_evidence"] == ranked.to_dict()
+        # Without novelty the keys stay absent (schema unchanged).
+        bare = CognitiveAnalysisResult(
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
+        ).to_dict()
+        assert "novelty_distance" not in bare
+        assert "novelty_measured" not in bare
+        # A verdict with no evidence is carried, and is not measured.
+        claimed = CognitiveAnalysisResult(
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
+            novelty_score=0.8,
+            is_novel=True,
+        ).to_dict()
+        assert claimed["novelty_measured"] is False

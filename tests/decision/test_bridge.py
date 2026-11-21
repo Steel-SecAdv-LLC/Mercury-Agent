@@ -94,3 +94,48 @@ class TestCapAlertBridge:
         # Ranked root causes ride along as attribution for on-call triage.
         assert "RootCauses" in xml
         assert "node3" in xml
+
+
+class TestNoScoreIsSaidAsSuch:
+    """An abstention with no probability never leaves the bridge as "Score 0.00".
+
+    The record used to carry a 0.0 placeholder, so the CAP alert the DEFER
+    plan sends out read "Score 0.00 (0 anomalies detected)" and the agent
+    action's rationale read "p=0.000" -- a measured-looking all-clear on a
+    decision that abstained because there was no measurement.
+    """
+
+    def _no_score(self) -> DecisionRecord:
+        return DecisionAbstentionResponder().decide({}, domain="security")
+
+    def test_cap_alert_states_that_no_score_was_produced(self) -> None:
+        from omni_mercury_engine.alerting.cap_generator import CAPAlertGenerator
+
+        rec = self._no_score()
+        assert rec.response.notify is True
+        xml = to_cap_alert(rec, area_description="Sector 7")
+        assert xml is not None
+        assert CAPAlertGenerator.validate_cap_xml(xml)
+        assert "Score 0.00" not in xml
+        assert "0 anomalies detected" not in xml
+        assert "0.0000" not in xml
+        assert "no anomaly score was produced" in xml
+        assert "<urgency>Unknown</urgency>" in xml
+        assert "<severity>Unknown</severity>" in xml
+        assert "<certainty>Unknown</certainty>" in xml
+        assert "unavailable" in xml  # the MercuryAnomalyScore parameter
+
+    def test_caller_supplied_scores_are_still_used(self) -> None:
+        xml = to_cap_alert(self._no_score(), scores=[0.2, 0.9])
+        assert xml is not None
+        assert "Score 0.90" in xml
+
+    def test_agent_action_carries_no_fabricated_score(self) -> None:
+        action = to_agent_action(self._no_score())
+        assert action.action_type == "escalate"
+        assert "p=0.000" not in action.rationale
+        assert "no anomaly score was produced" in action.rationale
+        assert action.parameters["anomaly_prob"] is None
+        assert action.parameters["decision"]["anomaly_prob"] is None
+        # Zero confidence in any label -- the action's float contract.
+        assert action.confidence == 0.0

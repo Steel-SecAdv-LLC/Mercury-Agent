@@ -243,6 +243,16 @@ jobs:
       - name: Prefetch pinned HuggingFace models (image/video tiers)
         run: python scripts/prefetch_pinned_models.py
 
+      # The same driver, from the same lockfile, as the ml-tests lane: without
+      # it the console browser test would skip here, and a release would be
+      # cut on a suite CI did not accept.
+      - name: Install the headless-browser driver (console browser test)
+        run: |
+          set -euo pipefail
+          node --version
+          npm ci --prefix tests/api/browser --ignore-scripts --no-audit --no-fund
+          tests/api/browser/node_modules/.bin/playwright install --with-deps chromium
+
       - name: Run tests
         env:
           TORCH_HOME: ~/.cache/torch
@@ -252,8 +262,11 @@ jobs:
           MERCURY_REQUIRES_ML: "1"
           MERCURY_REQUIRES_HF_MODELS: "1"
           MERCURY_FULL_LEDGER_CHECK: "1"
+          MERCURY_REQUIRES_BROWSER: "1"
+          # Sessions the suite is run as, exactly as the ml-tests lane runs it.
+          SUITE_PARTS: "4"
         run: |
-          set -o pipefail
+          set -uo pipefail
           # NOT `pytest ... | head -100`. `head` closes the pipe the moment it
           # has its 100 lines; pytest then dies of SIGPIPE and the pipeline
           # exits 141, which `set -o pipefail` propagates as a step failure
@@ -267,15 +280,39 @@ jobs:
           # --timeout=60 run was a different test from the one CI proves: a
           # per-test timeout is a hang guard, not an assertion, and sequential
           # order exercised an ordering CI never runs.
-          if ! pytest tests/ -n 4 --dist=loadgroup --timeout=300 -x --tb=short -q \
-              --cov=src/omni_mercury_engine --cov-report=term-missing \
-              --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }} \
-              > pytest-release.log 2>&1; then
-            echo "::error::Release test gate failed. Last 200 lines follow; the"
-            echo "::error::complete log is attached as the pytest-release-log artifact."
-            tail -n 200 pytest-release.log
-            exit 1
-          fi
+          #
+          # The suite runs as SUITE_PARTS sessions that append to one coverage
+          # file, as the ml-tests lane does and for its reason: one session
+          # under coverage does not fit the runner's 16 GB (see ci.yml). The
+          # parts are scripts/ci_test_partition.py's, which together are every
+          # test file pytest collects; the coverage floor is enforced on the
+          # last part, over all of them. The first failing part stops the
+          # release.
+          : > pytest-release.log
+          last=$((SUITE_PARTS - 1))
+          for part in $(seq 0 "$last"); do
+            mapfile -t paths < <(python scripts/ci_test_partition.py "$SUITE_PARTS" "$part")
+            if [ "${#paths[@]}" -eq 0 ]; then
+              echo "::error::part ${part} of ${SUITE_PARTS} holds no tests"
+              exit 1
+            fi
+            append=()
+            report=(--cov-report=)
+            if [ "$part" -gt 0 ]; then
+              append=(--cov-append)
+            fi
+            if [ "$part" -eq "$last" ]; then
+              report=(--cov-report=term-missing --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }})
+            fi
+            if ! pytest "${paths[@]}" -n 4 --dist=loadgroup --timeout=300 -x --tb=short -q \
+                --cov=src/omni_mercury_engine "${append[@]}" "${report[@]}" \
+                >> pytest-release.log 2>&1; then
+              echo "::error::Release test gate failed in part $((part + 1)) of ${SUITE_PARTS}. Last 200 lines follow; the"
+              echo "::error::complete log is attached as the pytest-release-log artifact."
+              tail -n 200 pytest-release.log
+              exit 1
+            fi
+          done
           tail -n 40 pytest-release.log
 
       - name: Upload test log
@@ -294,6 +331,11 @@ jobs:
     name: Build Package
     needs: [validate, test]
     runs-on: ubuntu-latest
+    # Read-only. This job runs the build backend and everything it installs,
+    # so it holds no signing identity: the artifacts it uploads are signed by
+    # the ``attest`` job below, which runs no code from the tree at all.
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code (attempt 1)
@@ -325,6 +367,12 @@ jobs:
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # The SBOM step below installs the locked [api] closure (torch and its
+      # wheels) on a runner whose default image leaves too little free disk
+      # for it; every job that installs that closure clears space first.
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
+
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
@@ -333,7 +381,9 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade "pip>=26.1"
-          pip install build twine
+          # Pinned: the release's own build toolchain must not float — an
+          # unpinned resolver change here alters the shipped artifacts.
+          pip install "build==1.3.0" "twine==6.2.0"
 
       # Verify, do not rewrite. This step used to run
       #   sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
@@ -403,6 +453,39 @@ jobs:
         run: |
           twine check dist/*
 
+      # Dependency SBOM via Mercury's own emitter (CycloneDX 1.5 from the
+      # installed environment; src/omni_mercury_engine/tools/sbom_emitter.py):
+      # the locked ``[api]`` closure plus the wheel built above — the served
+      # platform profile, resolved from uv.lock, not a floating pip solve.
+      # The container image's full-closure SBOM is BuildKit's, attached to
+      # the pushed image by digest (sbom: true in the docker job).
+      # The emitter imports omni_mercury_engine, whose import-time PQC gate
+      # requires the real AMA native backend (no bypass exists, by design).
+      - name: Build + install AMA Cryptography (native PQC backend)
+        uses: ./.github/actions/build-ama-cryptography
+        with:
+          ama-ref: v5.0.0
+
+      - name: Emit dependency SBOM (locked api closure, in-house emitter)
+        env:
+          # The AMA action installs/export-points the backend for the ambient
+          # interpreter; the emitter runs inside the locked venv, which
+          # carries the ama-cryptography wheel from uv.lock itself.
+          UV_PROJECT_ENVIRONMENT: .sbom-venv
+        run: |
+          python -m pip install "uv==0.11.32"
+          uv venv .sbom-venv --python "${{ env.PYTHON_VERSION }}"
+          uv sync --locked --extra api --no-dev --inexact
+          # --root-name is the DISTRIBUTION name (pyproject [project].name),
+          # not the import package: the emitter's default
+          # (omni-mercury-engine) names no installed distribution, so the
+          # root component was emitted unlinked (bom-ref null) and the SBOM
+          # did not identify which component is the product.
+          .sbom-venv/bin/python -m omni_mercury_engine.tools.sbom_emitter \
+            --root-name mercury-agent-global \
+            --sbom-path dist/SBOM-api-closure.cdx.json
+          test -s dist/SBOM-api-closure.cdx.json
+
       - name: Generate package SBOM and provenance
         env:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
@@ -415,10 +498,15 @@ jobs:
           from pathlib import Path
 
           dist = Path("dist")
-          generated = {"SBOM.spdx.json", "provenance.json"}
+          # Subjects are exactly the built distributions — the same set the
+          # Sigstore step attests (dist/*.whl, dist/*.tar.gz), so the signed
+          # and self-authored records cover identical subjects. An exclusion
+          # list ("everything but the files we generate") silently promoted
+          # any other file in dist/ to a build subject: the dependency SBOM
+          # written by the step above would have been listed as an artifact.
           artifacts = []
           for path in sorted(dist.iterdir()):
-              if path.name in generated or not path.is_file():
+              if not path.is_file() or not path.name.endswith((".whl", ".tar.gz")):
                   continue
               digest = hashlib.sha256(path.read_bytes()).hexdigest()
               artifacts.append(
@@ -526,6 +614,45 @@ jobs:
   # ============================================================================
   # Build Docker Image
   # ============================================================================
+  # ============================================================================
+  # Sign the built artifacts
+  # ============================================================================
+  # SIGNED provenance for the exact files ``build`` uploaded: a Sigstore bundle
+  # bound to this workflow's OIDC identity, stored in the repository's
+  # attestation store and verifiable with ``gh attestation verify`` (or
+  # ``python scripts/verify_release.py <tag>``). It is the cryptographic
+  # counterpart of the self-authored provenance.json, which stays for human
+  # readers and claims no signature.
+  #
+  # Its own job, on purpose. Signing needs ``id-token: write``, and a token
+  # with that scope can mint an identity for this workflow. The job that holds
+  # it therefore checks out nothing and runs nothing from the tree or from a
+  # package index: two pinned actions, download then sign. The build job, which
+  # executes the build backend and its dependencies, stays read-only.
+  attest:
+    name: Attest Build Provenance
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Attest build provenance (Sigstore)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+
   docker:
     name: Build Docker Image
     needs: [validate, test]
@@ -600,15 +727,20 @@ jobs:
           # straight into the published artifact. Released layers are built
           # from the pinned base and the locked closure every time; slower,
           # and the only build whose layers trace to this commit alone.
+          # The Dockerfile's ARG is MERCURY_VERSION (it feeds the OCI
+          # ``org.opencontainers.image.version`` label).  This used to pass
+          # ``VERSION=...``, an ARG the Dockerfile never declares, so every
+          # released image carried the Dockerfile default (3.0.0) in its
+          # version label regardless of the tag being released.
           build-args: |
-            VERSION=${{ needs.validate.outputs.version }}
+            MERCURY_VERSION=${{ needs.validate.outputs.version }}
 
   # ============================================================================
   # Create GitHub Release
   # ============================================================================
   release:
     name: Create Release
-    needs: [validate, build, docker]
+    needs: [validate, build, attest, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -794,6 +926,11 @@ jobs:
         with:
           packages-dir: pypi-dist/
           skip-existing: true
+          # PEP 740: sign and upload digital attestations for the staged
+          # artifacts via the trusted-publishing OIDC identity. Valid only
+          # on this OIDC path, which is why the token-mode step below does
+          # not carry it.
+          attestations: true
 
       - name: Publish to PyPI (API token)
         if: steps.pypi_check.outputs.mode == 'token' && steps.preflight.outputs.publishable == 'true'

@@ -1,6 +1,6 @@
 # Mercury Agent Architecture
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-10-17.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-19.
 
 ## Overview
 
@@ -320,12 +320,16 @@ Ensemble Averaging
 Calibration + certificate (temperature scaling, conformal coverage set,
    ethical-gate verdict, neuro-symbolic agreement, drift)
    ↓
-Decision / Abstention / Response (opt-in: enable_decision_layer())
+Decision / Abstention / Response (on by default; decision_layer=False opts out)
    ThreeState gate → {GROUNDED | UNAVAILABLE | UNDECIDABLE}
    → Disposition {act | clear | defer | hold}
    → bounded, non-destructive ResponsePlan
    ↓
-Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata}
+Output: {anomaly_prob, is_anomaly, class_prediction, severity, top_row,
+         anomaly_probs, is_anomaly_rows, severity_scores, out_of_support_rows,
+         detector_importance, detector_uncertainties, mode, threshold_used,
+         model_provenance, gosnn_metadata; plus drift_detection, conformal,
+         cognitive_analysis (cognition on) and decision}
 ```
 
 The **feature-extraction** stage of the domain models that take a numeric
@@ -343,8 +347,94 @@ It is a pure, deterministic function of the certificate above: it reuses the
 engine-wide `ThreeState` transparency contract to make abstention first-class (a
 calibrated "don't-know" gate split into a *resolvable* deferral and a
 *fail-closed* hold), then attaches a bounded response that recommends and
-escalates but never autonomously executes a destructive action. It is an exact
-no-op until `enable_decision_layer()` is called.
+escalates but never autonomously executes a destructive action. It is on by
+default: every `detect_with_fusion` result carries the record (construct with
+`decision_layer=False` to opt out; `enable_decision_layer()` customises the
+policy, calibrator, or — as the served flagship does — attaches a ledger).
+
+Every record's discovery findings are challengeable after the fact: the
+**Challenge this decision** action in the console (on any result whose record
+carries discovery artifacts), `POST /api/v1/detect/flagship/replay`, and
+`mercury-agent replay record.json` all re-run the recorded recipes — the
+novelty rank test, the corrected lead-lag F-tests, the hypothesis's premises —
+and report, per artifact, whether the claim still HOLDS, FAILS, or
+CANNOT_REPLAY (with the reason; never read as holding).
+
+### Artifact Review (documents, images, recordings)
+
+An uploaded file takes the same inference pipeline; only the front of it is
+new (`omni_mercury_engine.review`). The question a review answers is narrow:
+**is some part of this artifact unlike the rest of it?**
+
+```
+upload (bytes)
+  → decode, within the served review_max_* bounds          review/decode.py
+      documents  text, Markdown, CSV, JSON, HTML, DOCX, PDF (text layer)
+      images     PNG, JPEG, GIF, BMP, WebP, TIFF (Pillow)
+      audio      uncompressed WAV (original RIFF reader)
+  → harm-uplift gate reads the document's text and the upload's name
+      (GATED_BOUNDARY capability contract on the measuring step; pixels and
+      samples are numbers to it — image content and speech are not inspected,
+      and the DecisionRecord says so in a `harm gate scope:` caveat)
+  → segments x 16 named features, standardized against the      review/features.py
+      artifact itself (robust z: median and MAD, clipped to ±10); the raw
+      column medians ride along as the artifact's descriptor
+  → OmniMercuryEngine.detect_with_fusion on that matrix, with the
+      kind's own checkpoint (models/checkpoints/review_{document,image,audio}.pt);
+      the batch-family test ranks the matrix's shape AND the descriptor among
+      the calibration artifacts — an upload of another kind defers
+  → the ordinary result + DecisionRecord, plus a `review` block
+```
+
+Three design points follow from an upload having no population to be compared
+with:
+
+- **Self-reference.** A document is cut into 48 word-windows, an image into
+  about 96 tiles, a recording into 48 blocks (a constant count per kind, so
+  the most anomalous segment of a long artifact is comparable with that of a
+  short one), and every feature is standardized against the artifact's own
+  median and spread. The features are computed here or by instruments the
+  package already had (`vision/features.py` patch statistics; the cepstral
+  frames of `biometric/voice_recognition.py`); there is no learned embedding
+  and no external detector. The scope is therefore internal consistency: an
+  artifact that is unusual as a whole, or altered throughout, is not what a
+  review finds.
+- **A batch-level certificate.** The verdict of a multi-row detection is its
+  most anomalous row, and a per-row conformal certificate does not cover a
+  maximum over rows (measured on the bundled flagship model: 4 of 30 clean
+  40-row batches kept label 0 in the set, against 25 of 30 with a batch-level
+  certificate). `calibrate_fusion_conformal_batches`
+  fits the certificate on one batch-max statistic per calibration artifact;
+  the regime (`conformal.regime: "batch_max"`) is named in the result, the
+  record and the checkpoint.
+- **A family test instead of row drift.** Self-standardized segments have no
+  fixed population, so the row-level drift ensemble does not apply. With a
+  batch-level certificate the engine asks the question that does: is this
+  batch one of the batches the certificate was calibrated on? Ten scale-free
+  numbers summarize the batch, their standardized distance from the
+  calibration batches is ranked among the calibration batches' own
+  leave-one-out distances, and a rank p-value at or below 0.05 reports drift
+  (HIGH), which defers the decision.
+
+Each review checkpoint carries, in its own provenance, a statement of what its
+certificate was calibrated on and what that has been measured to cover; the
+decider repeats it on every record as a caveat (`certificate scope: ...`).
+The review engines do not run the cognitive critique: its instruments assume
+a time-ordered stream and a caller's history of comparable windows.
+
+Served at `POST /api/v1/review/upload` (multipart) and `POST
+/api/v1/review/inline` (base64 JSON, used by the console's REVIEW A FILE);
+`GET /api/v1/review` reports the accepted formats, the enforced bounds and the
+review decision trail. At most `review_max_concurrent` (default 2) reviews are
+decoded and measured at once; each also holds one slot of the flagship
+admission bound from decode to decision and scores under the flagship engine
+lock (every fusion engine in a process shares one GOSNN singleton); decoding
+and feature extraction run outside the lock. An image larger than 720 pixels
+on its longer side is reduced to that as it is decoded (the upper end of the
+sizes the image checkpoint was calibrated on), and its segment boxes are
+reported in the original's pixels. Offline: `mercury-agent review FILE`.
+Measurement: `research/review/harness_artifact_review.py` →
+`artifacts/artifact_review.json`.
 
 ## Runtime Configuration
 
@@ -927,6 +1017,13 @@ adjudication ledger ──► held-out (reports, label) pairs ──► merit ga
   inference data), else the fusion training sample, each filtered to the rows
   the model calls normal. Drift at MEDIUM or above defers the decision; see
   `docs/runbooks/data-drift.md`.
+- A model whose conformal certificate is batch-level (`conformal.regime:
+  "batch_max"`, fitted by `calibrate_fusion_conformal_batches` on at least 20
+  calibration batches) is asked the batch-level question instead: whether the
+  served batch belongs to the family of batches it was calibrated on
+  (`drift_detection.reference_source: "calibration_batches:batch_family"`,
+  a rank test at level 0.05; a batch outside the family reports HIGH and
+  defers). The artifact-review checkpoints are of this kind.
 
 ## Subagent Fleet (Greek Pantheon — Internal Delegation Tier)
 
@@ -980,10 +1077,64 @@ anchors, and design contract live in
   irreversible kill-switch, and a failure-rate tripwire (ethical refusals are
   correct, never failures).
 - **Dual-gate commit.** Results are committed through the same
-  [dual hard ethical gate](#dual-gate-hard-ethical-enforcement) — benevolence
-  floor **and** σ-Immutable — used on the engine and orchestrator boundaries;
+  [dual hard ethical gates](#dual-gate-hard-ethical-enforcement) — the
+  harm-uplift choke point **and** σ-Immutable, with benevolence computed as an
+  advisory score — used on the engine and orchestrator boundaries;
   fail-closed. Mass dispatch aggregates transparently (failures surfaced, dissent
   shown; no reordering or fabricated agreement).
+
+## The Watch, Delivery Proof, and the Storm Forecast (v3.1)
+
+The watch (`omni_mercury_engine/watch/`) is Mercury reading its live feeds on
+its own and telling the people a finding concerns. It is additive and off by
+default in the server (`MERCURY_WATCH_ENABLED=true` runs it there;
+`mercury-agent watch` runs the same loop from the CLI).
+
+- **Feeds** (`watch/feeds.py`): nine live sources — USGS earthquakes, NOAA SWPC
+  geomagnetic activity, NOAA DART tsunami buoys, NWS river gauges, USGS volcano
+  alert levels, NWS warnings, national authorities' CAP alerts via the WMO
+  Severe Weather Information Centre, GDACS, and OpenFEMA tropical-cyclone
+  declarations. Each feed is read on its own cadence and a finding is declared
+  only by the source's published scale (USGS magnitude classes, the NOAA G
+  scale, NWS flood categories, volcano alert levels). Episode windows are
+  measured per feed from the records of what they describe, not judged.
+- **Store** (`watch/store.py`): one SQLite store, readable by its owner only,
+  holding findings, feed statuses, subscriptions, per-address delivery records,
+  canaries, and the forecast ledger. Several watches (CLI, server workers)
+  share it under leases; a feed is due when no watch of the store has read it
+  within its cadence.
+- **Delivery** (`watch/notify.py`, `watch/sms.py`): email through
+  `MERCURY_SMTP_*`, text messages to verified numbers through Twilio, one
+  webhook (`MERCURY_WATCH_WEBHOOK_URL`, HTTPS only through `SafeHTTPClient`),
+  and open consoles. A finding is delivered once per severity, retried on
+  failure, and never claimed when it could not be sent. `GET /api/v1/watch`
+  serves per-channel state as counts; no address or place leaves the store.
+- **Delivery proof** (`watch/canary.py`): a test message goes through the same
+  mailer, text sender and webhook as an alert and counts as arrived only on
+  acknowledgement (its link or code), a carrier delivery receipt, or a mailbox
+  check over IMAP. Operator surface: `mercury-agent alerts canary --wait`,
+  `alerts ack`, `alerts proof`.
+- **Forecast** (`watch/forecast.py`, `watch/ledger.py`): the probability that a
+  UT day holds a geomagnetic storm at NOAA G1 or above, issued from 12:30 UT
+  the day before into an append-only, hash-chained ledger (a database trigger
+  refuses updates and deletes; entries are optionally ML-DSA-65 signed), then
+  resolved and scored against two references fixed with it (climatology and
+  persistence). Method and record: `research/forecast_kp/`.
+
+Two sibling v3.1 mechanisms live outside `watch/`:
+
+- **Evidence tiers** (`engine.py`): components whose measured record is broken
+  (`affective`, `chemistry`, `parapsychology`; tier T0) are constructed and
+  reachable at `engine.models` but contribute no feature and no score on an
+  untrained engine; `OmniMercuryEngine(include_unproven=True)` restores them.
+  The shipped fusion checkpoint was trained with `affective` in its feature
+  groups, so loading it keeps `affective` contributing on the `detect`/`serve`
+  path until the checkpoint is retrained without it.
+- **Per-hazard held-out evidence** (`decision/hazard_evidence.py`): the
+  leave-one-event-out calibration record in `docs/HAZARD_CALIBRATION.md` ships
+  in the package, is served at `GET /api/v1/catalog/hazard-evidence`, and adds
+  one caveat string to decision records about a measured hazard. The caveat
+  changes nothing in the verdict.
 
 ## Deployment Architecture
 
@@ -999,6 +1150,12 @@ than silently serving another model), else the installed model
 (`$MERCURY_MODEL_DIR/fusion.pt`, written atomically by
 `mercury-agent train --install`, which keeps the replaced model as
 `fusion.previous.pt`), else the bundled synthetic checkpoint.
+
+Artifact review does not use that model: each kind is served by its own
+bundled checkpoint (`review_document.pt`, `review_image.pt`,
+`review_audio.pt`; trained, calibrated and measured by
+`scripts/train_review_checkpoints.py`), loaded on first use and reported, by
+name and SHA-256, in every review's record.
 
 ### Kubernetes monitoring
 

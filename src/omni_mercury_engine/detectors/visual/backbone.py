@@ -3,11 +3,12 @@
 """Feature extraction backbones for visual anomaly detection.
 
 Provides unified interface for extracting multi-scale features from
-pre-trained networks including ResNet, WideResNet, EfficientNet, ViT, and DINOv2.
+pre-trained networks including ResNet, WideResNet, EfficientNet, and ViT.
 """
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -15,6 +16,23 @@ import torch
 from torch import nn
 
 logger = logging.getLogger(__name__)
+
+#: Frozen pretrained backbones, keyed by ``(name, pretrained, timm out-indices)``,
+#: so repeated detector construction reuses the loaded weights instead of
+#: re-reading them from disk.  Every cache hit returns a ``deepcopy``, so no
+#: training state can leak between instances; only ``pretrained=True`` models
+#: are cached, and trainable students bypass the cache entirely (they are
+#: built from scratch and must never share weights with a frozen teacher).
+_BACKBONE_CACHE: dict[tuple[str, bool, tuple[int, ...] | None], nn.Module] = {}
+
+#: timm ``features_only`` stage index for each named layer of the supported
+#: timm backbones.  efficientnet_b4's stages 1-4 carry the channel counts
+#: documented in ``BACKBONE_CONFIGS``; the ViT has no pyramid, so layer1-4
+#: name four evenly spaced transformer blocks (all 768 channels at 1/16).
+_TIMM_FEATURE_INDICES: dict[str, dict[str, int]] = {
+    "efficientnet_b4": {"layer1": 1, "layer2": 2, "layer3": 3, "layer4": 4},
+    "vit_base_patch16_224": {"layer1": 2, "layer2": 5, "layer3": 8, "layer4": 11},
+}
 
 # Backbone configuration: output channels for each layer
 BACKBONE_CONFIGS: dict[str, dict[str, Any]] = {
@@ -45,22 +63,64 @@ BACKBONE_CONFIGS: dict[str, dict[str, Any]] = {
 }
 
 
-def get_backbone(
-    backbone_name: str,
-    pretrained: bool = True,
-) -> nn.Module:
-    """Get a pre-trained backbone network.
+class TimmFeatureBackbone(nn.Module):
+    """A timm ``features_only`` model behind the named layer-dict contract.
 
-    Args:
-        backbone_name: Name of backbone architecture
-        pretrained: Whether to load ImageNet pre-trained weights
-
-    Returns:
-        Pre-trained backbone module
-
-    Raises:
-        ValueError: If backbone_name is not supported
+    timm feature extractors return a *list* of feature maps and have no
+    ``layer1``-``layer4`` attributes, so the hook-based extraction used for
+    torchvision ResNets silently produced an empty feature dict (and an
+    ``IndexError`` downstream).  This wrapper maps each supported layer name
+    to its real timm feature stage (``_TIMM_FEATURE_INDICES``) and returns a
+    ``{layer_name: tensor}`` dict from ``forward``.
     """
+
+    def __init__(self, backbone_name: str, layers: list[str], pretrained: bool) -> None:
+        """Build the timm feature model for the requested layers.
+
+        Args:
+            backbone_name: timm model name (must be in ``_TIMM_FEATURE_INDICES``)
+            layers: Layer names (``layer1``..``layer4``) to serve
+            pretrained: Whether to load pretrained weights
+
+        Raises:
+            ValueError: If a requested layer has no mapped feature stage.
+        """
+        super().__init__()
+        import timm
+
+        index_map = _TIMM_FEATURE_INDICES[backbone_name]
+        unknown = [layer for layer in layers if layer not in index_map]
+        if unknown:
+            raise ValueError(
+                f"Backbone {backbone_name} has no feature stage for {unknown}; "
+                f"supported layer names: {sorted(index_map)}"
+            )
+        out_indices = sorted({index_map[layer] for layer in layers})
+        model: Any = timm.create_model(
+            backbone_name,
+            pretrained=pretrained,
+            features_only=True,
+            out_indices=out_indices,
+        )
+        self.model = model
+        self._positions = {layer: out_indices.index(index_map[layer]) for layer in layers}
+        channels = model.feature_info.channels()
+        self.feature_dims: dict[str, int] = {
+            layer: int(channels[position]) for layer, position in self._positions.items()
+        }
+
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Return the named multi-scale feature dict for ``x``."""
+        maps = self.model(x)
+        return {layer: maps[position] for layer, position in self._positions.items()}
+
+
+def _build_backbone(
+    backbone_name: str,
+    pretrained: bool,
+    layers: list[str] | None,
+) -> nn.Module:
+    """Construct the backbone without consulting the cache."""
     try:
         from torchvision import models
     except ImportError as e:
@@ -77,7 +137,20 @@ def get_backbone(
     if backbone_name in backbone_map:
         return backbone_map[backbone_name]()
 
-    # Try timm for additional architectures
+    # timm architectures with a verified layer-name mapping get the wrapper
+    # that honours the ``{layer_name: tensor}`` contract.
+    if backbone_name in _TIMM_FEATURE_INDICES:
+        try:
+            return TimmFeatureBackbone(
+                backbone_name, layers or ["layer2", "layer3"], pretrained=pretrained
+            )
+        except ImportError as e:
+            raise ValueError(
+                f"Backbone {backbone_name} requires timm, which is not installed"
+            ) from e
+
+    # Other timm names: returned raw as before (hook-based extraction works
+    # only for models that expose the requested layer attributes).
     try:
         import timm
 
@@ -90,9 +163,58 @@ def get_backbone(
     except ImportError:
         logger.warning("timm not available for extended backbone support")
 
+    if backbone_name == "dinov2_vitb14":
+        raise ValueError(
+            "Backbone 'dinov2_vitb14' (BackboneType.DINO_V2) is not a timm model "
+            "name and is not wired for feature extraction. For a DINOv2 backbone "
+            "use a real timm name such as 'vit_base_patch14_dinov2' (note the "
+            "patch-14 input sizing it requires); for the supported options use "
+            f"{sorted([*backbone_map, *_TIMM_FEATURE_INDICES])}."
+        )
+
     raise ValueError(
-        f"Unsupported backbone: {backbone_name}. " f"Supported: {list(backbone_map.keys())}"
+        f"Unsupported backbone: {backbone_name}. "
+        f"Supported: {sorted([*backbone_map, *_TIMM_FEATURE_INDICES])}"
     )
+
+
+def get_backbone(
+    backbone_name: str,
+    pretrained: bool = True,
+    layers: list[str] | None = None,
+    use_cache: bool = True,
+) -> nn.Module:
+    """Get a pre-trained backbone network.
+
+    Args:
+        backbone_name: Name of backbone architecture
+        pretrained: Whether to load ImageNet pre-trained weights
+        layers: Layer names the caller will extract (used to pick timm
+            feature stages; ignored for torchvision models)
+        use_cache: Whether a frozen pretrained model may be served from the
+            module cache (as an independent ``deepcopy``). Trainable
+            students must pass ``False``; non-pretrained models are never
+            cached because random initialization is cheap and must stay
+            per-instance.
+
+    Returns:
+        Pre-trained backbone module
+
+    Raises:
+        ValueError: If backbone_name is not supported
+    """
+    if not (use_cache and pretrained):
+        return _build_backbone(backbone_name, pretrained, layers)
+
+    out_key: tuple[int, ...] | None = None
+    if backbone_name in _TIMM_FEATURE_INDICES:
+        index_map = _TIMM_FEATURE_INDICES[backbone_name]
+        requested = layers or ["layer2", "layer3"]
+        out_key = tuple(sorted({index_map[layer] for layer in requested if layer in index_map}))
+    key = (backbone_name, pretrained, out_key)
+    if key not in _BACKBONE_CACHE:
+        _BACKBONE_CACHE[key] = _build_backbone(backbone_name, pretrained, layers)
+    return copy.deepcopy(_BACKBONE_CACHE[key])
 
 
 class FeatureExtractor(nn.Module):
@@ -120,6 +242,7 @@ class FeatureExtractor(nn.Module):
         layers: list[str] | None = None,
         device: torch.device | str = "cpu",
         pretrained: bool = True,
+        trainable: bool = False,
     ):
         """Initialize feature extractor.
 
@@ -128,19 +251,39 @@ class FeatureExtractor(nn.Module):
             layers: Layers to extract features from (default: layer2, layer3)
             device: Computation device
             pretrained: Whether to use ImageNet pre-trained weights
+            trainable: If True, the backbone's parameters keep their
+                gradients and ``forward`` runs with autograd enabled, so the
+                extractor can be trained (e.g. a distillation student).  The
+                default keeps the historical frozen/no-grad behaviour for
+                teacher paths.  Trainable extractors never come from the
+                module-level backbone cache.
         """
         super().__init__()
 
         self.backbone_name = backbone_name
         self.layers = layers or ["layer2", "layer3"]
         self.device = torch.device(device)
+        self.trainable = trainable
 
-        # Load backbone
-        self.backbone = get_backbone(backbone_name, pretrained=pretrained)
+        # Load backbone (cache only serves frozen pretrained models)
+        self.backbone = get_backbone(
+            backbone_name,
+            pretrained=pretrained,
+            layers=self.layers,
+            use_cache=not trainable,
+        )
+        # Start in eval mode either way: a trainable student is switched to
+        # train mode by its trainer's ``fit`` (e.g. ``.train()`` before the
+        # epoch loop), and eval keeps BatchNorm usable on single images.
         self.backbone.eval()
 
-        # Get layer info
-        if backbone_name in BACKBONE_CONFIGS:
+        # Get layer info: the timm wrapper knows its real dims; otherwise use
+        # the static table or infer from a forward pass.
+        self._features: dict[str, torch.Tensor] = {}
+        wrapper_dims = getattr(self.backbone, "feature_dims", None)
+        if isinstance(wrapper_dims, dict):
+            self.feature_dims = {layer: int(wrapper_dims[layer]) for layer in self.layers}
+        elif backbone_name in BACKBONE_CONFIGS:
             self.feature_dims = {
                 layer: BACKBONE_CONFIGS[backbone_name].get(layer, 512) for layer in self.layers
             }
@@ -149,17 +292,19 @@ class FeatureExtractor(nn.Module):
             self.feature_dims = self._infer_dims()
 
         # Register hooks for feature extraction
-        self._features: dict[str, torch.Tensor] = {}
         self._register_hooks()
 
-        # Freeze backbone
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        # Freeze backbone unless it is a trainable student
+        if not trainable:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
 
         self.to(self.device)
 
     def _register_hooks(self) -> None:
         """Register forward hooks to capture intermediate features."""
+        if isinstance(self.backbone, TimmFeatureBackbone):
+            return  # the wrapper returns the named feature dict directly
         for layer_name in self.layers:
             layer = self._get_layer(layer_name)
             if layer is not None:
@@ -193,7 +338,9 @@ class FeatureExtractor(nn.Module):
         """Infer feature dimensions from a forward pass."""
         dummy_input = torch.randn(1, 3, 224, 224).to(self.device)
         with torch.no_grad():
-            _ = self.backbone(dummy_input)
+            out = self.backbone(dummy_input)
+        if isinstance(out, dict):
+            return {name: int(feat.shape[1]) for name, feat in out.items()}
         return {name: feat.shape[1] for name, feat in self._features.items()}
 
     def forward(
@@ -212,9 +359,16 @@ class FeatureExtractor(nn.Module):
         """
         self._features.clear()
 
-        # Forward through backbone
-        with torch.no_grad():
-            _ = self.backbone(x)
+        # Forward through backbone.  Frozen teacher paths stay under
+        # ``no_grad``; a trainable student must keep the autograd graph, or
+        # its optimizer receives no gradients and training is a no-op.
+        if self.trainable:
+            out = self.backbone(x)
+        else:
+            with torch.no_grad():
+                out = self.backbone(x)
+        if isinstance(out, dict):
+            self._features.update(out)
 
         if return_dict:
             return {k: v.clone() for k, v in self._features.items()}

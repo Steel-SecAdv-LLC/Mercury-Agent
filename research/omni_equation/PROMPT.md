@@ -5,7 +5,9 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
 ethics-gated, multi-stream, validated scoring law (the "omni-equation") that
 **strengthens — never replaces** — the current Omni-Ava Equation. The earlier
 direction assumed "add streams + fuse." **That assumption was measured and
-refuted** (`FINDINGS.md`): on 15 real events / 5 domains, Mercury's multi-stream
+refuted** (`FINDINGS.md`; the figures in this paragraph are that measurement's,
+made before the loader fixes of 2026-11-20, and `FINDINGS.md` opens with the
+re-measurement on 22 events): on 15 real events / 5 domains, Mercury's multi-stream
 ensemble (AUC **0.836**) is *worse* than its own best single stream (**0.909**);
 streams are redundant (|corr| **0.66**); the outer equation is inert (**−0.002**);
 the η^Φ gate is inert for ranking (**0.003** flip). Ranking is good while F1 ≈

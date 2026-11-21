@@ -564,7 +564,14 @@ def main() -> int:
     changed: list[Path] = []
     errors: list[str] = []
     for path in iter_python_files(paths):
-        original = path.read_text(encoding="utf-8")
+        try:
+            original = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            # Listed, then removed before it was read: a test writing scratch
+            # files under the tree in another process (tests/scripts/
+            # test_xdist_group.py does). A file that is gone has no header to
+            # check, and must not turn the gate into a crash.
+            continue
         normalized = normalized_source(path, original)
         errors.extend(validation_errors(path, normalized if args.apply else original))
         if normalized == original:

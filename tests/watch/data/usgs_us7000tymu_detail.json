@@ -1,0 +1,81 @@
+{
+ "type": "Feature",
+ "id": "us7000tymu",
+ "geometry": {
+  "type": "Point",
+  "coordinates": [
+   131.4868,
+   -6.0804,
+   68
+  ]
+ },
+ "properties": {
+  "mag": 6.6,
+  "place": "148 km WSW of Tual, Indonesia",
+  "time": 1794863480515,
+  "felt": 10,
+  "cdi": 3.4,
+  "mmi": 5.355,
+  "status": "reviewed",
+  "types": ",dyfi,ground-failure,internal-moment-tensor,internal-origin,losspager,moment-tensor,origin,phase-data,shakemap,",
+  "products": {
+   "shakemap": [
+    {
+     "status": "UPDATE",
+     "properties": {
+      "maxmmi": "5.355",
+      "map-status": "automatic",
+      "version": "4",
+      "minimum-latitude": "-7.052",
+      "maximum-latitude": "-5.1",
+      "minimum-longitude": "130.5",
+      "maximum-longitude": "132.472"
+     },
+     "contents": {
+      "download/coverage_mmi_low_res.covjson": {
+       "contentType": "application/octet-stream",
+       "lastModified": 1794870893000,
+       "length": 13015,
+       "url": "https://earthquake.usgs.gov/product/shakemap/us7000tymu/us/1794870897777/download/coverage_mmi_low_res.covjson",
+       "sha256": "NeX+qosSk2/968SptjEShMlPdxaettal3u/mJuLI8Rc="
+      },
+      "download/cont_mmi.json": {
+       "contentType": "application/json",
+       "lastModified": 1794870893000,
+       "length": 3898,
+       "url": "https://earthquake.usgs.gov/product/shakemap/us7000tymu/us/1794870897777/download/cont_mmi.json",
+       "sha256": "8xR8/qZEodG2ts/H1iimyJ31uNw0vgIj/LykgC/2CSs="
+      }
+     }
+    }
+   ],
+   "dyfi": [
+    {
+     "status": "UPDATE",
+     "properties": {
+      "depth": "68",
+      "eventsource": "us",
+      "eventsourcecode": "7000tymu",
+      "eventtime": "2026-11-16T21:11:20.000Z",
+      "latitude": "-6.0804",
+      "longitude": "131.4868",
+      "magnitude": "6.6",
+      "maxmmi": "3.4",
+      "num-responses": "10",
+      "numResp": "10",
+      "pdl-client-version": "Version 3.5.4 2026-01-22"
+     },
+     "contents": {
+      "dyfi_geo_10km.geojson": {
+       "contentType": "application/octet-stream",
+       "lastModified": 1794868487000,
+       "length": 4086,
+       "url": "https://earthquake.usgs.gov/product/dyfi/us7000tymu/us/1794868488478/dyfi_geo_10km.geojson",
+       "sha256": "SRt98lxuqg4wbvGdPlZH7ZuWV5n1kHLC1kK8Bxvxy+o="
+      }
+     }
+    }
+   ]
+  }
+ }
+}

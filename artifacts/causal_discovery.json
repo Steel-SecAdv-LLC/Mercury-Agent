@@ -1,0 +1,510 @@
+{
+  "schema": "mercury.research.causal_discovery/v1",
+  "generated_at": "2026-11-21T02:41:19.380041+00:00",
+  "protocol": {
+    "seed": 20261121,
+    "trials_per_scenario": 200,
+    "max_lag": 5,
+    "alpha": 0.05,
+    "planted_edge": "X0 -> X1 at lag 1, coefficient 0.5",
+    "scenarios": {
+      "noise_n200_d5": {
+        "truth": "none",
+        "kind": "plain"
+      },
+      "noise_n60_d4": {
+        "truth": "none",
+        "kind": "plain"
+      },
+      "ar1_0.7_n200_d5": {
+        "truth": "none",
+        "kind": "plain"
+      },
+      "common_shock_9sd_6rows_n200_d5": {
+        "truth": "none",
+        "kind": "disturbed"
+      },
+      "common_shift_3sd_40rows_n200_d5": {
+        "truth": "none",
+        "kind": "disturbed"
+      },
+      "common_shift_2sd_90rows_n200_d5": {
+        "truth": "none",
+        "kind": "disturbed"
+      },
+      "common_trend_n200_d5": {
+        "truth": "none",
+        "kind": "disturbed"
+      },
+      "random_walk_n200_d5": {
+        "truth": "none",
+        "kind": "disturbed"
+      },
+      "planted_n200_d4": {
+        "truth": "planted",
+        "kind": "planted"
+      },
+      "planted_with_shock_n200_d4": {
+        "truth": "planted",
+        "kind": "planted"
+      },
+      "planted_n100_d4": {
+        "truth": "planted",
+        "kind": "planted_short"
+      }
+    }
+  },
+  "bars": {
+    "false_edge_plain_max": 0.075,
+    "false_edge_disturbed_max": 0.1,
+    "planted_found_min_n200": 0.9,
+    "planted_other_edge_max": 0.1,
+    "stable_windows_declined_max": 0.15
+  },
+  "results": {
+    "noise_n200_d5": {
+      "prior": {
+        "false_edge": 0.93,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 0.03,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.025,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.02,
+        "not_assessed": 0.045
+      },
+      "first_difference": {
+        "false_edge": 0.045,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 0.025,
+        "not_assessed": 0.0
+      }
+    },
+    "noise_n60_d4": {
+      "prior": {
+        "false_edge": 0.76,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 0.035,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.03,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.025,
+        "not_assessed": 0.115
+      },
+      "first_difference": {
+        "false_edge": 0.115,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 0.03,
+        "not_assessed": 0.0
+      }
+    },
+    "ar1_0.7_n200_d5": {
+      "prior": {
+        "false_edge": 0.945,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 0.02,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.02,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.01,
+        "not_assessed": 0.76
+      },
+      "first_difference": {
+        "false_edge": 0.045,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 0.02,
+        "not_assessed": 0.0
+      }
+    },
+    "common_shock_9sd_6rows_n200_d5": {
+      "prior": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.01,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.01,
+        "not_assessed": 0.04
+      },
+      "first_difference": {
+        "false_edge": 0.065,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 0.01,
+        "not_assessed": 0.0
+      }
+    },
+    "common_shift_3sd_40rows_n200_d5": {
+      "prior": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.0,
+        "not_assessed": 1.0
+      },
+      "first_difference": {
+        "false_edge": 0.165,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      }
+    },
+    "common_shift_2sd_90rows_n200_d5": {
+      "prior": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.0,
+        "not_assessed": 1.0
+      },
+      "first_difference": {
+        "false_edge": 0.115,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      }
+    },
+    "common_trend_n200_d5": {
+      "prior": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.0,
+        "not_assessed": 1.0
+      },
+      "first_difference": {
+        "false_edge": 0.05,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      }
+    },
+    "random_walk_n200_d5": {
+      "prior": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0
+      },
+      "corrected": {
+        "false_edge": 0.105,
+        "not_assessed": 0.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.11,
+        "not_assessed": 0.0
+      },
+      "shipped": {
+        "false_edge": 0.0,
+        "not_assessed": 1.0
+      },
+      "first_difference": {
+        "false_edge": 0.015,
+        "not_assessed": 0.0
+      },
+      "residual_guard": {
+        "false_edge": 0.11,
+        "not_assessed": 0.0
+      }
+    },
+    "planted_n200_d4": {
+      "prior": {
+        "false_edge": 0.765,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "corrected": {
+        "false_edge": 0.02,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.02,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "shipped": {
+        "false_edge": 0.02,
+        "not_assessed": 0.045,
+        "true_edge": 0.955
+      },
+      "first_difference": {
+        "false_edge": 0.165,
+        "not_assessed": 0.0,
+        "true_edge": 0.995
+      },
+      "residual_guard": {
+        "false_edge": 0.02,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      }
+    },
+    "planted_with_shock_n200_d4": {
+      "prior": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "corrected": {
+        "false_edge": 1.0,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.03,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "shipped": {
+        "false_edge": 0.03,
+        "not_assessed": 0.04,
+        "true_edge": 0.96
+      },
+      "first_difference": {
+        "false_edge": 0.175,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      },
+      "residual_guard": {
+        "false_edge": 0.03,
+        "not_assessed": 0.0,
+        "true_edge": 1.0
+      }
+    },
+    "planted_n100_d4": {
+      "prior": {
+        "false_edge": 0.745,
+        "not_assessed": 0.0,
+        "true_edge": 0.995
+      },
+      "corrected": {
+        "false_edge": 0.005,
+        "not_assessed": 0.0,
+        "true_edge": 0.92
+      },
+      "corrected_trimmed": {
+        "false_edge": 0.005,
+        "not_assessed": 0.0,
+        "true_edge": 0.915
+      },
+      "shipped": {
+        "false_edge": 0.005,
+        "not_assessed": 0.235,
+        "true_edge": 0.7
+      },
+      "first_difference": {
+        "false_edge": 0.08,
+        "not_assessed": 0.0,
+        "true_edge": 0.88
+      },
+      "residual_guard": {
+        "false_edge": 0.005,
+        "not_assessed": 0.0,
+        "true_edge": 0.915
+      }
+    }
+  },
+  "verdicts": {
+    "prior": {
+      "false_edge_plain": {
+        "worst": 0.945,
+        "met": false
+      },
+      "false_edge_disturbed": {
+        "worst": 1.0,
+        "met": false
+      },
+      "planted_found_n200": {
+        "worst": 1.0,
+        "met": true
+      },
+      "planted_other_edge": {
+        "worst": 1.0,
+        "met": false
+      },
+      "stable_windows_declined": {
+        "worst": 0.0,
+        "met": true
+      }
+    },
+    "corrected": {
+      "false_edge_plain": {
+        "worst": 0.035,
+        "met": true
+      },
+      "false_edge_disturbed": {
+        "worst": 1.0,
+        "met": false
+      },
+      "planted_found_n200": {
+        "worst": 1.0,
+        "met": true
+      },
+      "planted_other_edge": {
+        "worst": 1.0,
+        "met": false
+      },
+      "stable_windows_declined": {
+        "worst": 0.0,
+        "met": true
+      }
+    },
+    "corrected_trimmed": {
+      "false_edge_plain": {
+        "worst": 0.03,
+        "met": true
+      },
+      "false_edge_disturbed": {
+        "worst": 1.0,
+        "met": false
+      },
+      "planted_found_n200": {
+        "worst": 1.0,
+        "met": true
+      },
+      "planted_other_edge": {
+        "worst": 0.03,
+        "met": true
+      },
+      "stable_windows_declined": {
+        "worst": 0.0,
+        "met": true
+      }
+    },
+    "shipped": {
+      "false_edge_plain": {
+        "worst": 0.025,
+        "met": true
+      },
+      "false_edge_disturbed": {
+        "worst": 0.01,
+        "met": true
+      },
+      "planted_found_n200": {
+        "worst": 0.955,
+        "met": true
+      },
+      "planted_other_edge": {
+        "worst": 0.03,
+        "met": true
+      },
+      "stable_windows_declined": {
+        "worst": 0.76,
+        "met": false
+      }
+    },
+    "first_difference": {
+      "false_edge_plain": {
+        "worst": 0.115,
+        "met": false
+      },
+      "false_edge_disturbed": {
+        "worst": 0.165,
+        "met": false
+      },
+      "planted_found_n200": {
+        "worst": 0.995,
+        "met": true
+      },
+      "planted_other_edge": {
+        "worst": 0.175,
+        "met": false
+      },
+      "stable_windows_declined": {
+        "worst": 0.0,
+        "met": true
+      }
+    },
+    "residual_guard": {
+      "false_edge_plain": {
+        "worst": 0.03,
+        "met": true
+      },
+      "false_edge_disturbed": {
+        "worst": 1.0,
+        "met": false
+      },
+      "planted_found_n200": {
+        "worst": 1.0,
+        "met": true
+      },
+      "planted_other_edge": {
+        "worst": 0.03,
+        "met": true
+      },
+      "stable_windows_declined": {
+        "worst": 0.0,
+        "met": true
+      }
+    }
+  },
+  "adopted": "shipped",
+  "refused": [
+    "first_difference",
+    "residual_guard"
+  ],
+  "open_problem": "shipped declines most strongly autocorrelated windows (the coverage bar is not met there). What is missing is a test of level stability that is valid under autocorrelation and still has power against a shift inside the window: the residual guard is valid and has none; the block-mean check has power and over-declines."
+}

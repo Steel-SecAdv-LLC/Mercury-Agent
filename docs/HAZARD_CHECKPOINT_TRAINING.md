@@ -46,7 +46,7 @@ for owner ratification in the PR, not silently discarded.
 
 | Hook | Checkpoint | Cat. | Data (real, sha256-pinned) | Result |
 |---|---|---|---|---|
-| `solar_storm` | `solar_storm_geomag` | **a** | NASA SPDF OMNI2 hourly solar wind + observed Kp, 2005–2024 (20 files), GFZ Kp cross-check | **SHIPPED** — Kp MAE 0.574 vs 1.054; dual-rule operating point (see below): storm recall **75.9% vs 57.4%**, FAR **2.61% vs 3.14%**, CSI 0.386 vs 0.265, AUC 0.972 vs 0.845 |
+| `solar_storm` | `solar_storm_geomag` | **a** | NASA SPDF OMNI2 hourly solar wind + observed Kp, 2005–2024 (20 files), GFZ Kp cross-check | **SHIPPED** — Kp MAE 0.575 vs 1.054; dual-rule operating point (see below): storm recall **77.0% vs 61.1%**, FAR **3.63% vs 4.77%**, CSI 0.406 vs 0.281, AUC 0.966 vs 0.816 |
 | `hurricane_wind` | `hurricane_era5` | **a** | ARCO-ERA5 10 m u/v wind patches (public GCS mirror, no CDS key) + IBTrACS v04r01 labels, 1990–2024 | **SHIPPED** — intensity MAE **5.39 vs 6.12 kt** (positives 14.3 vs 17.4), detection AUC 0.998, category acc 60.8% vs 54.7%; all constraints pass |
 | `wildfire_ignition` | `wildfire_firms` | **a** | NASA FIRMS VIIRS science-quality country archives (keyless), California 0.04° grid, 2012–2024 | **SHIPPED** — next-day AUC **0.875 vs 0.661** (persistence baseline; CI [0.197, 0.233]); recall 67.0% vs 59.3%, FAR **9.6% vs 29.1%**, Brier 0.134 vs 0.220; op point τ=0.579 |
 | `landslide_stability` | `landslide_coolr` | **a** | NASA GLC/COOLR events (AGOL mirror) + CHIRPS v2.0 daily rainfall vs 1981–2006 climatology, 2007–2024 | **SHIPPED** — AUC **0.8498 vs 0.8064** (train-fitted Caine-style rain baseline; CI [0.031, 0.057]); recall 65.5% vs 61.9%, FAR 14.5% vs 15.9%, Brier 0.157 vs 0.266; op point τ=0.6665 |
@@ -82,13 +82,17 @@ below):
 
 | Metric | Learned | Physics (Boyle index) |
 |---|---|---|
-| Kp MAE | **0.574** | 1.054 |
+| Kp MAE | **0.575** | 1.054 |
 | Kp RMSE | **0.754** | 1.344 |
-| G-bucket accuracy | **96.0%** | 94.8% |
-| Storm (Kp≥5) AUC | **0.972** | 0.845 |
-| Storm recall @ deployed rule | **75.9%** | 57.4% |
-| Storm false-alarm rate @ deployed rule | **2.61%** | 3.14% |
-| Storm CSI @ deployed rule | **0.386** | 0.265 |
+| G-bucket accuracy | 94.4% | 92.3% |
+| Storm (Kp≥5) AUC | **0.966** | 0.816 |
+| Storm recall @ deployed rule | **77.0%** | 61.1% |
+| Storm false-alarm rate @ deployed rule | **3.63%** | 4.77% |
+| Storm CSI @ deployed rule | **0.406** | 0.281 |
+
+G-bucket accuracy is in the table for completeness and is not a result: storms
+are 3.9% of the test hours, so predicting "no storm" every hour scores 96.1%,
+above both columns.
 
 The merit gate compares the primary metric (Kp MAE): learned wins by 45%,
 **and** enforces secondary non-regression constraints on storm recall,
@@ -98,7 +102,7 @@ false-alarm rate, and AUC at the deployed operating point — all pass.
 regresses toward the mean on a ~3%-storm dataset, so thresholding it at Kp≥5
 alone halves recall versus physics (the first shipped revision did exactly
 that: 30.4% recall). The BCE-trained storm-probability head carries a far
-better ranking (AUC 0.972), so storm **onset** now uses a **dual rule**,
+better ranking (AUC 0.966), so storm **onset** now uses a **dual rule**,
 `(kp_pred ≥ 5) OR (storm_prob ≥ τ)`, with τ selected on the validation years
 to maximise CSI subject to a recall floor at `max(physics recall, 0.55)` and
 a false-alarm ceiling at `0.8 × physics FAR`. The threshold is carried in the

@@ -126,7 +126,10 @@ def test_gosnn_integration_fit_wires_live_conformal_intervals() -> None:
     assert result.calibration_method == "auto"
     assert result.ethical_compliance is True
     intervals = result.confidence_intervals
-    assert intervals["coverage_level"] == 0.9
+    # The interval reports the coverage it achieves: this fixture leaves 8
+    # calibration scores, which bound coverage at 8/9, short of the 0.9 asked
+    # for. The certificate said 0.9 regardless until the clamp was surfaced.
+    assert intervals["coverage_level"] == pytest.approx(8.0 / 9.0)
     lower_bound = intervals["lower_bound"]
     upper_bound = intervals["upper_bound"]
     assert isinstance(lower_bound, np.ndarray)

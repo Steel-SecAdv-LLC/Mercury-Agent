@@ -27,6 +27,7 @@ concrete implementation cannot skip them:
 from __future__ import annotations
 
 import abc
+import re
 from typing import Any
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
@@ -67,6 +68,14 @@ _PURPOSE_KEYWORDS: str = (
     "audit verify inform protect explain evidence fair oversight "
     "transparency care help support honesty"
 )
+
+
+#: A run of numbers as ``str`` prints them: "0.25, 1e-05, -3". Nothing in it
+#: but digits, signs, points and an exponent's ``e``, so no word.
+_NUMBERS_PRINTED = re.compile(r"(?<![\w.])[-+]?\d[\d.eE+-]*(?:[,\s]+[-+]?\d[\d.eE+-]*)+(?![\w.])")
+_A_LETTER = re.compile(r"[^\W\d_]")
+#: A numpy number as a container prints it: ``np.float64(0.25)`` is 0.25.
+_NUMPY_SCALAR = re.compile(r"\bnp\.(?:float|int|uint|complex)\d*\(([^()]*)\)")
 
 
 class ReasoningBackend(abc.ABC):
@@ -141,9 +150,17 @@ class ReasoningBackend(abc.ABC):
     def _enforce(self, boundary: str, context: ReasoningContext) -> None:
         """Run Mercury's dual hard ethical gate for one reasoning operation.
 
-        Mirrors the narrative-voice contract: benevolence first, σ_Immutable
-        second, both fail-closed. On violation the call raises and no
-        generated content is surfaced.
+        Mirrors the narrative-voice contract: the harm-uplift gate first,
+        σ_Immutable second, both fail-closed. On violation the call raises
+        and no generated content is surfaced.
+
+        The harm gate reads the request twice, each within what one decision
+        may carry: the context as the data it is, and the evidence as every
+        prompt here prints it (``str``). Read only as data, an object that
+        says what it holds when printed reached the model unread; read only
+        as printed, text the printing escapes (a zero-width character between
+        letters) was not put back together. Handed over as one payload the
+        two counted twice, and 600,000 characters were refused as too many.
 
         Args:
             boundary: Fully-qualified boundary name for the audit trail.
@@ -151,15 +168,35 @@ class ReasoningBackend(abc.ABC):
         """
         if not self.ethics_enabled:
             return
-        from omni_mercury_engine.cognitive.decision_gate import DecisionSubject
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
 
         safe_domain = sanitize_domain(context.domain)
+        operation = "generate a natural-language explanation of a Mercury finding"
+        request = str(context.summary or "")
+        # As the prompts print it, which is with ``str`` whatever it is: an
+        # empty dict, a frame, an object with a length of nothing. Its
+        # numbers are not words: 70,000 readings print to 1.2 million
+        # characters, and counted as text they were a refusal for size.
+        printed = _NUMBERS_PRINTED.sub(" ", _NUMPY_SCALAR.sub(r"\1", str(context.evidence)))
+        if _A_LETTER.search(printed):
+            enforce_decision_boundary(
+                DecisionSubject(
+                    surface=boundary,
+                    operation=operation,
+                    domain=safe_domain,
+                    request=request,
+                    payload=printed,
+                )
+            )
         enforce_dual_ethical_gate(
             subject=DecisionSubject(
                 surface=boundary,
-                operation="generate a natural-language explanation of a Mercury finding",
+                operation=operation,
                 domain=safe_domain,
-                request=str(context.summary or ""),
+                request=request,
                 payload=context,
             ),
             sigma_gate=self._sigma_gate,

@@ -38,7 +38,18 @@ class StatisticalEncoder(nn.Module):
 
 
 class TemporalEncoder(nn.Module):
-    """LSTM-based encoder for time series features (handles both sequential and pre-extracted)."""
+    """LSTM-based encoder for time series features (handles both sequential and pre-extracted).
+
+    The sequence LSTM reads one value per time step (``input_size=1``), and
+    that shape is in the released default fusion checkpoint
+    (``encoders.temporal.lstm.weight_ih_l0`` is ``[128, 1]`` in
+    ``models/checkpoints/default_fusion.pt``, which a wider LSTM cannot
+    load), so it is kept. A sequence of ``n_features`` values per step is therefore
+    encoded one feature channel at a time, each channel a univariate series
+    through the same LSTM, and the channels' final hidden states are
+    averaged. Handing the LSTM a ``[batch, seq_len, input_dim]`` tensor
+    directly, as ``forward`` used to, raised for any ``input_dim`` but 1.
+    """
 
     def __init__(
         self,
@@ -51,6 +62,8 @@ class TemporalEncoder(nn.Module):
         super().__init__()
         self.input_dim = input_dim
         self.lstm = nn.LSTM(
+            # One value per step; see the class docstring before changing it:
+            # a different size cannot load the released default checkpoint.
             input_size=1,
             hidden_size=hidden_dim,
             num_layers=num_layers,
@@ -66,15 +79,20 @@ class TemporalEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Args:.
 
-            x: [batch_size, seq_len, input_dim] - Time series data OR
+            x: [batch_size, seq_len, n_features] - Time series data, any
+               number of features per step (``input_dim`` or 1 included) OR
                [batch_size, input_dim] - Pre-extracted embeddings
 
         Returns:
             embedding: [batch_size, output_dim]
         """
         if x.dim() == 3:
-            _lstm_out, (hidden, _) = self.lstm(x)
-            last_hidden = hidden[-1]
+            batch_size, seq_len, n_features = x.shape
+            # Each feature channel is its own univariate series:
+            # [batch, seq, features] -> [batch * features, seq, 1].
+            channels = x.transpose(1, 2).reshape(batch_size * n_features, seq_len, 1)
+            _lstm_out, (hidden, _) = self.lstm(channels)
+            last_hidden = hidden[-1].reshape(batch_size, n_features, -1).mean(dim=1)
             embedding = self.projection(last_hidden)
         elif x.dim() == 2:
             embedding = self.embedding_projection(x)

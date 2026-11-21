@@ -12,6 +12,7 @@ marginal-gain ablation. See ``docs/DORMANCY_LEDGER.md`` §2b.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -20,6 +21,10 @@ from omni_mercury_engine.core.base import (
     BaseDetector,
     _deserialized_state,
     _serializable_state,
+)
+from omni_mercury_engine.core.vector_calibration import (
+    VectorConformalBinary,
+    VectorIsotonicCalibrator,
 )
 from omni_mercury_engine.detectors._calibration import (
     batch_evidence,
@@ -34,6 +39,8 @@ from omni_mercury_engine.detectors.provenance import DecisionSource
 if TYPE_CHECKING:
     import torch
 
+logger = logging.getLogger(__name__)
+
 __all__ = ["MathArrestDetector"]
 
 
@@ -46,6 +53,13 @@ class MathArrestDetector(BaseDetector):
 
     #: Share of the fit series the installed operating point leaves above it.
     CALIBRATION_ALPHA = 0.05
+
+    #: Fit-series quantile that sets the cross-probe consistency threshold: a
+    #: scored sample whose probes agree on the sign of its deviation (after
+    #: fit-time median centering) less than the bottom 5% of the fit series
+    #: is routed to the conformal don't-know set instead of being forced to a
+    #: point decision.
+    CONSISTENCY_QUANTILE = 0.05
 
     decision_source = DecisionSource(
         kind="experimental",
@@ -96,6 +110,14 @@ class MathArrestDetector(BaseDetector):
         #: Sorted fused scores of the fit series: the reference the operating
         #: point and the conformal p-values are taken from.
         self._reference_scores: np.ndarray[Any, Any] | None = None
+        #: Opt-in supervised vector calibration over the (probes + fused)
+        #: score matrix; ``None`` until :meth:`fit_vector_calibration`.
+        self._vector_calibrator: VectorIsotonicCalibrator | None = None
+        self._vector_conformal: VectorConformalBinary | None = None
+        #: Cross-probe consistency gate state, set at fit: each probe's
+        #: fit-series median and the fit-series consistency quantile.
+        self._probe_medians: dict[str, float] = {}
+        self._consistency_threshold: float | None = None
 
     def is_fitted(self) -> bool:
         """Return ``True`` once the instrument's probes have been fitted."""
@@ -122,7 +144,8 @@ class MathArrestDetector(BaseDetector):
         series = self._series(data)
         self._arrest.fit(series)
         self._is_fitted = True
-        fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
+        results = self._arrest.scored_results(series)
+        fused = np.asarray(self._arrest.fuse_results(results), dtype=np.float64).reshape(-1)
         fused = fused[np.isfinite(fused)]
         self._reference_scores = np.sort(fused) if fused.size else None
         if not self._threshold_is_configured and not self._auto_calibrate:
@@ -130,7 +153,44 @@ class MathArrestDetector(BaseDetector):
             if cut is not None:
                 self.threshold = cut
                 self._arrest.threshold = cut
+        # Cross-probe consistency gate: fit-time medians anchor the sign of
+        # each probe's deviation, and the fit series' own consistency
+        # distribution sets the don't-know threshold.
+        self._probe_medians = {r.probe_name: float(np.median(r.deviation_scores)) for r in results}
+        consistency = self._consistency(results)
+        self._consistency_threshold = (
+            float(np.quantile(consistency, self.CONSISTENCY_QUANTILE)) if consistency.size else None
+        )
         return self
+
+    def _consistency(self, results: list[Any]) -> np.ndarray[Any, Any]:
+        """Magnitude-weighted sign agreement of the probes, per sample.
+
+        Each probe's scores are centered by that probe's fit-series median;
+        a sample's consistency is ``|sum_j sign_j * m_j| / sum_j m_j`` with
+        ``m_j`` the probe's absolute deviation from its median — 1.0 when
+        every instrument points the same way, 0.0 when strong deviations
+        split evenly. The magnitude weighting is what makes the statistic
+        continuous: the bare fraction-of-signs is quantized to k/21 and piles
+        15–21% of the fit series onto its floor bin, which no quantile
+        threshold can cut usefully. A sample with every probe exactly at its
+        median carries no disagreement evidence and reads 1.0.
+        """
+        usable = [r for r in results if r.probe_name in self._probe_medians]
+        if not usable:
+            return np.array([], dtype=np.float64)
+        width = min(len(r.deviation_scores) for r in usable)
+        centered = np.column_stack(
+            [
+                np.asarray(r.deviation_scores[:width], dtype=np.float64)
+                - self._probe_medians[r.probe_name]
+                for r in usable
+            ]
+        )
+        magnitude = np.abs(centered).sum(axis=1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            agreement = np.abs(centered.sum(axis=1)) / magnitude
+        return np.where(magnitude > 0.0, np.clip(agreement, 0.0, 1.0), 1.0)
 
     def _learned_state(self) -> dict[str, Any]:
         """Hand the checkpoint the instrument's fitted state, probe by probe.
@@ -149,6 +209,14 @@ class MathArrestDetector(BaseDetector):
             "reference_scores": self._reference_scores,
             "arrest_threshold": float(self._arrest.threshold),
             "arrest_is_fitted": bool(self._arrest._is_fitted),
+            "vector_calibrator": (
+                None if self._vector_calibrator is None else self._vector_calibrator.to_state()
+            ),
+            "vector_conformal": (
+                None if self._vector_conformal is None else self._vector_conformal.to_state()
+            ),
+            "probe_medians": dict(self._probe_medians),
+            "consistency_threshold": self._consistency_threshold,
         }
         # Stored verbatim, so it must pack its own numpy: the weights_only
         # unpickler refuses numpy's reconstruction globals.
@@ -173,6 +241,107 @@ class MathArrestDetector(BaseDetector):
         self._arrest.threshold = float(state.get("arrest_threshold", self.threshold))
         self._arrest._is_fitted = bool(state.get("arrest_is_fitted", False))
         self._is_fitted = self._arrest._is_fitted
+        self._probe_medians = dict(state.get("probe_medians", {}))
+        restored_threshold = state.get("consistency_threshold")
+        self._consistency_threshold = (
+            None if restored_threshold is None else float(restored_threshold)
+        )
+        calibrator_state = state.get("vector_calibrator")
+        conformal_state = state.get("vector_conformal")
+        if calibrator_state is not None:
+            self._vector_calibrator = VectorIsotonicCalibrator.from_state(calibrator_state)
+            if conformal_state is not None:
+                self._vector_conformal = VectorConformalBinary.from_state(
+                    conformal_state, self._vector_calibrator
+                )
+
+    def _vector_matrix(self, series: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """The (probes + fused) score matrix the vector calibration consumes.
+
+        One column per fitted probe (the instrument's own breakdown) plus the
+        fused score as the final column — the full vector of Mercury's probe
+        and detector scores, never an external feature.
+        """
+        results = self._arrest.scored_results(series)
+        fused = np.asarray(self._arrest.fuse_results(results), dtype=np.float64).reshape(-1)
+        return self._matrix_from(results, fused, n_rows=len(series))
+
+    @staticmethod
+    def _matrix_from(
+        results: list[Any], fused: np.ndarray[Any, Any], n_rows: int
+    ) -> np.ndarray[Any, Any]:
+        """Assemble the calibration matrix from an existing scoring pass."""
+        if fused.size == 0:
+            fused = np.zeros(n_rows, dtype=np.float64)
+        if not results:
+            return fused.reshape(-1, 1)
+        width = min(len(fused), *(len(r.deviation_scores) for r in results))
+        stacked = [np.asarray(r.deviation_scores[:width], dtype=np.float64) for r in results]
+        stacked.append(fused[:width])
+        return np.column_stack(stacked)
+
+    def fit_vector_calibration(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        labels: np.ndarray[Any, Any],
+        *,
+        alpha: float = 0.1,
+        seed: int = 0,
+    ) -> MathArrestDetector:
+        """Fit the opt-in vector calibration on a labelled calibration set.
+
+        Two instruments over the (probes + fused) score matrix, trained on
+        Mercury's own outputs only:
+
+        * a :class:`VectorIsotonicCalibrator` mapping the weighted probe
+          index to a calibrated anomaly probability, and
+        * a :class:`VectorConformalBinary` producing {normal, anomaly}
+          prediction sets with the finite-sample ``1 − alpha`` per-class
+          coverage guarantee.
+
+        The labelled set is split in two internally (stratified, seeded):
+        the first half fits the calibrator, the second supplies the conformal
+        nonconformity scores — reusing the calibrator's own fitting fold for
+        conformal calibration would break the exchangeability the guarantee
+        rests on. Once fitted, :meth:`detect` applies the calibrated
+        probability in the decision path and serves the prediction sets.
+
+        Args:
+            data: Labelled calibration rows/series (never the fit series).
+            labels: Binary ground truth, 1 marking anomalies.
+            alpha: Conformal miscoverage level.
+            seed: Seed for the internal stratified split.
+
+        Returns:
+            ``self``.
+
+        Raises:
+            RuntimeError: If the detector has not been fitted.
+            ValueError: If a class is missing from either internal fold.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("MathArrestDetector has not been fitted. Call fit() first.")
+        series = self._series(data)
+        y = np.asarray(labels, dtype=np.int64).reshape(-1)
+        matrix = self._vector_matrix(series)
+        if len(y) < len(matrix):
+            raise ValueError(f"labels ({len(y)}) shorter than scored rows ({len(matrix)})")
+        y = y[: len(matrix)]
+
+        rng = np.random.RandomState(seed)
+        first = np.zeros(len(y), dtype=bool)
+        for cls in (0, 1):
+            rows = np.where(y == cls)[0]
+            rng.shuffle(rows)
+            first[rows[: len(rows) // 2]] = True
+        if not (first.any() and (~first).any()):
+            raise ValueError("calibration set too small to split into two labelled folds")
+
+        calibrator = VectorIsotonicCalibrator().fit(matrix[first], y[first])
+        conformal = VectorConformalBinary(alpha=alpha).fit(matrix[~first], y[~first], calibrator)
+        self._vector_calibrator = calibrator
+        self._vector_conformal = conformal
+        return self
 
     def extract_features(self, data: np.ndarray[Any, Any] | torch.Tensor) -> np.ndarray[Any, Any]:
         """Per-sample fusion features: one column per probe that fitted.
@@ -204,9 +373,25 @@ class MathArrestDetector(BaseDetector):
         ``batch_anomaly`` fields are present once a fit reference exists.
         """
         series = self._series(data)
-        fused = np.asarray(self._arrest.detect(series), dtype=np.float64).reshape(-1)
+        # One 21-probe scoring pass serves the fused score, the per-probe
+        # columns and the attributions (it used to be one pass per view).
+        results = self._arrest.scored_results(series)
+        fused = np.asarray(self._arrest.fuse_results(results), dtype=np.float64).reshape(-1)
+        if fused.size == 0:
+            fused = np.zeros(len(series), dtype=np.float64)
         scores = finite_scores(fused, detector=self.name).astype(np.float32)
-        columns = self._arrest.per_probe_scores(series) if self._is_fitted else {}
+        columns = {r.probe_name: r.deviation_scores for r in results}
+        attributions: dict[str, Any] = {}
+        if results:
+            from omni_mercury_engine.detectors.math_arrest.domain_affinity import (
+                get_affinity_order,
+            )
+
+            order = get_affinity_order(self._arrest._domain, [r.probe_name for r in results])
+            ordered, weights = self._arrest._fusion.effective_weights(
+                results, affinity_order=order, decorrelator=self._arrest._decorrelator
+            )
+            attributions = self._arrest._fusion.leave_one_out_attribution(ordered, weights)
         result: dict[str, Any] = {
             "anomaly_score": float(scores.max()) if scores.size else 0.0,
             "scores": scores,
@@ -215,10 +400,65 @@ class MathArrestDetector(BaseDetector):
             "threshold": float(self.threshold),
             "probe_names": list(columns),
             "probe_scores": {k: np.asarray(v, dtype=np.float32) for k, v in columns.items()},
+            # Per-sample leave-one-probe-out attribution of the fused score:
+            # which mathematical instruments drove each decision, persisted
+            # alongside the score itself.
+            "probe_attributions": {
+                k: np.asarray(v, dtype=np.float32) for k, v in attributions.items()
+            },
             # 21 probes are not 21 dimensions: 11.64-16.00 measured on the
             # recorded NAB files, so the probe count is not the evidence count.
             "effective_probe_count": float(self._arrest._decorrelator.effective_probe_count),
             "redundant_probe_pairs": len(self._arrest._decorrelator.redundant_pairs),
         }
         result.update(batch_evidence(self._reference_scores, scores, self.CALIBRATION_ALPHA))
+        # Cross-probe consistency: how much the 21 instruments agree on each
+        # sample's deviation sign, against the fit-time threshold.
+        consistency = self._consistency(results)
+        low_consistency = np.zeros(len(scores), dtype=bool)
+        if consistency.size and self._consistency_threshold is not None:
+            width = min(len(consistency), len(scores))
+            result["probe_consistency"] = consistency.astype(np.float32)
+            low_consistency[:width] = consistency[:width] < self._consistency_threshold
+            result["low_consistency"] = low_consistency
+            result["consistency_threshold"] = float(self._consistency_threshold)
+        if self._vector_calibrator is not None and self._vector_conformal is not None:
+            # Opt-in supervised vector calibration: the calibrated probability
+            # is the decision score (item: the isotonic model is *applied*, not
+            # merely fitted), and the conformal prediction sets carry the
+            # finite-sample per-class coverage guarantee. The raw fused scores
+            # above are untouched, so the uncalibrated surface stays readable.
+            matrix = self._matrix_from(results, fused, n_rows=len(series))
+            if matrix.shape[1] != len(self._vector_calibrator.weights):
+                # A probe failed on this batch, so the matrix is narrower than
+                # the fitted column layout. The ensemble is fail-soft: serve
+                # the raw verdict rather than crash the calibrated branch.
+                logger.warning(
+                    "vector calibration skipped: %d score columns against the "
+                    "calibrator's %d (a probe failed on this batch); serving "
+                    "the uncalibrated verdict",
+                    matrix.shape[1],
+                    len(self._vector_calibrator.weights),
+                )
+                return result
+            calibrated = self._vector_calibrator.calibrate(matrix)
+            width = len(calibrated)
+            result["calibrated_scores"] = calibrated.astype(np.float32)
+            result["calibrated_threshold"] = 0.5
+            result["is_anomaly"] = np.asarray(calibrated > 0.5)
+            if width < len(scores):
+                # Shorter probe columns (a probe that failed on this batch):
+                # fall back to the raw verdict for the uncovered tail.
+                tail = scores[width:] > self.threshold
+                result["is_anomaly"] = np.concatenate([calibrated > 0.5, tail])
+            result["conformal_p_values"] = self._vector_conformal.p_values(matrix)
+            sets = self._vector_conformal.predict_sets(matrix)
+            # Consistency gate: a sample the instruments cannot agree on is
+            # routed to the don't-know set — both classes stay in play — not
+            # forced to a point decision.
+            routed = low_consistency[: len(sets)]
+            sets[routed] = True
+            result["conformal_sets"] = sets
+            result["conformal_alpha"] = float(self._vector_conformal.alpha)
+            result["dont_know_routed"] = routed
         return result

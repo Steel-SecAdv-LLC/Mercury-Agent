@@ -64,3 +64,20 @@ def test_directive_detector(sample_data: Any) -> None:
 
     assert "scores" in result
     assert "pcp_scores" in result
+
+
+def test_a_fitted_directive_detector_copies_and_pickles(sample_data: Any) -> None:
+    """It holds a ``threading.local``; ``copy.deepcopy`` and ``pickle`` raised ``TypeError``."""
+    import copy
+    import pickle
+
+    import numpy as np
+
+    detector = SigmaDirectiveDetector()
+    detector.fit(sample_data)
+    detector.clear_memory()
+    expected = np.asarray(detector.detect(sample_data)["scores"])
+
+    for twin in (copy.deepcopy(detector), pickle.loads(pickle.dumps(detector))):
+        assert twin._thread_local is not detector._thread_local
+        np.testing.assert_array_equal(np.asarray(twin.detect(sample_data)["scores"]), expected)

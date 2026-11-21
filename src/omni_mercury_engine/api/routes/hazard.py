@@ -17,6 +17,7 @@ from typing import Any, Literal
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
@@ -134,36 +135,67 @@ async def visualize_hazard(
     user: User | None = Depends(_get_optional_user),
 ) -> Response:
     """Render hazard diagnostics to PNG or GeoJSON."""
+    # This surface had neither the fail-closed route gate nor an executor
+    # offload: it was the one detection-adjacent route a caller could feed
+    # unbounded arrays and burn the event loop on (detector run + matplotlib
+    # render are CPU-bound). It now passes the same choke point as /fusion,
+    # /three-r, /tier and /rca — which also bounds the payload at the gate's
+    # 5M-value / 1 MiB-text caps — and renders on the threadpool.
+    from omni_mercury_engine.api.routes.detection import _enforce_route_gate
+
+    _enforce_route_gate(
+        "api.visualize_hazard",
+        "hazard diagnostics rendering over caller-supplied arrays",
+        {
+            "hazard": request.hazard,
+            "diagnostics": request.diagnostics,
+            "arrays": request.arrays,
+            "params": request.params,
+        },
+    )
     try:
         from omni_mercury_engine.detectors.hazard_visuals import (
             build_hazard_geojson,
             render_hazard_png,
         )
 
-        diagnostics = _resolve_diagnostics(request)
+        def _render() -> Response:
+            diagnostics = _resolve_diagnostics(request)
+            if request.format == "geojson":
+                feature_collection = build_hazard_geojson(
+                    diagnostics, geotransform=request.geotransform
+                )
+                return Response(
+                    content=json.dumps(feature_collection),
+                    media_type="application/geo+json",
+                )
+            png = render_hazard_png(diagnostics)
+            return Response(content=png, media_type="image/png")
 
-        if request.format == "geojson":
-            feature_collection = build_hazard_geojson(
-                diagnostics, geotransform=request.geotransform
-            )
-            return Response(
-                content=json.dumps(feature_collection),
-                media_type="application/geo+json",
-            )
+        return await run_in_threadpool(_render)
 
-        png = render_hazard_png(diagnostics)
-        return Response(content=png, media_type="image/png")
-
+    except HTTPException:
+        # The route gate's shaped 403/413/503 must pass through untouched.
+        raise
     except ValueError as e:
         # Bad request: unknown hazard, malformed arrays, missing geotransform,
-        # or a detector that computes no zonal output.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # or a detector that computes no zonal output. First line, clipped:
+        # deep detector ValueErrors can carry internal detail.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except ImportError as e:
         # Slim install: torch (detector run) or matplotlib (PNG) missing.
+        # The module name alone says which extra to install; the full
+        # ImportError text can name filesystem paths.
         logger.error("Hazard visualization stack unavailable: %s", e)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e),
+            detail=(
+                f"The hazard visualization stack is not available in this "
+                f"environment (missing: {getattr(e, 'name', None) or 'dependency'})."
+            ),
         ) from e
     except Exception as e:
         logger.error("Hazard visualization failed: %s", e)

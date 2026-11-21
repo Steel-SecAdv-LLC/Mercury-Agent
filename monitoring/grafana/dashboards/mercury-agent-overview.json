@@ -272,7 +272,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 12,
         "y": 1
       },
@@ -327,8 +327,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 3,
+        "x": 15,
         "y": 1
       },
       "id": 6,
@@ -390,8 +390,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
+        "w": 3,
+        "x": 18,
         "y": 1
       },
       "id": 7,
@@ -419,6 +419,66 @@
       ],
       "title": "Error Rate",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "count(omni_mercury_api_router_state{app=\"mercury-agent\",state=\"unavailable\"} == 1) or vector(0)",
+          "refId": "A"
+        }
+      ],
+      "title": "Routers Down",
+      "type": "stat",
+      "description": "API routers whose import failed at startup (api/router_manifest.py). Their routes answer 404 while /health reports healthy. 0 is the only good value; see docs/runbooks/api-router-unavailable.md."
     },
     {
       "collapsed": false,
@@ -1070,6 +1130,6 @@
   "timezone": "",
   "title": "Mercury-Agent Overview",
   "uid": "mercury-agent-overview",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

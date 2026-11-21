@@ -5,11 +5,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Mercury Agent</title>
   <link rel="stylesheet" href="/static/mercury.css">
   <script src="/static/common.js" defer></script>
 </head>
 <body data-page="index">
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="/">Mercury Agent</a>
     <nav aria-label="Account">
@@ -20,10 +22,11 @@
       <span data-nav-authed class="hidden">
         <a href="/dashboard">Dashboard</a>
       </span>
+      <a href="/watch">Watch</a>
       <a href="/console">Console</a>
     </nav>
   </header>
-  <main class="narrow">
+  <main id="main" class="narrow" tabindex="-1">
     <h1>Mercury Agent</h1>
     <p>Multi-domain anomaly detection, served as an API.</p>
     <div class="card">
@@ -31,6 +34,13 @@
       <p><a href="/register">Create an account</a> or <a href="/login">log in</a> to manage
         API keys and see your usage.</p>
       <p class="hint">API reference: <a href="/docs">/docs</a></p>
+    </div>
+    <div class="card">
+      <h2>Watch</h2>
+      <p>What Mercury is reading right now — earthquakes, geomagnetic activity, tsunami buoys,
+        river gauges, volcanoes, official warnings and disaster declarations — anything in them
+        worth your attention, and what to do about it.</p>
+      <p><a href="/watch">Open the watch</a></p>
     </div>
     <div class="card">
       <h2>Mercury Console</h2>

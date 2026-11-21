@@ -91,7 +91,7 @@ way from the shell.
 | Tool | What it does | Availability |
 |---|---|---|
 | `mercury_detect_anomaly` | Unsupervised batch anomaly detection over a numeric matrix (Mercury's statistical ensemble): per-row score, flag, threshold. | Always (numpy) |
-| `mercury_detect_fusion` | Flagship neuro-symbolic anomaly detection over a numeric matrix via the full OmniMercuryEngine fusion path: trained fusion network, GOSNN scalar integration, and the `sigma_Immutable` hard ethical gate. Returns a calibrated probability, decision, severity, per-detector importances, and gate metadata. | ML-gated, fail-closed |
+| `mercury_detect_fusion` | Flagship neuro-symbolic anomaly detection over a numeric matrix via the full OmniMercuryEngine fusion path: trained fusion network, GOSNN scalar integration, and the `sigma_Immutable` hard ethical gate. Returns a calibrated probability with its conformal certificate, the decision record, severity, per-row probabilities and flags, per-detector importances and uncertainties, model provenance, drift status, gate metadata, and (cognition on, the default) the cognitive analysis with its replayable discovery artifacts. | ML-gated, fail-closed |
 | `mercury_tier_detect` | Streaming detector-tier ensemble over a 1-D numeric series (torch-free): per-point calibrated probabilities and flags, cross-detector uncertainty, and — when `conformal_alpha` is set — flags with a distribution-free false-positive guarantee (FPR ≤ alpha). | Always (torch-free) |
 | `mercury_localize_root_cause` | Graph-based root-cause attribution for a multivariate anomaly (torch-free): a reverse personalised random walk over a causal/service adjacency ranks which node originated the fault. | Always (torch-free) |
 | `mercury_hazard_visualize` | Render a hazard detector's persisted diagnostics into a deterministic PNG (base64) or an RFC 7946 GeoJSON `FeatureCollection`; panels draw only what the detectors genuinely compute. | ML/hazard-gated |
@@ -104,6 +104,12 @@ way from the shell.
 | `mercury_check_provenance` | Enforce provenance at the output boundary: decide whether a candidate emission on a possibly hazardous topic may be emitted given its cited sources, using the weapons/mass-casualty gate to decide when attribution is required. | Always |
 | `mercury_self_consistency` | Score N sampled reasoning-path answers for disagreement and apply the calibrated decision rule (widen confidence toward 0.5 with disagreement, abstain when the paths are too split). | Always |
 | `mercury_value_metrics` | Return Mercury's intelligence-layer value board: each stream's declared, measured value metric with its baseline, target, and direction. | Always |
+| `mercury_verify_statements` | Verify statements against independent evidence: Bayesian corroboration over independence clusters, contradictions (Allen interval algebra, impossible travel), per-speaker consistency and verifiability. Never labels a person or an account. | Always |
+| `mercury_screen_intel_reports` | Counterintelligence screens over an intelligence report batch: source reliability, circular and coordinated reporting, fabrication screens, impossible travel. Flags are leads for an analyst, never a score or threat level. | Always |
+| `mercury_fuse_intelligence` | All-source fusion of screened intelligence reports into a threat assessment. The network decides only after merit-gated weights are admitted; the result says which path decided. | Always |
+| `mercury_adjudication_status` | Read-only status of the adjudication ledger: chain validity, inter-rater agreement, counts per split and level, work queues. | Always |
+| `mercury_concealed_information_test` | Score a Concealed Information Test session: recognition of event details, not deception; a finding is not evidence of guilt. | Off until the operator sets `MERCURY_HUMAN_SUBJECT_CAPABILITIES`; needs a stated purpose and a verified consent record |
+| `mercury_estimate_vital_signs` | Respiration and heart rate from contactless radar or Wi-Fi CSI; abstains rather than guesses. | Off until the operator sets `MERCURY_HUMAN_SUBJECT_CAPABILITIES`; needs a stated purpose and a lawful basis (consent, or vital interests with an incident attestation) |
 
 Every tool is **transparent and fail-closed**, exactly like the rest of Mercury:
 

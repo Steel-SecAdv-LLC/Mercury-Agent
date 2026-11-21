@@ -206,6 +206,45 @@ def _collapse(folded: str) -> str:
     return _COLLAPSE_RE.sub("", folded)
 
 
+#: What :data:`_COLLAPSE_RE` keeps: a run of it is one piece of the collapsed text.
+_PIECE_RE = re.compile(r"[a-z0-9\x80-\uffff]+")
+
+
+def _piece_edges(folded: str) -> bytearray:
+    """For each offset of ``_collapse(folded)`` and one past its end, whether a piece starts there.
+
+    The collapsed text is its pieces run together. A flagged offset is where
+    one piece ended and the next began, which is the only place a term put
+    back together from spaced-out letters can start or stop.
+    """
+    edges = bytearray()
+    for piece in _PIECE_RE.finditer(folded):
+        edges.append(1)
+        edges.extend(bytes(len(piece.group(0)) - 1))
+    edges.append(1)
+    return edges
+
+
+class Haystack(str):
+    """The bundle of :func:`normalized_haystack`, with where its collapsed variants lie.
+
+    A plain string to everything that searches it. :func:`term_in_haystack`
+    reads :attr:`collapsed` as well, to tell a term a writer spaced out from
+    one that only appears once the spaces between ordinary words are gone.
+
+    Attributes:
+        collapsed: ``(start, end, edges)`` for each collapsed variant in the
+            bundle: its span, and :func:`_piece_edges` of the text it was
+            collapsed from.
+        despaced: ``(start, end)`` for each variant with its punctuation
+            dropped and its spaces kept.
+    """
+
+    __slots__ = ("collapsed", "despaced")
+    collapsed: tuple[tuple[int, int, bytearray], ...]
+    despaced: tuple[tuple[int, int], ...]
+
+
 def _punct_strip(folded: str) -> str:
     """Drop intra-word punctuation but keep word boundaries (dotted multi-words)."""
     return _WHITESPACE_RE.sub(" ", _PUNCT_RE.sub("", folded)).strip()
@@ -646,6 +685,7 @@ def normalized_haystack(text: str) -> str:
     normalization bug never blinds the gate.
     """
     try:
+        text = _without_ordinary_words(text or "")
         base = base_normalize(text)
         folded = _fold_obfuscation(base)
         collapsed = _collapse(folded)
@@ -659,19 +699,44 @@ def normalized_haystack(text: str) -> str:
         # Phonetic-Cyrillic variant: transliterate then apply the same folds, so a
         # phonetic Cyrillic obfuscation (Cyrillic н/р/в mixed with leetspeak) also
         # normalizes toward Latin. Skipped when there is no Cyrillic (no cost).
+        # Each variant, and for a collapsed one the text it was collapsed from.
+        ordered: list[tuple[str, str | None]] = [
+            (base, None),
+            (folded, None),
+            (despaced, _DESPACED),
+            (rejoined, None),
+            (collapsed, folded),
+        ]
         translit = _cyrillic_translit(base)
-        translit_variants: tuple[str, ...] = ()
         if translit != base:
             t_folded = _fold_obfuscation(translit)
-            translit_variants = (t_folded, _collapse(t_folded), _punct_strip(t_folded))
-        # De-dup identical variants to keep the haystack compact.
+            ordered += [
+                (t_folded, None),
+                (_collapse(t_folded), t_folded),
+                (_punct_strip(t_folded), _DESPACED),
+            ]
+        # De-dup identical variants to keep the haystack compact. A collapsed
+        # variant is recorded with the edges of its pieces; one that equals a
+        # variant already present had no separators to lose and is that
+        # variant, words and all.
         seen: set[str] = set()
         variants: list[str] = []
-        for v in (base, folded, despaced, rejoined, collapsed, *translit_variants):
+        glued: list[tuple[int, int, bytearray]] = []
+        despaced_at: list[tuple[int, int]] = []
+        offset = 0
+        for v, made_from in ordered:
             if v and v not in seen:
                 seen.add(v)
                 variants.append(v)
-        return "\n".join(variants)
+                if made_from is _DESPACED:
+                    despaced_at.append((offset, offset + len(v)))
+                elif made_from is not None:
+                    glued.append((offset, offset + len(v), _piece_edges(made_from)))
+                offset += len(v) + 1
+        bundle = Haystack("\n".join(variants))
+        bundle.collapsed = tuple(glued)
+        bundle.despaced = tuple(despaced_at)
+        return bundle
     except Exception:
         return (text or "").lower()
 
@@ -710,11 +775,29 @@ def canonical_normalize(text: str) -> str:
     Fail-open: returns the plain lowercased text if normalization raises.
     """
     try:
-        rejoined = _rejoin_spaced_words(text or "")
-        base = base_normalize(rejoined or text)
-        return _fold_obfuscation(base)
+        return _fold_obfuscation(canonical_unfolded(text))
     except Exception:
         return (text or "").lower()
+
+
+def canonical_unfolded(text: str) -> str:
+    """What :func:`canonical_normalize` folds, before it is folded.
+
+    Lowercased, with its spaced-out letters put back together, and its digits
+    and symbols still digits and symbols. :func:`fold_obfuscation` of it is
+    the canonical form, character for character: a reader that needs to know
+    whether an "i" was written as one or as "1" compares the two.
+    """
+    return base_normalize(_rejoin_spaced_words(text or "") or text)
+
+
+def fold_obfuscation(base: str) -> str:
+    """``base`` with look-alike letters and leetspeak read as the letters they stand for.
+
+    One character for one, so a position in the result is the same position
+    in ``base``.
+    """
+    return _fold_obfuscation(base)
 
 
 def term_match_forms(term: str) -> tuple[str, ...]:
@@ -761,7 +844,162 @@ def term_in_haystack(haystack: str, forms: tuple[str, ...]) -> bool:
     Returns:
         ``True`` if the term is present in *any* normalization variant.
     """
-    return any(form in haystack for form in forms)
+    # A plural ending may follow a term of several words where its
+    # separators have gone ("nerve-agents"). After a single word put together
+    # from two it is the rest of the second: "so manes" was soman.
+    plurals = _PLURALS if any(not form.isalnum() for form in forms) else _PLURALS[:1]
+    return any(_occurs(haystack, form, plurals) for form in forms)
+
+
+def _occurs(haystack: str, form: str, plurals: tuple[str, ...] = ("",)) -> bool:
+    """Whether ``form`` occurs in ``haystack`` as a term a writer put there.
+
+    A substring test alone found "ricin" in "pricing" and, once the
+    separators were gone, "soman" in "so many", "tatp" in "what a tp-link"
+    and "ricin" in "fabric-insert": "how to make pricing tables" and "how do
+    I make so many cookies" were refused as production of a biological and
+    of a chemical agent. An occurrence counts:
+
+    * in a variant that keeps the text's words, wherever it is. The ordinary
+      words that hold a term (:data:`ORDINARY_WORDS_HOLDING_A_TERM`) are no
+      longer in the text by then (:func:`_without_ordinary_words`);
+    * in a variant made by taking separators out, where the writer's own
+      pieces make it: it starts where a piece of the original text starts
+      and ends where one ends, or one of ``plurals`` after it does. ``s a
+      r i n``, ``sa rin``, ``s.a.r.i.n`` and "nerve-agents" do; "so many"
+      ends inside "many" and "fabric-insert" starts inside "fabric".
+
+    Letters round a term do not hide it: "neurotoxins", ``xsarinx`` and a
+    request run together are found as any substring found them. So is a word
+    no list has that holds a term's letters (a reagent, a surname, "Minerve
+    agentic"), which is the price of that. What is given up is a term split
+    in two with other letters glued to the halves (``absar incd``).
+    """
+    at = haystack.find(form)
+    if at < 0:
+        return False  # nearly every term on nearly every text: one scan and out
+    collapsed = getattr(haystack, "collapsed", ())
+    despaced = getattr(haystack, "despaced", ())
+    size = len(form)
+    while at >= 0:
+        end = at + size
+        for start, stop, edges in collapsed:
+            if start <= at < stop:
+                ends = end - start
+                if edges[at - start] and any(
+                    edges[ends + len(plural)] and haystack.startswith(plural, end)
+                    for plural in plurals
+                    if ends + len(plural) < len(edges)
+                ):
+                    return True
+                break
+        else:
+            if not any(start <= at < stop for start, stop in despaced):
+                return True
+            if _starts_a_word(haystack, at) and _ends_a_word(haystack, end, plurals):
+                return True
+        at = haystack.find(form, at + 1)
+    return False
+
+
+#: What may follow a term where its end must be a word's end: nothing, or a plural.
+_PLURALS = ("", "s", "es")
+
+
+def _is_latin_word_char(char: str) -> bool:
+    """Only a Latin letter or a digit is the inside of a word: other scripts run words together."""
+    return char.isascii() and char.isalnum()
+
+
+def _starts_a_word(haystack: str, at: int) -> bool:
+    return not (at and _is_latin_word_char(haystack[at - 1]))
+
+
+def _ends_a_word(haystack: str, end: int, plurals: tuple[str, ...]) -> bool:
+    """Whether a word ends at ``end``, or once one of ``plurals`` after it is read."""
+    return any(
+        haystack.startswith(plural, end)
+        and not _is_latin_word_char(haystack[end + len(plural) : end + len(plural) + 1] or " ")
+        for plural in plurals
+    )
+
+
+#: Marks, in :func:`normalized_haystack`, a variant with its punctuation dropped.
+_DESPACED = "despaced"
+#: Stands where an ordinary word was. A letter, so that a pattern which reads
+#: a word reads one; not a Latin one, so that it spells nothing; and kept by
+#: every variant, so that the words on either side of it do not run together.
+_STANDS_FOR_A_WORD = "\u0298"
+
+
+def _without_ordinary_words(text: str) -> str:
+    """``text`` with each of :data:`ORDINARY_WORDS_HOLDING_A_TERM` taken out of it.
+
+    Taken out as the writer wrote them, before any variant is made: a whole
+    word, or a whole part of a name written in camelCase, with or without a
+    plural ``s``. "pricing-model", ``pricing.csv`` and ``PricingTable`` hold
+    the word; "ricingel" does not, and neither does a word spelled to look
+    like one.
+    """
+    lowered = text.lower()
+    if not any(word in lowered for word in ORDINARY_WORDS_HOLDING_A_TERM):
+        return text  # nearly every text, in sixty substring searches
+    return _LETTERS_RE.sub(_ordinary_parts_out, text)
+
+
+def _ordinary_parts_out(run: re.Match[str]) -> str:
+    return "".join(
+        _STANDS_FOR_A_WORD if _is_ordinary(part.lower()) else part
+        for part in _CAMEL_PART_RE.findall(run.group(0))
+    )
+
+
+def _is_ordinary(word: str) -> bool:
+    return word in ORDINARY_WORDS_HOLDING_A_TERM or (
+        word.endswith("s") and word[:-1] in ORDINARY_WORDS_HOLDING_A_TERM
+    )
+
+
+_LETTERS_RE = re.compile(r"[A-Za-z]+")
+#: The parts of a run of letters: "PricingTable" is "Pricing" and "Table".
+_CAMEL_PART_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
+
+
+#: English words that hold the name of an agent and have nothing to do with it.
+#:
+#: Every word of a 370,105-word English list (dwyl/english-words,
+#: ``words_alpha.txt``, read 2026-11-18) that contains a single-word term of the
+#: hazard lexicon, less the ones that are the term's own vocabulary (a plural,
+#: "neurotoxin", "antiricin", "ricinus", "ammunition", "nonexplosive"). Only
+#: seven terms are held by an unrelated word at all: ricin (pricing, and
+#: substances named in "-ricin"), sarin, soman, tabun, TATP, PETN, anthrax,
+#: and "blasting" and "munition" once each.
+#:
+#: Less five more, which a reader takes for the agent: "aricin", "aricine"
+#: and "asarin" (the name with an article before it), "myricin", and "ricing"
+#: (the name and a letter). "How to make asarin at home" was permitted.
+ORDINARY_WORDS_HOLDING_A_TERM: frozenset[str] = frozenset(
+    {
+        # ricin
+        "agaricin", "agaricine", "agaricinic", "amphotericin",
+        "ericineous", "floricin", "hypericin", "hystricinae", "hystricine", "lumbricine",
+        "muricine", "natricinae", "natricine", "outpricing", "overpricing",
+        "prepricing", "pricing", "quadricinium", "repricing", "mispricing",
+        "sericin", "soricinae", "soricine", "streptothricin", "tyrothricin", "tortricina",
+        "tortricine", "tricing", "tricinium", "underpricing",
+        # sarin
+        "accessariness", "adversariness", "anniversariness", "necessariness",
+        "nodosarine", "sarinda", "tsarina", "unnecessariness",
+        # soman
+        "dipsomania", "dipsomaniac", "dipsomaniacal", "nosomania", "pessomancy",
+        "russomania", "russomaniac", "russomaniacal",
+        # tabun
+        "cogitabund", "cogitabundity", "cogitabundly", "cogitabundous", "meditabund",
+        # TATP, PETN, anthrax, blasting, munition
+        "tatpurusha", "petnapping", "anthraxylon", "anthraxolite", "lithanthrax",
+        "xylanthrax", "cacanthrax", "sandblasting", "electroblasting", "premunition",
+    }
+)  # fmt: skip
 
 
 def compile_terms(terms: Iterable[str]) -> tuple[tuple[str, ...], ...]:
@@ -1163,7 +1401,9 @@ __all__ = [
     "any_term_in_haystack",
     "base_normalize",
     "canonical_normalize",
+    "canonical_unfolded",
     "compile_terms",
+    "fold_obfuscation",
     "normalized_haystack",
     "register_segmentation_terms",
     "segment_glued_run",

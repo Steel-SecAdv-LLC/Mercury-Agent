@@ -94,7 +94,14 @@ MEASURED: dict[str, tuple[float, float, float]] = {
     "math_arrest": (0.749, 33.7, 0.017),
     "page_hinkley": (0.534, 26.6, 0.008),
     "particle_filter": (0.582, 39.6, 0.017),
-    "spectral_residual": (0.489, 45.3, 0.010),
+    # Was (0.489, 45.3, 0.010) on a centred local average that included the
+    # point itself, so the newest sample was most of its own baseline. The
+    # baseline is now the trailing mean of the preceding points: better
+    # ranking and NAB score at an unchanged false-alarm rate. (The SR paper's
+    # ratio score read (0.509, 42.4, 0.021) and was withdrawn; a centred
+    # leave-one-out mean read (0.489, 51.4, 0.0045) but ranked no better than
+    # the original here and on the 29-series tier benchmark.)
+    "spectral_residual": (0.512, 51.4, 0.011),
     "spiking": (0.583, -318.7, 0.142),
     "spot_evt": (0.503, 19.5, 0.003),
     "sprt": (0.494, 30.2, 0.005),

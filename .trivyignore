@@ -53,11 +53,23 @@
 # findings were REMEDIATED rather than accepted (Debian's fixed builds are
 # installed in place; see "FIXED IN PLACE" below), and the inert
 # CVE-2026-119586 entry was dropped; the acl and systemd acceptances were
-# remediated the same way. The ledger now holds 5 entries (0 CRITICAL,
-# 5 HIGH): ncurses x1 and util-linux x4. Both are fixed in Debian unstable,
-# but neither fixed build is installable on trixie -- each requires
-# libc6 >= 2.42 and trixie ships 2.41 -- so curing them in place would mean
-# replacing the C library itself, which this ledger does not do.
+# remediated the same way. That left 5 entries: ncurses x1 and util-linux
+# x4. Both are fixed in Debian unstable, but neither fixed build is
+# installable on trixie -- each requires libc6 >= 2.42 and trixie ships
+# 2.41 -- so curing them in place would mean replacing the C library
+# itself, which this ledger does not do.
+# RE-REVIEWED 2026-11-21 (Debian 13.8) after the Docker Build gate went red
+# between a green scan at 10:21Z (vulnerability DB cached 04:52Z) and a red
+# one at 10:55Z (fresh DB) with no Dockerfile or dependency change. The
+# SARIF gate names no finding in its log, so the built image's package set
+# (the pinned base's packages with the build log's recorded upgrades and
+# removals) was re-scanned offline with the CI-pinned trivy 0.70.0 under
+# this file and the rego policy: exactly one finding, CVE-2026-124709,
+# against the three binary packages of source openssl (entry below). The
+# ledger now holds 6 entries (0 CRITICAL, 6 HIGH): ncurses x1, util-linux
+# x4, openssl x1. The ci.yml gate now prints its own scan as a table
+# whenever it fails, so the next DB-published finding names itself in the
+# job log instead of needing offline reconstruction.
 #
 # DROPPED in the 2026-09-27 re-review (not carried inert):
 #   * CVE-2026-53615 (util-linux libblkid) — FIXED in trixie
@@ -138,6 +150,38 @@ CVE-2026-76642 exp:2026-12-26
 CVE-2026-78408 exp:2026-12-26
 CVE-2026-78409 exp:2026-12-26
 CVE-2026-78410 exp:2026-12-26
+
+# openssl (libssl3t64, openssl, openssl-provider-legacy 3.5.9-1~deb13u1) --
+# CVE-2026-124709, published 2026-11-17 (OpenSSL advisory 20261117), the
+# finding that turned the Docker Build gate red on 2026-11-21 between a
+# green scan at 10:21Z (vulnerability DB cached 04:52Z) and a red one at
+# 10:55Z (fresh DB), with no Dockerfile or dependency change; reproduced
+# offline with the CI-pinned trivy 0.70.0 against the built image's package
+# set, which reports exactly this CVE and nothing else. A QUIC *server*
+# that rejects a peer-opened stream keeps ~300 bytes of stream state for
+# the life of the connection if the peer resets the stream first, so a
+# client that keeps opening and resetting streams grows server memory
+# without bound. OpenSSL rates it Low; Red Hat scores it 7.5 (CVSS AV:N/
+# A:H), which is the HIGH this gate reads.
+# No fix exists to install: the Debian Security Tracker (read 2026-11-21)
+# lists trixie, trixie-security, forky and sid all as "vulnerable" (the
+# bookworm 3.0 line predates the QUIC server and is not affected), so
+# neither `apt-get upgrade` nor a fixed-in-place pin from unstable can
+# remediate it, and per this file's rules it cannot be waived as fixable.
+# Not removable: libssl3t64 is linked by CPython's ssl/hashlib modules and
+# by apt itself; openssl-provider-legacy is a hard dependency of
+# libssl3t64; ca-certificates depends on openssl.
+# Not reachable: the flaw is in OpenSSL's own QUIC server, which only a
+# program calling that API runs. CPython's ssl module exposes no QUIC
+# API; the image serves HTTP over TCP with uvicorn, ships no QUIC/HTTP-3
+# server package, exposes no UDP port, and never invokes openssl(1).
+# Each of those conditions is held mechanically by
+# tests/security/test_openssl_quic_acceptance_conditions.py, so the
+# acceptance fails loudly if one stops being true.
+# Remove this entry the moment Debian publishes a fixed trixie build: the
+# runtime stage's `apt-get upgrade` then installs it with no other change.
+# Added 2026-11-21.
+CVE-2026-124709 exp:2026-12-26
 
 # FIXED IN PLACE, not accepted (2026-11-06) -- zlib1g, libsqlite3-0, libacl1,
 # libsystemd0, libudev1. Eight entries that stood in this file were removed,

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import threading
 from typing import TYPE_CHECKING, Any
@@ -145,6 +146,9 @@ def _fresh_summary(entries: list[Any]) -> dict[str, Any]:
         abstained += r.abstained
         calibrated += r.calibrated
     total = len(entries)
+    flips = sum(
+        1 for prev, cur in itertools.pairwise(entries) if prev.disposition is not cur.disposition
+    )
     return {
         "total": total,
         "by_state": by_state,
@@ -152,6 +156,7 @@ def _fresh_summary(entries: list[Any]) -> dict[str, Any]:
         "by_response_action": by_action,
         "abstention_rate": (abstained / total) if total else 0.0,
         "calibrated_rate": (calibrated / total) if total else 0.0,
+        "churn": (flips / (total - 1)) if total >= 2 else None,
     }
 
 

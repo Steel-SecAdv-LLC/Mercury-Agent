@@ -296,8 +296,12 @@ class FusionInference:
                 for k, v in outputs["attention_weights"].items()
             }
 
-            importance = self.model.get_detector_importance(features_tensor)
-            results["detector_importance"] = importance
+            # Derive importance from the attention weights of the forward pass
+            # above instead of calling get_detector_importance(), which would
+            # run a second, redundant forward pass over the same features.
+            results["detector_importance"] = self.model.importance_from_attention(
+                outputs["attention_weights"]
+            )
 
         return results
 

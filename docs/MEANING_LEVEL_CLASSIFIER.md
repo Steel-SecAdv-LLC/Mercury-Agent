@@ -120,6 +120,81 @@ sufficient here rather than alarming:
 `MERCURY_DISABLE_DEFAULT_HARM_CLASSIFIER=1` turns it off for a strictly lexical,
 model-free posture.
 
+## A long text is asked about a part at a time
+
+The classifier was trained on single requests, the longest of them 23 words, and
+scores what it is given as one bag of words. Asked about a whole page, a request
+in it is weighed with everything round it. Measured
+(`research/meaning_level_windows/measure.py`, counts in `evidence.json` beside
+it): each request has unrelated statements put before it and after it, the same
+ones every run, and goes through the gate in its shipped posture.
+
+| requests still refused, with this many words on each side | 0 | 24 | 96 | 384 | 1536 |
+|---|---|---|---|---|---|
+| training sample (400), read as one text | 400 | 284 | 178 | 178 | 178 |
+| training sample (400), **a part at a time** | 400 | 398 | 392 | 392 | 392 |
+| held-out slice (133 offensive), read as one text | 105 | 56 | 45 | 45 | 45 |
+| held-out slice (133 offensive), **a part at a time** | 105 | 107 | 106 | 107 | 109 |
+
+Harmless rows refused, at every amount of padding: 0 of 400 training rows that
+name a hazard in a defensive or a definitional frame, and 0 of the 30 held-out
+professional rows, read either way.
+
+So `assess_weapons_uplift` reads a text as a whole and then, where that does not
+block it and it names a hazard, asks the classifier about each part of it:
+
+* **The parts.** Each sentence, each two sentences that stand together and fit
+  in 48 words, and, for anything longer, windows of 48 words moving 24 and of 24
+  moving 12 (`MEANING_WINDOWS`): twice the longest training request, and its own
+  length.
+* **What a part must be to raise the text.** What the whole text is held to: a
+  hazard named in it, no offensive pattern the lexical axes already answer for,
+  no professional's frame in it or in the twelve words either side of it, and
+  the classifier at or over its threshold. And one thing more: **someone in it
+  is asking** (a question, an order, a first or second person, a how-to frame).
+  The classifier has only ever seen requests and scores "the plant produced sarin
+  until it was closed" as it scores a request to produce it.
+* **What it can do.** What it could already: raise to ESCALATE, never lower.
+
+The sizes, the division by sentences and the asking rule were chosen on the
+training sample and on 80 encyclopedia articles
+(`research/harm_gate_long_text`), not on the held-out slice, which is reported
+above as it came out. Three things were measured and not adopted, and can be run
+again with the script's options: windows of words alone, with no regard to
+sentences (384 of the 400 found at a hundred words of padding, where dividing by
+sentences finds 392); believing the classifier of statements too (eight more of
+the first set's forty articles about hazards refused, 24 where 16 are); and a
+third window of 12 words (no more training requests found, one harmless row
+refused).
+
+What it costs on text that asks for nothing, the same gate with the parts and
+without:
+
+| encyclopedia articles refused | read as one text | a part at a time |
+|---|---|---|
+| first set, 40 on general subjects | 0 | 0 |
+| first set, 40 about hazards | 16 | 16 |
+| second set, 20 on general subjects | 0 | 0 |
+| second set, 20 about hazards | 11 | 11 |
+
+The asking rule was corrected twice on sentences of the first set (a sentence
+beginning "Similar formulations have been used in ..." and "up to 1% gallium",
+whose digit was read as the letter "i"). The second set, none of its titles in
+the first, was collected afterwards and read once, with the code as it stands.
+The articles about hazards that are refused are refused by the reading of the
+whole and of its passages, as they were (`research/harm_gate_long_text`): an
+article on an agent says how it is made and used.
+
+**What this does not fix, measured with the other filler.** When the text round
+a harmless mention of a hazard is itself requests about other things ("how do I
+change a tire"), the *lexical* axes pair those how-to frames with the hazard
+named in the same passage and refuse it: 115, 305 and 400 of the 400 harmless
+training rows at 24, 96 and 384 words of such text, and 3 and 15 of the 30
+held-out professional rows at 96 and 384. That pairing is the passage rule in
+`HARM_POLICY.md`, it is the same with the classifier switched off, and nothing
+here changes it. A professional's question among a page of unrelated how-to
+requests is refused.
+
 ## Training corpus and the anti-shortcut properties
 
 `benchmarks/meaning_level_corpus.py` generates 8576 rows compositionally, under

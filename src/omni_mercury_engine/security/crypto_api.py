@@ -41,10 +41,11 @@ del _pqc_enforce
 import hashlib
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ama_cryptography.crypto_api import (
     AESGCMProvider as _AmaAESGCMProvider,
@@ -84,6 +85,9 @@ from omni_mercury_engine.security.pqc_backends import (
     sphincs_sign,
     sphincs_verify,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -411,6 +415,42 @@ class HybridSignatureProvider:
 # MercuryCrypto — thin facade over AmaCryptography
 # ---------------------------------------------------------------------------
 
+#: The algorithms a single-signature package can be signed with.
+_PACKAGE_SIGNATURE_ALGORITHMS = frozenset(
+    {AlgorithmType.ED25519, AlgorithmType.ML_DSA_65, AlgorithmType.SPHINCS_PLUS}
+)
+
+
+def _carried_key(encoded: Any) -> bytes | None:
+    """A public key from a package's metadata, or ``None`` if it carries no usable one."""
+    if not isinstance(encoded, str) or not encoded:
+        return None
+    try:
+        return bytes.fromhex(encoded)
+    except ValueError:
+        return None
+
+
+def _holds(check: Callable[[], bool]) -> bool:
+    """Whether a signature check passes; a key or signature it cannot use does not.
+
+    A backend that cannot run at all raises its own error, and that is left
+    to rise: a check that did not happen is not a signature that failed.
+    """
+    try:
+        return bool(check())
+    except (ValueError, TypeError):
+        return False
+
+
+def _content_matches(data: dict[str, Any], package: CryptoPackageResult) -> tuple[bytes, bool]:
+    """The bytes a standard package was created over, and whether its hash is theirs."""
+    data_bytes = json.dumps(data, sort_keys=True, default=str).encode()
+    algorithm = str(package.metadata.get("hash_algorithm", "sha3-256"))
+    digest = hashlib.sha3_512 if algorithm == "sha3-512" else hashlib.sha3_256
+    return data_bytes, digest(data_bytes).hexdigest() == package.data_hash
+
+
 # Map Mercury SecurityLevel → AMA AlgorithmType
 _SECURITY_LEVEL_TO_AMA: dict[SecurityLevel, Any] = {
     SecurityLevel.CLASSICAL: AmaAlgorithmType.ED25519,
@@ -459,6 +499,11 @@ class MercuryCrypto:
             self.ed25519_provider = Ed25519Provider()
 
         self._signing_keypair: KeyPair | None = None
+        self._hybrid_keypairs: tuple[KeyPair | None, KeyPair] | None = None
+        # Held while a package-signing key is made or replaced: two threads
+        # that both found none each made one, and the package signed with the
+        # pair that lost was signed by a key this object no longer answers for.
+        self._package_keys_lock = threading.Lock()
         self._kem_keypair: KeyPair | None = None
 
         logger.info(
@@ -644,23 +689,236 @@ class MercuryCrypto:
         )
 
         if config.sign_data:
-            if self._signing_keypair is None:
-                self._signing_keypair = self.generate_signing_keypair()
-
             if config.security_level == SecurityLevel.HYBRID:
-                classical_kp, pqc_kp = self.hybrid_provider.generate_keypairs()
+                # One pair of keys for this object, kept, and their public
+                # halves published with every package. Each package used to be
+                # signed with a pair generated on the spot and dropped: nobody,
+                # this object included, held the keys to check the signature.
+                classical_kp, pqc_kp = self._hybrid_signing_keypairs()
                 result.hybrid_signature = self.hybrid_provider.sign(
                     data_bytes,
                     classical_kp.secret_key if classical_kp else None,
                     pqc_kp.secret_key,
                 )
+                result.metadata["hybrid_public_keys"] = {
+                    "classical": classical_kp.public_key.hex() if classical_kp else None,
+                    "pqc": pqc_kp.public_key.hex(),
+                }
             else:
-                result.signature = self.sign(data_bytes, self._signing_keypair.secret_key)
+                # Signed with the algorithm of the key, and the key's public
+                # half published, as for a hybrid package. The key was held in
+                # a private attribute and named nowhere: the signature on a
+                # default package could be checked by nobody.
+                keypair = self._package_signing_keypair()
+                result.signature = self.sign(data_bytes, keypair.secret_key, keypair.algorithm)
+                result.metadata["public_key"] = keypair.public_key.hex()
 
         if config.include_timestamp:
             result.metadata["signed_at"] = time.time()
 
         return result
+
+    def _package_signing_keypair(self) -> KeyPair:
+        """The key this object signs single-signature packages with, generated once."""
+        with self._package_keys_lock:
+            if self._signing_keypair is None:
+                self._signing_keypair = self.generate_signing_keypair()
+            return self._signing_keypair
+
+    def _hybrid_signing_keypairs(self) -> tuple[KeyPair | None, KeyPair]:
+        """This object's hybrid signing keys, generated once."""
+        with self._package_keys_lock:
+            if self._hybrid_keypairs is None:
+                self._hybrid_keypairs = self.hybrid_provider.generate_keypairs()
+            return self._hybrid_keypairs
+
+    def use_package_signing_keys(
+        self,
+        *,
+        signing: KeyPair | None = None,
+        hybrid: tuple[KeyPair | None, KeyPair] | None = None,
+    ) -> None:
+        """Sign packages with keys the caller keeps, instead of ones made here.
+
+        A key made here lives as long as this object. A verifier who pinned
+        its public half can check nothing signed after a restart, because the
+        next process signs with a new one. Keys that are to outlive the
+        process are the caller's to store (``security.signing_keys`` keeps an
+        ML-DSA-65 pair in an owner-only file) and are handed over here.
+
+        Args:
+            signing: The pair for single-signature packages (Ed25519, ML-DSA-65
+                or SPHINCS+); ``None`` leaves the current one.
+            hybrid: ``(classical, post-quantum)`` for hybrid packages: an
+                Ed25519 pair, or ``None`` where Ed25519 is unavailable, and an
+                ML-DSA-65 pair. ``None`` leaves the current ones.
+
+        Raises:
+            ValueError: If a pair is of an algorithm its place cannot sign with.
+        """
+        if signing is not None and signing.algorithm not in _PACKAGE_SIGNATURE_ALGORITHMS:
+            raise ValueError(f"packages are not signed with {signing.algorithm.value}")
+        if hybrid is not None:
+            classical, pqc = hybrid
+            if classical is not None and classical.algorithm is not AlgorithmType.ED25519:
+                raise ValueError("the classical half of a hybrid signature is Ed25519")
+            if pqc.algorithm is not AlgorithmType.ML_DSA_65:
+                raise ValueError("the post-quantum half of a hybrid signature is ML-DSA-65")
+        with self._package_keys_lock:
+            if signing is not None:
+                self._signing_keypair = signing
+            if hybrid is not None:
+                self._hybrid_keypairs = hybrid
+
+    def signing_public_key(self) -> bytes:
+        """The public half of the key this object signs single-signature packages with.
+
+        Hand it to a verifier out of band, as with :meth:`hybrid_public_keys`:
+        the copy in a package's ``metadata["public_key"]`` shows only that the
+        package agrees with itself.
+        """
+        return self._package_signing_keypair().public_key
+
+    def hybrid_public_keys(self) -> tuple[bytes | None, bytes]:
+        """The public halves of this object's hybrid signing keys: classical, post-quantum.
+
+        Hand these to a verifier out of band. The copy a package carries in
+        ``metadata["hybrid_public_keys"]`` shows only that the package agrees
+        with itself; it does not show who signed it.
+        """
+        classical_kp, pqc_kp = self._hybrid_signing_keypairs()
+        return (classical_kp.public_key if classical_kp else None, pqc_kp.public_key)
+
+    def verify_signed_package(
+        self,
+        data: dict[str, Any],
+        package: CryptoPackageResult,
+        *,
+        public_key: bytes | None = None,
+    ) -> dict[str, bool]:
+        """Check a standard package that carries one signature (the default levels).
+
+        Args:
+            data: The content the package was created over.
+            package: A result of :meth:`create_crypto_package` carrying a
+                ``signature``.
+            public_key: The signer's public key, obtained out of band.
+                ``None`` uses the copy inside the package.
+
+        Returns:
+            ``hash``: the content matches the package's hash. ``signature``:
+            the signature verifies under the key. ``key_pinned``: the key came
+            from the caller, not from the package. ``core_valid``: hash and
+            signature hold (the package agrees with itself). ``all_valid``:
+            ``core_valid`` and ``key_pinned``. A key that is malformed, or
+            absent from both the call and the package, fails ``signature``; it
+            does not raise.
+
+        Raises:
+            ValueError: If the package carries no signature.
+        """
+        if package.signature is None:
+            raise ValueError("this package carries no signature to verify")
+        key_pinned = public_key is not None
+        if public_key is None:
+            public_key = _carried_key(package.metadata.get("public_key"))
+        data_bytes, hash_ok = _content_matches(data, package)
+        signature = package.signature
+        signature_ok = public_key is not None and _holds(
+            lambda: self.verify(data_bytes, signature, public_key)
+        )
+        core_valid = bool(hash_ok and signature_ok)
+        return {
+            "hash": hash_ok,
+            "signature": bool(signature_ok),
+            "key_pinned": key_pinned,
+            "core_valid": core_valid,
+            "all_valid": bool(core_valid and key_pinned),
+        }
+
+    def verify_hybrid_package(
+        self,
+        data: dict[str, Any],
+        package: CryptoPackageResult,
+        *,
+        classical_public: bytes | None = None,
+        pqc_public: bytes | None = None,
+    ) -> dict[str, bool]:
+        """Check a standard package signed at :attr:`SecurityLevel.HYBRID`.
+
+        Args:
+            data: The content the package was created over.
+            package: A result of :meth:`create_crypto_package` carrying a
+                ``hybrid_signature``.
+            classical_public: The signer's Ed25519 public key, obtained out of
+                band. ``None`` uses the copy inside the package.
+            pqc_public: The signer's ML-DSA-65 public key, obtained out of
+                band. ``None`` uses the copy inside the package.
+
+        Returns:
+            ``hash``: the content matches the package's hash. ``classical`` and
+            ``pqc``: each half of the signature verifies. ``key_pinned``: both
+            keys came from the caller, not from the package. ``core_valid``:
+            hash and both halves hold (the package agrees with itself).
+            ``all_valid``: ``core_valid`` and ``key_pinned`` -- the same
+            distinction :meth:`verify_crypto_package` draws.
+
+        A key that is malformed, or absent from both the call and the
+        package, fails its half; it does not raise.
+
+        Raises:
+            ValueError: If the package carries no hybrid signature.
+        """
+        if package.hybrid_signature is None:
+            raise ValueError("this package carries no hybrid signature to verify")
+        carried = package.metadata.get("hybrid_public_keys")
+        if not isinstance(carried, dict):
+            carried = {}
+        provider = self.hybrid_provider
+        # Pinned means both halves: a caller who supplies only the post-quantum
+        # key has not asked for the hybrid guarantee, and a package whose
+        # classical half was stripped must not read as fully verified to them.
+        key_pinned = pqc_public is not None and (
+            classical_public is not None or provider.classical_provider is None
+        )
+        if pqc_public is None:
+            pqc_public = _carried_key(carried.get("pqc"))
+        if classical_public is None:
+            classical_public = _carried_key(carried.get("classical"))
+        data_bytes, hash_ok = _content_matches(data, package)
+        signature = package.hybrid_signature
+        # Each half on its own, so that a key of the wrong size fails the half
+        # it belongs to. It used to raise out of the whole check.
+        pqc_ok = pqc_public is not None and _holds(
+            lambda: provider.pqc_provider.verify(data_bytes, signature.pqc_signature, pqc_public)
+        )
+        classical = provider.classical_provider
+        if classical is None:
+            # No Ed25519 here: there is no classical half to ask for, unless
+            # the caller brought a key for one.
+            classical_ok = classical_public is None
+        else:
+            # No classical key, supplied or carried, or no classical
+            # signature: that half was not checked, and a package with both
+            # stripped must not read as "both halves hold".
+            classical_ok = (
+                classical_public is not None
+                and bool(signature.classical_signature)
+                and _holds(
+                    lambda: classical.verify(
+                        data_bytes, signature.classical_signature, classical_public
+                    )
+                )
+            )
+        core_valid = bool(hash_ok and classical_ok and pqc_ok)
+        return {
+            "hash": hash_ok,
+            "classical": bool(classical_ok),
+            "pqc": bool(pqc_ok),
+            "key_pinned": bool(key_pinned),
+            "core_valid": core_valid,
+            "all_valid": bool(core_valid and key_pinned),
+        }
 
     def verify_crypto_package(
         self,

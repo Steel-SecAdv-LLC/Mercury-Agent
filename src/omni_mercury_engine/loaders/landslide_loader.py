@@ -11,42 +11,111 @@ background of smaller, non-fatal slope failures.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.datasets.exceptions import (
+    DataSourceUnavailableError,
+    OfflineModeError,
+)
+from omni_mercury_engine.loaders.base import BaseDomainLoader, FetchHTTPError
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# NASA COOLR ArcGIS REST API endpoint
+# Catalog sources, in the order they are asked
 # ---------------------------------------------------------------------------
+# NASA's own service comes first. Its host publishes an IPv6 address and no
+# IPv4 one (no A record in public DNS, read 2026-11-17), so a network without
+# IPv6 cannot reach it at all; such a network reads the public ArcGIS Online
+# copy of the same catalog, the one the trained landslide model already reads
+# (``ml/hazard_training/landslide_stability.py``). 14,750 rows, last edited
+# 2025-08-10, when this was written.
 _QUERY_URL = (
     "https://maps.nccs.nasa.gov/arcgis/rest/services/"
     "global_landslide_catalog/global_landslide_catalog_export/"
     "FeatureServer/0/query"
 )
+_MIRROR_QUERY_URL = (
+    "https://services1.arcgis.com/yFGHRCyBneULM8ci/arcgis/rest/services/"
+    "nasa_global_landslide_catalog_point/FeatureServer/0/query"
+)
+
+#: Values of the ``catalog_source`` column: which service a frame was read from.
+SOURCE_NASA = "nasa_coolr"
+SOURCE_MIRROR = "arcgis_online_mirror"
+
+_SOURCES: tuple[tuple[str, str], ...] = (
+    (SOURCE_NASA, _QUERY_URL),
+    (SOURCE_MIRROR, _MIRROR_QUERY_URL),
+)
+
+#: Catalog field -> this loader's column. The catalog calls the kind of slide
+#: ``landslide_category``; this loader has always called it ``event_category``,
+#: and read a field of that name the catalog does not have, so the category
+#: feature was zero on every real row. The ArcGIS Online copy was published
+#: from a shapefile, which cuts every field name to ten characters.
+_CATALOG_FIELDS: dict[str, str] = {
+    "landslide_category": "event_category",
+    "landslide_": "event_category",
+    "landslide1": "landslide_trigger",
+    "landslid_1": "landslide_size",
+    "landslid_2": "landslide_setting",
+    "fatality_c": "fatality_count",
+    "injury_cou": "injury_count",
+    "country_na": "country_name",
+    "country_co": "country_code",
+    "admin_divi": "admin_division_name",
+    "source_nam": "source_name",
+    "source_lin": "source_link",
+    "event_titl": "event_title",
+    "event_desc": "event_description",
+    "location_d": "location_description",
+    "location_a": "location_accuracy",
+    "event_impo": "event_import_source",
+    "event_im_1": "event_import_id",
+    "gazetteer_": "gazeteer_closest_point",
+    "gazetteer1": "gazeteer_distance",
+    "submitted_": "submitted_date",
+    "last_edite": "last_edited_date",
+}
+
+#: Sizes the labels call anomalous. ``catastrophic`` is the catalog's largest
+#: class (26 of 14,750 rows); it was absent here, so the largest slides in the
+#: catalog were encoded "unknown" and labelled normal unless someone died.
+_ANOMALOUS_SIZES: frozenset[str] = frozenset({"large", "very_large", "catastrophic"})
 
 # ---------------------------------------------------------------------------
 # Category and trigger encoding maps (Mercury-native, no sklearn)
 # ---------------------------------------------------------------------------
+# Every value the catalog holds has a code here (the values and their counts,
+# read 2026-11-17, are in ``tests/fixtures/landslide/glc_vocabulary.json``).
+# The catalog spells rockfall ``rock_fall`` (942 rows) and avalanche
+# ``snow_avalanche``; neither spelling was listed, nor were rotational and
+# translational slides or topples, so 1,384 rows (9.4%) were encoded "unknown".
 _CATEGORY_ENCODING: dict[str, int] = {
     "landslide": 1,
     "mudslide": 2,
     "rockfall": 3,
+    "rock_fall": 3,
     "rock_slide": 4,
     "debris_flow": 5,
     "earth_flow": 6,
     "lahar": 7,
     "avalanche": 8,
+    "snow_avalanche": 8,
     "riverbank_collapse": 9,
     "creep": 10,
     "complex": 11,
     "other": 12,
+    "rotational_slide": 13,
+    "translational_slide": 14,
+    "topple": 15,
     "unknown": 0,
+    "unkown": 0,  # the catalog's own misspelling, one row
 }
 
 _TRIGGER_ENCODING: dict[str, int] = {
@@ -64,6 +133,14 @@ _TRIGGER_ENCODING: dict[str, int] = {
     "volcano": 12,
     "dam_embankment_collapse": 13,
     "freeze_thaw": 14,
+    "no_apparent_trigger": 15,
+    "leaking_pipe": 16,
+    "other": 17,
+    # Free-text spellings of rain in the catalog (8 rows). They say rain and
+    # nothing about its intensity, so they take the plain ``rain`` code.
+    "rainfall": 1,
+    "heavy_rain": 1,
+    "heavy_rainfall": 1,
     "unknown": 0,
 }
 
@@ -72,6 +149,7 @@ _SIZE_ENCODING: dict[str, int] = {
     "medium": 2,
     "large": 3,
     "very_large": 4,
+    "catastrophic": 5,
     "unknown": 0,
 }
 
@@ -129,6 +207,9 @@ class LandslideLoader(BaseDomainLoader):
 
     * **Real-time feed** -- Most recent 2000 landslide events from the
       global catalog, updated as reports are submitted.
+    * **Sources** -- NASA's service first, then the public ArcGIS Online
+      copy of the same catalog when NASA's cannot be reached; every frame
+      says which one it came from in ``catalog_source``.
     * **Historical query** -- Spatial and temporal filtering for events
       around known catastrophic landslides.
 
@@ -176,16 +257,15 @@ class LandslideLoader(BaseDomainLoader):
     def fetch_realtime(self) -> pd.DataFrame:
         """Fetch the most recent landslide events from NASA COOLR.
 
-        Queries the ArcGIS REST endpoint for up to 2000 of the most recent
-        landslide reports in the global catalog.
+        Queries the ArcGIS REST endpoint for the 2000 most recent landslide
+        reports in the global catalog, newest first.
 
         Returns:
             DataFrame with columns derived from NASA COOLR attributes
             including event category, trigger, location, fatalities, etc.
 
         Raises:
-            ConnectionError: If the NASA COOLR service is unreachable
-                after retries.
+            ConnectionError: If no catalog source can be read.
         """
         cache_key = "landslide_realtime"
         cached = self._read_cache(cache_key)
@@ -194,21 +274,22 @@ class LandslideLoader(BaseDomainLoader):
             logger.debug("Returning cached real-time landslide data.")
             return pd.DataFrame(cached)
 
+        # Newest first. Without an order the service returns its first 2000
+        # rows by object id: read live, those ran from 1974 to 2025, not "the
+        # most recent"; ordered, they run from 2017-03-29 to 2025-05-18.
         params: dict[str, str] = {
             "where": "1=1",
             "outFields": "*",
             "f": "json",
             "resultRecordCount": "2000",
+            "orderByFields": "event_date DESC",
         }
 
-        response = self._fetch_json(_QUERY_URL, params=params)
-        df = self._arcgis_to_dataframe(response)
+        response, source = self._query(params)
+        df = self._arcgis_to_dataframe(response, source)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
-        logger.info(
-            "Fetched %d real-time landslide records from NASA COOLR.",
-            len(df),
-        )
+        logger.info("Fetched %d real-time landslide records from %s.", len(df), source)
         return df
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
@@ -227,14 +308,17 @@ class LandslideLoader(BaseDomainLoader):
 
         Raises:
             ValueError: If *event_id* is not in the catalog.
-            ConnectionError: If the NASA COOLR service is unreachable.
+            ConnectionError: If no catalog source can be read.
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"landslide_historical_{event_id}"
+        # Cache schema v2: pre-fix entries could be a worldwide date-only
+        # stand-in (unrelated events) or an empty result cached as data.
+        # Versioning the key retires both so the corrected logic always runs.
+        cache_key = f"landslide_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -259,30 +343,31 @@ class LandslideLoader(BaseDomainLoader):
             "resultRecordCount": "2000",
         }
 
-        response = self._fetch_json(_QUERY_URL, params=params)
-        df = self._arcgis_to_dataframe(response)
+        features, source = self._query_all_pages(params)
+        df = self._arcgis_to_dataframe({"features": features}, source)
 
         if df.empty:
-            logger.warning(
-                "NASA COOLR returned no features for event '%s'. "
-                "Falling back to full catalog query.",
-                event_id,
+            # The spatial/temporal query for THIS event returned nothing.
+            # The previous behaviour fell back to a worldwide, date-only query
+            # capped at 2,000 unordered rows, so unrelated landslides from
+            # anywhere on Earth stood in for the target event -- a fabricated
+            # benchmark. An empty area result is an honest "no catalogued
+            # landslide for this event"; raise rather than substitute, and do
+            # NOT cache the empty frame (a transient gap must not be frozen in
+            # for the whole cache TTL).
+            raise DataSourceUnavailableError(
+                "LandslideLoader",
+                source_url=dict(_SOURCES).get(source, _QUERY_URL),
+                reason=(
+                    f"NASA landslide catalog returned no event within "
+                    f"{event['search_radius_km']} km of "
+                    f"({event['latitude']}, {event['longitude']}) for "
+                    f"{event['start']}..{event['end']} (event '{event_id}'). "
+                    f"No worldwide stand-in is substituted."
+                ),
             )
-            # Fallback: try a broader temporal-only query
-            fallback_where = (
-                f"event_date >= '{event['start']}' " f"AND event_date <= '{event['end']}'"
-            )
-            fallback_params: dict[str, str] = {
-                "where": fallback_where,
-                "outFields": "*",
-                "f": "json",
-                "resultRecordCount": "2000",
-            }
-            response = self._fetch_json(_QUERY_URL, params=fallback_params)
-            df = self._arcgis_to_dataframe(response)
 
-        if not df.empty:
-            df = df.sort_values("event_date").reset_index(drop=True)
+        df = df.sort_values("event_date").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -316,8 +401,8 @@ class LandslideLoader(BaseDomainLoader):
 
         Labeling strategy: a landslide event is labeled *anomalous* (``1``)
         if it resulted in fatalities (``fatality_count > 0``) or if the
-        landslide size is ``large`` or ``very_large``.  All smaller,
-        non-fatal events are labeled *normal* (``0``).
+        landslide size is ``large``, ``very_large`` or ``catastrophic``.
+        All smaller, non-fatal events are labeled *normal* (``0``).
 
         Args:
             event_id: Key into the ground truth catalog.
@@ -342,13 +427,12 @@ class LandslideLoader(BaseDomainLoader):
         fatality_mask = df["fatality_count"].fillna(0).values > 0
 
         # Large or very_large events are anomalous
-        size_values = df["landslide_size"].fillna("unknown").str.lower()
-        size_mask = size_values.isin(["large", "very_large"]).values
+        size_mask = _terms(df["landslide_size"]).isin(_ANOMALOUS_SIZES).values
 
         labels = (fatality_mask | size_mask).astype(np.int64)
 
         logger.info(
-            "Ground truth for '%s': %d anomalies / %d total " "(fatal or large/very_large).",
+            "Ground truth for '%s': %d anomalies / %d total (fatal, or large and above).",
             event_id,
             int(labels.sum()),
             len(labels),
@@ -373,7 +457,7 @@ class LandslideLoader(BaseDomainLoader):
         5. **latitude** -- event latitude.
         6. **longitude** -- event longitude.
         7. **size_code** -- landslide size encoding
-           (small=1, medium=2, large=3, very_large=4).
+           (small=1, medium=2, large=3, very_large=4, catastrophic=5).
         8. **country_code** -- numeric hash of country/admin division.
         9. **month** -- month of year (1--12).
         10. **day_of_year** -- day of year (1--366).
@@ -457,14 +541,19 @@ class LandslideLoader(BaseDomainLoader):
     @staticmethod
     def _arcgis_to_dataframe(
         response: dict[str, Any],
+        source: str,
     ) -> pd.DataFrame:
         """Convert an ArcGIS REST API JSON response to a flat DataFrame.
 
         The ArcGIS endpoint returns a ``features`` array where each feature
-        has an ``attributes`` dict containing the record fields.
+        has an ``attributes`` dict containing the record fields. Fields are
+        renamed to this loader's columns (:data:`_CATALOG_FIELDS`), so a
+        frame has the same columns whichever source it came from.
 
         Args:
             response: Parsed JSON dict from the ArcGIS REST API.
+            source: Which catalog service answered; written to the
+                ``catalog_source`` column.
 
         Returns:
             DataFrame with columns from the attribute fields.
@@ -484,6 +573,7 @@ class LandslideLoader(BaseDomainLoader):
                     "longitude",
                     "country_name",
                     "admin_division_name",
+                    "catalog_source",
                 ]
             )
 
@@ -494,19 +584,162 @@ class LandslideLoader(BaseDomainLoader):
 
         df = pd.DataFrame(rows)
 
-        # Normalize column names to lowercase
+        # Lowercase names, then the catalog's names as this loader's columns.
+        # A name is only taken when the frame does not already have it, so a
+        # service that publishes both spellings keeps its own full one.
         df.columns = [str(c).lower() for c in df.columns]
+        taken = set(df.columns)
+        renames: dict[str, str] = {}
+        for name, column in _CATALOG_FIELDS.items():
+            if name in df.columns and column not in taken:
+                renames[name] = column
+                taken.add(column)
+        df = df.rename(columns=renames)
 
         # Coerce numeric columns where expected
         for col in ("fatality_count", "injury_count", "latitude", "longitude"):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Ensure event_date is string for consistent handling
+        # ArcGIS sends a date as milliseconds since 1970. As text, in ISO
+        # form: digits of differing length do not sort by time, and a row with
+        # no date used to become the string "None".
         if "event_date" in df.columns:
-            df["event_date"] = df["event_date"].astype(str)
+            df["event_date"] = [_iso_date(value) for value in df["event_date"]]
 
+        df["catalog_source"] = source
         return df
+
+    def _query(self, params: dict[str, str]) -> tuple[dict[str, Any], str]:
+        """Ask each catalog source in turn; the first answer and which source gave it.
+
+        A source is passed over when it cannot be reached, when its host does
+        not resolve, and when it answers HTTP 200 with an ArcGIS ``error``
+        body -- which has no ``features`` and used to be read as an empty
+        catalog.
+
+        Raises:
+            OfflineModeError: Untouched, when ``MERCURY_OFFLINE`` is set.
+            FetchHTTPError: When no source answered (a ``ConnectionError``).
+        """
+        failures: list[str] = []
+        for source, url in _SOURCES:
+            try:
+                response = self._fetch_json(url, params=params)
+            except OfflineModeError:
+                raise
+            except (ConnectionError, OSError, ValueError) as exc:
+                failures.append(f"{source}: {type(exc).__name__}")
+                logger.warning("landslide: %s could not be read (%s)", source, type(exc).__name__)
+                continue
+            if not isinstance(response, dict) or "error" in response:
+                failures.append(f"{source}: the service answered with an error")
+                logger.warning("landslide: %s answered with an error body", source)
+                continue
+            return response, source
+        raise FetchHTTPError(
+            "landslide: no catalog source could be read (" + "; ".join(failures) + ")"
+        )
+
+    def _query_all_pages(self, params: dict[str, str]) -> tuple[list[dict[str, Any]], str]:
+        """Query a catalog source and follow ``exceededTransferLimit`` paging.
+
+        ArcGIS caps a response at ``resultRecordCount`` rows and sets
+        ``exceededTransferLimit: true`` when more match. The previous code
+        read only the first page and silently dropped the rest, so a dense
+        event was scored on an arbitrary 2,000-row slice. This pages the SAME
+        source with ``resultOffset`` until the service stops flagging more
+        rows, concatenating the features.
+
+        Args:
+            params: Base ArcGIS query parameters (``resultOffset`` is added).
+
+        Returns:
+            Tuple of (all feature dicts across pages, the source that answered).
+
+        Raises:
+            OfflineModeError: Propagated unchanged from the first query.
+            FetchHTTPError: If no source could answer the first query.
+        """
+        first, source = self._query(params)
+        features: list[dict[str, Any]] = list(first.get("features", []))
+
+        if not first.get("exceededTransferLimit"):
+            return features, source
+
+        seen = {key for key in map(self._feature_key, features) if key is not None}
+
+        # Stay on the source that answered page one.
+        url = dict(_SOURCES).get(source)
+        if url is None:
+            return features, source
+        try:
+            page_size = int(params.get("resultRecordCount", "2000"))
+        except (TypeError, ValueError):
+            page_size = 2000
+
+        offset = len(features)
+        while True:
+            page_params = dict(params)
+            page_params["resultOffset"] = str(offset)
+            try:
+                resp = self._fetch_json(url, params=page_params)
+            except OfflineModeError:
+                raise
+            except (ConnectionError, OSError, ValueError) as exc:
+                logger.warning(
+                    "landslide: pagination stopped at offset %d (%s); "
+                    "returning %d rows gathered so far.",
+                    offset,
+                    type(exc).__name__,
+                    len(features),
+                )
+                break
+            if not isinstance(resp, dict) or "error" in resp:
+                logger.warning(
+                    "landslide: pagination error body at offset %d; "
+                    "returning %d rows gathered so far.",
+                    offset,
+                    len(features),
+                )
+                break
+            page_features = resp.get("features", [])
+            if not page_features:
+                break
+            # A service that ignores ``resultOffset`` answers every page with
+            # the same rows. Only rows not seen before are kept, and a page
+            # that adds none ends the paging -- so such a service can neither
+            # duplicate the catalog nor loop forever.
+            fresh = []
+            for feature in page_features:
+                key = self._feature_key(feature)
+                if key is not None and key in seen:
+                    continue
+                if key is not None:
+                    seen.add(key)
+                fresh.append(feature)
+            if not fresh:
+                break
+            features.extend(fresh)
+            offset += len(page_features)
+            if not resp.get("exceededTransferLimit"):
+                break
+            if len(page_features) < page_size:
+                break
+
+        return features, source
+
+    @staticmethod
+    def _feature_key(feature: dict[str, Any]) -> Any | None:
+        """Stable identity of a catalog row: the first id field it carries, else ``None``."""
+        attributes = feature.get("attributes") if isinstance(feature, dict) else None
+        if not isinstance(attributes, dict):
+            return None
+        for name in ("FID", "OBJECTID", "objectid", "event_id"):
+            value = attributes.get(name)
+            if value is not None:
+                return (name, value)
+        return None
 
     @staticmethod
     def _build_where_clause(
@@ -572,8 +805,9 @@ class LandslideLoader(BaseDomainLoader):
             return np.zeros(len(df), dtype=np.float64)
 
         default_code = encoding_map.get("unknown", 0)
-        values = df[column].fillna("unknown").astype(str).str.lower().str.strip()
-        encoded = values.map(lambda v: encoding_map.get(v, default_code)).values.astype(np.float64)
+        encoded = (
+            _terms(df[column]).map(lambda v: encoding_map.get(v, default_code)).values
+        ).astype(np.float64)
         return np.asarray(encoded)
 
     @staticmethod
@@ -648,11 +882,57 @@ class LandslideLoader(BaseDomainLoader):
 # ---------------------------------------------------------------------------
 
 
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+#: In :func:`_parse_date`, a bare number at least this large is milliseconds:
+#: as seconds it would be the year 5138. The line used to be 1e12, which is
+#: September 2001 in milliseconds, so every earlier date in the catalog (it
+#: goes back to 1974) was read as seconds and landed thousands of years out,
+#: in the wrong month.
+_MILLISECONDS_FROM = 1e11
+#: ...and one at least this large is seconds (September 2001 onward), as before.
+_SECONDS_FROM = 1e9
+
+
+def _terms(values: pd.Series) -> pd.Series:
+    """Catalog terms in one spelling: lower case, trimmed, words joined by ``_``.
+
+    The catalog mixes ``Riverbank collapse`` with ``riverbank_collapse`` and
+    pads blanks with a space; a blank is ``unknown``.
+    """
+    terms = values.fillna("unknown").astype(str).str.strip().str.lower()
+    terms = terms.str.replace(r"\s+", "_", regex=True)
+    return terms.where(terms != "", "unknown")
+
+
+def _from_milliseconds(milliseconds: float) -> datetime | None:
+    """The UTC time a number of milliseconds since 1970 stands for (naive)."""
+    try:
+        return (_EPOCH + timedelta(milliseconds=milliseconds)).replace(tzinfo=None)
+    except OverflowError:
+        return None
+
+
+def _iso_date(value: Any) -> str | None:
+    """An ArcGIS date as ISO text; a missing one stays missing.
+
+    ArcGIS sends every date field as milliseconds since 1970, so a number
+    here is milliseconds whatever its size. Anything else is kept as text.
+    """
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float | np.integer | np.floating):
+        return str(value)
+    moment = _from_milliseconds(float(value))
+    return moment.strftime("%Y-%m-%dT%H:%M:%S") if moment is not None else None
+
+
 def _parse_date(value: Any) -> datetime | None:
     """Parse a date value from ArcGIS into a datetime object.
 
     Handles:
-    - Epoch millisecond timestamps (int or numeric string).
+    - Epoch millisecond timestamps (int or numeric string), and epoch
+      seconds from September 2001 onward.
     - ISO format date strings (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS).
 
     Args:
@@ -670,10 +950,11 @@ def _parse_date(value: Any) -> datetime | None:
     except (ValueError, TypeError, OSError):
         numeric = None
 
-    if numeric is not None and numeric > 1e12:
-        return datetime.utcfromtimestamp(numeric / 1000.0)
-    if numeric is not None and numeric > 1e9:
-        return datetime.utcfromtimestamp(numeric)
+    if numeric is not None and np.isfinite(numeric):
+        if abs(numeric) >= _MILLISECONDS_FROM:
+            return _from_milliseconds(numeric)
+        if numeric >= _SECONDS_FROM:
+            return _from_milliseconds(numeric * 1000.0)
 
     # Try ISO format parsing
     if isinstance(value, str):

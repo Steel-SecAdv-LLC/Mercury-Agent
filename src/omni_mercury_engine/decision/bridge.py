@@ -42,8 +42,12 @@ def to_agent_action(record: DecisionRecord) -> AgentAction:
 
     The agent's confidence is the calibrated decision confidence when the loop
     grounded a label, falling back to the raw anomaly probability when it
-    abstained (the agent still needs a scalar to learn from).  The full record
-    travels in ``parameters`` so nothing is lost.
+    abstained (the agent still needs a scalar to learn from).  When the loop
+    abstained because there was no probability at all, the confidence is
+    ``0.0`` -- :class:`AgentAction` compares it numerically, so it cannot be
+    ``None``, and zero is what it is: no confidence in any label.  It is not
+    a score: ``parameters["anomaly_prob"]`` and the full record in
+    ``parameters["decision"]`` carry the honest ``None``.
 
     Args:
         record: The decision to adapt.
@@ -54,11 +58,12 @@ def to_agent_action(record: DecisionRecord) -> AgentAction:
     from omni_mercury_engine.agentic.agentic_autonomy import AgentAction
 
     action_type = _DISPOSITION_TO_ACTION_TYPE[record.disposition]
-    confidence = (
-        record.decision_confidence
-        if record.decision_confidence is not None
-        else record.anomaly_prob
-    )
+    if record.decision_confidence is not None:
+        confidence = record.decision_confidence
+    elif record.anomaly_prob is not None:
+        confidence = record.anomaly_prob
+    else:
+        confidence = 0.0
     return AgentAction(
         action_type=action_type,
         parameters={
@@ -67,6 +72,7 @@ def to_agent_action(record: DecisionRecord) -> AgentAction:
             "response": record.response.to_dict(),
             "domain": record.domain,
             "abstained": record.abstained,
+            "anomaly_prob": record.anomaly_prob,
             "decision": record.to_dict(),
         },
         confidence=float(confidence),
@@ -94,7 +100,11 @@ def to_cap_alert(
         record: The decision to render.
         domain: Domain for the alert (falls back to the record's domain).
         scores: Optional anomaly-score array; defaults to the record's
-            ``anomaly_prob``.
+            ``anomaly_prob``.  When neither exists (the decision abstained
+            because no probability was produced) the alert says so: its
+            headline and description state that no score was produced, and
+            its CAP urgency / severity / certainty are ``Unknown`` -- it
+            never reports a made-up "Score 0.00".
         area_description: Human-readable affected area.
         coordinates: Optional ``(lat, lon)``.
         geocode: Optional CAP geocode dict.
@@ -116,7 +126,6 @@ def to_cap_alert(
 
     generator = CAPAlertGenerator()
     alert_domain = domain or record.domain or "general"
-    alert_scores = scores if scores is not None else [record.anomaly_prob]
     metadata = {
         "DecisionState": record.state.value,
         "Disposition": record.disposition.value,
@@ -131,9 +140,30 @@ def to_cap_alert(
         metadata["RootCauses"] = ", ".join(
             f"node{node}:{attribution:.3f}" for node, attribution in rca_causes[:5]
         )
+    if scores is None and record.anomaly_prob is None:
+        from omni_mercury_engine.alerting.cap_generator import DOMAIN_EVENT_MAP
+
+        event_name = DOMAIN_EVENT_MAP.get(alert_domain, "Anomaly")
+        description = "\n".join(
+            [
+                "Mercury-Agent could not score this event in the "
+                f"{alert_domain} domain: no anomaly score was produced, and the "
+                "decision layer abstained rather than report one.",
+                *(f"{key}: {value}" for key, value in metadata.items()),
+            ]
+        )
+        return generator.generate_alert(
+            domain=alert_domain,
+            headline=f"Mercury {event_name} Alert: no anomaly score was produced",
+            description=description,
+            anomaly_score=None,
+            area_description=area_description,
+            coordinates=coordinates,
+            geocode=geocode,
+        )
     return generator.from_detection(
         domain=alert_domain,
-        scores=alert_scores,
+        scores=scores if scores is not None else [record.anomaly_prob],
         metadata=metadata,
         area_description=area_description,
         coordinates=coordinates,

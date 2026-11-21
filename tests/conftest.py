@@ -39,6 +39,13 @@ if TYPE_CHECKING:
 # still pin the variable to ``"0"`` for an explicitly real-data run.
 os.environ.setdefault("MERCURY_ALLOW_SYNTHETIC", "1")
 
+# The watch makes a forecast from GFZ's live Kp record on its own
+# (``watch/forecast.py``), from 12:30 UT each day. Hundreds of tests run a
+# watcher, some with clocks past that hour: none of them may read the network
+# for it, or write a forecast into its store. The forecast's own tests turn it
+# back on (``tests/watch/test_watch_forecast.py``) and give it a record to read.
+os.environ.setdefault("MERCURY_WATCH_FORECASTS", "false")
+
 # An operator's installed fusion model (``mercury-agent train --install``) must
 # not change what the suite serves; this directory never holds one.
 os.environ["MERCURY_MODEL_DIR"] = os.path.join(
@@ -172,6 +179,10 @@ def pytest_sessionstart(session: pytest.Session) -> None:
       real-model tier (``tests/detectors/test_vlm_real_models.py``), which
       otherwise skips when the weights are absent.
 
+    * ``MERCURY_REQUIRES_BROWSER=1`` -- Node must be able to load Playwright.
+      Covers ``tests/api/test_console_watch_alert_browser.py``, which opens
+      the console in headless Chromium and otherwise skips.
+
     Each gate is unconditional once its flag is set: there is no
     second-chance override that re-enables silent skipping.  The operator
     either provides the dependency the lane declared it needs, or pytest
@@ -257,6 +268,29 @@ def pytest_sessionstart(session: pytest.Session) -> None:
                 "If this lane intentionally does NOT own the real-model tier,\n"
                 "leave MERCURY_REQUIRES_HF_MODELS unset -- the tier then skips\n"
                 "cleanly by design.\n"
+                "===============================================================\n",
+                returncode=2,
+            )
+
+    if os.environ.get("MERCURY_REQUIRES_BROWSER") == "1":
+        from tests.browser_driver import playwright_available
+
+        if not playwright_available():
+            pytest.exit(
+                "\n"
+                "===============================================================\n"
+                "  Mercury Agent browser tier gate (MERCURY_REQUIRES_BROWSER=1)\n"
+                "===============================================================\n"
+                "This pytest session declared the headless-browser tier as a hard\n"
+                "contract, but Node cannot load Playwright here.\n"
+                "\n"
+                "Remediation:\n"
+                "  npm ci --prefix tests/api/browser --ignore-scripts\n"
+                "  tests/api/browser/node_modules/.bin/playwright install chromium\n"
+                "\n"
+                "If this lane intentionally does NOT own the browser tier, leave\n"
+                "MERCURY_REQUIRES_BROWSER unset -- the tier then skips cleanly by\n"
+                "design.\n"
                 "===============================================================\n",
                 returncode=2,
             )

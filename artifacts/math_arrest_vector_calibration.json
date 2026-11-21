@@ -1,0 +1,154 @@
+{
+  "schema": "mercury.research.math_arrest_vector_calibration/v1",
+  "generated_at": "2026-11-19T08:12:29.548818+00:00",
+  "commit": "4b246c49fd040d49cc1ec5520374a5e8c9ae2014",
+  "config": {
+    "tables": [
+      "pima_real",
+      "cardio",
+      "breastw",
+      "wbc",
+      "thyroid"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "alpha": 0.1
+  },
+  "per_table": {
+    "raw_auc": {
+      "pima_real": 0.5479,
+      "cardio": 0.3739,
+      "breastw": 0.8396,
+      "wbc": 0.9065,
+      "thyroid": 0.6534
+    },
+    "raw_ece": {
+      "pima_real": 0.1075,
+      "cardio": 0.1329,
+      "breastw": 0.1745,
+      "wbc": 0.165,
+      "thyroid": 0.1966
+    },
+    "raw_brier": {
+      "pima_real": 0.2367,
+      "cardio": 0.1181,
+      "breastw": 0.2,
+      "wbc": 0.0578,
+      "thyroid": 0.0663
+    },
+    "raw_f1": {
+      "pima_real": 0.1263,
+      "cardio": 0.0382,
+      "breastw": 0.1887,
+      "wbc": 0.4286,
+      "thyroid": 0.148
+    },
+    "cal_auc": {
+      "pima_real": 0.5739,
+      "cardio": 0.5373,
+      "breastw": 0.9818,
+      "wbc": 0.9982,
+      "thyroid": 0.7143
+    },
+    "cal_ece": {
+      "pima_real": 0.1264,
+      "cardio": 0.096,
+      "breastw": 0.0274,
+      "wbc": 0.0244,
+      "thyroid": 0.0133
+    },
+    "cal_brier": {
+      "pima_real": 0.2434,
+      "cardio": 0.0973,
+      "breastw": 0.0238,
+      "wbc": 0.0145,
+      "thyroid": 0.0235
+    },
+    "cal_f1": {
+      "pima_real": 0.321,
+      "cardio": 0.1329,
+      "breastw": 0.9647,
+      "wbc": 0.6,
+      "thyroid": 0.0
+    },
+    "coverage": {
+      "pima_real": 0.9072,
+      "cardio": 0.8686,
+      "breastw": 0.9559,
+      "wbc": 0.9394,
+      "thyroid": 0.8903
+    },
+    "coverage_class_0": {
+      "pima_real": 0.9067,
+      "cardio": 0.877,
+      "breastw": 0.9649,
+      "wbc": 0.9365,
+      "thyroid": 0.8894
+    },
+    "coverage_class_1": {
+      "pima_real": 0.9083,
+      "cardio": 0.7885,
+      "breastw": 0.939,
+      "wbc": 1.0,
+      "thyroid": 0.9259
+    },
+    "avg_set_size": {
+      "pima_real": 1.7928,
+      "cardio": 1.629,
+      "breastw": 1.2026,
+      "wbc": 1.8939,
+      "thyroid": 1.6864
+    },
+    "routed_fraction": {
+      "pima_real": 0.0594,
+      "cardio": 0.0456,
+      "breastw": 0.0278,
+      "wbc": 0.0606,
+      "thyroid": 0.0507
+    },
+    "coverage_ungated": {
+      "pima_real": 0.9043,
+      "cardio": 0.8656,
+      "breastw": 0.9559,
+      "wbc": 0.9394,
+      "thyroid": 0.8897
+    },
+    "avg_set_size_ungated": {
+      "pima_real": 1.7855,
+      "cardio": 1.6162,
+      "breastw": 1.1863,
+      "wbc": 1.8939,
+      "thyroid": 1.6705
+    }
+  },
+  "means": {
+    "raw_auc": 0.6643,
+    "raw_ece": 0.1553,
+    "raw_brier": 0.1358,
+    "raw_f1": 0.186,
+    "cal_auc": 0.7611,
+    "cal_ece": 0.0575,
+    "cal_brier": 0.0805,
+    "cal_f1": 0.4037,
+    "coverage": 0.9123,
+    "coverage_class_0": 0.9149,
+    "coverage_class_1": 0.9123,
+    "avg_set_size": 1.6409,
+    "routed_fraction": 0.0488,
+    "coverage_ungated": 0.911,
+    "avg_set_size_ungated": 1.6305
+  },
+  "mean_rank": {
+    "auc": {
+      "raw": 2.0,
+      "calibrated": 1.0
+    },
+    "f1": {
+      "raw": 1.8,
+      "calibrated": 1.2
+    }
+  }
+}

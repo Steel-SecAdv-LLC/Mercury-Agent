@@ -7,12 +7,20 @@ for 10 minutes.
 ## What the series measures
 
 The histogram records the wall-clock time of each component `detect`/`predict`
-call (see [detection-success.md](detection-success.md)). Feature extraction is
+call, and of each API detection route that computes without the engine
+(`detector_type="api_<route>"`; see [detection-success.md](detection-success.md)). Feature extraction is
 timed separately in `omni_detector_extraction_duration_seconds`, and the fusion
 head in `omni_fusion_inference_duration_seconds`. Feature-cache hits run no
 detector and record nothing, so latency reflects real computation only.
 
 ## First checks
+
+0. Flagship queueing is not slowness: `/detect/flagship` calls serialize on one
+   engine lock, and past the admission bound (default 8 queued calls, incl.
+   replays that recompute from supplied data) callers get 429 immediately. How
+   often the bound is hit is on `GET /api/v1/detect/flagship/limits` and the
+   `admission` block of `GET /api/v1/detect/flagship/decisions`
+   (`omni_mercury_flagship_admission_rejected_total` in Prometheus).
 
 1. Which component: `histogram_quantile(0.95, sum by (le, detector_type) (rate(omni_detection_duration_seconds_bucket[5m])))`.
 2. Batch size: per-call latency scales with rows per call. Compare

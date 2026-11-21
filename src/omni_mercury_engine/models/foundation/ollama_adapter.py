@@ -1165,7 +1165,9 @@ class _OpenAICompatibleCloudAdapter(BaseLLMAdapter):
             )
             self._is_available = False
         elif not self.api_key and not self._KEY_OPTIONAL:
-            logger.warning(
+            # Logs the provider label and the env-var NAME only; no key value
+            # exists at this point (that is what the message reports).
+            logger.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                 "%s API key not found (set %s or LLMConfig.api_key).",
                 self._PROVIDER_LABEL,
                 self._PROVIDER_ENV_VAR,

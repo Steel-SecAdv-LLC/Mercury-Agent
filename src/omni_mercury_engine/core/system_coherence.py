@@ -255,8 +255,10 @@ class LyapunovRuntimeEnforcer:
     """Runtime guard enforcing Lyapunov stability V_dot <= -lambda * V.
 
     At every fusion step the caller feeds the current Lyapunov function
-    value V(t).  The enforcer checks that the discrete approximation of
-    V_dot satisfies the stability condition.  By default
+    value V(t).  The enforcer checks the exact discrete form of the
+    stability condition, ``V(t) <= V(t-1) * exp(-lambda)`` (with a small
+    relative tolerance), so any step that contracts slower than the
+    configured rate -- including any rise -- is a violation.  By default
     (``halt_on_violation=False``) violations are logged and recorded --
     monitoring, not a hard guarantee; pass ``halt_on_violation=True`` to
     make a violation halt the pipeline.
@@ -323,10 +325,23 @@ class LyapunovRuntimeEnforcer:
             # Discrete approximation of V_dot
             v_dot = v_current - self._prev_v
 
-            # Stability condition: V_dot <= -lambda * V
-            # Equivalently: v_current <= v_prev * exp(-lambda)
-            threshold = -self.lambda_convergence * self._prev_v
-            is_stable = v_dot <= threshold or v_current <= v_bound
+            # Stability condition: the exact discrete form of V_dot <= -lambda*V
+            # is ``v_current <= v_prev * exp(-lambda)`` (the linearised
+            # ``(1 - lambda) * v_prev`` the old check used is strictly below
+            # it, so a trajectory decaying exactly at lambda was flagged).  A
+            # small relative tolerance absorbs floating-point noise at the
+            # boundary.  The absolute envelope ``epsilon * exp(-lambda * t)``
+            # is deliberately NOT OR'd in any more: it depends on the
+            # trajectory's absolute scale, not its contraction, so as a
+            # disjunct it silently permitted arbitrary RISES while V sat below
+            # the envelope (fail-open) -- a 5e7-fold climb from 1e-9 recorded
+            # zero violations.  Per the class docstring the envelope is a
+            # monitored decay-schedule *target*, so it stays reported on the
+            # violation record and in ``get_stability_report`` as reference,
+            # never as an escape hatch from the per-step condition.
+            threshold = self._prev_v * float(np.exp(-self.lambda_convergence))
+            rtol = 1e-9
+            is_stable = v_current <= threshold + rtol * abs(threshold)
 
             if not is_stable:
                 violation = LyapunovViolation(
@@ -335,9 +350,9 @@ class LyapunovRuntimeEnforcer:
                     v_dot=v_dot,
                     v_bound=v_bound,
                     message=(
-                        f"Step {self._step}: V_dot={v_dot:.6f} > "
-                        f"-lambda*V={threshold:.6f}, "
-                        f"V={v_current:.6f} > bound={v_bound:.6f}"
+                        f"Step {self._step}: V={v_current:.6f} > "
+                        f"V_prev*exp(-lambda)={threshold:.6f} "
+                        f"(V_dot={v_dot:.6f}; reference envelope={v_bound:.6f})"
                     ),
                 )
                 self._violations.append(violation)

@@ -221,8 +221,8 @@ class FEMALoader(BaseDomainLoader):
 
     DOMAIN: str = "fema"
     SOURCE_URL: str = _DECLARATIONS_URL
-    # Labels = (declarationType == "DR") AND iaProgramDeclared AND
-    # paProgramDeclared. The ``ia_program`` / ``pa_program`` flags are also
+    # Labels = (declarationType == "DR") AND individual assistance
+    # (iaProgramDeclared OR ihProgramDeclared) AND paProgramDeclared. The ``ia_program`` / ``pa_program`` flags are also
     # scored features, so the label is a direct conjunction of feature
     # columns. Circular.
     LABEL_SOURCE: str = "statistical"
@@ -388,6 +388,21 @@ class FEMALoader(BaseDomainLoader):
             if len(records) < _PAGE_SIZE:
                 break
             skip += _PAGE_SIZE
+        else:
+            # The ``while skip < _MAX_RECORDS`` guard expired while the last
+            # page was still full, so the API has more rows than the cap let
+            # us fetch.  Previously this truncation was silent and the event
+            # was scored on an arbitrary first ``_MAX_RECORDS`` slice.  Warn
+            # loudly so the undercount is visible rather than mistaken for a
+            # complete fetch.  (``for/else`` runs only when the loop was not
+            # ``break``-ed, i.e. we stopped on the record cap.)
+            logger.warning(
+                "fema: hit the %d-record cap for event '%s' with a full final "
+                "page; the OpenFEMA result set is larger and has been "
+                "truncated. Reported counts undercount the true total.",
+                _MAX_RECORDS,
+                event_id,
+            )
 
         df = self._records_to_dataframe(all_records)
 
@@ -426,12 +441,29 @@ class FEMALoader(BaseDomainLoader):
             )
         return events
 
+    @classmethod
+    def _individual_assistance(cls, df: pd.DataFrame) -> np.ndarray[Any, Any]:
+        """Whether individual assistance was declared, as 0.0 / 1.0 per record.
+
+        FEMA records it in two columns. ``iaProgramDeclared`` is set on
+        declarations up to about 2007; later ones carry it as
+        ``ihProgramDeclared`` (the Individuals and Households Program) and
+        leave ``iaProgramDeclared`` false. Measured on the live earthquake
+        history 2026-11-16: 67 of 82 declarations to 2005 have IA and 3 have
+        IH; of 137 since 2010, none has IA and 51 have IH. Reading IA alone
+        labelled every declaration of 2023 and 2024 normal.
+        """
+        ia = cls._bool_column(df, "iaProgramDeclared")
+        ih = cls._bool_column(df, "ihProgramDeclared")
+        return np.asarray(np.maximum(ia, ih), dtype=np.float64)
+
     def get_ground_truth(self, event_id: str) -> np.ndarray[Any, Any]:
         """Generate binary anomaly labels for a historical FEMA event.
 
         Labeling strategy: a declaration is labeled *anomalous* (``1``)
         if it is a Major Disaster (declaration type ``DR``) with both
-        Individual Assistance (IA) and Public Assistance (PA) programs
+        individual assistance (``iaProgramDeclared`` or, on declarations
+        since about 2007, ``ihProgramDeclared``) and Public Assistance (PA)
         designated.  These represent the most severe events requiring
         full federal response.  Emergency-only (``EM``) declarations
         and declarations without both IA and PA are labeled *normal*
@@ -460,7 +492,7 @@ class FEMALoader(BaseDomainLoader):
         # and Public Assistance (PA) programs designated.  These represent
         # the most severe events requiring full federal response.
         is_major_disaster = df["declarationType"].values == "DR"
-        has_ia = df["iaProgramDeclared"].fillna(False).values.astype(bool)
+        has_ia = self._individual_assistance(df).astype(bool)
         has_pa = df["paProgramDeclared"].fillna(False).values.astype(bool)
 
         labels = (is_major_disaster & has_ia & has_pa).astype(np.int64)
@@ -525,10 +557,19 @@ class FEMALoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
-        # Ensure chronological order.
+        # Ensure chronological order.  ``kind="stable"`` is load-bearing:
+        # ``get_ground_truth`` labels the frame in the order
+        # ``fetch_historical`` cached it, and this method re-sorts that same
+        # frame.  FEMA declarations cluster heavily on a single
+        # ``declarationDate`` (one disaster covers many counties on one date),
+        # so the ``datetime64`` key is dense with ties.  The default introsort
+        # is not idempotent on tied ``datetime64`` keys, so an unstable
+        # re-sort permutes those tied rows and misaligns feature row *i*
+        # against label row *i*.  A stable sort of already-ordered data is a
+        # no-op and keeps the two in lockstep.
         if "declarationDate" in df.columns:
             df["declarationDate"] = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
-            df = df.sort_values("declarationDate").reset_index(drop=True)
+            df = df.sort_values("declarationDate", kind="stable").reset_index(drop=True)
 
         n = len(df)
 
@@ -547,7 +588,7 @@ class FEMALoader(BaseDomainLoader):
         _, trailing_national = self._compute_trailing_counts(df)
 
         # ---- Feature 4: IA program flag ----
-        ia = self._bool_column(df, "iaProgramDeclared")
+        ia = self._individual_assistance(df)
 
         # ---- Feature 5: HM program flag ----
         hm = self._bool_column(df, "hmProgramDeclared")
@@ -724,6 +765,81 @@ class FEMALoader(BaseDomainLoader):
 
         dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
         states = df["state"].values
+
+        # The declaration instants as plain UTC datetime64, NaT where a date
+        # did not parse. A row with no date counts nothing and is counted by
+        # nothing.
+        stamps = np.asarray(dates.dt.tz_localize(None))
+        dated = np.flatnonzero(~np.isnat(stamps))
+        instants = stamps[dated]
+        if instants.size > 1 and bool(np.any(instants[1:] < instants[:-1])):
+            # Rows out of date order: the count is defined by the backward
+            # scan (it stops at the first earlier row that is out of the
+            # window), so that scan is what runs. ``engineer_features`` sorts
+            # by date before calling, so the loader never comes here.
+            return FEMALoader._trailing_counts_by_scan(dates, states)
+
+        # Rows in date order (what ``engineer_features`` passes). Every dated
+        # row before row ``k`` is a prior declaration, and those older than
+        # twelve months are a prefix of the sorted instants, so the trailing
+        # count is a rank minus a binary search: O(n log n). The backward
+        # scan this replaces compared every row with every row inside its
+        # window -- 13.5 million pandas lookups for 5,200 declarations in one
+        # year, which is over a minute of interpreter time.
+        one_year = np.timedelta64(365, "D")
+        national[dated] = FEMALoader._ranks_within_window(instants, one_year)
+
+        labels = np.array([str(states[i]) for i in dated], dtype=object)
+        codes, _ = pd.factorize(labels)
+        by_state = np.argsort(codes, kind="stable")
+        bounds = np.flatnonzero(np.diff(codes[by_state])) + 1
+        for members in np.split(by_state, bounds):
+            same_state[dated[members]] = FEMALoader._ranks_within_window(
+                instants[members], one_year
+            )
+
+        return same_state, national
+
+    @staticmethod
+    def _ranks_within_window(
+        instants: np.ndarray[Any, Any], window: np.timedelta64
+    ) -> np.ndarray[Any, Any]:
+        """Count, for each instant, the earlier ones no older than ``window``.
+
+        Args:
+            instants: ``datetime64`` values in non-decreasing order.
+            window: Length of the trailing window.
+
+        Returns:
+            For position ``k``, the number of positions before ``k`` whose
+            instant is at or after ``instants[k] - window``.
+        """
+        older = np.searchsorted(instants, instants - window, side="left")
+        counts: np.ndarray[Any, Any] = (np.arange(instants.size) - older).astype(np.float64)
+        return counts
+
+    @staticmethod
+    def _trailing_counts_by_scan(
+        dates: pd.Series, states: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Trailing 12-month counts by scanning backwards from each row.
+
+        The definition ``_compute_trailing_counts`` implements, and the path
+        it takes for rows that are not in date order: from each row, walk to
+        earlier rows, skip the undated, stop at the first one older than the
+        window, count the rest. Quadratic in the number of rows inside a
+        window.
+
+        Args:
+            dates: Declaration dates (timezone-aware, NaT where unparsed).
+            states: State label per row.
+
+        Returns:
+            Tuple of (same_state_counts, national_counts) arrays.
+        """
+        n = len(dates)
+        same_state = np.zeros(n, dtype=np.float64)
+        national = np.zeros(n, dtype=np.float64)
         one_year = pd.Timedelta(days=365)
 
         for i in range(n):
@@ -733,13 +849,14 @@ class FEMALoader(BaseDomainLoader):
             cutoff = current_date - one_year
             current_state = str(states[i])
 
-            # Count prior declarations within 12 months
             nat_count = 0
             state_count = 0
-            for j in range(max(0, i - 5000), i):  # cap lookback
+            for j in range(i - 1, -1, -1):
                 prior_date = dates.iloc[j]
-                if pd.isna(prior_date) or prior_date < cutoff:
+                if pd.isna(prior_date):
                     continue
+                if prior_date < cutoff:
+                    break
                 nat_count += 1
                 if str(states[j]) == current_state:
                     state_count += 1

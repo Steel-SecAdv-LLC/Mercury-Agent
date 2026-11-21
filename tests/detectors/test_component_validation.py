@@ -135,16 +135,32 @@ def _make_image_like_dataset(
     n_samples: int = 400,
     seed: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """High-dimensional data resembling flattened images."""
+    """Flattened 16x16 images: smooth 2-D fields, anomalies carry a bright patch.
+
+    Random noise with ``3 * sqrt(n_samples)`` features (what this fixture used
+    to build) is not image-like in any sense a detector can measure; a raster
+    whose neighbouring pixels move together is.
+    """
     rng = np.random.RandomState(seed)
-    n_features = int(np.sqrt(n_samples)) * 3  # Roughly sqrt(n_samples) range
+    side = 16
     n_anomalies = int(n_samples * 0.1)
     n_normal = n_samples - n_anomalies
+    yy, xx = np.mgrid[0:side, 0:side] / side
 
-    X_normal = rng.randn(n_normal, n_features) * 0.5
-    X_anomaly = rng.randn(n_anomalies, n_features) * 0.5 + 3.0
+    def _field() -> np.ndarray:
+        a, b, c = rng.randn(3)
+        base = a * np.sin(2 * np.pi * xx) + b * np.cos(2 * np.pi * yy) + c * xx * yy
+        return np.asarray(base + 0.05 * rng.randn(side, side))
 
-    X = np.vstack([X_normal, X_anomaly])
+    normal = [_field() for _ in range(n_normal)]
+    anomalous = []
+    for _ in range(n_anomalies):
+        image = _field()
+        r, c = rng.randint(0, side - 4, size=2)
+        image[r : r + 4, c : c + 4] += 6.0
+        anomalous.append(image)
+
+    X = np.asarray(normal + anomalous).reshape(n_samples, side * side)
     y = np.concatenate([np.zeros(n_normal), np.ones(n_anomalies)]).astype(np.int32)
 
     idx = rng.permutation(len(X))
@@ -187,10 +203,7 @@ class TestDataTypeDetection:
         X, _ = _make_image_like_dataset(n_samples=400)
         det = MercuryAnomalyDetector()
         result = det._detect_data_characteristics(X)
-        assert result in (
-            DataCharacteristics.IMAGE,
-            DataCharacteristics.TABULAR,
-        ), f"Expected IMAGE or TABULAR, got {result.value}"
+        assert result is DataCharacteristics.IMAGE, f"Expected IMAGE, got {result.value}"
 
     def test_small_data_returns_unknown(self) -> None:
         X = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
@@ -208,6 +221,43 @@ class TestDataTypeDetection:
         assert (
             result == DataCharacteristics.TABULAR
         ), f"Expected TABULAR for shuffled Gaussian, got {result.value}"
+
+    def test_wide_nontemporal_data_is_tabular_and_kinematic_is_zeroed(self) -> None:
+        """The high-dimensional mis-gating gap, closed.
+
+        Wide (> 100 features), not image-shaped and measured non-temporal
+        used to fall to UNKNOWN, whose compatibility row is neutral — so
+        KinematicScore (``np.diff`` over rows) kept full weight on unordered
+        rows, the exact inversion class ``docs/BENCHMARKS.md`` documents. The
+        existing temporal checks already said no; the classifier must act on
+        that and hand the data to the TABULAR path, which zeroes kinematic
+        before it enters the fusion.
+        """
+        rng = np.random.RandomState(0)
+        X = rng.randn(400, 150)  # wide, unordered, nowhere near sqrt(400)
+        det = MercuryAnomalyDetector()
+        assert det._detect_data_characteristics(X) == DataCharacteristics.TABULAR
+        det.fit(X)
+        assert det._data_type == DataCharacteristics.TABULAR
+        assert det._adaptive_weights[1] == 0.0, (
+            f"kinematic weight {det._adaptive_weights[1]:.4f} on wide "
+            "non-temporal data; the scorer must not enter the fusion there"
+        )
+
+    def test_wide_temporal_data_stays_temporal(self) -> None:
+        """Genuine wide time series keep the TEMPORAL classification."""
+        rng = np.random.RandomState(1)
+        t = np.linspace(0.0, 8 * np.pi, 400)
+        X = np.column_stack([np.sin(t + 0.01 * f) + 0.02 * rng.randn(len(t)) for f in range(120)])
+        det = MercuryAnomalyDetector()
+        assert det._detect_data_characteristics(X) == DataCharacteristics.TEMPORAL
+
+    def test_wide_degenerate_data_stays_unknown(self) -> None:
+        """No measurable temporal signal at all → the non-temporal claim
+        rests on nothing, so the neutral UNKNOWN verdict is kept."""
+        X = np.ones((12, 150), dtype=np.float64)  # constant: no variance anywhere
+        det = MercuryAnomalyDetector()
+        assert det._detect_data_characteristics(X) == DataCharacteristics.UNKNOWN
 
 
 class TestComponentPerformance:
@@ -904,8 +954,11 @@ class TestFrequencyDomainOracleParseval:
         oracle = FrequencyDomainOracle({"domain": "medical", "sample_rate": 256.0})
         signal = rng.standard_normal(512)
         freq_matrix, _freqs = oracle._compute_frequency_matrix(signal)
-        result = oracle._validate_parseval_energy(signal, freq_matrix)
-        assert result is True or result is False  # Returns bool
+        # Parseval is an exact per-frame identity for the windowed DFT (the
+        # uncorrected check sat near 0.19 and could never pass).
+        ratio = oracle._parseval_energy_ratio(signal, freq_matrix)
+        assert abs(ratio - 1.0) < 1e-9, f"Parseval energy ratio {ratio!r} is not 1.0"
+        assert oracle._validate_parseval_energy(signal, freq_matrix) is True
 
 
 class TestFrequencyDomainOracleConfig:

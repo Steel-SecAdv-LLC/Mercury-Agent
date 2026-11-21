@@ -34,7 +34,6 @@ is logged and audited but never unwinds them (see :meth:`AuthService._send`).
 from __future__ import annotations
 
 import logging
-import re
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -56,6 +55,7 @@ from omni_mercury_engine.api.secret_sealer import (
     SecretSealer,
     build_secret_sealer,
 )
+from omni_mercury_engine.utils.email_address import MAX_EMAIL_LENGTH, is_email_address
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -89,8 +89,7 @@ __all__ = [
 # possible split and no polynomial backtracking (the previous
 # ``...@[^@\s]+\.[^@\s]+`` overlapped the dot with the surrounding runs, a ReDoS
 # on adversarial input). The required dot in the domain is checked separately.
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
-_MAX_EMAIL_LENGTH = 320  # RFC 5321 max; also bounds the shape check up front.
+_MAX_EMAIL_LENGTH = MAX_EMAIL_LENGTH  # kept under its old name for callers that read it
 _MIN_PASSWORD_LENGTH = 8
 
 #: How many single-use 2FA recovery codes an enrollment issues.
@@ -123,10 +122,7 @@ def _is_valid_email(email: str) -> bool:
         ``True`` if it has exactly one ``@``, non-empty local and domain parts,
         and a dot in the domain; ``False`` otherwise.
     """
-    if len(email) > _MAX_EMAIL_LENGTH or not _EMAIL_RE.match(email):
-        return False
-    domain = email.rsplit("@", 1)[1]
-    return "." in domain and not domain.startswith(".") and not domain.endswith(".")
+    return is_email_address(email)
 
 
 def _normalize_recovery_code(code: str) -> str:
@@ -234,6 +230,8 @@ class AuthService:
         sealer: SecretSealer | None = None,
         auditor: AuthAuditor | None = None,
         mail_executor: Executor | None = None,
+        on_email_changed: Callable[[str, str], None] | None = None,
+        on_account_deleting: Callable[[str], None] | None = None,
     ) -> None:
         """Wire the service to its collaborators and lifetime policy.
 
@@ -257,6 +255,15 @@ class AuthService:
                 (fire-and-forget) so a slow SMTP server can neither block the
                 request thread nor leak timing; ``None`` sends synchronously
                 but still failure-tolerantly.
+            on_email_changed: Called with ``(previous, current)`` once an
+                account's address has changed, so that what is held under
+                the address outside the identity store (its watch
+                subscriptions) follows it. A failure is raised to the caller.
+            on_account_deleting: Called with the account's address after
+                its password is verified and before the account is removed,
+                so that what is held under the address goes first. A failure
+                stops the deletion: no account is deleted while something
+                still mails its address.
         """
         self._store = store
         self._mailer = mailer
@@ -272,6 +279,8 @@ class AuthService:
         self._sealer = sealer or SecretSealer(secrets.token_bytes(32), key_is_stable=True)
         self._auditor = auditor or AuthAuditor(None)
         self._mail_executor = mail_executor
+        self._on_email_changed = on_email_changed
+        self._on_account_deleting = on_account_deleting
 
     # -- email delivery (best-effort by contract) -------------------------- #
     def _send(self, to: str, content: EmailContent) -> None:
@@ -870,14 +879,28 @@ class AuthService:
         account = self._require_account(token.account_id)
         if not token.payload or not _is_valid_email(token.payload):
             raise InvalidTokenError("invalid or unknown token")
+        previous = account.email
         account.email = token.payload
         account.is_verified = True  # the new mailbox just proved receipt
         try:
             self._store.update_account(account)
         except DuplicateEmailError as exc:
             raise EmailAlreadyRegisteredError("email already registered") from exc
+        # The address has changed and that is committed. Every session is
+        # dropped and the change recorded before anything that can fail: the
+        # hook ran first, and one failure in it (the watch's store locked, or
+        # refusing the new address) returned an error with the old sessions
+        # still valid and nothing in the audit trail.
         self._store.delete_sessions_for_account(account.id)
         self._auditor.record("email_change", outcome="success", account_id=account.id)
+        if self._on_email_changed is not None and previous != account.email:
+            try:
+                self._on_email_changed(previous, account.email)
+            except Exception:
+                logger.exception("email change: what follows an address could not be carried")
+                self._auditor.record(
+                    "email_change_followup", outcome="failure", account_id=account.id
+                )
         return account
 
     # -- deletion + export ------------------------------------------------------ #
@@ -887,7 +910,8 @@ class AuthService:
         """Hard-delete an account after re-authentication.
 
         Sessions, email tokens, and recovery codes are removed with the
-        account row. Usage-ledger rows are pseudonymous accounting facts and
+        account row, and its watch subscriptions before it (see
+        ``on_account_deleting``). Usage-ledger rows are pseudonymous accounting facts and
         age out via the retention sweep instead (documented in the security
         notes).
 
@@ -909,6 +933,8 @@ class AuthService:
                 details={"reason": "bad_current_password"},
             )
             raise InvalidCredentialsError("current password is incorrect")
+        if self._on_account_deleting is not None:
+            self._on_account_deleting(account.email)
         self._store.delete_account(account.id)
         self._auditor.record(
             "account_delete", outcome="success", account_id=account.id, client_ip=client_ip
@@ -1105,6 +1131,58 @@ def _positive_env_seconds(name: str, default_seconds: float) -> timedelta:
     return timedelta(seconds=value)
 
 
+def public_base_url() -> str:
+    """Return the base URL that account emails link to.
+
+    ``MERCURY_PUBLIC_BASE_URL`` is used when set. Its old default was the
+    project's own site, so a server that did not set it sent every user a
+    verification, password-reset and email-change link to
+    ``https://mercuryagent.global``: the link did not reach the server that
+    issued the token, and the token itself went to a host the operator does not
+    run. The default now depends on where the mail goes:
+
+    * with the development mailer (no ``MERCURY_SMTP_HOST``) the message is
+      filed on this machine, so the link points at this server,
+      ``http://127.0.0.1:<port>`` (``OMNI_API_PORT``, which
+      ``mercury-agent serve`` sets from ``--port``; 8000 otherwise);
+    * with SMTP configured, mail leaves the machine and there is no safe
+      guess, so the setting is required.
+
+    Returns:
+        The base URL, without a trailing slash.
+
+    Raises:
+        RuntimeError: If ``MERCURY_SMTP_HOST`` is set and
+            ``MERCURY_PUBLIC_BASE_URL`` is not, or if the latter is not an
+            ``http://`` or ``https://`` URL with a host.
+    """
+    import os
+    from urllib.parse import urlsplit
+
+    explicit = os.getenv("MERCURY_PUBLIC_BASE_URL", "").strip()
+    if explicit:
+        parts = urlsplit(explicit)
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            # "mercury.example.org" was accepted and produced emailed links
+            # of the form "mercury.example.org/verify-email?token=...", which
+            # no mail client turns into a link.
+            raise RuntimeError(
+                f"MERCURY_PUBLIC_BASE_URL={explicit!r} is not a URL account emails can link "
+                "to: it needs a scheme and a host, for example "
+                "MERCURY_PUBLIC_BASE_URL=https://mercury.example.org."
+            )
+        return explicit.rstrip("/")
+    if os.getenv("MERCURY_SMTP_HOST", "").strip():
+        raise RuntimeError(
+            "MERCURY_PUBLIC_BASE_URL must be set when MERCURY_SMTP_HOST is: account emails "
+            "carry verification and password-reset links, and without it they would not point "
+            "at this server. Set it to the address users reach this server at, for example "
+            "MERCURY_PUBLIC_BASE_URL=https://mercury.example.org."
+        )
+    port = os.getenv("OMNI_API_PORT", "").strip()
+    return f"http://127.0.0.1:{port if port.isdigit() else '8000'}"
+
+
 def build_auth_service() -> AuthService:
     """Construct an :class:`AuthService` wired from the environment.
 
@@ -1115,7 +1193,7 @@ def build_auth_service() -> AuthService:
     :func:`build_auth_auditor` (tamper-evident when ``MERCURY_AUDIT_LOG_DIR``
     is set). Session lifetimes come from ``MERCURY_SESSION_TTL_SECONDS`` /
     ``MERCURY_SESSION_TTL_SHORT_SECONDS`` / ``MERCURY_SESSION_IDLE_SECONDS``;
-    ``MERCURY_PUBLIC_BASE_URL`` builds email links. When an SMTP host is
+    :func:`public_base_url` builds email links. When an SMTP host is
     configured, sends run on a small background executor so a slow mail
     server cannot stall (or time-fingerprint) request handling.
 
@@ -1124,7 +1202,9 @@ def build_auth_service() -> AuthService:
     """
     import os
 
-    base_url = os.getenv("MERCURY_PUBLIC_BASE_URL", "https://mercuryagent.global")
+    from omni_mercury_engine.watch.store import carry_address, forget_address
+
+    base_url = public_base_url()
     contact = os.getenv("MERCURY_CONTACT_EMAIL", "contact@mercuryagent.global")
 
     mail_executor = None
@@ -1144,4 +1224,6 @@ def build_auth_service() -> AuthService:
         sealer=build_secret_sealer(store_is_durable=identity_store_is_durable()),
         auditor=build_auth_auditor(),
         mail_executor=mail_executor,
+        on_email_changed=carry_address,
+        on_account_deleting=forget_address,
     )

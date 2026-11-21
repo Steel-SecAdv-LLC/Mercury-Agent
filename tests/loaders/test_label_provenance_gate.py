@@ -71,7 +71,7 @@ def test_registry_has_no_stale_entries() -> None:
 
 
 def test_ground_truth_set_is_the_phase_1_finding() -> None:
-    """The audit confirms only two ground-truth loaders feed the live suite.
+    """The audit confirms which loaders carry labels independent of their features.
 
     This is the transparent baseline Phase 1 surfaces: of the 15 concrete live-API
     loaders, only ``network_security`` and ``sepsis`` produce labels
@@ -84,6 +84,10 @@ def test_ground_truth_set_is_the_phase_1_finding() -> None:
     expected = {
         "network_security_loader.NetworkSecurityLoader",
         "sepsis_loader.SepsisLoader",
+        # Added 2026-11-16, declared and audited here: its labels are NOAA
+        # NCEI's billion-dollar tropical cyclone catalogue, and none of its
+        # scored columns (daily counts of FEMA designations) is derived from it.
+        "fema_activity_loader.FEMAActivityLoader",
     }
     assert ground_truth_loader_keys() == expected
 

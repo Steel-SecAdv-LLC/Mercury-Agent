@@ -37,7 +37,11 @@ class DecisionRecord:
         decision_label: The grounded label (``1`` anomaly / ``0`` normal) when
             ``state is GROUNDED``; ``None`` when abstaining (no label decided).
         abstained: ``True`` iff the loop did not produce a grounded label.
-        anomaly_prob: The calibrated ``P(anomaly)`` the verdict rests on.
+        anomaly_prob: The calibrated ``P(anomaly)`` the verdict rests on, or
+            ``None`` when the detection carried no usable probability
+            (missing, NaN, infinite).  ``None`` is never replaced by a
+            placeholder number: such a record is an abstention, and a 0.0
+            here would read downstream as a measured all-clear score.
         threshold: The decision threshold in play.
         decision_confidence: Confidence in the grounded label -- the
             distribution-free ``coverage`` when calibrated, a margin heuristic
@@ -57,7 +61,7 @@ class DecisionRecord:
     disposition: Disposition
     decision_label: int | None
     abstained: bool
-    anomaly_prob: float
+    anomaly_prob: float | None
     threshold: float
     decision_confidence: float | None
     coverage: float | None
@@ -108,7 +112,7 @@ class DecisionRecord:
             disposition=Disposition(data["disposition"]),
             decision_label=data["decision_label"],
             abstained=bool(data["abstained"]),
-            anomaly_prob=float(data["anomaly_prob"]),
+            anomaly_prob=(None if data["anomaly_prob"] is None else float(data["anomaly_prob"])),
             threshold=float(data["threshold"]),
             decision_confidence=data["decision_confidence"],
             coverage=data["coverage"],
@@ -144,6 +148,12 @@ class DecisionRecord:
     def explain(self) -> str:
         """Return a one-paragraph, operator-readable account of the decision."""
         dom = self.domain or "general"
+        # No probability is said as such, never printed as a number.
+        prob = (
+            "no anomaly score was produced"
+            if self.anomaly_prob is None
+            else f"p={self.anomaly_prob:.3f}"
+        )
         if self.state is ThreeState.GROUNDED:
             label = "anomaly" if self.decision_label == 1 else "normal"
             conf = (
@@ -154,19 +164,19 @@ class DecisionRecord:
             )
             head = (
                 f"GROUNDED [{dom}]: decided {label} "
-                f"(p={self.anomaly_prob:.3f}, threshold={self.threshold:.3f}, "
+                f"({prob}, threshold={self.threshold:.3f}, "
                 f"confidence={conf})."
             )
         elif self.state is ThreeState.UNAVAILABLE:
             head = (
                 f"ABSTAIN/UNAVAILABLE [{dom}]: a resolvable don't-know "
-                f"(p={self.anomaly_prob:.3f}, threshold={self.threshold:.3f}); "
+                f"({prob}, threshold={self.threshold:.3f}); "
                 "deferring rather than guessing."
             )
         else:  # UNDECIDABLE
             head = (
                 f"ABSTAIN/UNDECIDABLE [{dom}]: fail-closed don't-know "
-                f"(p={self.anomaly_prob:.3f}); the input is outside certified "
+                f"({prob}); the input is outside certified "
                 "scope, so the loop holds."
             )
         why = (" Drivers: " + "; ".join(self.reasons) + ".") if self.reasons else ""

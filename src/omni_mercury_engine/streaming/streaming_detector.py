@@ -70,6 +70,7 @@ class StreamingDetector:
         min_samples: int = 50,
         detector_config: dict[str, Any] | None = None,
         on_anomaly: Callable[[dict[str, Any]], None] | None = None,
+        score_window: int = 256,
     ) -> None:
         """Initialize the streaming detector.
 
@@ -79,8 +80,14 @@ class StreamingDetector:
             min_samples: Minimum samples needed before detection starts.
             detector_config: Configuration dict for MercuryAnomalyDetector.
             on_anomaly: Optional callback when anomaly detected.
+            score_window: How many of the most recent observations the newest
+                point is scored against (its dynamics need recent history, not
+                the whole fit window; bounding it keeps the per-point cost flat).
         """
+        if score_window < 2:
+            raise ValueError("score_window must be at least 2")
         self.window_size = window_size
+        self.score_window = score_window
         self.refit_interval = refit_interval
         self.min_samples = min_samples
         self.on_anomaly = on_anomaly
@@ -93,6 +100,27 @@ class StreamingDetector:
         self._is_fitted: bool = False
         self._last_refit_time: float = 0.0
         self._lock = asyncio.Lock()
+
+        #: Why the last ingest returned what it did: ``"warmup"`` (not enough
+        #: data yet), ``"ok"``, ``"refit_failed"``, ``"detect_failed"`` or
+        #: ``"rejected"`` (the sample contradicted the stream's shape and was
+        #: refused with ``ValueError``). A failed ingest returns ``None``
+        #: exactly like warm-up does, so this is what tells an outage from a
+        #: cold start.
+        self.last_status: str = "warmup"
+        self.last_error: str | None = None
+        #: The shape one observation has in this stream, fixed by the first
+        #: one accepted (``None`` until then), and how many were refused for
+        #: contradicting it.
+        self._sample_shape: tuple[int, ...] | None = None
+        self.rejected_points: int = 0
+        #: The most recent refit failure and how many refits have failed in a
+        #: row. A successful DETECT does not clear these: a detector whose
+        #: refits keep failing goes on serving an ever-staler fit, and that
+        #: must stay visible while it answers "ok".
+        self.last_refit_error: str | None = None
+        self.refit_failures: int = 0
+        self._refit_retry_at: int = 0
 
         # Performance tracking
         self._latencies: deque[float] = deque(maxlen=100)
@@ -116,9 +144,49 @@ class StreamingDetector:
             return 0.0
         return float(np.mean(list(self._latencies)) * 1000)
 
+    def _admit(self, shape: tuple[int, ...], count: int) -> None:
+        """Refuse observations whose shape contradicts the stream's, before they are kept.
+
+        The window is stacked into one array for every refit. A single
+        observation of another width used to be appended anyway; the next
+        refit then raised from the stacking, *before* that tick's sample was
+        appended, so the window never advanced and every later ``ingest``
+        raised the same error: one malformed sample ended the stream until
+        :meth:`reset`. The contradiction is refused here instead, at the
+        sample that carries it, and the stream goes on.
+
+        Args:
+            shape: Shape of one observation being offered.
+            count: How many observations of that shape are being offered.
+
+        Raises:
+            ValueError: If an observation is empty, or its shape is not the
+                shape this stream's observations have.
+        """
+        problem = None
+        if 0 in shape:
+            problem = "an observation with no features carries nothing to score"
+        elif self._sample_shape is not None and shape != self._sample_shape:
+            problem = (
+                f"observation has shape {shape}; this stream's observations have "
+                f"shape {self._sample_shape}"
+            )
+        if problem is None:
+            self._sample_shape = shape
+            return
+        self.rejected_points += count
+        self.last_status, self.last_error = "rejected", f"ValueError: {problem}"
+        raise ValueError(problem)
+
     def _refit(self) -> None:
-        """Re-fit the detector on the current window."""
-        if len(self._window) < self.min_samples:
+        """Re-fit the detector on the current window.
+
+        A failed fit is not retried on the very next point: a detector that is
+        already fitted keeps serving its previous fit until the next interval,
+        and a cold one waits a short backoff -- otherwise every tick would pay
+        for a full-window fit that is going to fail again.
+        """
+        if len(self._window) < self.min_samples or self._total_points < self._refit_retry_at:
             return
         data = self.window_data
         try:
@@ -126,9 +194,40 @@ class StreamingDetector:
             self._is_fitted = True
             self._points_since_refit = 0
             self._last_refit_time = time.monotonic()
+            self.last_refit_error, self.refit_failures = None, 0
             logger.debug("StreamingDetector refit on %d samples.", len(self._window))
         except Exception as exc:
+            self.last_error = f"{type(exc).__name__}: {exc}"
+            self.last_refit_error = self.last_error
+            self.refit_failures += 1
+            if self._is_fitted:
+                self._points_since_refit = 0
+            else:
+                self._refit_retry_at = self._total_points + max(1, self.min_samples // 10)
             logger.warning("StreamingDetector refit failed: %s", exc)
+
+    @classmethod
+    def _newest_point_view(cls, result: dict[str, Any], n_rows: int) -> dict[str, Any]:
+        """Cut every per-row entry of a window-level result down to its newest row.
+
+        Arrays and lists whose leading dimension is the window length keep
+        their type and rank but hold only the last row; nested dicts are
+        treated the same way. ``batch_anomaly`` is re-derived for the one row.
+        """
+        view: dict[str, Any] = {}
+        for key, value in result.items():
+            per_row = (
+                isinstance(value, np.ndarray) and value.ndim >= 1 and value.shape[0] == n_rows
+            ) or (isinstance(value, list) and len(value) == n_rows)
+            if per_row:
+                view[key] = value[-1:]
+            elif isinstance(value, dict):
+                view[key] = cls._newest_point_view(value, n_rows)
+            else:
+                view[key] = value
+        if "batch_anomaly" in view and "fdr_flags" in view:
+            view["batch_anomaly"] = bool(np.asarray(view["fdr_flags"]).any())
+        return view
 
     def ingest(self, point: np.ndarray[Any, Any] | list[float] | float) -> dict[str, Any] | None:
         """Ingest a single data point and optionally return detection results.
@@ -141,27 +240,42 @@ class StreamingDetector:
             Detection result dict if detection was run, None if not
             enough data yet. The result dict contains the same keys
             as MercuryAnomalyDetector.detect() output.
+
+        Raises:
+            ValueError: If the observation is empty or its shape contradicts
+                the stream's. It is not kept, and the stream is unaffected.
         """
         start = time.monotonic()
 
         # Normalize input
         arr = np.atleast_1d(np.asarray(point, dtype=np.float64))
+        self._admit(arr.shape, 1)
+
+        # Refit BEFORE the new point joins the window: the reference a point
+        # is scored against must not contain that point, or an anomaly helps
+        # define the "normal" it is then compared with.
+        if self._points_since_refit >= self.refit_interval or not self._is_fitted:
+            self._refit()
+
         self._window.append(arr)
         self._total_points += 1
         self._points_since_refit += 1
 
-        # Check if we need to refit
-        if self._points_since_refit >= self.refit_interval or not self._is_fitted:
-            self._refit()
-
         # Run detection if fitted
         if not self._is_fitted:
+            self.last_status = "refit_failed" if self.last_error else "warmup"
             return None
 
         try:
-            # Detect on the most recent point(s)
-            recent = arr.reshape(1, -1)
-            result = self._detector.detect(recent)
+            # Score the newest point against its TRAILING WINDOW, not alone: a
+            # lone row has no dynamics, so the kinematic component falls back
+            # to its ``n < 2`` constant of 0.5 and a third of the score carries
+            # nothing. The RESULT, though, is the newest point's: every
+            # per-point array is cut to that one row, as it always was, so a
+            # caller summing ``is_anomaly`` or testing ``np.any`` counts this
+            # point and not the window it was scored in.
+            tail = np.array(list(self._window)[-self.score_window :])
+            result = self._newest_point_view(self._detector.detect(tail), len(tail))
 
             elapsed = time.monotonic() - start
             self._latencies.append(elapsed)
@@ -171,19 +285,25 @@ class StreamingDetector:
                 "total_points_ingested": self._total_points,
                 "window_size": len(self._window),
                 "points_since_refit": self._points_since_refit,
+                "scored_against": len(tail),
                 "latency_ms": elapsed * 1000,
                 "mean_latency_ms": self.mean_latency_ms,
             }
 
-            # Fire callback if anomaly detected
+            # Fire the callback on the NEWEST point's verdict (``[-1]``), the
+            # sample this ingest just reported -- not on any older window point,
+            # which would re-fire as a past anomaly slid through the window.
             if self.on_anomaly and result.get("is_anomaly") is not None:
-                is_anom = np.asarray(result["is_anomaly"])
-                if np.any(is_anom):
+                is_anom = np.asarray(result["is_anomaly"]).reshape(-1)
+                if is_anom.size and bool(is_anom[-1]):
                     self.on_anomaly(result)
 
+            self.last_status, self.last_error = "ok", None
             return result
 
         except Exception as exc:
+            self.last_status = "detect_failed"
+            self.last_error = f"{type(exc).__name__}: {exc}"
             logger.warning("StreamingDetector detection failed: %s", exc)
             return None
 
@@ -197,19 +317,38 @@ class StreamingDetector:
 
         Returns:
             Detection result for the entire batch, or None.
+
+        Raises:
+            ValueError: If the rows are empty or their shape contradicts the
+                stream's. None of the batch is kept.
         """
         start = time.monotonic()
         arr = np.atleast_2d(np.asarray(batch, dtype=np.float64))
+        self._admit(arr.shape[1:], len(arr))
 
-        for row in arr:
-            self._window.append(row)
+        # As in :meth:`ingest`, the reference is fitted on what was seen BEFORE
+        # this batch. The one exception is a cold start with too little
+        # history: there is no earlier reference to use, so the first fit
+        # includes the batch and the result says so.
+        reference_includes_batch = False
+        appended = False
+        if not self._is_fitted and len(self._window) < self.min_samples:
+            for row in arr:
+                self._window.append(row)
+            appended = True
+            self._refit()
+            reference_includes_batch = self._is_fitted
+        elif self._points_since_refit >= self.refit_interval or not self._is_fitted:
+            self._refit()
+
+        if not appended:
+            for row in arr:
+                self._window.append(row)
         self._total_points += len(arr)
         self._points_since_refit += len(arr)
 
-        if self._points_since_refit >= self.refit_interval or not self._is_fitted:
-            self._refit()
-
         if not self._is_fitted:
+            self.last_status = "refit_failed" if self.last_error else "warmup"
             return None
 
         try:
@@ -222,6 +361,7 @@ class StreamingDetector:
                 "window_size": len(self._window),
                 "batch_size": len(arr),
                 "latency_ms": elapsed * 1000,
+                "reference_includes_scored_points": reference_includes_batch,
             }
 
             if self.on_anomaly and result.get("is_anomaly") is not None:
@@ -229,9 +369,12 @@ class StreamingDetector:
                 if np.any(is_anom):
                     self.on_anomaly(result)
 
+            self.last_status, self.last_error = "ok", None
             return result
 
         except Exception as exc:
+            self.last_status = "detect_failed"
+            self.last_error = f"{type(exc).__name__}: {exc}"
             logger.warning("StreamingDetector batch detection failed: %s", exc)
             return None
 
@@ -270,6 +413,10 @@ class StreamingDetector:
         self._total_points = 0
         self._is_fitted = False
         self._latencies.clear()
+        self.last_status, self.last_error = "warmup", None
+        self.last_refit_error, self.refit_failures = None, 0
+        self._refit_retry_at = 0
+        self._sample_shape, self.rejected_points = None, 0
         _cls = _get_detector_class()
         self._detector = _cls(
             config=self._detector.config if hasattr(self._detector, "config") else {}
@@ -289,4 +436,9 @@ class StreamingDetector:
             "points_since_refit": self._points_since_refit,
             "mean_latency_ms": self.mean_latency_ms,
             "is_ready": self.is_ready,
+            "last_status": self.last_status,
+            "last_error": self.last_error,
+            "last_refit_error": self.last_refit_error,
+            "refit_failures": self.refit_failures,
+            "rejected_points": self.rejected_points,
         }

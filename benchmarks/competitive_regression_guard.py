@@ -20,6 +20,15 @@ pins both:
   ``measured_gap + gap_margin``. Both sides are re-measured in the same run,
   so a PyOD version bump that pulls the baselines ahead trips the gate just
   like a Mercury regression does.
+* **Mean-rank gate** -- Mercury's mean rank across the guard datasets, ranked
+  per dataset against every PyOD baseline with average-rank-on-ties (the
+  ``competitive_benchmark.summarize`` convention), may not worsen by more
+  than ``RANK_MARGIN`` against the pinned baseline. The baseline's rank is
+  derived from the per-method AUCs the baseline already stores, so the gate
+  needs no baseline-format change and the floor is computed, never stored.
+  The mean-AUC floor alone cannot see a positional regression in which
+  Mercury drifts down a little on the datasets where the field is dense:
+  rank charges for every overtake.
 
 What this measures
 ------------------
@@ -81,6 +90,11 @@ MEAN_AUC_MARGIN = 0.02
 # Competitive-position margin: the measured Mercury-to-best-PyOD mean-AUC gap
 # may widen by at most this much before the gate fires.
 GAP_MARGIN = 0.02
+# Mean-rank margin: with 8 guard datasets one single-position overtake moves
+# the mean rank by 1/8 = 0.125, so 0.5 absorbs a handful of near-tie flips
+# from cross-environment numerical drift while a real regression (a broken
+# component reorders most datasets) moves the mean rank by >> 0.5.
+RANK_MARGIN = 0.5
 
 
 def _git_commit() -> str:
@@ -179,6 +193,36 @@ def evaluate() -> dict[str, Any]:
     }
 
 
+def mercury_mean_rank(payload: dict[str, Any]) -> float:
+    """Mercury tier's mean rank across a run's guard datasets.
+
+    Per dataset, Mercury and every PyOD method are ranked by AUC (rank 1 is
+    best; ties share the average of the ranks they span -- the exact
+    ``competitive_benchmark.summarize`` convention). Works on the pinned
+    baseline and on a fresh measurement alike, because both store the same
+    per-method AUCs.
+    """
+    ranks: list[float] = []
+    for name, d in payload["datasets"].items():
+        values = [("mercury_tier", float(d["mercury_tier_auc"]))] + [
+            (algo, float(auc)) for algo, auc in d["pyod_auc"].items()
+        ]
+        if len(values) < 2:
+            raise ValueError(f"{name}: need at least two methods to rank, got {len(values)}")
+        scores = np.array([v for _, v in values])
+        order = np.argsort(-scores, kind="stable")
+        rank_of = np.empty(len(values))
+        position = 0
+        while position < len(values):
+            stop = position
+            while stop + 1 < len(values) and scores[order[stop + 1]] == scores[order[position]]:
+                stop += 1
+            rank_of[order[position : stop + 1]] = (position + stop) / 2.0 + 1.0
+            position = stop + 1
+        ranks.append(float(rank_of[0]))  # index 0 is mercury_tier
+    return float(np.mean(ranks))
+
+
 def _floors_from(baseline: dict[str, Any]) -> dict[str, Any]:
     """Derive floors/ceilings from a measured baseline (never stored)."""
     out: dict[str, Any] = {"datasets": {}}
@@ -189,6 +233,7 @@ def _floors_from(baseline: dict[str, Any]) -> dict[str, Any]:
     agg = baseline["aggregate"]
     out["mercury_mean_auc_floor"] = round(agg["mercury_tier_mean_auc"] - MEAN_AUC_MARGIN, 4)
     out["competitive_gap_ceiling"] = round(agg["competitive_gap"] + GAP_MARGIN, 4)
+    out["mercury_mean_rank_ceiling"] = round(mercury_mean_rank(baseline) + RANK_MARGIN, 4)
     return out
 
 
@@ -225,6 +270,14 @@ def check(measured: dict[str, Any] | None = None) -> list[str]:
             f"mercury mean {agg['mercury_tier_mean_auc']:.4f}) > "
             f"ceiling {floors['competitive_gap_ceiling']:.4f}"
         )
+    measured_rank = mercury_mean_rank(measured)
+    if measured_rank > floors["mercury_mean_rank_ceiling"]:
+        violations.append(
+            f"mercury mean rank {measured_rank:.4f} > "
+            f"ceiling {floors['mercury_mean_rank_ceiling']:.4f} "
+            f"(baseline {floors['mercury_mean_rank_ceiling'] - RANK_MARGIN:.4f} "
+            f"+ margin {RANK_MARGIN})"
+        )
     return violations
 
 
@@ -243,7 +296,8 @@ def main() -> int:
         print(
             f"  mercury mean AUC={agg['mercury_tier_mean_auc']:.4f}  "
             f"best PyOD ({agg['best_pyod_method']}) mean AUC={agg['best_pyod_mean_auc']:.4f}  "
-            f"gap={agg['competitive_gap']:+.4f}"
+            f"gap={agg['competitive_gap']:+.4f}  "
+            f"mean rank={mercury_mean_rank(baseline):.4f}"
         )
         return 0
 
@@ -254,7 +308,10 @@ def main() -> int:
             for v in violations:
                 print(f"  - {v}")
             return 1
-        print("COMPETITIVE REGRESSION GUARD: PASS (absolute floors + competitive gap held)")
+        print(
+            "COMPETITIVE REGRESSION GUARD: PASS "
+            "(absolute floors + competitive gap + mean rank held)"
+        )
         return 0
 
     ap.print_help()

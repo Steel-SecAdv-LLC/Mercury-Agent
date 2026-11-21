@@ -308,7 +308,7 @@
     var live = status(), label = { live: "LIVE", simulated: "SIMULATED ENGINE", offline: "NO ENGINE", unreachable: "ENGINE UNREACHABLE" }[live];
     var sig = S.haveSignal ? S.signal.toFixed(2) : "none yet";
     var text = label + " · activity " + S.activity.toFixed(2) + " · signal " + sig + " · in flight " + S.inflight;
-    if (text !== S.lastKey) { CV.cap.textContent = text; S.lastKey = text; }
+    if (text !== S.lastKey || CV.cap.textContent !== text) { CV.cap.textContent = text; S.lastKey = text; }
   }
 
   function bind(cv) {

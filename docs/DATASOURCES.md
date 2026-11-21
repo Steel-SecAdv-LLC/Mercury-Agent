@@ -8,8 +8,8 @@ tables below still derive from the legacy 2026-02-15 sweep — the
 here as the auditable starting point). The canonical public
 benchmarking figure is the committed `mercury_benchmark_results.json`
 run documented in the README "Latest Benchmark Results" section:
-**67 successful / 76 attempted**, Mean AUC **0.8610**, Median
-**0.9077**, Mean Oracle F1 **0.6476** (2026-10-26, commit a2d7f99).
+**67 successful / 76 attempted**, Mean AUC **0.8616**, Median
+**0.9038**, Mean Oracle F1 **0.6493** (2026-11-16, commit e356358).
 The 11 watch-listed loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR,
 SWaT, WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
 HazardMitigation) are tracked by a two-lane reachability harness
@@ -291,7 +291,7 @@ No synthetic data is used in any benchmark.
 | Field | Value |
 |-------|-------|
 | **Loader** | `FloodLoader` |
-| **API** | USGS Water Services + OpenFEMA |
+| **API** | USGS Water Services + OpenFEMA; NOAA National Water Prediction Service for national flood status (`fetch_flood_status`) |
 | **API Key** | Not required |
 | **License** | Public Domain (US Government) |
 
@@ -319,7 +319,7 @@ No synthetic data is used in any benchmark.
 | Field | Value |
 |-------|-------|
 | **Loader** | `LandslideLoader` |
-| **API** | NASA Global Landslide Catalog (COOLR) |
+| **API** | NASA Global Landslide Catalog (COOLR): NASA's ArcGIS service first, then the public ArcGIS Online copy of the same catalog when NASA's host cannot be reached (it publishes no IPv4 address). Each frame names its source in `catalog_source`. |
 | **API Key** | Not required |
 | **License** | Public Domain (US Government / NASA) |
 
@@ -356,9 +356,13 @@ No synthetic data is used in any benchmark.
 | Field | Value |
 |-------|-------|
 | **Loader** | `EnergyLoader` |
-| **API** | NOAA Space Weather Prediction Center + EIA |
-| **EIA Key** | Optional (free) — Register at https://www.eia.gov/opendata/register.php |
-| **Env Variable** | `EIA_API_KEY` (optional) |
+| **Live** | NOAA Space Weather Prediction Center (Kp, solar wind, X-ray flares) |
+| **Historical storms** | NASA/GSFC OMNI2 hourly archive, 1963 onward (`spdf.gsfc.nasa.gov`): recorded Kp, solar-wind speed and density |
+| **Historical flare class** | NOAA NCEI GOES XRS flare reports, one text file per year, 1975 to 2017 (`www.ngdc.noaa.gov`): the strongest flare peaking in each 3-hour step of a storm. Years after 2017 are not in the archive and stay unknown |
+| **Historical grid events** | EIA-930 Hourly Electric Grid Monitor six-month balance files (`www.eia.gov`): each grid operator's hourly demand, day-ahead forecast, net generation and interchange |
+| **Grid disturbance labels** | DOE Form OE-417 (Electric Emergency Incident and Disturbance Report) as republished in EIA's Electric Power Monthly, Appendix B (`www.eia.gov/electricity/monthly/archive/`): each disturbance with the hour it began and was restored, NERC region, load lost and customers affected. Labels `texas_2021` and `texas_2023` independently of every scored column. EIA carried the appendix through the February 2024 issue, so 2023 is the last complete year and a later year is refused. Fallback for 2023 only: ORNL's Open Energy Hub copy of the annual summary (`openenergyhub.ornl.gov`), which has dates without times |
+| **Key** | None. `EIA_API_KEY` is read but not needed: the EIA-930 files are keyless |
+| **Synthetic** | Only when an archive is unreachable and `MERCURY_ALLOW_SYNTHETIC=1`; the frame is marked and never cached |
 
 ### Domain: Marine Biodiversity
 
@@ -385,6 +389,17 @@ No synthetic data is used in any benchmark.
 | **Loader** | `FEMALoader` |
 | **API** | OpenFEMA |
 | **API Key** | Not required |
+| **License** | Public Domain (US Government) |
+
+### Domain: FEMA Declaration Activity
+
+| Field | Value |
+|-------|-------|
+| **Loader** | `FEMAActivityLoader` |
+| **Series** | OpenFEMA `DisasterDeclarationsSummaries`: county designations for hurricanes, tropical storms and typhoons, counted per day of a calendar year (2017 to 2024) |
+| **Labels** | NOAA NCEI Billion-Dollar Weather and Climate Disasters, event list (`www.ncei.noaa.gov/access/billions/`, 1980 to 2024): a day is labelled from the first day of a billion-dollar tropical cyclone to thirty days after its last (the request period of 44 CFR 206.36(a)). Independent of every scored column |
+| **API Key** | Not required |
+| **Synthetic stand-in** | None: an external label cannot be invented, so an unreachable source is refused |
 | **License** | Public Domain (US Government) |
 
 ### Domain: Drought

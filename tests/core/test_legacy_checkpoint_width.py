@@ -2,15 +2,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """A checkpoint written before the fitted width was recorded is still checked.
 
-The bundled ``default_fusion.pt`` predates the ``fitted_feature_width`` key, so
-the width guard added for fitted engines skipped it: ``mercury-agent detect -d
-fusion`` on a 4-column CSV scored those columns against 16-column fitted
-statistics and returned ``state: grounded, disposition: clear,
+The bundled ``default_fusion.pt`` long predated the ``fitted_feature_width``
+key, so the width guard added for fitted engines skipped it: ``mercury-agent
+detect -d fusion`` on a 4-column CSV scored those columns against 16-column
+fitted statistics and returned ``state: grounded, disposition: clear,
 decision_confidence: 1.0`` with p ~ 1e-17 for rows shifted by six standard
 deviations, while the drift check in the same result reported the widths
-incomparable. The checkpoint still carries its training rows (the spatial
+incomparable. A legacy checkpoint carries its training rows (the spatial
 detector's state, the drift reference's source), so its width is recovered
 from them on load and every serving surface refuses a mismatched width.
+
+The bundled artifact has since been re-saved under the current format (the
+3.1.0 conformal calibration), so the legacy path is exercised through a copy
+of it with the width key stripped -- exactly the shape of a pre-key
+checkpoint -- while the first test pins that the shipped file itself now
+records its width directly.
 """
 
 from __future__ import annotations
@@ -34,12 +40,24 @@ if TYPE_CHECKING:
 BUNDLED_WIDTH = 16
 
 
+@pytest.fixture(scope="module")
+def legacy_checkpoint(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """The bundled checkpoint as a pre-``fitted_feature_width`` artifact."""
+    import torch
+
+    blob = torch.load(default_fusion_checkpoint_path(), map_location="cpu", weights_only=False)
+    blob.pop("fitted_feature_width", None)
+    path = tmp_path_factory.mktemp("legacy") / "legacy_fusion.pt"
+    torch.save(blob, str(path))
+    return str(path)
+
+
 @pytest.fixture
-def bundled(monkeypatch: pytest.MonkeyPatch) -> OmniMercuryEngine:
+def bundled(monkeypatch: pytest.MonkeyPatch, legacy_checkpoint: str) -> OmniMercuryEngine:
     monkeypatch.delenv(engine_mod.FUSION_CHECKPOINT_ENV, raising=False)
     monkeypatch.setattr(engine_mod, "installed_fusion_checkpoint_path", _absent)
     engine = OmniMercuryEngine(mode="fusion", device="cpu")
-    assert engine.load_default_fusion_checkpoint() is True
+    engine.load_model(legacy_checkpoint)
     return engine
 
 
@@ -49,11 +67,13 @@ def _absent() -> Path:
     return Path("/nonexistent/fusion.pt")
 
 
-def test_the_bundled_checkpoint_predates_the_width_key() -> None:
+def test_the_bundled_checkpoint_now_records_its_width(legacy_checkpoint: str) -> None:
     import torch
 
     blob = torch.load(default_fusion_checkpoint_path(), map_location="cpu", weights_only=False)
-    assert "fitted_feature_width" not in blob
+    assert blob["fitted_feature_width"] == BUNDLED_WIDTH
+    stripped = torch.load(legacy_checkpoint, map_location="cpu", weights_only=False)
+    assert "fitted_feature_width" not in stripped
 
 
 def test_its_width_is_recovered_from_its_training_rows(bundled: OmniMercuryEngine) -> None:
@@ -124,9 +144,17 @@ def test_a_stale_detector_state_does_not_lend_its_width(
     assert bundled.fitted_feature_width is None
 
 
-@pytest.mark.parametrize("payload", ["[0, 0.1, 0.2, 0.3, 0.4]", '{"medical": [0.1, 0.2]}'])
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ("[0, 0.1, 0.2, 0.3, 0.4]", "fitted on 16"),
+        # A mapping is not a matrix of any width: it is refused when the file
+        # is read, naming what the file must hold, before the width check.
+        ('{"medical": [0.1, 0.2]}', "must hold numbers"),
+    ],
+)
 def test_cli_refuses_one_dimensional_and_mapping_json_without_a_traceback(
-    payload: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    payload: str, message: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from click.testing import CliRunner
 
@@ -138,7 +166,7 @@ def test_cli_refuses_one_dimensional_and_mapping_json_without_a_traceback(
     data.write_text(payload, encoding="utf-8")
     result = CliRunner().invoke(main, ["detect", "-i", str(data), "-d", "fusion"])
     assert result.exit_code == 1
-    assert "fitted on 16" in result.output
+    assert message in result.output
     assert not isinstance(result.exception, ValueError)  # a usage error, not a crash
 
 

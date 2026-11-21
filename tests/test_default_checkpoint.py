@@ -108,3 +108,51 @@ class TestCheckpointRoundTrip:
         fresh = _engine()
         fresh.load_model(path)  # must not raise
         assert fresh._fusion_trained is True
+
+
+class TestShippedConformalCertificate:
+    """The shipped checkpoint carries a fitted conformal certificate.
+
+    It shipped with ``conformal_state: None`` for every release before 3.1.0,
+    so every served flagship record was ``calibrated=False`` and the decision
+    layer could ground a verdict with no coverage guarantee behind it. The
+    certificate was fitted per-sample (the CLI / MCP / ``DecisionLoop``
+    serving regime) on a held-out half of the training corpus's test split;
+    held-out coverage measured 0.9163 per-sample / 0.9522 batch at the 0.90
+    target (``scripts/train_default_fusion.py --calibrate-only``).
+    """
+
+    def test_the_shipped_file_has_a_conformal_state(self) -> None:
+        import torch
+
+        from omni_mercury_engine.engine import default_fusion_checkpoint_path
+
+        checkpoint = torch.load(
+            default_fusion_checkpoint_path(), map_location="cpu", weights_only=False
+        )
+        assert checkpoint.get("conformal_state") is not None, (
+            "the shipped default fusion checkpoint must carry a fitted "
+            "conformal certificate (re-fit with scripts/train_default_fusion.py "
+            "--calibrate-only after any change that moves score_fusion)"
+        )
+        provenance = checkpoint["provenance"]["conformal_calibration"]
+        assert provenance["coverage"] == 0.9
+        assert provenance["per_sample"] is True
+
+    def test_served_single_row_decisions_are_calibrated(self) -> None:
+        import numpy as np
+
+        from omni_mercury_engine.engine import OmniMercuryEngine
+
+        engine = OmniMercuryEngine(mode="fusion", require_explicit_fit=False)
+        assert engine.load_default_fusion_checkpoint()
+        engine.enable_decision_layer()
+        result = engine.detect_with_fusion(np.zeros((1, 16), dtype=np.float32))
+
+        conformal = result["conformal"]
+        assert conformal["coverage"] == 0.9
+        assert conformal["set_size"] in (0, 1, 2)
+        assert result["decision"]["signals"]["calibrated"] is True
+        provenance = result["model_provenance"]
+        assert provenance["checkpoint"] == "default_fusion.pt"
+        assert provenance["conformal"]["coverage_target"] == 0.9

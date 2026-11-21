@@ -23,6 +23,7 @@ Three properties:
 from __future__ import annotations
 
 import re
+import sys
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -120,8 +121,20 @@ class TestNoGreenWashedLane:
     def test_the_parity_tests_exist_and_are_collected_by_the_full_lane(self) -> None:
         target = REPO_ROOT / "tests" / "test_native_acceleration.py"
         assert target.is_file()
-        # The ml-tests lane runs ``pytest tests/``, i.e. the whole tree.
-        assert re.search(r"pytest tests/ \\", _ci_text())
+        # The ml-tests lane runs the whole tree, as the parts of a partition
+        # that leaves no test file out (tests/scripts/test_ci_test_partition.py
+        # holds that for every file; here, for this one).
+        text = _ci_text()
+        assert 'python scripts/ci_test_partition.py "$SUITE_PARTS" "$part"' in text
+        assert 'pytest "${paths[@]}"' in text
+        sys.path.insert(0, str(REPO_ROOT))
+        from scripts import ci_test_partition
+
+        declared = re.search(r'SUITE_PARTS: "(\d+)"', text)
+        assert declared is not None
+        parts = int(declared.group(1))
+        assigned = [name for part in ci_test_partition.partition(parts) for name in part]
+        assert assigned.count(target.name) == 1
 
     def test_the_spatial_fast_path_executes_everywhere(self) -> None:
         """The distance fast path has no optional lane: same code on every host."""

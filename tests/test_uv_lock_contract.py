@@ -162,3 +162,58 @@ def test_every_binary_package_has_a_wheel_for_every_supported_python_on_linux() 
             if binary and not any(_wheel_fits(n, f"cp3{minor}") for n in names):
                 missing.append(f"{pkg['name']}=={pkg['version']} on Python 3.{minor}")
     assert not missing, "\n".join(missing)
+
+
+#: Transitive packages held above a security floor, with the advisories the
+#: floor closes. Each has a matching ``[tool.uv] constraint-dependencies``
+#: entry: nothing in the dependency tables names these packages, so without
+#: the constraint a later ``uv lock`` is free to settle below the floor again.
+SECURITY_FLOORS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "soupsieve": (
+        "4.0.0",
+        ("GHSA-6655-6qjp-jx7x", "GHSA-7g44-g9rc-x53w", "GHSA-mmhr-3c5m-f64f"),
+    ),
+}
+
+
+def test_no_locked_package_is_below_its_security_floor() -> None:
+    """Was: soupsieve 2.10 and 3.0.4, each open to an advisory with a fixed release."""
+    import tomllib
+
+    from packaging.version import Version
+
+    lock = tomllib.loads(LOCK.read_text(encoding="utf-8"))
+    constraints = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["tool"][
+        "uv"
+    ]["constraint-dependencies"]
+    for name, (floor, advisories) in SECURITY_FLOORS.items():
+        locked = [p["version"] for p in lock["package"] if p["name"] == name]
+        below = [v for v in locked if Version(v) < Version(floor)]
+        assert not below, (
+            f"uv.lock holds {name} {', '.join(below)}, below {floor}: open to "
+            f"{', '.join(advisories)}"
+        )
+        assert (
+            f"{name}>={floor}" in constraints
+        ), f"[tool.uv] constraint-dependencies does not hold {name}>={floor}"
+
+
+def test_the_face_extra_is_not_installed_where_soupsieve_has_no_fixed_release() -> None:
+    """soupsieve >= 3 needs Python >= 3.11.5; below it the extra must not pull the chain in."""
+    import tomllib
+
+    from packaging.requirements import Requirement
+
+    face = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "optional-dependencies"
+    ]["face"]
+    for spec in face:
+        marker = Requirement(spec).marker
+        assert marker is not None, spec
+        for version, expected in (("3.11.4", False), ("3.11.5", True), ("3.13.2", True)):
+            env = {"python_full_version": version, "python_version": version.rsplit(".", 1)[0]}
+            assert marker.evaluate(env) is expected, f"{spec} on Python {version}"
+
+    # The lock agrees: one soupsieve, and it does not install below 3.11.5.
+    lock = tomllib.loads(LOCK.read_text(encoding="utf-8"))
+    assert len([p for p in lock["package"] if p["name"] == "soupsieve"]) == 1

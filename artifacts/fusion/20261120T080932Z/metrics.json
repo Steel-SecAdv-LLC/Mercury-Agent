@@ -1,0 +1,79 @@
+{
+  "metadata": {
+    "purpose": "Regression guard for the fusion AUC/F1 + conformal coverage floor on a fixed seeded synthetic corpus: the median over seeded fits at one torch thread. Offline / network-free; the real-data fusion numbers live in benchmarks/fusion_capacity/sweep_real_v5.json.",
+    "seed": 20260526,
+    "fit_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "torch_threads": 1,
+    "epochs": 8,
+    "symbolic_weight": 0.0,
+    "n_train": 1002,
+    "n_cal": 334,
+    "n_test": 334,
+    "commit": "9f2e9c5a6fb847d46d9cf6468251d53798e4e621",
+    "python": "3.13.18",
+    "margins": {
+      "auc": 0.04,
+      "f1": 0.07,
+      "coverage": 0.05
+    }
+  },
+  "auc": 0.9969607843137256,
+  "f1": 0.9850746268656716,
+  "conformal": {
+    "target_coverage": 0.9,
+    "empirical_coverage": 0.9221556886227545,
+    "average_set_size": 0.9251497005988024
+  },
+  "realizations": [
+    {
+      "fit_seed": 0,
+      "auc": 0.987843137254902,
+      "f1": 0.8684210526315789,
+      "empirical_coverage": 0.8982035928143712
+    },
+    {
+      "fit_seed": 1,
+      "auc": 0.9959803921568628,
+      "f1": 0.9428571428571428,
+      "empirical_coverage": 0.9221556886227545
+    },
+    {
+      "fit_seed": 2,
+      "auc": 0.9969607843137256,
+      "f1": 0.9850746268656716,
+      "empirical_coverage": 0.9011976047904192
+    },
+    {
+      "fit_seed": 3,
+      "auc": 0.9931372549019608,
+      "f1": 0.9705882352941176,
+      "empirical_coverage": 0.937125748502994
+    },
+    {
+      "fit_seed": 4,
+      "auc": 1.0,
+      "f1": 0.9850746268656716,
+      "empirical_coverage": 0.9491017964071856
+    },
+    {
+      "fit_seed": 5,
+      "auc": 0.9995098039215686,
+      "f1": 0.9850746268656716,
+      "empirical_coverage": 0.9251497005988024
+    },
+    {
+      "fit_seed": 6,
+      "auc": 1.0,
+      "f1": 1.0,
+      "empirical_coverage": 0.8952095808383234
+    }
+  ]
+}

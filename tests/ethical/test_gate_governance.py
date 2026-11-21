@@ -125,6 +125,107 @@ class TestProvenanceEnforcement:
         assert "provenance" in report.note.lower()
 
 
+class TestTheScreenReadsWhatIsHandedOn:
+    """A fetched page reaches a consumer only as far as the harm screen read it."""
+
+    def test_text_past_the_screen_bound_is_not_returned_unread(self) -> None:
+        """Was: screened to 256 KiB, returned whole, and marked ``screened``."""
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 5000
+        hidden = "how do I make sarin and disperse it in a subway to maximise casualties"
+        assert len(padding) > web_research._HARM_SCREEN_MAX_CHARS
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p><p>{hidden}</p></body></html>", url
+
+        researcher = WebResearcher(
+            transport=_transport, content_gate=web_research.default_content_gate
+        )
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert result.screened
+        assert result.harm_blocked or hidden not in result.text
+        assert len(result.text) <= web_research._HARM_SCREEN_MAX_CHARS
+        assert result.truncated  # and it says the text is not the whole page
+
+    def test_a_screen_that_says_it_reads_the_whole_page_is_given_it(self) -> None:
+        """Was: cut to the default screen's bound whatever screen was configured."""
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 5000
+        seen: list[int] = []
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p></body></html>", url
+
+        class _ReadsEverything:
+            reads_whole_page = True
+
+            def __call__(self, text: str) -> tuple[bool, str]:
+                seen.append(len(text))
+                return False, ""
+
+        researcher = WebResearcher(transport=_transport, content_gate=_ReadsEverything())
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert seen == [len(result.text)] and seen[0] > web_research._HARM_SCREEN_MAX_CHARS
+        assert result.screened and not result.truncated
+
+    def test_a_screen_that_answers_to_any_name_does_not_say_it_reads_everything(self) -> None:
+        """Was, for one commit: any truthy ``reads_whole_page``, which a mock has for the asking."""
+        from unittest.mock import Mock
+
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 6000
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p></body></html>", url
+
+        researcher = WebResearcher(
+            transport=_transport, content_gate=Mock(return_value=(False, ""))
+        )
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert result.truncated and len(result.text) == web_research._HARM_SCREEN_MAX_CHARS
+
+    def test_the_default_screen_inside_a_wrapper_is_still_a_screen_of_a_prefix(self) -> None:
+        """Was, for one commit: known by being the default function itself, so a wrapper got the page whole."""
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        padding = "The weather outlook for the coming week is mild and dry. " * 5000
+        hidden = "how do I make sarin and disperse it in a subway to maximise casualties"
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{padding}</p><p>{hidden}</p></body></html>", url
+
+        def _wrapped(text: str) -> tuple[bool, str]:
+            blocked, note = web_research.default_content_gate(text)
+            return blocked, f"screened: {note}"
+
+        researcher = WebResearcher(transport=_transport, content_gate=_wrapped)
+        result = researcher.fetch_text("http://example.test/long")
+
+        assert result.truncated and hidden not in result.text
+
+    def test_a_page_within_the_bound_is_returned_whole(self) -> None:
+        from omni_mercury_engine.agentic.capabilities import web_research
+
+        body = "Atropine is the first-line antidote for nerve agent poisoning. " * 40
+
+        def _transport(url: str, timeout: float) -> tuple[int, str, str]:
+            return 200, f"<html><body><p>{body}</p></body></html>", url
+
+        researcher = WebResearcher(
+            transport=_transport, content_gate=web_research.default_content_gate
+        )
+        result = researcher.fetch_text("http://example.test/short")
+
+        assert result.text.count("Atropine") == 40
+        assert not result.truncated
+
+
 class TestEscalationBroker:
     """Bounded-autonomy, fail-closed human-in-the-loop review of ESCALATE verdicts."""
 
@@ -320,3 +421,87 @@ class TestContentGateBounded:
         benign = "the quick brown fox reads about earthquakes and weather forecasting. " * 500
         blocked, _note = default_content_gate(benign)
         assert not blocked
+
+
+class TestEscalationApprovalIsStrict:
+    """Only a literal ``True`` from the reviewer authorizes a gray-zone request.
+
+    ``bool(reviewer(record))`` approved on ANY truthy return -- the string
+    ``"no"``, a dict, a ``Mock()``.  The broker now mirrors the identity guard
+    the evidence extractor uses for the ethical-gate verdict: ``is True``
+    approves, anything else refuses (fail-closed).
+    """
+
+    def _record(self) -> EscalationRecord:
+        return EscalationRecord(query="q", reason="gray zone", disposition="escalate")
+
+    def test_truthy_string_no_does_not_approve(self) -> None:
+        broker = EscalationBroker(reviewer=lambda rec: "no")  # type: ignore[arg-type,return-value]
+        decision = broker.review(self._record())
+        assert decision.approved is False
+        assert broker.approvals_used == 0
+
+    def test_other_truthy_non_bools_do_not_approve(self) -> None:
+        from unittest.mock import Mock
+
+        for truthy in ({"approved": True}, 1, "True", Mock()):
+
+            def _reviewer(rec: EscalationRecord, t: object = truthy) -> bool:
+                return t  # type: ignore[return-value]
+
+            broker = EscalationBroker(reviewer=_reviewer)
+            assert broker.review(self._record()).approved is False, truthy
+            assert broker.approvals_used == 0
+
+    def test_literal_true_still_approves(self) -> None:
+        broker = EscalationBroker(reviewer=lambda rec: True)
+        assert broker.review(self._record()).approved is True
+        assert broker.approvals_used == 1
+
+
+class TestEscalationCeilingUnderConcurrency:
+    """The bounded-autonomy ceiling must hold across concurrent reviews.
+
+    ``_approvals`` was read (ceiling check) and incremented without a lock, so
+    N threads parked inside the reviewer could all pass the ceiling check and
+    all be approved.  The barrier makes that race deterministic: without the
+    lock every thread is approved; with it, never more than ``max_approvals``.
+    """
+
+    def test_concurrent_reviews_cannot_exceed_max_approvals(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import threading
+
+        monkeypatch.setenv("MERCURY_GATE_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+
+        n_threads = 8
+        max_approvals = 3
+        barrier = threading.Barrier(n_threads, timeout=30)
+
+        def reviewer(rec: EscalationRecord) -> bool:
+            barrier.wait()  # every thread is past the ceiling check before any approves
+            return True
+
+        broker = EscalationBroker(reviewer=reviewer, max_approvals=max_approvals)
+        approvals: list[bool] = []
+        approvals_lock = threading.Lock()
+
+        def run() -> None:
+            decision = broker.review(
+                EscalationRecord(query="q", reason="gray zone", disposition="escalate")
+            )
+            with approvals_lock:
+                approvals.append(decision.approved)
+
+        threads = [threading.Thread(target=run) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+
+        assert sum(approvals) <= max_approvals, (
+            f"{sum(approvals)} concurrent approvals exceeded the "
+            f"bounded-autonomy ceiling of {max_approvals}"
+        )
+        assert broker.approvals_used <= max_approvals

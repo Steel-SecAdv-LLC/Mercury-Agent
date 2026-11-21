@@ -133,7 +133,11 @@ DETECTION_DURATION = _create_histogram(
     "omni_detection_duration_seconds",
     "Detection processing duration in seconds",
     ["detector_type"],
-    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+    # The buckets above 10 s exist for ``OmniMercurySlowDetection`` (p95 >
+    # 10 s). ``histogram_quantile`` returns the upper bound of the highest
+    # finite bucket for anything beyond it, so with 10.0 as that bound the
+    # quantile could equal 10 and never exceed it: the alert could not fire.
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 30.0, 60.0),
 )
 
 DETECTION_SUCCESS = _create_counter(
@@ -186,6 +190,15 @@ COMPONENT_DECLINED = _create_counter(
     "omni_component_declined_total",
     "Components that declined input of a modality they do not process",
     ["component"],
+)
+
+# Flagship detections refused with 429 because the single-engine queue was
+# full (MERCURY_FLAGSHIP_MAX_QUEUE). Lets an operator alert on the bound
+# being hit instead of discovering it from client complaints.
+FLAGSHIP_ADMISSION_REJECTED = _create_counter(
+    "omni_mercury_flagship_admission_rejected_total",
+    "Flagship detections refused at the admission queue cap (HTTP 429)",
+    [],
 )
 
 # Consumer-group backlog of the streaming worker: messages on the input topic
@@ -345,6 +358,12 @@ def time_detection(detector_type: str) -> Generator[None, None, None]:
         raise
     except Exception:
         DETECTION_REQUESTS.labels(detector_type=detector_type).inc()
+        # Touch the success series so it exists at 0. A labelled child is
+        # only exported once used, and a component that has never succeeded
+        # had a request series and no success series: the per-component
+        # ratio then has no sample at all, and an alert on it stays silent
+        # for exactly the component that fails every time.
+        DETECTION_SUCCESS.labels(detector_type=detector_type)
         DETECTION_DURATION.labels(detector_type=detector_type).observe(
             time.perf_counter() - start_time
         )
@@ -411,6 +430,11 @@ def record_inference_error(model_name: str) -> None:
         model_name: Name of the model that had an error
     """
     MODEL_INFERENCE_ERRORS.labels(model_name=model_name).inc()
+
+
+def record_flagship_admission_rejected() -> None:
+    """Count one flagship call refused at the admission queue cap."""
+    FLAGSHIP_ADMISSION_REJECTED.inc()
 
 
 def record_component_declined(component: str) -> None:

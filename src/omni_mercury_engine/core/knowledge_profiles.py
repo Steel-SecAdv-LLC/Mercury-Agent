@@ -407,6 +407,52 @@ _DOMAINS: tuple[DomainProfile, ...] = (
         ),
     ),
     DomainProfile(
+        domain="fema_activity",
+        detectors=("temporal", "statistical"),
+        title="Federal disaster-declaration activity (OpenFEMA, NOAA-labelled)",
+        discipline="Emergency management and disaster economics",
+        professions=(
+            "emergency managers and watch officers",
+            "disaster-recovery planners",
+            "catastrophe-risk and disaster-loss analysts",
+        ),
+        institutions=(
+            _i(
+                "FEMA / OpenFEMA",
+                "Disaster Declarations Summaries: every county designation with its declaration date",
+                "https://www.fema.gov/about/openfema/data-sets",
+            ),
+            _i(
+                "NOAA National Centers for Environmental Information",
+                "Billion-Dollar Weather and Climate Disasters, the event list used as the label",
+                "https://www.ncei.noaa.gov/access/billions/",
+            ),
+        ),
+        expertise=(
+            "a surge of county designations within days is how a catastrophic landfall appears in the declaration record",
+            "a governor has thirty days from the incident to request a major disaster declaration, so a storm's declarations arrive across that period",
+            "a billion-dollar loss estimate is an economic assessment made after the event, independent of how many declarations FEMA issued",
+        ),
+        observables="One row per day of a calendar year (2017 to 2024): county designations declared that day for hurricanes, tropical storms and typhoons, and the number of states and disasters they belong to.",
+        method="Counts the Disaster Declarations Summaries per declaration day and engineers the day's designations, states and disasters with the trailing seven days' designations and the most states declared on one day in that week.",
+        label_rule="Expert annotated: a day is labelled when it falls between the first day of a tropical cyclone in NOAA NCEI's billion-dollar disaster catalogue and thirty days after its last (the request period of 44 CFR 206.36(a)); no scored column is derived from the catalogue.",
+        limits=(
+            "tropical cyclones only: the catalogue's other disaster kinds carry no storm name or region to match declarations to",
+            "the catalogue ends in 2024, so no later year can be labelled",
+            "a billion-dollar storm that drew few declarations, or a costly season with overlapping windows, limits what daily counts can show",
+        ),
+        references=(
+            _r(
+                "NOAA National Centers for Environmental Information (2025). U.S. Billion-Dollar Weather and Climate Disasters.",
+                "https://www.ncei.noaa.gov/access/billions/",
+            ),
+            _r(
+                "44 CFR 206.36, Requests for major disaster declarations.",
+                "https://www.ecfr.gov/current/title-44/section-206.36",
+            ),
+        ),
+    ),
+    DomainProfile(
         domain="financial",
         detectors=("financial_crisis", "financial_stress"),
         title="Financial stress (FRED indicators)",

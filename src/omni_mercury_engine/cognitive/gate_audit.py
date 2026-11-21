@@ -30,6 +30,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from omni_mercury_engine._env import killswitch_active as _killswitch_active
+
 logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
@@ -137,7 +139,7 @@ def record_gate_decision(
         query: The action/query text (capped when persisted).
         extra: Any additional structured fields.
     """
-    if os.environ.get("MERCURY_GATE_AUDIT_DISABLED") == "1":
+    if _killswitch_active("MERCURY_GATE_AUDIT_DISABLED"):
         return
     record = {
         "ts": time.time(),

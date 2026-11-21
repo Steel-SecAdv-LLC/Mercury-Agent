@@ -17,6 +17,14 @@
     "served_sha256": "bc5009bde6930b4d298b594f31b34485a9a17210cff0e8fb00a8c3068b885a2d",
     "url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/6_cardio.npz"
   },
+  "pima_real": {
+    "arrays_sha256": "e4e67672c67d31fd97c75515e6dd298e93c32db532425adc8b051733be0482a5",
+    "n_anomalies": 268,
+    "n_features": 8,
+    "n_samples": 768,
+    "note": "Recorded earlier than the other four (captured 2026-07-09 by the rule-evolution work; see tests/ml/test_rule_evolution.py). The npz was stored directly, so no served_sha256 of the upstream response exists; the committed file's own sha256 is 14ebdb21566f17e255a3a6bd5a031d24f3a272333e263f79b088cdb87f7a449f.",
+    "url": "https://raw.githubusercontent.com/Minqi824/ADBench/main/adbench/datasets/Classical/9_Pima.npz"
+  },
   "thyroid": {
     "arrays_sha256": "3ecac1a7c0f9a8c61b214c0def39757ca77923178f0ab14bcbce56955f863d21",
     "n_anomalies": 93,

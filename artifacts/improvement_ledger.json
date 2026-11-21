@@ -1,0 +1,595 @@
+{
+  "schema": "mercury.governance.improvement_ledger/v1",
+  "generated_at": "2026-11-21T02:42:40+00:00",
+  "note": "Committed, measured adaptive-change decisions. Every entry states what was changed or proposed, why, the harness that measured it, the measured impact, the verdict, and the rollback. Runtime adaptations are recorded separately by the process-wide ImprovementLedger (governance/improvement_ledger.py) and served at GET /api/v1/detect/flagship/improvements.",
+  "decisions": [
+    {
+      "component": "detectors.statistical.adaptive_weights",
+      "change": "Entropy-constrained re-selection of the R/K/IG component weights: sweep the whole weight simplex (step 0.05, 231 vectors) and select the best mean-rank vector inside the normalised-entropy band [0.30, 0.95].",
+      "reason": "The fusion-mode ablation showed a fully peaked weight vector (single best component) beating the adaptive R/K/IG fusion - the collapse an entropy constraint exists to examine.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_weight_entropy.py",
+        "artifact": "artifacts/fusion_weight_entropy.json",
+        "winner": [
+          0.65,
+          0.15,
+          0.2
+        ],
+        "winner_normalized_entropy": 0.8069,
+        "winner_mean_auroc": 0.8922,
+        "shipped_adaptive_mean_auroc": 0.8897,
+        "fixed_prior_40_30_30_mean_auroc": 0.881,
+        "winner_mean_rank": 39.0,
+        "shipped_mean_rank": 68.5,
+        "rank_universe": 232,
+        "tables": [
+          "pima_real",
+          "cardio",
+          "breastw",
+          "wbc",
+          "thyroid"
+        ],
+        "seeds": [
+          0,
+          1,
+          2
+        ],
+        "leave_one_table_out": {
+          "protocol": "each table held out in turn; the in-band vector with the best mean rank on the other four is scored on it beside the shipped adaptive weights",
+          "per_table_delta": {
+            "breastw": -0.0009,
+            "cardio": 0.0105,
+            "pima_real": -0.0191,
+            "thyroid": 0.0084,
+            "wbc": 0.0088
+          },
+          "mean_delta": 0.0015,
+          "worst_table_delta": -0.0191,
+          "bar": {
+            "mean_gain_above": 0.003,
+            "no_table_below": -0.002
+          },
+          "bar_met": false
+        }
+      },
+      "rollback": "Nothing shipped: the served path keeps _compute_adaptive_weights unchanged. The artifact and harness remain for re-measurement on held-out tables.",
+      "why_refused": "Re-measured on tables the selection never saw (leave-one-table-out): mean gain +0.0015 against a bar of more than +0.003, and -0.0191 on the worst table against a floor of -0.002. Neither clause is met. The in-sample margin that prompted the entry does not survive out of sample, so the shipped adaptive weights stay.",
+      "history": "First recorded as recorded_not_adopted: the winner had been selected on the same five tables it was scored on, and adoption was made conditional on the out-of-sample run that now refuses it."
+    },
+    {
+      "component": "core.three_r.recursion_depth",
+      "change": "Locally-adaptive 3R recursion depth: depth = 3 + round(4 * (1 - spectral_entropy)), clipped to [3, 7] - structured windows recurse deeper, broadband stay shallow.",
+      "reason": "Phase 2 item: make recursion depth a function of local signal properties, keeping the adaptation only where it improves Mercury's own metrics.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/omni_equation/harness_adaptive_depth.py",
+        "artifact": "artifacts/oae_adaptive_depth.json",
+        "adaptive_mean_rank": 3.25,
+        "adaptive_mean_depth": 3.86,
+        "served_depth_5_mean_rank": 4.875,
+        "adaptive_auroc_gain_over_served": 0.0017,
+        "adaptive_latency_saving_vs_served": "41% lower R-stream latency",
+        "fixed_depth_3_mean_rank": 2.875,
+        "fixed_depth_3_mean_auc": 0.7992,
+        "flat_band_from_global_sweep": 0.003
+      },
+      "why_refused": "Fixed depth 3 outranks both the adaptation and the served depth 5, and every difference sits inside the 0.003 flat band the global sensitivity sweep measured. The adoption bar requires clearing that band; an adaptation that cannot beat a constant is complexity without evidence.",
+      "rollback": "Nothing shipped: the served depth stays 5. tests pin the rule's semantics and the refusal."
+    },
+    {
+      "component": "core.three_r.lyapunov_lambda",
+      "change": "Adaptive Lyapunov convergence rate (lambda) as a function of local signal properties.",
+      "reason": "Phase 2 item: adapt lambda where harnesses improve.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/omni_equation/harness_oae_sensitivity.py",
+        "artifact": "artifacts/oae_sensitivity.json",
+        "measurement": "The fused score is exactly flat in lambda on the recorded NAB windows: no lambda adaptation can improve any detection metric by construction."
+      },
+      "why_refused": "A dial the output is flat in cannot be improved by adapting it. Lambda remains a stability-bound parameter (LyapunovConstants.LAMBDA_CONVERGENCE = 0.25), not a detection lever.",
+      "rollback": "Nothing shipped; the constant stays centralized in core/centralized_constants.py."
+    },
+    {
+      "component": "detectors.math_arrest.live_contributor_ranking",
+      "change": "Probe-local calibration and ranking only on live contributors: (a) PHI^-rank with live contributors (decorrelation multiplier >= 0.75) taking the top affinity ranks, (b) uniform fusion of live contributors only, (c) per-probe ECDF calibration of held-out scores against each probe's own fit-time distribution.",
+      "reason": "Phase 2 item: probe/detector-local calibration and ranking applied only to live contributors.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/math_arrest/harness_live_contributor_ranking.py",
+        "artifact": "artifacts/math_arrest_live_ranking.json",
+        "shipped_uniform_mean_auc": 0.6917,
+        "phi_affinity_live_mean_delta": -0.1081,
+        "uniform_live_mean_delta": -0.0151,
+        "local_rank_mean_delta": -0.0624,
+        "n_evaluations": 19,
+        "bar": "adopt only if mean delta > +0.003 with no dataset below -0.002"
+      },
+      "why_refused": "Every candidate degrades the shipped uniform fusion: rank-concentration (PHI^-rank) loses ~0.11 mean AUC even when ranks are assigned among live contributors only, dropping demoted probes outright costs 0.015, and probe-local ECDF calibration costs 0.062 against the fit-scale normalizer the probes already carry. The shipped per-probe normalizer + uniform weights + decorrelation multipliers stand as measured.",
+      "rollback": "Nothing shipped; the harness and artifact remain for re-measurement if the probe set changes."
+    },
+    {
+      "component": "detectors.math_arrest.decorrelator",
+      "change": "Correlation-aware probe decorrelation: pairwise |r| clustering at threshold 0.85, redundant-cluster members down-weighted at fit time (CorrelationAwareDecorrelator.calibrate).",
+      "reason": "Measured probe redundancy: five probes form a |r| >= 0.8 cluster with the additive probe (harmonic_oscillator, r3_recursion_resonance, quantum_annealing, modified_zscore, exponential_decay with catalan).",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "research/math_arrest/harness_probe_redundancy.py",
+        "artifact": "artifacts/math_arrest_probe_correlation.json",
+        "full_ensemble_mean_auc": {
+          "nab": 0.7494,
+          "adbench": 0.6763,
+          "overall": 0.7088
+        },
+        "note": "The 'decorrelated' preset (16 probes) measures better than 'all'; 'all' stays the default because the 21-column feature surface is a released contract (detectors/math_arrest/arrest.py PROBE_PRESETS)."
+      },
+      "rollback": "Do not call calibrate_decorrelator (multipliers stay 1.0), or construct with preset='all' (the default)."
+    },
+    {
+      "component": "detectors.math_arrest.contrastive_refinement",
+      "change": "Contrastive probe refinement from the fused score's own mistakes (refine_contrastive, eta in (0, 1]).",
+      "reason": "The ensemble's calibration discordance is reducible using only its own disagreement signal - no labels consumed.",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "research/math_arrest/harness_contrastive_refinement.py",
+        "artifact": "artifacts/math_arrest_contrastive_refinement.json",
+        "calibration_discordance_before": 0.3128,
+        "calibration_discordance_after_eta_0_5": 0.2793,
+        "improving_etas": [
+          0.25,
+          0.5,
+          1.0
+        ],
+        "tables": [
+          "pima_real",
+          "cardio",
+          "breastw",
+          "wbc",
+          "thyroid"
+        ],
+        "seeds": [
+          0,
+          1,
+          2
+        ]
+      },
+      "rollback": "eta=0, or do not call refine_contrastive; the probes' fitted state is untouched unless the call is made."
+    },
+    {
+      "component": "streaming.hysteresis_gate",
+      "change": "Two-threshold (Schmitt) verdict gate on streaming paths: enter the anomalous state at the warmup scores' 0.95 conformal/quantile cut, clear only at or below the 0.80 cut (streaming/hysteresis.py; CausalMathArrest(exit_alpha=...)).",
+      "reason": "Decision stability: streaming verdicts flipped on scores oscillating around the single alarm cut (measured mean churn 0.0235 on the four committed NAB streams), and nothing could reduce it.",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "benchmarks/nab_streaming_benchmark.py",
+        "artifact": "artifacts/nab_streaming.eval.json",
+        "mean_churn_before": 0.0235,
+        "mean_churn_after": 0.0153,
+        "mean_f1_before": 0.3123,
+        "mean_f1_after": 0.3722,
+        "loso": "every leave-one-stream-out fold selects (0.95, 0.80); held-out F1 improves on 3 of 4 streams; speed_7578 pays 0.051 F1 for its churn cut",
+        "guarantee": "the gate can only merge verdict-flip pairs, never create one (tests/test_streaming_hysteresis.py::test_churn_never_increases); scores and AUROC are untouched"
+      },
+      "rollback": "Omit exit_alpha (the default): the released single-threshold alarm semantics are bit-identical. The gate is opt-in precisely because one measured stream pays F1 for the churn cut."
+    },
+    {
+      "component": "ensembles.meta_fusion_controller",
+      "change": "Meta-Fusion Controller selecting per dataset among {plain average, historically best single probe, historical-AUC-weighted sum, decorrelated subset} using domain affinity (corpus) and leave-one-dataset-out historical performance; dataset-local uncertainty (probe dispersion) and score entropy measured as selector signals.",
+      "reason": "Phase 3 item: a controller over live fusion candidates using uncertainty, entropy, domain affinity and historical performance. Historical cross-dataset performance was the one signal family the prior per-set-weighter search (research/omni_equation/FINDINGS.md) never tested.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_meta_fusion.py",
+        "artifact": "artifacts/meta_fusion_controller.json",
+        "shipped_uniform_mean_auc": 0.6917,
+        "meta_controller_mean_auc": 0.733,
+        "meta_controller_mean_delta": 0.0413,
+        "meta_controller_worst_delta": -0.1016,
+        "best_single_hist_mean_delta": 0.0395,
+        "best_single_hist_worst_delta": -0.1401,
+        "local_signal_rank_correlations": {
+          "probe_dispersion": -0.23,
+          "score_entropy": -0.25
+        },
+        "n_evaluations": 19,
+        "bar": "adopt only if mean delta > +0.003 with no dataset below -0.002"
+      },
+      "why_refused": "The LODO historical prior is the first label-free selector signal measured to raise the mean out-of-fold (+0.0413, where all four previously tested per-set signal families carried none), but every mean-improving candidate regresses individual datasets by 0.04-0.14 - the exact dilution/selection pattern the FINDINGS record documents. The standing keep bar (no set below -0.002) exists because a fleet operator cannot trade one hazard's detection for another's mean; until a per-set guard exists that catches the -0.10 regressions, the controller stays refused. The dataset-local signals (dispersion -0.23, entropy -0.25 rank correlation) again carry no usable selection signal.",
+      "rollback": "Nothing shipped; the harness and artifact remain, and the controller becomes adoptable the day a per-set reliability guard clears the regression floor."
+    },
+    {
+      "component": "cognitive.curiosity_novelty",
+      "change": "Curiosity novelty scoring elevated from opt-in/advisory to the served flagship (route, CLI, MCP): the CuriosityEngine scores each detected anomaly's distance from the observed distribution, the score rides the DecisionRecord's cognitive summary (novelty_score, is_novel) and the console, and a read-only novelty() scorer was added so measurement cannot drift the estimate it scores against.",
+      "reason": "Phase 3 discovery elevation: novelty scoring must be measurable, reconstructable, and challengeable on the served path. It was default-off and its discrimination had never been measured.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_novelty_discovery.py",
+        "artifact": "artifacts/novelty_discovery.json",
+        "read_only_mean_auroc": 0.9282,
+        "absorbing_mean_auroc": 0.9219,
+        "n_evaluations": 15,
+        "latency_delta_ms_anomalous_single_row": 3.5,
+        "scope": "a signal in the record, never a verdict-mover: adopting novelty as a decision factor would need its own harness against the standing keep bar"
+      },
+      "rollback": "MERCURY_FLAGSHIP_COGNITIVE=off removes the whole critique; enable_cognitive_analysis(enable_curiosity=False) (the engine API default, unchanged) removes only the novelty signal."
+    },
+    {
+      "component": "neurosymbolic_hub.sound_calibration",
+      "change": "NeuroSymbolicHub draws its calibration split BEFORE the encoder fit, fits every component on non-calibration rows only, fits Platt on the served fused score (it was fitted on neural scores and applied to fused scores), and carries a conformal certificate fitted on a stratified calibration half no fitted component touched; predict() serves the uniform conformal block (per_sample_pre_veto regime).",
+      "reason": "Priority item 1: the hub's split-after-fit ordering made any certificate unsound, and the docstring disclaimed one. Uniform conformal outputs require the symbolic path to carry a sound certificate.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/neurosymbolic/harness_hub_conformal.py",
+        "artifact": "artifacts/hub_conformal.json",
+        "mean_auc_sound_split": 0.9122,
+        "mean_auc_encoder_on_all_train": 0.9378,
+        "split_cost_upper_bound": 0.0256,
+        "split_cost_note": "concentrated on the smallest table (wbc, 157 train rows, -0.18 to -0.25 on two seeds); near zero on the other 13 evaluations",
+        "mean_empirical_coverage": 0.9294,
+        "mean_stated_coverage_bound": 0.8343,
+        "n_evaluations": 15
+      },
+      "rollback": "use_calibration=False restores the uncalibrated hub; the old leaky ordering is not kept - a certificate that is not exchangeable is not a smaller feature, it is a false claim."
+    },
+    {
+      "component": "ensembles.meta_fusion_controller.guarded",
+      "change": "Guarded Meta-Fusion Controller: per dataset it may select a non-uniform candidate only when the historical same-corpus pool itself clears the standing keep bar (pool mean delta > +0.003 and no pool dataset below -0.002); otherwise it abstains back to the shipped uniform fusion.",
+      "reason": "Priority item 3: re-evaluate the refused controller with per-dataset fallback/abstention instead of forced global selection.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_meta_fusion.py",
+        "artifact": "artifacts/meta_fusion_controller.json",
+        "guarded_mean_delta": -0.0017,
+        "guarded_worst_delta": -0.0294,
+        "fallback_rate": "17 of 19 datasets fall back to uniform",
+        "unguarded_mean_delta_for_contrast": 0.0413,
+        "n_evaluations": 19,
+        "bar": "adopt only if mean delta > +0.003 with no dataset below -0.002"
+      },
+      "why_refused": "The per-dataset guard removes the deep regressions and the gain with them: on the two datasets whose historical pool cleared the bar, the selection still regressed out-of-fold (worst -0.0294). The sharpened finding: at this pool size (3-14 same-corpus datasets), historical clearance of the keep bar does not transfer to the held-out dataset, so there is no operating point between 'forced selection that buys +0.04 mean by regressing single sets up to 0.14' and 'a guard so strict it is uniform'. Adoption requires either a far larger historical pool or a per-set reliability signal, which remains unfound.",
+      "rollback": "Nothing shipped; both controllers and their artifact remain for re-measurement when the recorded corpus grows."
+    },
+    {
+      "component": "streaming.hysteresis_default",
+      "change": "Promote the hysteresis verdict gate from opt-in to CausalMathArrest's default alarm semantics (exit_alpha=0.20 by default).",
+      "reason": "Priority item 4: the gate cut point-verdict churn 35% and raised point F1 on the NAB streams, chosen identically in every LOSO fold; promote it to default and re-measure the full NAB suite to lock the gain in.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "benchmarks/nab_streaming_benchmark.py (run_causal_math_arrest protocol with CausalMathArrest(exit_alpha=...))",
+        "artifact": "artifacts/nab_streaming.eval.json",
+        "nab_standard_score_default": 43.93,
+        "nab_standard_score_exit_alpha_0_10": 35.43,
+        "nab_standard_score_exit_alpha_0_20": 31.94,
+        "alarm_rate_on_normals_default": 0.0117,
+        "alarm_rate_on_normals_exit_alpha_0_20": 0.018,
+        "alarm_churn_default": 0.015,
+        "alarm_churn_exit_alpha_0_20": 0.0116,
+        "point_verdict_gain_for_contrast": "churn 0.0235->0.0153, F1 0.3123->0.3722 (the measurement the promotion rested on - a different protocol)"
+      },
+      "why_refused": "The gate's measured gain is on the point-verdict protocol (thresholded MercuryAnomalyDetector scores, where holding a verdict merges flip pairs and lifts recall). On the math-arrest ALARM path the same hold is a false-positive machine: the NAB standard score, which penalizes false alarms, falls 43.93 to 31.94 at exit_alpha=0.20 and the alarm rate on normal points rises 0.0117 to 0.0180, for a churn cut of only 0.0034. A smoothing policy that helps one protocol is not a default for another; it stays opt-in (exit_alpha=None default) where each path can adopt it on its own measurement.",
+      "rollback": "Nothing changed: the released single-threshold default stands; the opt-in remains measured and available."
+    },
+    {
+      "component": "decision.cross_modal_consistency",
+      "change": "Cross-modal consistency (mean rank percentile of a flagged row across the engine's detector streams) as an additional abstention/demotion factor on the served path.",
+      "reason": "Priority item 5: an internal consistency score over already-computed streams, measured on false-positive rate and coverage before fusing it into the decider.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/ensembles/harness_cross_modal_consistency.py",
+        "artifact": "artifacts/cross_modal_consistency.json",
+        "mean_agreement_false_positive": 0.9505,
+        "mean_agreement_true_positive": 0.9613,
+        "tp_agreement_higher_count": "7 of 12 comparable evaluations",
+        "bar": "adopt only if FP agreement < TP agreement - 0.05 on >= 80% of evaluations"
+      },
+      "why_refused": "Among flagged rows the streams agree almost perfectly on true and false positives alike (both means above 0.95, a 0.011 gap, direction inconsistent across evaluations): a row extreme enough to flag is extreme in nearly every stream whether it is a real anomaly or not. A demotion floor anywhere useful would defer true detections as often as false ones, raising abstention without lowering the false-positive rate. The factor stays out of the decider; the existing stream-disagreement overlays (symbolic satisfaction, GOSNN head) remain the measured cross-model challenges.",
+      "rollback": "Nothing shipped; the harness and artifact remain for re-measurement if the stream set diversifies."
+    },
+    {
+      "component": "detectors.math_arrest.promotion_bar",
+      "change": "Math Arrest stays HOLD (not a default member of the served flagship ensemble), with the exact promotion bar published.",
+      "reason": "Priority item 6: define and publish the marginal-gain threshold that would move Math Arrest to default, so no cycles are spent on it until the bar is cleared.",
+      "verdict": "hold_with_published_bar",
+      "impact": {
+        "harness": "benchmarks/competitive_regression_guard.py (8-set ADBench subset, seed 42) and benchmarks/nab_streaming_benchmark.py (committed NAB suite)",
+        "artifact": "artifacts/math_arrest_probe_correlation.json",
+        "bar": {
+          "mean_rank": "adding math_arrest to the live ensemble must improve Mercury's mean rank on the 8-set guard subset by >= 0.25 (half the guard's regression margin)",
+          "mean_auc": "or improve mean AUC by > +0.003 (the standing adoption band)",
+          "no_regression": "with no guard set regressing by more than 0.002 AUC",
+          "latency": "at <= 10% added latency on the measured flagship path (9.1 ms single-row cognitive-off baseline)",
+          "both_corpora": "and the committed NAB mean AUROC (0.7307) must not fall"
+        },
+        "current_standing": "overall mean AUC 0.7088 beside the served ensemble (that artifact)"
+      },
+      "why_refused": "Not refused - HOLD: the ensemble's measured standing (0.7088 overall on the recorded corpora) sits below the served detectors it would join, and the published bar is what changes that verdict. Any promotion PR must carry the guard runs clearing every clause.",
+      "rollback": "No change to roll back; the bar itself is versioned here and in this entry's history."
+    },
+    {
+      "component": "decision.response_plan_scoring",
+      "change": "ResponsePlan remains a deterministic, non-scored policy surface; no conformal or confidence bound is attached to recommendations.",
+      "reason": "Priority item 7: decide whether operator-facing recommendations are scored and certified, or documented as non-scored.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "none exists (that is the refusal's ground)",
+        "artifact": "src/omni_mercury_engine/decision/response.py",
+        "measurement": "There is no ground truth for recommendation correctness: no labels exist for 'the countermeasure was right', so any confidence bound attached to one would be fabricated, not fitted."
+      },
+      "why_refused": "A certificate without a labelled outcome to calibrate against is a false claim in uniform dress. The plan's trustworthy properties are the ones it has by construction - deterministic, bounded, non-destructive, reconstructable from the DecisionRecord it was derived from - and the docstring now states that scoring is deliberately absent, not forgotten. The day recommendation outcomes are recorded (a feedback loop exists in DecisionLoop/FeedbackSink), a measured calibration becomes possible and this verdict is re-openable.",
+      "rollback": "Nothing to roll back."
+    },
+    {
+      "component": "measurement.evidence_contract",
+      "change": "A quantity is measured only when it carries the artifact that proves it (omni_mercury_engine.measurement.MeasurementEvidence: the method, the number of observations behind it, the SHA-256 of the numbers it was measured on, and for a verdict the statistic and its cut). UncertaintyEstimate, CognitiveAnalysisResult and ExplorationResult take that evidence as a REQUIRED argument with no default; their measured/calibrated flags are derived properties and can no longer be passed in. The decision record carries the evidence and reads a True flag with no parsable evidence beside it as False.",
+      "reason": "The flags were booleans that defaulted to True, so a result built without running any estimator reported its placeholder numbers as measurements. Three live misstatements followed from that design and are fixed with it: an analysis given no raw data reported both uncertainties as 0.0 and measured; a multi-row batch of predictions with nothing drawn was reported as measured epistemic uncertainty with mc_samples naming draws that never ran; and an ensemble of five reported mc_samples as the configured count, not five.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "tests/cognitive/test_orchestrator_golden.py (the payload's flag set, their evidence, and the golden input's unmeasured set are pinned)",
+        "artifact": "src/omni_mercury_engine/measurement.py",
+        "golden_input_unmeasured": [
+          "epistemic_uncertainty",
+          "aleatoric_uncertainty",
+          "confidence",
+          "is_novel"
+        ],
+        "construction_sites_that_relied_on_a_default": 9,
+        "scope": "an API change to three result types, made on instruction: constructing one without stating its evidence is now a TypeError"
+      },
+      "rollback": "None offered: restoring a default would restore the ability to claim a measurement with nothing behind it."
+    },
+    {
+      "component": "cognitive.curiosity_novelty.rank_verdict",
+      "change": "is_novel is a rank test: novel when the observation's standardized distance ranks in the top alpha (0.05) of the distances the reference observations themselves had (a distribution-free p-value over the last 256 reference distances; undetermined, and so never novel, below 20). It replaces a cut on the score at 0.7. The score itself is unchanged.",
+      "reason": "The score was measured to discriminate (AUROC 0.93) but the verdict's cut had never been measured. At 0.7 it called 14.5% of ordinary held-out rows novel; a verdict a professional acts on has to say how often it is wrong on ordinary data, and the rank test does by construction.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_novelty_discovery.py",
+        "artifact": "artifacts/novelty_discovery.json",
+        "bar": "set before the run: normal rows called novel at most 0.07 on average and 0.10 on any table",
+        "normal_rows_called_novel": {
+          "score_cut": 0.1448,
+          "rank": 0.0389,
+          "rank_worst_table": 0.0491
+        },
+        "anomalies_called_novel": {
+          "score_cut": 0.8818,
+          "rank": 0.7308
+        },
+        "read_only_mean_auroc_unchanged": 0.9282,
+        "cost": "fewer anomalies are called novel (0.73 against 0.88): the price of a verdict that fires on 3.9% of ordinary rows instead of 14.5%"
+      },
+      "rollback": "CuriosityEngine(alpha=...) moves the level; the score cut is still reported (novelty_threshold) for comparison but no longer decides the verdict."
+    },
+    {
+      "component": "cognitive.causal_discovery.corrections",
+      "change": "The Granger test is corrected for what it searches: each pair's p-value is multiplied by the lags tried (it reports the lag with the smallest p-value), the pairs of one analysis are corrected together by Holm's procedure, and time steps where any column lies beyond 4 robust deviations are set aside. The edge strength is the partial R-squared; it was 1 - p. The arithmetic moved to omni_mercury_engine.discovery, the same functions a recorded finding is replayed with.",
+      "reason": "The instrument's findings ride every decision record as causal_factors and nothing had measured how often it finds an edge where there is none. On independent noise it reported at least one in 76-94% of analyses.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "bar": "set before the run: a false edge in at most 7.5% of plain-noise analyses; the planted edge found in at least 90% at 200 rows with any other edge in at most 10%",
+        "false_edge_plain_noise_worst": {
+          "prior": 0.945,
+          "corrected_trimmed": 0.03
+        },
+        "false_edge_common_shock": {
+          "prior": 1.0,
+          "corrected": 1.0,
+          "corrected_trimmed": 0.01
+        },
+        "planted_edge_found_n200": 1.0,
+        "planted_edge_found_n100": 0.915
+      },
+      "rollback": "None offered: the uncorrected test is not a test at the level it states."
+    },
+    {
+      "component": "cognitive.causal_discovery.stability_gate",
+      "change": "A window whose level is not stable across consecutive blocks (a chi-square test of block means against a within-block long-run variance, Bonferroni across columns, level 0.001) is not assessed: it yields no edge, and the artifact says why.",
+      "reason": "After the corrections, a sustained shift, a trend or a random walk common to the columns still produced a false edge in 10-100% of analyses: Granger precedence cannot be read from a window whose level moves. The gate is fail-closed: a declined window gets no edge, never a wrong one.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "bar": "set before the run: a false edge in at most 10% of disturbed analyses, and at most 15% of stable windows declined",
+        "false_edge_disturbed_worst": {
+          "corrected_trimmed": 1.0,
+          "shipped": 0.01
+        },
+        "planted_edge_found_n200": 0.955,
+        "stable_windows_declined": {
+          "independent_n200": 0.045,
+          "independent_n60": 0.115,
+          "ar1_0.7_n200": 0.76
+        },
+        "coverage_bar_met": false,
+        "open_problem": "shipped declines most strongly autocorrelated windows (the coverage bar is not met there). What is missing is a test of level stability that is valid under autocorrelation and still has power against a shift inside the window: the residual guard is valid and has none; the block-mean check has power and over-declines."
+      },
+      "why_adopted_with_a_bar_unmet": "The coverage bar is not met on strongly autocorrelated windows, most of which are declined. It was adopted anyway because the unmet bar costs coverage, not truth: without the gate the instrument reports false edges in up to 100% of shifted windows. This entry is not a claim that the bar was cleared.",
+      "rollback": "omni_mercury_engine.discovery.STABILITY_ALPHA sets the level; granger_family() runs the corrected test with no gate for a caller who has established stability another way."
+    },
+    {
+      "component": "cognitive.causal_discovery.first_difference",
+      "change": "Run the corrected, trimmed test on first differences, so a sustained shift becomes two boundary rows.",
+      "reason": "Candidate for windows whose level moves, with no window declined.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "false_edge_disturbed_worst": 0.165,
+        "false_edge_plain_worst": 0.115,
+        "other_edge_beside_a_planted_one": 0.165
+      },
+      "why_refused": "Three bars unmet: false edges up to 17% under a sustained shift and 12% on short plain noise, and a stray edge beside the planted one in 17% of analyses (over-differencing leaves moving-average structure the own-lag terms do not absorb).",
+      "rollback": "Not adopted; nothing to roll back."
+    },
+    {
+      "component": "cognitive.causal_discovery.residual_guard",
+      "change": "Decline a window when the residuals of each column's autoregression shift between blocks, a check that is valid under autocorrelation.",
+      "reason": "Candidate for a stability gate that does not decline ordinary autocorrelated windows.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "false_edge_disturbed_worst": 1.0,
+        "windows_declined_under_a_sustained_shift": 0.0
+      },
+      "why_refused": "No power: the autoregression absorbs a level shift as persistence, the residuals look stable, and the guard declines none of the shifted windows, which then report a false edge every time.",
+      "rollback": "Not adopted; nothing to roll back."
+    },
+    {
+      "component": "cognitive.derived_hypothesis",
+      "change": "The orchestrator derives a conclusion from the measured verdicts that hold (the detection flag against its threshold, the novelty verdict, the strongest lagged dependence) by forward-chaining three explicit conjunction rules, and records it as an artifact naming its premises, its steps, the premise closest to failing and the value at which it fails. A step carries no confidence, because none was measured.",
+      "reason": "The multi-hop reasoning step was given two premises that none of its rules could match, so it derived nothing: reasoning_chain was empty and the record's hypothesis was None on every served decision.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "tests/test_discovery_artifacts.py (derivation, replay and withdrawal are pinned; the premises' own error rates are the two harnesses above)",
+        "artifact": "src/omni_mercury_engine/discovery.py",
+        "scope": "a conclusion is a conjunction of verdicts and is exactly as good as its weakest premise: it has no probability of its own and none is reported",
+        "not_measured": "whether a derived conclusion is true of the world beyond its premises holding. No harness exists for that, and none is claimed."
+      },
+      "rollback": "enable_cognitive_analysis(enable_curiosity=False) removes the novelty premise; the rules live in cognitive.orchestrator._DISCOVERY_RULES."
+    },
+    {
+      "component": "engine.conformal_certificate.batch_level",
+      "change": "calibrate_fusion_conformal_batches() fits the conformal certificate on one batch-max statistic per calibration batch, and the result, the record and the checkpoint name the regime (batch_max). Per-row calibration is unchanged and remains the default.",
+      "reason": "detect_with_fusion reports one verdict for a batch, its most anomalous row, and a per-row certificate does not cover a maximum over rows: on the bundled flagship model, clean 40-row batches kept the right label in their prediction set 4 times in 30.",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "tests/test_fusion_batch_certificate.py (per-row vs batch-level coverage of held-out batches on the bundled model's data); research/review/harness_artifact_review.py (the three review checkpoints, which use it)",
+        "artifact": "artifacts/artifact_review.json",
+        "bundled_model_clean_batch_coverage": {
+          "per_row_certificate": 0.13333333333333333,
+          "batch_level_certificate": 0.8333333333333334,
+          "anomalous_batches_batch_level_certificate": 1.0,
+          "batches_per_class": 30,
+          "rows_per_batch": 40,
+          "calibration_batches": 80
+        },
+        "review_coverage_clean": {
+          "document": 0.7733333333333333,
+          "image": 0.9533333333333334,
+          "audio": 0.96
+        },
+        "review_coverage_spliced": {
+          "document": 0.9133333333333333,
+          "image": 0.9,
+          "audio": 0.8666666666666667
+        },
+        "target_coverage": 0.9,
+        "scope": "exchangeability is over batches drawn like the calibration batches; the certificate says whether a batch contains an anomaly, not which rows are anomalous"
+      },
+      "rollback": "calibrate_fusion_conformal() refits a per-row certificate and clears the batch family; a checkpoint without conformal_regime loads as per_sample."
+    },
+    {
+      "component": "engine.drift_detection.batch_family",
+      "change": "With a batch-level certificate fitted on at least 20 calibration batches, the drift question is asked of the batch: ten scale-free summary numbers, their standardized distance from the calibration batches, ranked among the calibration batches' own leave-one-out distances (level 0.05). A batch outside the family reports drift HIGH and the decision defers. The row-level drift ensemble is unchanged for per-row certificates.",
+      "reason": "The row-level ensemble compares rows with a fixed reference population. Rows standardized against their own artifact have none: it reported CRITICAL drift on nearly every reference artifact, which would have deferred every review.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/review/harness_artifact_review.py (deferrals on held-out reference artifacts, and outcomes on artifacts unlike the family); tests/test_fusion_batch_certificate.py",
+        "artifact": "artifacts/artifact_review.json",
+        "in_family_deferrals_of_300": {
+          "document": 16,
+          "image": 9,
+          "audio": 11
+        },
+        "unlike_the_family": {
+          "document": {
+            "artifacts": 17,
+            "abstained": 17,
+            "grounded_clear": 0,
+            "grounded_anomalous": 0,
+            "not_reviewable": 0,
+            "refused_by_gate": 0
+          },
+          "image": {
+            "artifacts": 7,
+            "abstained": 7,
+            "grounded_clear": 0,
+            "grounded_anomalous": 0,
+            "not_reviewable": 0,
+            "refused_by_gate": 0
+          },
+          "audio": {
+            "artifacts": 24,
+            "abstained": 24,
+            "grounded_clear": 0,
+            "grounded_anomalous": 0,
+            "not_reviewable": 0,
+            "refused_by_gate": 0
+          }
+        },
+        "scope": "two arms at one level (Bonferroni): the batch's standardized shape ranked among the calibration batches, and its raw feature levels (the descriptor self-standardization removes) ranked among theirs; a described family never claims a batch that arrives without a descriptor",
+        "not_measured": "its power against any family other than the three tried here (Python source as documents, repository figures as images, generated chords as recordings)"
+      },
+      "why_adopted_with_a_bar_unmet": "No bar was set for the share of out-of-family artifacts it must defer, and on documents it defers few (3 of 17 Python source files). It is adopted because without it nothing asks the question at all; the measured outcomes are published, and this is not a claim that an out-of-family upload is reliably deferred.",
+      "rollback": "refit with calibrate_fusion_conformal() (per-row certificate, row-level drift ensemble), or set MERCURY_DRIFT_DETECTION=0 to disable drift testing altogether."
+    },
+    {
+      "component": "review.artifact_checkpoints",
+      "change": "Three checkpoints (review_document.pt, review_image.pt, review_audio.pt) score an uploaded artifact's self-standardized segments on the flagship path, each with a batch-level certificate calibrated on 300 reference artifacts and a statement of that certificate's scope in its provenance.",
+      "reason": "Uploading a document, an image or a recording for review had no served path. An upload has no population to be compared with, so each is measured against itself and judged by a model fitted on reference artifacts with known inserted material.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/review/harness_artifact_review.py",
+        "artifact": "artifacts/artifact_review.json",
+        "bars": {
+          "coverage_per_class_min": 0.85,
+          "grounded_wrong_max": 0.12,
+          "row_auroc_min": 0.8
+        },
+        "bars_met": {
+          "document": {
+            "coverage_per_class": false,
+            "grounded_wrong": false,
+            "row_auroc": true
+          },
+          "image": {
+            "coverage_per_class": true,
+            "grounded_wrong": true,
+            "row_auroc": true
+          },
+          "audio": {
+            "coverage_per_class": true,
+            "grounded_wrong": true,
+            "row_auroc": true
+          }
+        },
+        "all_bars_met": {
+          "document": false,
+          "image": true,
+          "audio": true
+        },
+        "spliced_found": {
+          "document": 0.49333333333333335,
+          "image": 0.84,
+          "audio": 0.8333333333333334
+        },
+        "spliced_called_clear": {
+          "document": 0.07333333333333333,
+          "image": 0.1,
+          "audio": 0.013333333333333334
+        },
+        "clean_called_anomalous": {
+          "document": 0.22666666666666666,
+          "image": 0.04666666666666667,
+          "audio": 0.006666666666666667
+        },
+        "abstained": {
+          "document": 0.23,
+          "image": 0.04,
+          "audio": 0.10333333333333333
+        },
+        "row_auroc": {
+          "document": 0.8686229736791815,
+          "image": 0.9844807699654858,
+          "audio": 0.9588824088401506
+        },
+        "scope": "procedural reference artifacts with procedurally inserted material: how well internal inconsistency of those kinds is found",
+        "not_measured": "real-world tampering, and real-world documents, photographs and speech. No labelled corpus of those is in the repository, and none is claimed."
+      },
+      "why_adopted_with_a_bar_unmet": "Re-measured 2026-11-21 after the checkpoints were retrained with the certificate family described by each calibration artifact's raw feature levels and the training draw selected on the trainer's validation draw (scripts/train_review_checkpoints.SEED_CANDIDATES). The first measurement's unmet bar -- 13.3% of spliced documents called clear, bar 12% -- is now met at 7.3%. What the document kind misses now is the clean side, measured and kept visible rather than tuned away: 77.3% clean coverage (floor 85%) and 22.7% of clean documents called anomalous, because this repository's documentation prose carries numeric-dense passages that are, truly, unlike the rest of their document (the top clean segment's dominant feature is digit_share or sentence_length in most cases, standardized at |z| 9-10). A flag remains a pointer to read, not a finding of tampering; the checkpoint's scope statement, the README table and every DecisionRecord's certificate-scope caveat say so. Adopted with that miss recorded, not a claim that the bar was cleared.",
+      "rollback": "delete the checkpoint for a kind: its reviews then answer 503 (ReviewError) instead of deciding; python -m scripts.train_review_checkpoints --kind <kind> rebuilds one."
+    }
+  ]
+}

@@ -9,6 +9,14 @@ Provides:
 - Thread-safe concurrent access
 - Health monitoring and auto-recovery
 
+Ownership: the cache SHARES backends, it does not own them.  ``get`` hands
+the same backend object to every caller, and detectors keep that reference
+for their lifetime.  Evicting an entry therefore only drops the cache's own
+reference -- the backend object is never modified -- and the model's memory
+is reclaimed by the garbage collector when the last holder lets go.  (An
+eviction used to delete ``model`` / ``processor`` from the shared object,
+which broke every detector still holding it.)
+
 Performance characteristics:
 - First load: Full model initialization time
 - Subsequent uses: Near-zero latency (cached reference)
@@ -94,6 +102,11 @@ class LVLMBackendCache:
     - Background pre-warming
     - Health monitoring
     - Automatic error recovery
+
+    ``max_models`` / ``max_memory_gb`` bound what the CACHE keeps alive.  An
+    evicted backend that a detector still holds stays loaded (and usable)
+    until that detector releases it; ``memory_used_bytes`` counts only the
+    entries the cache itself still references.
     """
 
     _instance: LVLMBackendCache | None = None
@@ -214,6 +227,7 @@ class LVLMBackendCache:
         revision = kwargs.get("revision")
         key = self._cache_key(model_type, model_name, revision)
 
+        loading: CachedModel | None = None
         with self._cache_lock:
             self._stats.total_requests += 1
 
@@ -228,20 +242,52 @@ class LVLMBackendCache:
                     return cached.backend
 
                 if cached.state == ModelState.LOADING:
-                    # Wait for loading to complete
                     self._stats.cache_misses += 1
-                    return self._wait_for_load(cached, key)
+                    loading = cached
 
-                if cached.state == ModelState.ERROR:
+                elif cached.state == ModelState.ERROR:
                     # Retry loading
                     self._stats.cache_misses += 1
                     cached.state = ModelState.UNLOADED
 
-            self._stats.cache_misses += 1
+            if loading is None:
+                self._stats.cache_misses += 1
+
+        if loading is not None:
+            # Wait for the load in progress -- with the cache lock RELEASED.
+            # The loading thread publishes its entry under that lock; waiting
+            # for it while holding the lock (as this did) deadlocked both
+            # threads, e.g. a ``prewarm`` racing the first ``get``.
+            return self._wait_for_load(loading, key)
 
         # Load model (outside lock to allow concurrent loads).  Pass
         # ``revision`` through so the loader and cache key agree.
         return self._load_model(model_type, model_name, device, **kwargs)
+
+    def touch(self, backend: Any) -> bool:
+        """Record a use of ``backend`` so LRU eviction follows use, not fetch.
+
+        ``get`` refreshes an entry only when a backend is fetched, but a
+        detector fetches once and then calls its backend directly for as
+        long as it lives -- so the busiest detector's entry looked like the
+        least recently used one.  Holders call this each time they use the
+        backend.
+
+        Args:
+            backend: A backend object previously returned by :meth:`get`.
+
+        Returns:
+            ``True`` if the cache still holds ``backend`` and refreshed its
+            entry; ``False`` for an evicted, dedicated or foreign object
+            (which is fine: there is nothing to refresh).
+        """
+        with self._cache_lock:
+            for cached in self._cache.values():
+                if cached.backend is backend and cached.state == ModelState.READY:
+                    cached.last_used = time.time()
+                    cached.use_count += 1
+                    return True
+        return False
 
     def _wait_for_load(self, cached: CachedModel, key: str) -> LVLMBackend:
         """Wait for a model that's currently loading."""
@@ -303,17 +349,19 @@ class LVLMBackendCache:
                 )
                 backend.initialize()
 
-                # Update cache entry
-                cached.backend = backend
-                cached.state = ModelState.READY
-                cached.load_time = time.time() - start_time
-                cached.last_used = time.time()
-                cached.use_count = 1
-                cached.error_count = 0
-                cached.memory_bytes = self._estimate_memory(backend)
-
-                # Update statistics
+                # Publish the entry and its statistics in one step under the
+                # cache lock.  Evictions run under that lock and only touch
+                # READY entries, so they never wait on the lock of an entry
+                # that is still loading (which this thread holds).
+                memory_bytes = self._estimate_memory(backend)
                 with self._cache_lock:
+                    cached.backend = backend
+                    cached.load_time = time.time() - start_time
+                    cached.last_used = time.time()
+                    cached.use_count = 1
+                    cached.error_count = 0
+                    cached.memory_bytes = memory_bytes
+                    cached.state = ModelState.READY
                     self._stats.total_load_time += cached.load_time
                     self._stats.models_loaded += 1
                     self._stats.memory_used_bytes += cached.memory_bytes
@@ -346,6 +394,11 @@ class LVLMBackendCache:
                         logger.warning(f"Error callback error: {cb_e}")
 
                 logger.error(f"Failed to load model {key}: {e}")
+                if isinstance(e, NotImplementedError):
+                    # The anti-mock contract (Phase 2 audit cure): a mock
+                    # backend's hard-fail must keep its type through the
+                    # cache so callers pinned on NotImplementedError see it.
+                    raise
                 raise RuntimeError(f"Failed to load model {key}: {e}") from e
 
     def _estimate_memory(self, backend: LVLMBackend) -> int:
@@ -390,8 +443,50 @@ class LVLMBackendCache:
                 if not self._evict_lru():
                     break
 
+    def _release_entry(self, key: str, cached: CachedModel, notify: bool = False) -> bool:
+        """Drop the cache's reference to a READY entry.
+
+        Only the cache's reference goes.  The backend object is left exactly
+        as it is: detectors that fetched it keep a working backend, and its
+        memory is reclaimed when the last of them lets go.  The caller holds
+        ``_cache_lock``.
+
+        Args:
+            key: The entry's cache key.
+            cached: The entry.
+            notify: Whether to run the ``on_evict`` callbacks (LRU evictions
+                do; manual ``evict`` / ``clear`` never did).
+
+        Returns:
+            ``True`` if the entry was READY and has been released.
+        """
+        # Checked before the entry's own lock is taken: an entry that is
+        # still loading holds that lock for the whole load (and then wants
+        # the cache lock, held here), so it must be skipped, not waited on.
+        if cached.state != ModelState.READY:
+            return False
+        with cached._lock:
+            if cached.state != ModelState.READY:
+                return False
+
+            cached.state = ModelState.EVICTED
+            self._stats.memory_used_bytes -= cached.memory_bytes
+            self._stats.evictions += 1
+            cached.backend = None
+
+        # Return cached GPU blocks to the driver if this was the last holder.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        for callback in self._on_evict_callbacks if notify else ():
+            try:
+                callback(key)
+            except Exception as e:
+                logger.warning(f"Evict callback error: {e}")
+        return True
+
     def _evict_lru(self) -> bool:
-        """Evict the least recently used model."""
+        """Evict the least recently used model (see :meth:`_release_entry`)."""
         with self._cache_lock:
             # Find LRU model
             lru_key = None
@@ -405,40 +500,10 @@ class LVLMBackendCache:
             if lru_key is None:
                 return False
 
-            cached = self._cache[lru_key]
-
-            with cached._lock:
-                if cached.state != ModelState.READY:
-                    return False
-
-                # Evict
-                cached.state = ModelState.EVICTED
-                self._stats.memory_used_bytes -= cached.memory_bytes
-                self._stats.evictions += 1
-
-                # Clear model reference
-                if cached.backend is not None:
-                    try:
-                        del cached.backend.model
-                        del cached.backend.processor
-                    except Exception as e:
-                        logger.debug(
-                            f"Failed to delete model/processor during eviction for {lru_key}: {e}"
-                        )
-                    cached.backend = None
-
-                # Force garbage collection
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-
-                for callback in self._on_evict_callbacks:
-                    try:
-                        callback(lru_key)
-                    except Exception as e:
-                        logger.warning(f"Evict callback error: {e}")
-
-                logger.info(f"Evicted model {lru_key}")
-                return True
+            if not self._release_entry(lru_key, self._cache[lru_key], notify=True):
+                return False
+            logger.info(f"Evicted model {lru_key}")
+            return True
 
     def prewarm(
         self,
@@ -621,53 +686,28 @@ class LVLMBackendCache:
         model_name: str | None = None,
         revision: str | None = None,
     ) -> bool:
-        """Manually evict a model from the cache."""
+        """Manually evict a model from the cache.
+
+        Like LRU eviction this only drops the cache's reference: a detector
+        still holding the backend keeps a working one.
+        """
         key = self._cache_key(model_type, model_name, revision)
 
+        # Same lock order as ``_evict_lru`` (cache lock, then the entry's).
         with self._cache_lock:
             if key not in self._cache:
                 return False
-
-            cached = self._cache[key]
-
-        with cached._lock:
-            if cached.state != ModelState.READY:
+            if not self._release_entry(key, self._cache[key]):
                 return False
 
-            cached.state = ModelState.EVICTED
-
-            with self._cache_lock:
-                self._stats.memory_used_bytes -= cached.memory_bytes
-                self._stats.evictions += 1
-
-            if cached.backend is not None:
-                try:
-                    del cached.backend.model
-                    del cached.backend.processor
-                except Exception as e:
-                    logger.debug(
-                        f"Failed to delete model/processor during manual eviction for {key}: {e}"
-                    )
-                cached.backend = None
-
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-
-            logger.info(f"Manually evicted model {key}")
-            return True
+        logger.info(f"Manually evicted model {key}")
+        return True
 
     def clear(self) -> None:
-        """Clear all cached models."""
+        """Clear all cached models (dropping the cache's references only)."""
         with self._cache_lock:
-            keys = list(self._cache.keys())
-
-        for key in keys:
-            parts = key.split(":", 1)
-            model_type = parts[0]
-            model_name = parts[1] if len(parts) > 1 else None
-            self.evict(model_type, model_name)
-
-        with self._cache_lock:
+            for key, cached in list(self._cache.items()):
+                self._release_entry(key, cached)
             self._cache.clear()
             self._stats = CacheStatistics()
 
@@ -776,6 +816,85 @@ def get_cached_backend(
     """
     cache = LVLMBackendCache.get_instance()
     return cache.get(model_type, model_name, device, **kwargs)
+
+
+def touch_cached_backend(backend: Any) -> bool:
+    """Record a use of a cached backend (see :meth:`LVLMBackendCache.touch`).
+
+    A no-op returning ``False`` when no cache exists yet or ``backend`` is
+    not one of its entries, so callers can touch whatever backend they hold
+    -- cached, dedicated or a test double -- without checking.
+
+    Args:
+        backend: The backend object about to be used.
+
+    Returns:
+        Whether a cache entry was refreshed.
+    """
+    cache = LVLMBackendCache._instance
+    if cache is None or not getattr(cache, "_initialized", False):
+        return False
+    return cache.touch(backend)
+
+
+def get_frozen_cached_backend(
+    model_type: str,
+    model_name: str | None = None,
+    device: str = "cuda",
+    max_new_tokens: int = 256,
+    temperature: float = 0.1,
+    revision: str | None = None,
+) -> LVLMBackend:
+    """Reuse a cached backend only when its frozen configuration matches.
+
+    The cache key covers ``model_type:model_name@revision`` but not the
+    device or the generation settings, so a plain cache hit could hand a
+    detector a backend built with another instance's ``max_new_tokens`` /
+    ``temperature`` / device — leaking configuration across instances.
+    This wrapper reuses the cached backend only when every one of those
+    frozen attributes matches the request exactly; otherwise it builds and
+    initializes a dedicated, uncached backend with the requested settings.
+
+    Args:
+        model_type: Type of LVLM backend.
+        model_name: HuggingFace model identifier (``None`` for the
+            backend's shipped default).
+        device: Computation device.
+        max_new_tokens: Maximum generation tokens the caller requires.
+        temperature: Sampling temperature the caller requires.
+        revision: Pinned revision, part of the cache identity.
+
+    Returns:
+        An initialized LVLM backend honoring the requested configuration.
+    """
+    backend = get_cached_backend(
+        model_type,
+        model_name,
+        device,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        revision=revision,
+    )
+    matches = (
+        (model_name is None or backend.model_name == model_name)
+        and backend.device == torch.device(device)
+        and backend.max_new_tokens == max_new_tokens
+        and backend.temperature == temperature
+        and backend.revision == revision
+    )
+    if matches:
+        return backend
+
+    dedicated = get_lvlm_backend(
+        model_type=model_type,
+        model_name=model_name,
+        device=device,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        revision=revision,
+    )
+    dedicated.initialize()
+    return dedicated
 
 
 def prewarm_backend(

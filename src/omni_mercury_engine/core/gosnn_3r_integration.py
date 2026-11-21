@@ -9,7 +9,12 @@ Implements bidirectional synaptic integration between:
 - Three-R Mechanism: Recursion-Resonance-Refactoring
 
 Key Features:
-1. 3R Refactoring engine dynamically adjusts GOSNN ethical thresholds
+1. 3R feedback tunes an instance-local working ethical threshold (tighten-only:
+   it is floored at the GOSNN's configured domain threshold and never written
+   back to the process-global gate), and ``process`` ENFORCES it: the GOSNN
+   gate's score is held against the larger of the configured threshold and
+   the working one, and a score that fails gets no fused score
+   (:class:`GatedFusionResult`)
 2. GOSNN scalar categories weight 3R fusion coefficients (w_R, w_H, w_O)
 3. Gradient flow from 3R loss back to detector heads
 4. Sliding window normalization for time-series inputs
@@ -18,7 +23,9 @@ Key Features:
 
 from __future__ import annotations
 
+import dataclasses
 import logging
+import math
 import threading
 from dataclasses import dataclass, field
 from enum import Enum
@@ -68,6 +75,9 @@ class IntegrationState:
     # Performance metrics
     last_fusion_score: float = 0.0
     last_ethical_score: float = 1.0
+    # Verdict of the ethical gate on the last ``process`` call: ``None`` until
+    # the gate has run, then exactly ``True`` or ``False``.
+    last_ethical_gate_passed: bool | None = None
     convergence_rate: float = CONVERGENCE_RATE_PARAMETER
 
     # History for stability analysis
@@ -78,6 +88,37 @@ class IntegrationState:
     # Lyapunov stability tracking
     lyapunov_bound: float = 1.0
     is_stable: bool = True
+
+
+@dataclass(kw_only=True)
+class GatedFusionResult(AnomalyFusionResult):
+    """An OAE result together with the ethical-gate verdict it was released under.
+
+    What :meth:`GOSNN3RIntegration.process` returns. It is an
+    :class:`AnomalyFusionResult` in every field, plus the verdict of the gate
+    the integration evaluated and the threshold that verdict was taken
+    against, so that a caller can tell a fused score from a refusal.
+
+    When the gate refuses, ``ethical_gate_passed`` is ``False`` and
+    ``fusion_score`` is NaN: the score is withheld, not reported with a
+    warning beside it. That is the reading the decision layer already gives
+    both signals -- an ``ethical_gate_passed`` that is ``False`` forces a
+    hold, and a probability that is not finite is "no usable evidence" and
+    abstains -- so a consumer that looks at either one fails closed. A
+    number, 0.0 included, would be read as a measurement: "not anomalous".
+
+    Attributes:
+        ethical_gate_passed: ``True`` only when the GOSNN gate passed the
+            scalar vector AND its score reached ``ethical_threshold_enforced``.
+        ethical_score: The GOSNN ethical gate's score for this call.
+        ethical_threshold_enforced: The threshold the score was held against:
+            the largest of the GOSNN gate's configured threshold, the floor
+            this integration was built with, and its working threshold.
+    """
+
+    ethical_gate_passed: bool
+    ethical_score: float
+    ethical_threshold_enforced: float
 
 
 @dataclass
@@ -270,7 +311,8 @@ class GOSNN3RIntegration:
 
     Provides:
     1. GOSNN → 3R: Scalar categories weight fusion coefficients
-    2. 3R → GOSNN: Performance adjusts ethical thresholds
+    2. 3R → GOSNN: Performance tightens the ethical threshold this integration
+       enforces in :meth:`process` (never the shared GOSNN's own threshold)
     3. Gradient-like feedback from fusion loss
     4. Domain-aware cross-calibration
     """
@@ -312,6 +354,18 @@ class GOSNN3RIntegration:
         # Integration state
         self.state = IntegrationState()
 
+        # The configured gate threshold for THIS integration's GOSNN (already
+        # domain-resolved at construction, with the trained 0.93 floor applied
+        # by ``get_sigma_immutable_threshold``).  It is the hard floor for the
+        # feedback adjustment below: input-derived state may tighten the
+        # instance-local working threshold above it, never loosen it below,
+        # and the process-global gate is never written at all.  ``process``
+        # enforces the working threshold; see ``enforced_ethical_threshold``.
+        self._ethical_threshold_floor = float(self.gosnn.sigma_immutable_threshold)
+        self.state.ethical_threshold = max(
+            self.state.ethical_threshold, self._ethical_threshold_floor
+        )
+
         # Initialize weights from GOSNN
         self._sync_weights_from_gosnn()
 
@@ -323,8 +377,10 @@ class GOSNN3RIntegration:
         self.momentum = 0.9
         self._velocity = np.zeros(3)  # For momentum-based updates
 
-        # Lock for thread safety
-        self._lock = threading.Lock()
+        # Re-entrant: ``adjust_weights`` holds this and calls
+        # ``verify_stability``, which takes it again. With a plain ``Lock``
+        # that call never returned.
+        self._lock = threading.RLock()
 
         logger.info(
             f"GOSNN-3R Integration initialized: direction={feedback_direction.value}, "
@@ -389,7 +445,12 @@ class GOSNN3RIntegration:
         }
 
     def _adjust_gosnn_from_3r(self, fusion_result: AnomalyFusionResult) -> None:
-        """Adjust GOSNN thresholds based on 3R performance."""
+        """Tune the instance-local working ethical threshold from 3R performance.
+
+        Tighten-only relative to the configured gate: the threshold never
+        drops below ``self._ethical_threshold_floor`` and the process-global
+        GOSNN gate is never mutated (see the inline invariants below).
+        """
         if self.feedback_direction not in (
             FeedbackDirection.THREE_R_TO_GOSNN,
             FeedbackDirection.BIDIRECTIONAL,
@@ -406,7 +467,24 @@ class GOSNN3RIntegration:
         self.state.is_stable = is_stable
         self.state.convergence_rate = estimated_rate
 
-        # Adjust ethical threshold based on fusion performance
+        # Adjust the INSTANCE-LOCAL working ethical threshold based on fusion
+        # performance.  Two invariants make this fail-closed:
+        #
+        # 1. The configured/domain gate threshold is a hard floor.  The old
+        #    ``max(0.90, ...)`` let steady, low-variance input scores walk the
+        #    threshold below the configured value (0.96 default; the trained
+        #    floor is ETHICAL.SIGMA_IMMUTABLE_TRAINED_THRESHOLD = 0.93) --
+        #    input-derived state must never LOWER a safety gate.  Raising
+        #    (tightening) remains permitted, capped at 0.99.
+        # 2. The adjustment never writes the process-global GOSNN.  Writing
+        #    ``self.gosnn.ethical_gate.threshold`` / ``sigma_immutable_threshold``
+        #    overwrote the shared singleton's domain-resolved threshold for
+        #    every other domain using it.  The GOSNN gate keeps its configured
+        #    threshold.  The working threshold is ENFORCED where this
+        #    integration evaluates the gate, in :meth:`process` (see
+        #    :meth:`enforced_ethical_threshold`): not writing the shared gate
+        #    must not mean the tightening decides nothing, which is what it
+        #    meant while ``process`` discarded the gate's verdict.
         if len(self.state.fusion_score_history) >= 10:
             recent_mean = np.mean(self.state.fusion_score_history[-10:])
             recent_std = np.std(self.state.fusion_score_history[-10:])
@@ -415,14 +493,44 @@ class GOSNN3RIntegration:
             if recent_std > 0.1:
                 adjustment = 0.01 * self.learning_rate
                 self.state.ethical_threshold = min(0.99, self.state.ethical_threshold + adjustment)
-            # If fusion scores are stable and low, decrease threshold slightly
+            # If fusion scores are stable and low, relax a previous tightening
+            # slightly -- but never below the configured gate threshold.
             elif recent_std < 0.02 and recent_mean < 0.5:
                 adjustment = 0.005 * self.learning_rate
-                self.state.ethical_threshold = max(0.90, self.state.ethical_threshold - adjustment)
+                self.state.ethical_threshold = max(
+                    self._ethical_threshold_floor,
+                    self.state.ethical_threshold - adjustment,
+                )
 
-        # Update GOSNN ethical gate threshold
-        self.gosnn.ethical_gate.threshold = self.state.ethical_threshold
-        self.gosnn.sigma_immutable_threshold = self.state.ethical_threshold
+    def enforced_ethical_threshold(self) -> float:
+        """The threshold :meth:`process` holds the GOSNN gate's score against.
+
+        The largest of three, so that none of them can lower it:
+
+        * the GOSNN gate's own threshold as it stands now (configured for its
+          domain; if someone raises it, that is honoured);
+        * the floor captured when this integration was built (so a shared
+          gate lowered elsewhere, or a working threshold set below the floor
+          from outside, does not loosen this integration);
+        * the instance-local working threshold that 3R feedback tightens.
+
+        Nothing here is written anywhere: the shared GOSNN is only read, and
+        the working threshold belongs to this instance, so one integration's
+        tightening is neither another domain's nor another integration's.
+
+        Returns:
+            The enforced threshold, or ``inf`` -- which no score reaches --
+            when any of the three is not a finite number.
+        """
+        with self._lock:
+            candidates = (
+                float(self.gosnn.ethical_gate.threshold),
+                float(self._ethical_threshold_floor),
+                float(self.state.ethical_threshold),
+            )
+            if not all(math.isfinite(candidate) for candidate in candidates):
+                return math.inf
+            return max(candidates)
 
     def process(
         self,
@@ -430,8 +538,21 @@ class GOSNN3RIntegration:
         resonance_score: float,
         optimization_score: float,
         raw_data: NDArray[np.float64] | None = None,
-    ) -> AnomalyFusionResult:
+    ) -> GatedFusionResult:
         """Process scores through the integrated GOSNN-3R pipeline.
+
+        The GOSNN ethical gate is evaluated on every call and its verdict is
+        acted on. The score has to reach :meth:`enforced_ethical_threshold`,
+        the larger of the gate's configured threshold and the working
+        threshold 3R feedback has tightened; the gate's own refusal (it fails
+        closed on a non-finite scalar vector) stands whatever the score.
+
+        When the gate refuses, the returned result says so
+        (``ethical_gate_passed=False``, with the score and the threshold it
+        missed) and carries no fused score: ``fusion_score`` is NaN. The
+        fusion is still computed and still feeds the stability history, so
+        the feedback goes on tightening while the gate is refusing; the
+        number is not released, here or in ``state.last_fusion_score``.
 
         Args:
             recursion_score: R(x) from hierarchical feature extraction
@@ -440,7 +561,7 @@ class GOSNN3RIntegration:
             raw_data: Optional raw data for sliding window normalization
 
         Returns:
-            Anomaly fusion result with integrated feedback
+            The fusion result with the gate verdict it was released under
         """
         with self._lock:
             # Apply sliding window normalization if enabled
@@ -454,30 +575,64 @@ class GOSNN3RIntegration:
             # Sync weights from GOSNN before computation
             self._sync_weights_from_gosnn()
 
-            # Get ethical compliance from GOSNN
+            # Ethical gate. The GOSNN gate scores the scalar vector against its
+            # configured threshold; this integration then holds the same score
+            # against its own enforced threshold, which feedback may have
+            # tightened above the configured one. Both must pass. The gate's
+            # verdict is accepted only as a genuine boolean -- anything else
+            # is a refusal, never coerced via ``bool()``.
             scalar_vector = np.array(list(self.gosnn._collect_all_scalars().values()))
-            passes_gate, ethical_score = self.gosnn.ethical_gate.evaluate(scalar_vector)
+            gate_verdict, raw_ethical_score = self.gosnn.ethical_gate.evaluate(scalar_vector)
+            ethical_score = float(raw_ethical_score)
+            enforced_threshold = self.enforced_ethical_threshold()
+            gate_passed = (
+                isinstance(gate_verdict, (bool, np.bool_))
+                and bool(gate_verdict)
+                and math.isfinite(ethical_score)
+                and ethical_score >= enforced_threshold
+            )
             self.state.last_ethical_score = ethical_score
+            self.state.last_ethical_gate_passed = gate_passed
 
             # Compute fusion with current state
-            result = self.fusion_equation.compute(
+            computed = self.fusion_equation.compute(
                 recursion_score=recursion_score,
                 resonance_score=resonance_score,
                 optimization_score=optimization_score,
-                ethical_threshold_override=self.state.ethical_threshold,
+                ethical_threshold_override=enforced_threshold,
             )
 
-            # Update state
-            self.state.last_fusion_score = result.fusion_score
-            self.state.lyapunov_bound = result.lyapunov_bound
+            self.state.lyapunov_bound = computed.lyapunov_bound
 
             # Track weight history
             self.state.weight_history.append((self.state.w_R, self.state.w_H, self.state.w_O))
             if len(self.state.weight_history) > 100:
                 self.state.weight_history = self.state.weight_history[-100:]
 
-            # Adjust GOSNN based on 3R performance
-            self._adjust_gosnn_from_3r(result)
+            # Adjust the working threshold from 3R performance. This runs on
+            # the computed score whatever the gate decided: a refused call is
+            # still evidence about stability, and skipping it would let a
+            # refusal freeze the tightening.
+            self._adjust_gosnn_from_3r(computed)
+
+            released = {f.name: getattr(computed, f.name) for f in dataclasses.fields(computed)}
+            if not gate_passed:
+                # Fail closed: no fused score for a refused call.
+                released["fusion_score"] = math.nan
+                logger.warning(
+                    "GOSNN-3R ethical gate refused: score=%.4f, enforced threshold=%.4f "
+                    "(configured %.4f); fused score withheld",
+                    ethical_score,
+                    enforced_threshold,
+                    self._ethical_threshold_floor,
+                )
+            result = GatedFusionResult(
+                **released,
+                ethical_gate_passed=gate_passed,
+                ethical_score=ethical_score,
+                ethical_threshold_enforced=enforced_threshold,
+            )
+            self.state.last_fusion_score = result.fusion_score
 
             return result
 
@@ -586,7 +741,12 @@ class GOSNN3RIntegration:
                     "w_O": self.state.w_O,
                 },
                 "thresholds": {
+                    # ``ethical`` is the working threshold feedback adjusts;
+                    # ``ethical_enforced`` is what ``process`` holds the gate
+                    # to, and ``ethical_configured`` the floor under both.
                     "ethical": self.state.ethical_threshold,
+                    "ethical_enforced": self.enforced_ethical_threshold(),
+                    "ethical_configured": self._ethical_threshold_floor,
                     "domain": self.state.domain_threshold,
                 },
                 "stability": {
@@ -597,6 +757,7 @@ class GOSNN3RIntegration:
                 "performance": {
                     "last_fusion_score": self.state.last_fusion_score,
                     "last_ethical_score": self.state.last_ethical_score,
+                    "last_ethical_gate_passed": self.state.last_ethical_gate_passed,
                 },
                 "history_length": len(self.state.fusion_score_history),
                 "sliding_window": (
@@ -821,7 +982,9 @@ class CrossDomainTransferManager:
         new_threshold = (1 - transfer_ratio * 0.5) * target_threshold + (
             transfer_ratio * 0.5
         ) * source_threshold
-        target.state.ethical_threshold = new_threshold
+        # The target's configured gate threshold stays a hard floor: a
+        # transfer from a laxer domain may never loosen the target's gate.
+        target.state.ethical_threshold = max(target._ethical_threshold_floor, new_threshold)
 
         logger.info(
             f"Transferred weights from {source_domain} to {target_domain} "
@@ -884,6 +1047,7 @@ __all__ = [
     "CrossDomainTransferManager",
     "FeedbackDirection",
     "GOSNN3RIntegration",
+    "GatedFusionResult",
     "IntegrationState",
     "SlidingWindowConfig",
     "SlidingWindowNormalizer",

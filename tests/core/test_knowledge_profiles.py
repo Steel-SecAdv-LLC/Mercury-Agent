@@ -164,6 +164,8 @@ class TestGrounding:
             profile = DOMAIN_PROFILES[domain]
             if declaration.label_source == "ground_truth":
                 assert profile.label_rule.lower().startswith("ground truth"), domain
+            elif declaration.label_source == "expert_annotated":
+                assert profile.label_rule.lower().startswith("expert annotated"), domain
             else:
                 assert profile.label_rule.lower().startswith("statistical"), domain
 

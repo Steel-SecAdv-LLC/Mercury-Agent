@@ -42,6 +42,7 @@ import smtplib
 import ssl
 from datetime import UTC, datetime
 from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid, parseaddr
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -189,6 +190,14 @@ class SmtpMailer:
         message["Subject"] = subject
         for name, value in (headers or {}).items():
             message[name] = value
+        # RFC 5322 requires an origination date and asks for a message
+        # identifier. ``smtplib`` adds neither; a submission server may, and a
+        # relay that does not passes on a message receivers score as malformed.
+        if "Date" not in message:
+            message["Date"] = format_datetime(datetime.now(UTC))
+        if "Message-ID" not in message:
+            domain = parseaddr(self._from_addr)[1].rpartition("@")[2]
+            message["Message-ID"] = make_msgid(domain=domain or None)
         message.set_content(body)
         if html_body is not None:
             # multipart/alternative: clients render the HTML part, and the

@@ -284,19 +284,25 @@ class TestMultiscaleTTA:
                 self.alpha_at_call: list[float] = []
 
             def detect(self, data: np.ndarray) -> dict[str, Any]:
-                self.seen_lengths.append(int(data.shape[0]))
+                # The detector hands the Oracle COLUMNS as signals, so the
+                # signal length is axis 1 of what arrives here.
+                self.seen_lengths.append(int(data.shape[1]))
                 self.alpha_at_call.append(float(self._dynamic_alpha_factor))
                 iv = types.SimpleNamespace(influence_multiplier=1.0)
                 return {
                     "influence_vector": iv,
                     "band_results": [],
-                    "n_change_points": int(data.shape[0]),
+                    "n_change_points": int(data.shape[1]),
                 }
 
         X, _ = _make_temporal_series(0)
         det = MercuryAnomalyDetector({"multiscale_tta": True}).fit(X)
         oracle = _StubOracle()
         det._oracle_detector = oracle
+        # The stub stands in for an Oracle restored without a reference-segment
+        # length, which is handed the whole window (so the dilated passes are
+        # visible to it as different signal lengths).
+        det._oracle_segment_len = None
 
         result = det.detect(X)
 

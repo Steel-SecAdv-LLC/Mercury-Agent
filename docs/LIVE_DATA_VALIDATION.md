@@ -12,13 +12,13 @@ single source of truth:
 
 - **Committed benchmark run: 67 successful / 76 attempted.**
   47 ADBench tabular + 29 domain loaders attempted; 9 external
-  sources unavailable / rate-limited. Measured **Mean AUC 0.8610 /
-  Median 0.9077 / Mean Oracle F1 0.6476** (2026-10-26, commit
-  27d2293), surfaced in the README *Latest Benchmark Results* block
-  and regenerated on every push to `main`. The 0.8610 headline is the
-  genuine-labels-only mean over the 54 genuine-labeled datasets
+  sources unavailable / rate-limited. Measured **Mean AUC 0.8616 /
+  Median 0.9038 / Mean Oracle F1 0.6493** (2026-11-16, commit
+  e356358), surfaced in the README *Latest Benchmark Results* block
+  and regenerated on every push to `main`. The 0.8616 headline is the
+  genuine-labels-only mean over the 55 genuine-labeled datasets
   (`headline_label_policy = genuine_labels_only`, `n_genuine_labeled
-  = 54`).
+  = 55`).
 - **CI regression-gate floors: ROC-AUC 0.75 / Mean Oracle F1 0.55**
   (`.github/workflows/benchmark.yml`), set ~9% below the post-de-leak
   baseline of Mean AUC 0.8259 / Mean Oracle F1 0.6046 (commit

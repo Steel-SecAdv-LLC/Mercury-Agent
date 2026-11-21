@@ -59,9 +59,29 @@ class TestConstruction:
     def test_learnable_parameters_registered(self) -> None:
         module = SymbolicConstraintModule(num_detectors=5)
         names = {name for name, _ in module.named_parameters()}
-        assert "rule_weights" in names
         assert "detector_logits" in names
         assert "sharpness_logit" in names
+
+    def test_rule_weights_are_a_fixed_buffer_not_a_parameter(self) -> None:
+        # A trainable rule_weights lets the optimizer dodge hard rules by
+        # shifting weight onto the easiest-to-satisfy rule; the confidences
+        # must therefore be a fixed buffer (still in the state dict under the
+        # same key, so old checkpoints load).
+        module = SymbolicConstraintModule(num_detectors=5)
+        param_names = {name for name, _ in module.named_parameters()}
+        buffer_names = {name for name, _ in module.named_buffers()}
+        assert "rule_weights" not in param_names
+        assert "rule_weights" in buffer_names
+        assert "rule_weights" in module.state_dict()
+
+    def test_legacy_checkpoint_with_parameter_rule_weights_loads(self) -> None:
+        # Checkpoints written when rule_weights was an nn.Parameter carry the
+        # same state-dict key; loading must restore the stored logits.
+        module = SymbolicConstraintModule(num_detectors=3)
+        legacy = module.state_dict()
+        legacy["rule_weights"] = torch.tensor([0.3, -0.7])
+        module.load_state_dict(legacy)
+        assert torch.allclose(module.rule_weights, torch.tensor([0.3, -0.7]))
 
     def test_no_detector_logits_when_reliability_disabled(self) -> None:
         module = SymbolicConstraintModule(num_detectors=5, learn_detector_reliability=False)
@@ -147,10 +167,31 @@ class TestDifferentiability:
         scores = torch.rand(8, 3)
         prob = torch.rand(8, 1)
         module.constraint_loss(prob, scores).backward()
-        assert module.rule_weights.grad is not None
         assert module.detector_logits is not None
         assert module.detector_logits.grad is not None
-        assert torch.isfinite(module.rule_weights.grad).all()
+        assert torch.isfinite(module.detector_logits.grad).all()
+        # The fixed rule confidences are a buffer: no gradient reaches them.
+        assert module.rule_weights.grad is None
+
+    def test_optimizer_steps_leave_rule_weights_unchanged(self) -> None:
+        """200 steps of minimising the satisfaction loss must not move the rule
+        confidences: a free rule_weights parameter lets the optimizer dodge the
+        hard rule by down-weighting it (this drifted 0.50/0.50 -> 0.13/0.87
+        before the fix)."""
+        torch.manual_seed(0)
+        module = SymbolicConstraintModule(num_detectors=4)
+        before = torch.softmax(module.rule_weights, dim=0).clone()
+        optimizer = torch.optim.Adam(module.parameters(), lr=0.05)
+        # A batch the two consensus rules disagree on, so a trainable
+        # confidence would be pushed toward the easier rule.
+        scores = torch.cat([torch.full((16, 4), 0.9), torch.full((16, 4), 0.1)])
+        prob = torch.cat([torch.full((16, 1), 0.1), torch.full((16, 1), 0.9)])
+        for _ in range(200):
+            optimizer.zero_grad()
+            module.constraint_loss(prob, scores).backward()
+            optimizer.step()
+        after = torch.softmax(module.rule_weights, dim=0)
+        assert torch.allclose(before, after), (before, after)
 
 
 class TestRobustness:

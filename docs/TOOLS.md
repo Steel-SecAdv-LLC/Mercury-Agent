@@ -61,8 +61,8 @@ behaviour already maps ``fail`` → exit 1, ``warn`` → exit 0).
 | ``pqc_handshake_simulator`` | Full ML-KEM-1024 encap/decap + ML-DSA-65 sign/verify with p50/p95/p99 latency.  Paired-claim check with ``pqc_capability_probe`` to refuse silent stub fallback. |
 | ``hsm_attestation_probe`` | When ``MERCURY_HSM=pkcs11|tpm2|yubihsm``, fetches and verifies the device attestation chain.  Fails-closed in ``MERCURY_ENV=production``. |
 | ``tls_posture_probe`` | For any operator-supplied URL, enumerates negotiated cipher suite, certificate chain, OCSP staple, HSTS, ALPN, and X25519MLKEM768 PQC hybrid availability through ``SafeHTTPClient``. |
-| ``slsa_provenance_emitter`` | in-toto SLSA v1.0 provenance attestation for wheel + container image (complements the existing CycloneDX SBOM). |
-| ``signed_release_bundle`` | Bundle release manifest + SBOM + SLSA + corpus signature + KAT cert into a tarball signed with Ed25519 + ML-DSA-65. |
+| ``slsa_provenance_emitter`` | in-toto SLSA v1.0 provenance statement builder, operator-run. NOT wired into CI: the release pipeline's signed provenance is ``actions/attest-build-provenance`` (Sigstore) in ``release.yml``, its unsigned human-readable record is the self-authored ``provenance.json``, and the container's provenance is BuildKit's. |
+| ``signed_release_bundle`` | Bundle release manifest + SBOM + SLSA + corpus signature + KAT cert into a tarball signed with Ed25519 + ML-DSA-65. Operator-run; NOT invoked by any workflow — releases do not ship this bundle today. |
 | ``secret_scan_baseline`` | Handwritten entropy + regex scanner with ``.secrets.baseline`` allow-list.  Wired pre-commit. No gitleaks/detect-secrets dependency. |
 | ``audit_log_signer`` | Append-only JSONL audit log with rolling HMAC chain — each entry HMACs the previous.  HSM URI accepted as key source. |
 | ``audit_log_verifier`` | Sibling verifier: re-derives the HMAC chain and fails on any tamper or chain break. |

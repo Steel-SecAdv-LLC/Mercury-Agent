@@ -187,8 +187,12 @@ feature first runs.
 
 ### Biometric image analysis (DeepFace) assets
 
-DeepFace is installed only on Python < 3.14 (TensorFlow has no 3.14 wheel), so
-the container image, which runs 3.14, uses the harmonic fallback instead. On
+DeepFace is installed only on Python 3.11.5 through 3.13. Above that range
+TensorFlow has no wheel, so the container image, which runs 3.14, uses the
+harmonic fallback instead. Below it (3.11.0 to 3.11.4) DeepFace's dependency
+chain reaches soupsieve, which has no release with its open advisories fixed
+for those interpreters, so the `[face]` extra installs without DeepFace there
+and the same fallback applies. On
 other installs the first image analysis downloads, into
 `$DEEPFACE_HOME/.deepface/weights` (default `~/.deepface/weights`):
 
@@ -285,10 +289,17 @@ a fresh environment of its Python, and the release is published with its
 and its installs build from source.
 
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
-The source build performs, in order: install the PEP 517 build floors
+`AMA_REF` is a **tag**, not a commit id: the prebuilt archive, the wheel version
+and the clone are all keyed on it. To pin the commit as well, set `AMA_COMMIT`
+to the 40-character commit the tag must resolve to; a source checkout that
+resolves anywhere else is refused before anything is installed (the Dockerfile
+sets both). A prebuilt archive is not a checkout: it is verified against its
+release's `SHA256SUMS` instead.
+The source build performs, in order: `git clone --branch v5.0.0` and, when
+`AMA_COMMIT` is set, the commit check; install the PEP 517 build floors
 (`setuptools>=84.0.0`, `wheel>=0.48.0`, `cmake>=4.4.4` — AMA v5.0.0 raised the
-setuptools and cmake floors; older toolchains fail its preflight); `git clone
---branch v5.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
+setuptools and cmake floors; older toolchains fail its preflight);
+`cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`
 (through `uv pip` in a uv environment, which has no pip);
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
@@ -327,9 +338,12 @@ is missing. No extra steps are required to deploy a PQC-complete image.
 The gate (`omni_mercury_engine._pqc_gate._enforce_pqc_production_gate`) is
 scoped to the agent surfaces: it runs at import of
 `omni_mercury_engine.engine` (which the CLI and API serve),
-`omni_mercury_engine.crypto`, and every AMA-backed `security` export, and
+`omni_mercury_engine.api.server` (the API reaches the engine only inside
+request handlers, so it runs the gate itself), `omni_mercury_engine.crypto`,
+and every AMA-backed `security` export, and
 refuses to proceed if the native library is unloadable — those imports raise
-`RuntimeError` before any agent state is materialised. There is no stub path
+`RuntimeError` before any agent state is materialised. `mercury-agent serve`
+checks first and exits 1 with the build steps before it prints a banner. There is no stub path
 and no fallback chain to a non-AMA backend. Only the standalone analytic
 leaves (dataset loaders, individual detectors, metrics — the quickstart path,
 which cannot decide, serve, sign, or encrypt) import without AMA; the split

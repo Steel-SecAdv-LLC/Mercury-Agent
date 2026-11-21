@@ -14,14 +14,17 @@ at specific DART stations.
 
 from __future__ import annotations
 
+import gzip
 import io
 import logging
-from datetime import UTC, datetime
+import zlib
+from datetime import datetime
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import OfflineModeError, check_synthetic_allowed
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,43 @@ DART_STATIONS: list[str] = [
     "21418",
     "52402",
 ]
+
+#: NDBC's yearly archive of every DART station:
+#: ``<station>t<year>.txt.gz``, the same ``YY MM DD hh mm ss T HEIGHT`` layout
+#: as the real-time files. The archive holds the event-mode (1-minute and
+#: 15-second) samples a buoy sends while a tsunami passes, so each catalogued
+#: event below is a recorded series, not one that needs to be made up.
+_HISTORICAL_URL = "https://www.ndbc.noaa.gov/data/historical/dart/"
+
+#: ``HEIGHT`` value NDBC writes for a sample that was not received.
+_MISSING_HEIGHT = 9999.0
+
+#: Columns of a parsed DART file.
+_DART_COLUMNS = ["timestamp", "bpr", "sample_type", "station_id"]
+
+#: ``bpr_series_source`` values: where a historical frame's series came from.
+SERIES_SOURCE_ARCHIVE = "ndbc_dart_archive"
+SERIES_SOURCE_SYNTHETIC = "synthetic"
+
+#: Fewest recorded samples an event span must hold to count as retrieved.
+_MIN_RECORDED_SAMPLES = 30
+
+#: Share of an event span's grid steps that must hold a recorded sample. The
+#: three catalogued events hold 99% or more (measured against NDBC 2026-11-16).
+_MIN_GRID_COVERAGE = 0.9
+
+#: The grid a historical event is returned on: the network's standard
+#: reporting cadence, which is also what ``fetch_realtime`` delivers.
+_GRID = "15min"
+
+#: Recorded baseline kept either side of the event window. The feature
+#: windows are counted in samples (the detrending mean spans 60 of them, 15
+#: hours at this cadence), so the baseline has to be longer than that.
+_BASELINE = pd.Timedelta(days=2)
+
+#: A water-column height outside this range is not a DART reading (the
+#: deepest station sits under about 6 km of water).
+_HEIGHT_RANGE_M = (1.0, 9000.0)
 
 # ---------------------------------------------------------------------------
 # Ground-truth event catalog
@@ -109,9 +149,9 @@ class TsunamiLoader(BaseDomainLoader):
     """Domain loader for NOAA NDBC DART tsunami buoy data.
 
     Connects to the NDBC real-time data service and retrieves bottom
-    pressure recorder (BPR) readings from the DART network.  For
-    historical ground-truth events the loader synthesises labeled
-    datasets based on documented tsunami arrival windows.
+    pressure recorder (BPR) readings from the DART network.  Historical
+    ground-truth events are read from NDBC's yearly DART archive: the
+    series each buoy recorded, labelled by the documented event window.
 
     Attributes:
         DOMAIN: ``"tsunami"``
@@ -121,10 +161,12 @@ class TsunamiLoader(BaseDomainLoader):
 
     DOMAIN: str = "tsunami"
     SOURCE_URL: str = "https://www.ndbc.noaa.gov/data/realtime2/"
-    # Labels are documented arrival-time windows (genuinely external), but
-    # the BPR series itself is reconstructed (NDBC files rotate out after
-    # ~45 days). Synthesized data is excluded from the supervised headline
-    # by the same discipline that excludes feature-threshold loaders.
+    # The BPR series is the recorded one (NDBC yearly DART archive). The
+    # labels are a catalogued window per event, from the origin time to a
+    # fixed end, not a per-sample annotation of when the wave was at the
+    # buoy, so they stay outside the supervised headline: ``statistical``
+    # is the registry's class for labels that are not independent per-row
+    # ground truth.
     LABEL_SOURCE: str = "statistical"
     REQUIRES_API_KEY: bool = False
     FEATURE_COLUMNS: list[str] = [
@@ -138,6 +180,11 @@ class TsunamiLoader(BaseDomainLoader):
 
     # Cache historical event data for 24 hours (events are static).
     CACHE_TTL: int = 86400
+
+    # A live read is not static: a buoy can enter event mode between two
+    # calls. It is cached only long enough to spare the DART stations a burst
+    # of repeat requests, never for the historical TTL above.
+    REALTIME_CACHE_TTL: int = 300
 
     # ------------------------------------------------------------------
     # Abstract interface implementation
@@ -155,9 +202,20 @@ class TsunamiLoader(BaseDomainLoader):
             the raw measurement columns provided by NDBC.
 
         Raises:
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and no cached
+                real-time frame exists. Offline mode is a deterministic
+                fail-closed, not a transient network fault, so it is
+                propagated unchanged rather than collapsed into
+                ``ConnectionError``.
             ConnectionError: If no station data could be retrieved after
                 exhausting retries.
         """
+        cache_key = "tsunami_realtime"
+        cached = self._read_frame_cache(cache_key, max_age=self.REALTIME_CACHE_TTL)
+        if cached is not None:
+            logger.debug("tsunami: returning cached real-time data.")
+            return cached
+
         frames: list[pd.DataFrame] = []
         errors: list[str] = []
 
@@ -166,6 +224,12 @@ class TsunamiLoader(BaseDomainLoader):
                 df = self._fetch_station(station_id)
                 if not df.empty:
                     frames.append(df)
+            except OfflineModeError:
+                # Deterministic fail-closed (MERCURY_OFFLINE with nothing
+                # cached). Propagate unchanged: wrapping it in the generic
+                # handler below would mislabel an offline refusal as a
+                # network outage (ConnectionError) and bury the signal.
+                raise
             except Exception as exc:
                 msg = f"Station {station_id}: {exc}"
                 logger.warning("tsunami: failed to fetch %s", msg)
@@ -177,6 +241,10 @@ class TsunamiLoader(BaseDomainLoader):
             )
 
         combined = pd.concat(frames, ignore_index=True)
+        # Cached for REALTIME_CACHE_TTL only, so a burst of calls does not
+        # re-hit every DART station. A later offline call finds it expired and
+        # fails closed rather than being served an old "live" reading.
+        self._write_frame_cache(cache_key, combined)
         logger.info(
             "tsunami: fetched real-time data — %d rows from %d stations",
             len(combined),
@@ -185,45 +253,149 @@ class TsunamiLoader(BaseDomainLoader):
         return combined
 
     def fetch_historical(self, event_id: str) -> pd.DataFrame:
-        """Fetch data for a specific historical tsunami event.
+        """Fetch the recorded DART series for a historical tsunami event.
 
-        Because NDBC real-time files rotate frequently, historical event
-        data is synthesised from characteristic BPR patterns observed
-        during well-documented tsunamis.  The synthesised data mirrors
-        the statistical properties (amplitude, period, noise floor) of
-        the original recordings.
+        Reads the event station's year from NDBC's DART archive and returns
+        two days either side of the event window on a 15-minute grid, the
+        network's standard cadence. Each step is the mean of the samples
+        recorded in it; a step with none is interpolated in time and
+        ``measured`` is False for it.
+
+        A buoy that detects a wave switches itself to event mode and reports
+        every minute. A finer grid would therefore be dense inside the
+        window and interpolated outside it, and features computed on it
+        would separate the two by sampling density: the buoy's own detection,
+        not the water. Measured on the three events, the bare ``measured``
+        flag of a 1-minute grid scored AUROC 0.60 to 0.67 against the labels.
+        At 15 minutes every step has a recorded sample in either mode.
 
         Args:
             event_id: One of ``"tohoku_2011"``, ``"chile_2010"``, or
                 ``"tonga_2022"``.
 
         Returns:
-            DataFrame with columns ``timestamp``, ``bpr``, and
-            ``station_id``.
+            DataFrame with columns ``timestamp``, ``bpr`` (water-column
+            height, metres), ``station_id``, ``measured`` and
+            ``bpr_series_source``.
 
         Raises:
             ValueError: If *event_id* is not recognised.
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the event is
+                not cached.
+            DataSourceUnavailableError: If the archive cannot be read and the
+                synthetic opt-in (``MERCURY_ALLOW_SYNTHETIC=1``) is not set.
+                With the opt-in a synthetic stand-in is returned instead,
+                carrying the synthetic mark (:meth:`is_synthetic`) and
+                ``bpr_series_source == "synthetic"``; it is never cached.
         """
         if event_id not in _EVENTS_BY_ID:
             raise ValueError(f"Unknown event_id {event_id!r}. " f"Available: {list(_EVENTS_BY_ID)}")
 
-        # Try the cache first.
-        cache_key = f"tsunami_historical_{event_id}"
-        cached = self._read_cache(cache_key)
+        # v2 key: frames cached under the old key were synthesised and carry
+        # no mark, so they must not be served as the recorded series.
+        cache_key = f"tsunami_historical_v3_{event_id}"
+        cached = self._read_frame_cache(cache_key)
         if cached is not None:
-            return pd.DataFrame(cached)
+            return cached
 
         event = _EVENTS_BY_ID[event_id]
+        try:
+            df = self._fetch_event_archive(event)
+        except OfflineModeError:
+            raise
+        except (ConnectionError, OSError, ValueError) as exc:
+            # This used to be the only path: every historical frame was
+            # synthesised, unmarked, whether or not NDBC was reachable.
+            check_synthetic_allowed(
+                "TsunamiLoader",
+                f"NDBC DART archive ({_HISTORICAL_URL}) unavailable for event "
+                f"'{event_id}': {type(exc).__name__}: {exc}",
+            )
+            df = self._synthesize_event(event)
+            df["measured"] = False
+            df["bpr_series_source"] = SERIES_SOURCE_SYNTHETIC
+            return self.mark_synthetic(df)
 
-        # NDBC real-time files only cover the most recent ~45 days, so
-        # historical events (all of which predate that window) must be
-        # reconstructed from characteristic BPR patterns. The frame carries
-        # that provenance so downstream outputs cannot present the series
-        # as recorded sensor data.
-        df = self._synthesize_event(event)
-        df["bpr_series_source"] = "reconstructed"
-        self._write_cache(cache_key, df.to_dict(orient="list"))
+        df["bpr_series_source"] = SERIES_SOURCE_ARCHIVE
+        self._write_frame_cache(cache_key, df)
+        logger.info(
+            "tsunami: event %s from the NDBC archive, station %s: %d minutes, %d recorded",
+            event_id,
+            event["station_id"],
+            len(df),
+            int(df["measured"].sum()),
+        )
         return df
+
+    @staticmethod
+    def _event_span(event: dict[str, Any]) -> tuple[pd.Timestamp, pd.Timestamp]:
+        """The observation span of an event: its window plus baseline either side."""
+        window_start = pd.Timestamp(event["window_start"])
+        window_end = pd.Timestamp(event["window_end"])
+        return window_start - _BASELINE, window_end + _BASELINE
+
+    def _fetch_event_archive(self, event: dict[str, Any]) -> pd.DataFrame:
+        """Read an event's recorded span from the NDBC DART archive.
+
+        Args:
+            event: Event dict from :pydata:`_EVENT_CATALOG`.
+
+        Returns:
+            15-minute frame with ``timestamp``, ``bpr``, ``station_id`` and
+            ``measured``.
+
+        Raises:
+            ConnectionError: If the archive file cannot be downloaded.
+            ValueError: If the file is not a readable gzip archive, or holds
+                too few recorded samples in the event span to stand for the
+                event.
+        """
+        station = str(event["station_id"])
+        span_start, span_end = self._event_span(event)
+        frames = []
+        for year in range(span_start.year, span_end.year + 1):
+            raw = self._fetch_url(f"{_HISTORICAL_URL}{station}t{year}.txt.gz")
+            try:
+                text = gzip.decompress(raw).decode("utf-8", errors="replace")
+            except (EOFError, zlib.error) as exc:
+                # A truncated or corrupt transfer. Neither exception is an
+                # OSError, so they used to leave ``fetch_historical`` bare.
+                raise ValueError(
+                    f"DART archive for station {station}, {year} is not a complete "
+                    f"gzip file ({type(exc).__name__}: {exc})"
+                ) from exc
+            frames.append(self._parse_dart_text(text, station))
+        recorded = pd.concat(frames, ignore_index=True)
+        in_span = recorded[
+            (recorded["timestamp"] >= span_start) & (recorded["timestamp"] <= span_end)
+        ]
+        if len(in_span) < _MIN_RECORDED_SAMPLES:
+            raise ValueError(
+                f"station {station} has {len(in_span)} recorded samples between "
+                f"{span_start.isoformat()} and {span_end.isoformat()}; "
+                f"at least {_MIN_RECORDED_SAMPLES} are needed"
+            )
+
+        per_step = in_span.set_index("timestamp")["bpr"].resample(_GRID).mean()
+        grid = pd.date_range(span_start.ceil(_GRID), span_end.floor(_GRID), freq=_GRID)
+        on_grid = per_step.reindex(grid)
+        measured_share = float(on_grid.notna().mean()) if len(grid) else 0.0
+        if measured_share < _MIN_GRID_COVERAGE:
+            # Interpolating most of a span would present a drawn line as the
+            # buoy's record.
+            raise ValueError(
+                f"station {station} recorded {measured_share:.0%} of the "
+                f"{len(grid)} {_GRID} steps between {span_start.isoformat()} and "
+                f"{span_end.isoformat()}; at least {_MIN_GRID_COVERAGE:.0%} are needed"
+            )
+        return pd.DataFrame(
+            {
+                "timestamp": grid,
+                "bpr": on_grid.interpolate(method="time", limit_direction="both").to_numpy(),
+                "station_id": station,
+                "measured": on_grid.notna().to_numpy(),
+            }
+        )
 
     def list_events(self) -> list[dict[str, Any]]:
         """Return the catalog of ground-truth tsunami events.
@@ -316,6 +488,21 @@ class TsunamiLoader(BaseDomainLoader):
             # Fall back to base class behaviour for non-standard data.
             return super().engineer_features(raw_data)
 
+        if "station_id" in raw_data.columns and raw_data["station_id"].nunique() > 1:
+            # A real-time frame holds every station, one after another. Each
+            # buoy sits at its own depth (3,265 m to 5,886 m in one live
+            # fetch), so differencing or averaging across the seam between
+            # two stations turned a change of buoy into a kilometre-high
+            # "wave". Features are computed per station and returned in the
+            # frame's own row order.
+            features = np.zeros((len(raw_data), len(self.FEATURE_COLUMNS)), dtype=np.float64)
+            positions = np.arange(len(raw_data))
+            for _, rows in raw_data.assign(_position=positions).groupby("station_id", sort=False):
+                features[rows["_position"].to_numpy()] = self.engineer_features(
+                    rows.drop(columns=["station_id", "_position"])
+                )
+            return features
+
         bpr = raw_data["bpr"].astype(np.float64).values.copy()
 
         # Replace non-finite values with forward-fill then backward-fill.
@@ -371,99 +558,117 @@ class TsunamiLoader(BaseDomainLoader):
         """
         url = f"{self.SOURCE_URL}{station_id}.dart"
         raw_bytes = self._fetch_url(url)
-        text = raw_bytes.decode("utf-8", errors="replace")
-
-        # DART files have comment header lines starting with '#'.
-        df = pd.read_csv(
-            io.StringIO(text),
-            comment="#",
-            sep=r"\s+",
-            header=None,
-            na_values=["MM", "99.00", "999.0", "9999.0", "99999.0"],
-        )
-
+        df = self._parse_dart_text(raw_bytes.decode("utf-8", errors="replace"), station_id)
         if df.empty:
             logger.warning("tsunami: empty data for station %s", station_id)
-            return df
-
-        # The first five columns are typically: YY MM DD hh mm
-        # followed by measurement columns.  Build a timestamp from
-        # the date/time fields when they look plausible.
-        df = self._parse_dart_columns(df, station_id)
         return df
 
     @staticmethod
-    def _parse_dart_columns(df: pd.DataFrame, station_id: str) -> pd.DataFrame:
-        """Assign column names and build a timestamp from date fields.
+    def _parse_dart_text(text: str, station_id: str) -> pd.DataFrame:
+        """Parse an NDBC DART file (real-time or archive) into recorded samples.
+
+        The layout is ``YY MM DD hh mm ss T HEIGHT``: a timestamp to the
+        second, the measurement type (1 = 15-minute, 2 = 1-minute, 3 =
+        15-second) and the water-column height in metres. The previous
+        parser assumed there was no seconds column, which shifted every
+        field after the minute by one: ``bpr`` held the type code (1, 2 or
+        3) on every live row, the height was left in an unnamed column, and
+        15-second samples shared one timestamp.
 
         Args:
-            df: Raw dataframe read from NDBC DART file.
+            text: Decoded file contents; ``#`` lines are headers.
             station_id: Station identifier for tagging.
 
         Returns:
-            DataFrame with ``timestamp``, ``bpr``, ``station_id`` and
-            any additional measurement columns.
+            DataFrame with ``timestamp`` (UTC), ``bpr`` (height, metres),
+            ``sample_type`` and ``station_id``, oldest first, without the
+            samples NDBC marks as not received and without rows that cannot
+            be read. Empty when the file has no data rows.
+
+        Raises:
+            ValueError: If the rows do not have the eight DART columns.
         """
-        ncols = df.shape[1]
+        try:
+            frame = pd.read_csv(
+                io.StringIO(text),
+                comment="#",
+                sep=r"\s+",
+                header=None,
+                dtype=str,
+                on_bad_lines="skip",
+            )
+        except pd.errors.EmptyDataError:
+            # A file with headers and no rows: a buoy with nothing to report.
+            return pd.DataFrame(columns=_DART_COLUMNS)
+        return TsunamiLoader._dart_samples(frame, station_id)
 
-        # Minimal expected layout: YY MM DD hh mm T(TYPE) HEIGHT
-        # Real DART files vary slightly, so we handle common formats.
-        if ncols >= 7:
-            base_names = ["year", "month", "day", "hour", "minute", "type", "bpr"]
-            extra_names = [f"col_{i}" for i in range(7, ncols)]
-            df.columns = base_names + extra_names
+    @staticmethod
+    def _dart_samples(frame: pd.DataFrame, station_id: str) -> pd.DataFrame:
+        """Turn a headerless DART table into recorded samples.
 
-            # Build timestamp (handle 2-digit and 4-digit years).
-            years = df["year"].astype(int)
-            years = np.where(years < 100, years + 2000, years)
+        Args:
+            frame: One row per line of the file, eight columns (or seven,
+                the layout without seconds that the previous parser assumed).
+            station_id: Station identifier for tagging.
 
-            timestamps: list[datetime] = []
-            for _, row in df.iterrows():
-                try:
-                    ts = datetime(
-                        int(years[_]) if isinstance(_, int) else int(row["year"]),
-                        int(row["month"]),
-                        int(row["day"]),
-                        int(row["hour"]),
-                        int(row["minute"]),
-                        tzinfo=UTC,
-                    )
-                except (ValueError, OverflowError):
-                    ts = datetime(2000, 1, 1, tzinfo=UTC)
-                timestamps.append(ts)
+        Returns:
+            The frame :meth:`_parse_dart_text` documents.
 
-            # Vectorised timestamp construction (faster for large files).
-            try:
-                ts_series = pd.to_datetime(
-                    {
-                        "year": years,
-                        "month": df["month"].astype(int),
-                        "day": df["day"].astype(int),
-                        "hour": df["hour"].astype(int),
-                        "minute": df["minute"].astype(int),
-                    },
-                    utc=True,
-                )
-            except Exception:
-                ts_series = pd.Series(timestamps)
+        Raises:
+            ValueError: If the table has neither seven nor eight columns.
+        """
+        if frame.empty:
+            return pd.DataFrame(columns=_DART_COLUMNS)
+        if frame.shape[1] == 7:
+            frame = frame.copy()
+            frame.insert(5, "second", "0")
+        if frame.shape[1] != 8:
+            raise ValueError(
+                f"DART file for station {station_id} has {frame.shape[1]} columns; "
+                "expected 8 (YY MM DD hh mm ss T HEIGHT)"
+            )
+        frame = frame.set_axis(
+            ["year", "month", "day", "hour", "minute", "second", "sample_type", "bpr"], axis=1
+        )
+        numeric = frame.apply(pd.to_numeric, errors="coerce")
+        timestamps = pd.to_datetime(
+            numeric[["year", "month", "day", "hour", "minute", "second"]],
+            utc=True,
+            errors="coerce",
+        )
+        parsed = pd.DataFrame(
+            {
+                "timestamp": timestamps,
+                "bpr": numeric["bpr"],
+                "sample_type": numeric["sample_type"],
+                "station_id": station_id,
+            }
+        )
+        # One unreadable cell costs its own row, never the file: a row with a
+        # bad date, a non-numeric type or height, NDBC's 9999.0 placeholder,
+        # or a height no buoy sits under is dropped.
+        low, high = _HEIGHT_RANGE_M
+        readable = (
+            parsed["timestamp"].notna()
+            & parsed["sample_type"].notna()
+            & parsed["bpr"].between(low, high)
+        )
+        parsed = parsed[readable].astype({"sample_type": "int64"})
+        return parsed.sort_values("timestamp", kind="stable").reset_index(drop=True)
 
-            df["timestamp"] = ts_series
+    @staticmethod
+    def _parse_dart_columns(df: pd.DataFrame, station_id: str) -> pd.DataFrame:
+        """Name the columns of an already-read DART table (kept for callers).
 
-        elif ncols >= 2:
-            # Minimal fallback: treat first column as index, last as BPR.
-            df.columns = [f"col_{i}" for i in range(ncols)]
-            df = df.rename(columns={f"col_{ncols - 1}": "bpr"})
-            df["timestamp"] = pd.Timestamp.now(tz="UTC")
-        else:
-            df["bpr"] = np.nan
-            df["timestamp"] = pd.Timestamp.now(tz="UTC")
+        Args:
+            df: Headerless frame read from an NDBC DART file, with eight
+                columns or the seven of the layout without seconds.
+            station_id: Station identifier for tagging.
 
-        df["station_id"] = station_id
-
-        # Coerce BPR to numeric.
-        df["bpr"] = pd.to_numeric(df["bpr"], errors="coerce")
-
-        return df
+        Returns:
+            The frame :meth:`_parse_dart_text` returns for the same rows.
+        """
+        return TsunamiLoader._dart_samples(df, station_id)
 
     @staticmethod
     def _synthesize_event(event: dict[str, Any]) -> pd.DataFrame:
@@ -564,9 +769,14 @@ class TsunamiLoader(BaseDomainLoader):
 
 
 def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
-    """Compute a rolling mean over *arr* with the given *window* size.
+    """Compute a TRAILING rolling mean over *arr* with the given *window*.
 
-    Edge values are filled with the nearest valid mean to avoid NaNs.
+    Each output uses only the current sample and the ``window - 1`` samples
+    before it, so no future sample enters a feature. The window shrinks at
+    the start of the array (first sample is its own mean). The previous
+    implementation used a centred window (``i - window//2`` .. ``i +
+    window//2``), which pulled future samples into every output -- look-ahead
+    leakage in the engineered features.
 
     Args:
         arr: 1-D numpy array.
@@ -580,21 +790,22 @@ def _rolling_mean(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any
     cumsum = np.cumsum(arr)
     cumsum = np.insert(cumsum, 0, 0.0)
     result = np.empty_like(arr)
-    half = window // 2
 
     for i in range(len(arr)):
-        lo = max(0, i - half)
-        hi = min(len(arr), i + window - half)
+        lo = max(0, i - window + 1)
+        hi = i + 1
         result[i] = (cumsum[hi] - cumsum[lo]) / (hi - lo)
 
     return result
 
 
 def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]:
-    """Compute a rolling standard deviation over *arr*.
+    """Compute a TRAILING rolling standard deviation over *arr*.
 
-    Uses the two-pass algorithm (mean then variance) for numerical
-    stability.  Edge samples use a shrunk window.
+    Each output uses only the current sample and the ``window - 1`` samples
+    before it, so no future sample enters a feature (the previous centred
+    window did, leaking look-ahead information). Edge samples at the start use
+    the shrunk trailing window available to them.
 
     Args:
         arr: 1-D numpy array.
@@ -605,11 +816,10 @@ def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]
     """
     n = len(arr)
     result = np.empty(n, dtype=np.float64)
-    half = window // 2
 
     for i in range(n):
-        lo = max(0, i - half)
-        hi = min(n, i + window - half)
+        lo = max(0, i - window + 1)
+        hi = i + 1
         segment = arr[lo:hi]
         result[i] = np.std(segment) if len(segment) > 1 else 0.0
 
@@ -617,7 +827,21 @@ def _rolling_std(arr: np.ndarray[Any, Any], window: int) -> np.ndarray[Any, Any]
 
 
 def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Replace non-finite values with forward-fill then backward-fill.
+    """Replace non-finite values, forward-filling gaps from PAST data only.
+
+    A non-leading gap takes the last valid value that precedes it (a past
+    reading -- no look-ahead).  A *leading* gap has no past reading; it is
+    filled with the **first** valid value in the series.
+
+    Honesty note on leading gaps: the previous implementation scanned from
+    the end of the array and so filled the leading edge with the series'
+    *last* sample -- far-future data, maximal leakage (e.g. a post-tsunami
+    reading standing in for the window's opening). We cannot drop the leading
+    rows here instead, because ``engineer_features`` must return one feature
+    row per input sample to stay aligned with the labels. The first valid
+    value is the earliest real reading; for a DART window that opens ~2 days
+    before the event it is pre-event background carrying no tsunami signal,
+    so it is the nearest-in-time honest stand-in rather than a leaking one.
 
     If the entire array is non-finite, fills with ``0.0``.
 
@@ -631,7 +855,7 @@ def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     if not mask.any():
         return arr
 
-    # Forward fill.
+    # Forward fill: each gap inherits the last PAST valid value.
     last_valid = np.nan
     for i in range(len(arr)):
         if mask[i]:
@@ -640,9 +864,11 @@ def _fill_non_finite(arr: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         else:
             last_valid = arr[i]
 
-    # Backward fill any remaining leading NaNs.
+    # Leading gap(s): fill with the FIRST valid value, found by scanning
+    # forward from the start (NOT backward from the end, which took the last
+    # sample in the window and leaked future data into t=0).
     first_valid = np.nan
-    for i in range(len(arr) - 1, -1, -1):
+    for i in range(len(arr)):
         if np.isfinite(arr[i]):
             first_valid = arr[i]
             break

@@ -61,6 +61,38 @@ from omni_mercury_engine.cognitive.harm_classifier import (
     real_harm_classifier_available,
 )
 
+# ---------------------------------------------------------------------------
+# START HERE if you are extending the red-team corpus.
+#
+# Measured baseline, 2026-11-21, on the 163-row held-out slice (133 offensive
+# rows, 30 hard-benign rows):
+#
+#   shipped posture (the offline classifier every install runs)
+#       FN 28/133 = 0.21      FP 0/30 = 0.00
+#   default posture (lexical only, no model)
+#       FN 88/133 = 0.66      FP 0/30 = 0.00
+#
+# Reproduce, with per-axis counts:
+#
+#   PYTHONPATH=src:benchmarks python benchmarks/eval_weapons_gate_adversarial.py \
+#       --posture shipped        (or: --posture default)
+#
+# Where new rows go: benchmarks/weapons_gate_adversarial.py, in
+# build_adversarial_corpus(). Each row is an AdversarialRow (text, label,
+# expected, axis, and a (hazard_domain, intent_tier) tag). The builder raises
+# if a row overlaps the base corpus (benchmarks/weapons_gate_corpus.py). Then
+# rewrite the committed copy, benchmarks/weapons_gate_adversarial.jsonl, with
+# the same command plus --dump, and re-run this module.
+#
+# Rows are written by a person. This comment names no prompt, no missed row
+# and no lexicon term on purpose: the numbers say how many are missed, and the
+# command above is what shows which.
+#
+# The dated figures further down are what each ceiling was pinned against on
+# that date. The ceilings are regression guards, looser than today's numbers;
+# they are not the current measurement. This block is.
+# ---------------------------------------------------------------------------
+
 # Transparent lexical-only leak (default, no-model posture) on the EXPANDED
 # adversarial slice: 99/133 offensive rows are FN (rate 0.744, measured
 # 2026-07-19). The operator-grown obfuscation / framing / conjunction variants

@@ -91,3 +91,64 @@ def test_check_reports_missing_baseline(tmp_path: Path, monkeypatch: pytest.Monk
         }
     )
     assert violations and "baseline missing" in violations[0]
+
+
+def _fit(fit_seed: int, auc: float, f1: float, coverage: float = 0.92) -> dict[str, Any]:
+    return {
+        "fit_seed": fit_seed,
+        "n_train": 10,
+        "n_cal": 5,
+        "n_test": 5,
+        "auc": auc,
+        "f1": f1,
+        "conformal": {
+            "target_coverage": 0.9,
+            "empirical_coverage": coverage,
+            "average_set_size": 1.0,
+        },
+    }
+
+
+def test_the_gated_metrics_are_medians_over_the_seeded_fits() -> None:
+    """One fit is one draw; the gate reads the middle of several."""
+    fits = [_fit(0, 0.99, 0.87), _fit(1, 0.98, 0.83), _fit(2, 1.0, 0.99)]
+    fits += [_fit(3, 0.995, 0.97), _fit(4, 0.999, 0.985)]
+    told = guard.summarize(fits, epochs=8, seed=1)
+
+    assert (told["auc"], told["f1"]) == (0.995, 0.97)
+    assert told["metadata"]["fit_seeds"] == [0, 1, 2, 3, 4]
+    assert [one["f1"] for one in told["realizations"]] == [0.87, 0.83, 0.99, 0.97, 0.985]
+
+
+def test_one_unlucky_fit_passes_and_a_regressed_majority_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bpath = tmp_path / "baseline.json"
+    bpath.write_text(json.dumps(_baseline()))
+    monkeypatch.setattr(guard, "BASELINE_PATH", bpath)
+    good = [_fit(seed, 0.99, 0.95) for seed in range(4)]
+
+    assert guard.check(guard.summarize([*good, _fit(4, 0.99, 0.5)], 8, 1)) == []
+    regressed = [*good[:2], *(_fit(seed, 0.99, 0.5) for seed in (2, 3, 4))]
+    assert any("F1" in line for line in guard.check(guard.summarize(regressed, 8, 1)))
+
+
+def test_evaluate_fits_at_the_gates_thread_count_and_restores_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fitted model must not depend on how many cores the runner has."""
+    torch = pytest.importorskip("torch")
+    seen: list[tuple[int, int]] = []
+
+    def one(fit_seed: int, epochs: int, seed: int) -> dict[str, Any]:
+        seen.append((fit_seed, torch.get_num_threads()))
+        return _fit(fit_seed, 0.99, 0.95)
+
+    monkeypatch.setattr(guard, "_evaluate_one", one)
+    before = torch.get_num_threads()
+    told = guard.evaluate(fit_seeds=(3, 1, 2))
+
+    assert seen == [(seed, guard.GATE_TORCH_THREADS) for seed in (3, 1, 2)]
+    assert torch.get_num_threads() == before
+    assert told["metadata"]["torch_threads"] == guard.GATE_TORCH_THREADS
+    assert len(guard.GATE_FIT_SEEDS) % 2 == 1

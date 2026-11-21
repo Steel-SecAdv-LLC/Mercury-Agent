@@ -13,9 +13,9 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 3.0.x   | **Current**          | :white_check_mark: |
-| 2.0.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 2.0   | End-of-life          | :x:              |
+| 3.1.x   | **Current**          | :white_check_mark: |
+| 3.0.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 3.0   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -60,7 +60,7 @@ Mercury Agent implements multiple layers of security:
 - **Static Analysis**: Bandit security scanning in CI/CD pipeline
 - **Dependency Scanning**: Regular audits with Safety and pip-audit
 - **Type Safety**: Strict MyPy type checking enabled
-- **Code Review**: All changes require security review
+- **Code Review**: Human-authored changes go through pull-request review; Dependabot patch/minor dependency updates auto-merge once every CI gate passes (`.github/workflows/dependabot-auto-merge.yml`), and major updates are held for human review
 
 ### Cryptographic Security
 
@@ -138,9 +138,10 @@ SlhDsaKeyPair` declarations).
 5. **Constant-Time Operation**: AMA Cryptography v5.0.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
 
 6. **HMAC routing (v1.7.x)**: AMA Cryptography v5.0.0 also surfaces
-   ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
+   HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
    (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
-   `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
+   `native_hmac_sha512`), checked here against the RFC 4231 known answers;
+   no CAVP/ACVP validation is claimed (`CAPABILITY_MATRIX.md` §3). Mercury's `native_jwt` module routes HS256,
    HS384, and HS512 through these bindings with no stdlib fallback
    (fail-closed). See
    `tests/security/test_native_jwt_ama_routing.py` for the RFC 4231 KAT
@@ -153,8 +154,11 @@ SlhDsaKeyPair` declarations).
   SPHINCS+ round-trip, and ML-DSA deterministic-signing reproducibility.
 - `tests/security/test_nist_fips_kat.py` verifies bit-for-bit
   reproducibility against curated NIST ACVP-Server test vectors
-  (FIPS 203, 204, 205): ML-DSA-65 deterministic sigGen, ML-KEM-1024
-  decapsulation, SLH-DSA-SHAKE-128s sigGen. Source:
+  (FIPS 203, 204, 205): key generation for ML-DSA-65, ML-KEM-1024 and
+  SLH-DSA-SHAKE-128s, ML-DSA-65 deterministic sigGen, ML-KEM-1024
+  decapsulation and SLH-DSA-SHAKE-128s sigGen: eighteen vectors. It does not
+  reproduce the curated ML-KEM encapsulation vectors (AMA exposes no
+  derandomised encapsulation) and has none for SLH-DSA-SHA2-256f. Source:
   [usnistgov/ACVP-Server](https://github.com/usnistgov/ACVP-Server).
 
 **References:**
@@ -207,7 +211,14 @@ probabilities.
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
-- **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20). A 429 carries the bucket's real refill time in `Retry-After`. Static assets under `/static` are exempt, so one console load does not spend the burst.
+- **Rate Limiting**: Built-in rate limiting to prevent abuse (defaults: 100 req/min, burst of 20; `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` / `OMNI_RATE_LIMIT_BURST`). A 429 carries the bucket's real refill time in `Retry-After`. Static assets under `/static` are exempt, so one console load does not spend the burst. IPv6 clients sharing a /64 share one rate-limit identity (`MERCURY_IPV6_RATE_LIMIT_PREFIX`), so a single allocation cannot mint fresh identities per address.
+- **Serving bounds, single-sourced** (`omni_mercury_engine.serving_limits`; every value validated at startup, served to operators at `GET /api/v1/detect/flagship/limits` and in OpenAPI `info.x-serving-limits`): a 10 MiB request-body cap on every route enforced before parsing (declared length refused up front, chunked bodies counted as they stream; 600 MiB on the authenticated `/api/v1/models` upload surface, 64 MiB on `/api/v1/assessment`, 32 MiB on `/api/v1/review`), the flagship admission bound (default 8 concurrent calls — replays that recompute from supplied data and artifact reviews included — then 429 with `Retry-After`), per-request flagship caps (65,536 rows; 128-char `domain`; 256-char `subject_id`), bounded served replay (a causal finding is recomputed only up to the shipped instrument's own size: 5 columns, lags to 5), and the SSE alert-stream subscriber cap (64, then 503). Anonymous flagship callers share one novelty reference and it is never disclosed to them; per-caller references are keyed by account.
+- **Artifact review uploads** (`POST /api/v1/review/upload`, `POST /api/v1/review/inline`; anonymous like the detection routes, metered by the same rate limiter). An upload is whatever a caller sends, so the path is built as a parser attack surface:
+  - *Bounded before it expands.* The 32 MiB body cap (`MERCURY_REVIEW_MAX_BODY_BYTES`) applies before parsing; what the file decodes to is bounded again (`MERCURY_REVIEW_MAX_TEXT_CHARS` 1,000,000, `MERCURY_REVIEW_MAX_PIXELS` 25,000,000, `MERCURY_REVIEW_MAX_AUDIO_SECONDS` 600), each checked on a header or through a read limit before anything is inflated: a DOCX member is read through a byte limit whatever size the archive declares, a PDF stream is inflated within a budget, an image's pixel count is read from its header before a pixel is decoded, a recording's duration is computed from its header before a sample is converted. Past a bound the upload is refused with 413; it is never reviewed in part.
+  - *Small original readers, one linear pass each.* DOCX is read without an XML parser (no entity expansion, no external references), PDF text by its text operators only (no interpreter, no fonts, no JavaScript, no embedded files), HTML by the standard library's tokenizer (scripts and styles dropped, nothing fetched), WAV by a RIFF reader written here. Images are decoded by Pillow. No reader uses a pattern that an input can make rescan itself (`tests/review/test_decode.py` holds the inputs that did, on the first draft). Compressed audio, encrypted archives and scanned PDFs are refused (415 / 422) with the reason, not approximated.
+  - *The harm-uplift gate reads the upload first.* The step that measures a decoded upload carries the `GATED_BOUNDARY` capability contract: the gate reads a document's whole text and every upload's name before a feature is computed, a refusal is a 403 with a blocked `DecisionRecord`, and the engine's own two gates then run as on every detection. **What the gate cannot read:** words inside an image and speech in a recording are pixels and samples, not text; there is no OCR or speech recognition here, and each result says what was read (`review.harm_gate.read`) and what was not (`review.harm_gate.not_inspected`, `content_inspected`). The DecisionRecord itself repeats it: every review's record carries a `harm gate scope:` caveat stating in one sentence what the gate read and what it did not inspect, so a record read in isolation cannot suggest the content of an image or a recording was screened.
+  - *Heavy work is bounded, on its own and with everything else.* At most `MERCURY_REVIEW_MAX_CONCURRENT` (default 2) reviews are decoded and measured at once, and each also holds a slot of the flagship admission bound from decode to decision (429 when either is full); scoring runs under the flagship engine lock. Measured worst cases for one upload at the default bounds: a 25-megapixel image about 2 s and 0.5 GB (it is reduced to 720 pixels on its longer side as it is decoded), a 600-second recording about 2.5 s and 0.6 GB, a 1,000,000-character document about 2.6 s including the harm gate's reading of all of it.
+  - *Nothing uploaded is kept.* The file is held in memory for the request. The result and the detection history carry its SHA-256, size and name (reduced to a base name, 255 characters); a document's flagged segments are quoted in the response to the caller (120 characters each) and are not stored.
 - **Provider administration** (`PUT`/`DELETE /api/v1/voice/backends/{provider}`, `POST /api/v1/voice/backends/{provider}/test`, `POST`/`DELETE /api/v1/voice/backends/select`): administrator only (401 without credentials, 403 without the `admin` permission). A stored key is never returned by any route. A stored or tested endpoint passes the same egress gate the adapters use, so a private address or plain-http cloud endpoint is a 422. A key given to the connection test is used for that call and not stored. Every change is logged under the administrator's id, with the verdict and HTTP status only, never text derived from a request that carried the key.
 - **Read-only discovery routes**: `GET /api/v1/voice/backends` (anonymous) reports whether each provider's key is set, never its value; the catalog routes (`/api/v1/catalog/...`) publish declarations the package already ships in source and change no state.
 - **Voice routes are scoped to the caller**: conversation history, follow-up context, agent memory and the proactive alert stream (`GET /api/v1/voice/alerts`) are bounded to the authenticated principal (and session where it matters); the stream authenticates from the same headers as every other voice route and carries nothing for other accounts.
@@ -268,6 +279,30 @@ security:
 - **Security Advisories**: Watch the GitHub repository and its Security Advisories page
 - **Vulnerability Monitoring**: Use tools like Dependabot or Snyk
 
+### Verifying a Release
+
+A release's provenance and SBOMs can be checked locally, by anyone, without
+trusting the release workflow:
+
+```bash
+python scripts/verify_release.py v3.2.0 --download --image ghcr.io/steel-secadv-llc/mercury-agent
+```
+
+It checks that the wheel and sdist name the tag's version; that
+`provenance.json` and `SBOM.spdx.json` list exactly those files with their
+on-disk sha256; that the CycloneDX dependency SBOM's root component is
+`mercury-agent-global` at that version; that `gh attestation verify` accepts
+every artifact against this repository, the tag's ref and `release.yml` as the
+signing workflow; and (with `--image`) that the tagged image resolves to a
+digest carrying a provenance attestation. Each check reports PASS, FAIL or
+UNVERIFIED (a missing `gh`/`docker` is never reported as a pass); exit 0 means
+everything requested verified.
+
+**Releases that can pass:** only those built after the Sigstore attestation
+and dependency-SBOM steps were added to `release.yml`. v3.0.0 and earlier
+were never signed and carry no CycloneDX SBOM, so the tool reports them as
+FAIL on those checks — that is the accurate answer, not a tool defect.
+
 ## Ethical Security Considerations
 
 Mercury Agent includes security intelligence capabilities. Users must:
@@ -292,6 +327,7 @@ Mercury Agent includes security intelligence capabilities. Users must:
 - **Model Integrity**: Verify model checksums before loading
 - **Adversarial Inputs**: Be aware of potential adversarial attacks on ML models
 - **Distribution drift**: the drift ensemble (per-feature KS and PSI, covariance, and a principal-axis KS test) flags a batch that differs from the reference, and the decision layer defers at MEDIUM severity or above. It is a statistical test, not an adversarial-robustness guarantee: a crafted input drawn from the reference distribution is not drift, and a batch whose width differs from the reference is reported `incomparable` and not deferred. See [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) and [`docs/runbooks/data-drift.md`](docs/runbooks/data-drift.md).
+- **Artifact review is a consistency check, not forensics**: it flags a part of an upload that is unlike the rest of the same upload. Its three checkpoints were fitted and calibrated on procedural reference artifacts (repository prose, generated textures, generated voiced signals) with procedurally inserted material; `artifacts/artifact_review.json` records what that measures, and each checkpoint states its certificate's scope in every record. An upload unlike that family is tested for and deferred where the test sees it, and the test does not see everything (measured: most Python source files uploaded as documents are judged, not deferred). A clear result is not evidence that a file is authentic, and an artifact altered throughout has no unaltered bulk to be measured against.
 - **Training Data**: Ensure training data is from trusted sources
 
 ### Autonomous Self-Modification (Governed, Fail-Closed)
@@ -373,10 +409,12 @@ the expired ncurses entry plus five new unfixed HIGH findings, and
 **re-reviewed 2026-11-01** (two new `libsqlite3-0` findings) and
 **re-reviewed 2026-11-05** (one new `zlib1g` finding) after the
 vulnerability DB published them against an unchanged image (see
+below), and **re-reviewed 2026-11-21** (one new `openssl` finding, see
 below); every retained entry cross-checked against the Debian Security
-Tracker (trixie `<no-dsa>` or open, no fixed version):
+Tracker (trixie `<no-dsa>`, open or vulnerable-everywhere, no fixed
+version):
 
-- **Total accepted:** 5 CVEs — **Critical:** 0, **High:** 5 (as of 2026-11-06, after the eight fixed-in-place removals above)
+- **Total accepted:** 6 CVEs — **Critical:** 0, **High:** 6 (as of 2026-11-21)
 - All are Debian-**trixie** OS packages with **no upstream fix available**; none sits on an untrusted-input path in the shipped API; the container runs as non-root UID 1000 with SUID/SGID bits stripped
 - All are genuinely irreducible: `ncurses` (`libtinfo6`/`libncursesw6`/`ncurses-base`/`ncurses-bin`) is linked by bash and CPython itself (the `readline`/`curses` stdlib modules), and the `util-linux` family (`util-linux`/`bsdutils` are Debian-essential; `libuuid1`/`libblkid1` back CPython and `coreutils`) cannot be removed without breaking the interpreter or the image's update path. Its one removable member, `mount` (the SUID `mount(8)` entry point of three of the four 2026-09-27 util-linux CVEs), is purged. The genuinely removable packages were **eliminated outright** rather than accepted: `perl-base` — which carried both former CRITICALs — is purged in the Dockerfile (together with its `adduser` consumer), `gzip` and `libglib2.0-0` followed on 2026-07-02, as did the Mesa GL stack before them (see below)
 
@@ -385,6 +423,7 @@ Tracker (trixie `<no-dsa>` or open, no fixed version):
 | CVE-2025-69720 | High | ncurses (libncursesw6 et al. 6.5+20250216-2) | trixie `<no-dsa>`, no fix | The overflow is in the `infocmp(1)` CLI (`progs/infocmp.c`), not the shared libraries; Mercury never runs `infocmp`. Libraries linked by bash and CPython's `readline`/`_curses`. Re-reviewed 2026-09-27; expires 2026-12-26 |
 | CVE-2026-76642, CVE-2026-78409, CVE-2026-78410 | High | util-linux (2.41.5-0+deb13u1) | trixie `<no-dsa>`, no fix | SUID `mount(8)` X-mount.* hook / X-mount.subdir / restricted-bind-mount flaws. The `mount` package (`mount`/`umount`/`losetup`/`swapon`) is **purged** from the image, removing the vulnerable entry point; `libmount1` remains only for util-linux's own tools. Added 2026-09-27; expire 2026-12-26 |
 | CVE-2026-78408 | High | util-linux (2.41.5-0+deb13u1) | trixie `<no-dsa>`, no fix | `nsenter --join-cgroup` fd leak; requires a *privileged operator* running `nsenter` against an attacker-controlled target. The container runs no `nsenter` and has no root operator. Added 2026-09-27; expires 2026-12-26 |
+| CVE-2026-124709 | High (Red Hat 7.5; OpenSSL rates it Low) | openssl (libssl3t64, openssl, openssl-provider-legacy 3.5.9-1~deb13u1) | vulnerable in every Debian suite, no fix | OpenSSL's own QUIC *server* retains ~300 bytes per rejected-then-reset peer stream (CWE-401, memory growth → DoS). Only a program calling OpenSSL's QUIC server API runs that code: CPython's `ssl` exposes no QUIC, the image serves HTTP over TCP with uvicorn, ships no QUIC/HTTP-3 package, exposes no UDP port and never invokes `openssl(1)` — each condition held by `tests/security/test_openssl_quic_acceptance_conditions.py`. `libssl3t64` is linked by CPython and apt, so the package is irreducible. Added 2026-11-21; expires 2026-12-26 |
 
 **Trixie re-enumeration + perl-base elimination (2026-06-18).** The deployment image migrated from `python:3.13-slim-bookworm` to `python:3.13-slim-trixie` (Debian 13.5). The ledger was rebuilt from first principles: the runtime image's OS layer was built and scanned with the gate's own trivy 0.70.0, and each finding cross-checked against the Debian Security Tracker. Six bookworm-era acceptances were **dropped, not carried inert**, because they are gone or no longer CRITICAL/HIGH on trixie — CVE-2023-45853 (zlib, resolved in trixie `1:1.3.dfsg-2`) and CVE-2025-7458 (SQLite, resolved in trixie `3.42.0-1`) are fixed by trixie's newer packages; CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 (expat) drop because `libexpat1` is not an installed dpkg package in the trixie image, so trivy reports no OS-level expat finding (the Python `pyexpat` path remains defusedxml-hardened); and CVE-2026-48959 (perl-base) is no longer a CRITICAL/HIGH finding under the current vuln DB. That left 8. Then **`perl-base` was eliminated, not accepted**: it is a Debian-essential package carrying 5 of those 8 — both CRITICALs (CVE-2026-8376, CVE-2026-42496) plus CVE-2026-42497 / CVE-2026-48962 / CVE-2026-9538 — but nothing in the runtime needs Perl, so the Dockerfile purges `perl-base` and its `adduser` consumer right after the apt upgrade (verified on the built image: the interpreter, `sqlite3`, `pip` and `useradd` all work without it, and trivy then reports the 5 CVEs gone). Accepted count: **14 → 8 → 3 (Critical 4 → 2 → 0, High 10 → 6 → 3)**. The three retained entries each suppress a real, currently-present trixie finding (verified 1:1 against the built-image scan — no inert entries).
 
@@ -399,6 +438,8 @@ Tracker (trixie `<no-dsa>` or open, no fixed version):
 **util-linux — accepted, not eliminated (2026-07-09).** The vulnerability DB published CVE-2026-53615 (High) against the `util-linux` family (`bsdutils`/`libblkid1`/`libmount1`/`libuuid1`/`login`/`mount`/`util-linux` 2.41-5): an integer overflow in `libblkid`'s MS-DOS partition-table parser (`libblkid/src/partitions/dos.c`), Debian trixie status "open" with no fixed version published. Unlike gzip/glib, `util-linux` is genuinely irreducible — it is Debian-essential (`mount`/`login` back the base image, and `libuuid1`/`libblkid1` back CPython and `coreutils`), so it cannot be purged without breaking the image's own toolchain. The parse path is reachable only when a *privileged* caller probes an attacker-crafted block device or disk image; the container runs non-root UID 1000 with SUID/SGID stripped and never probes block devices, so the finding was accepted as a time-boxed, enumerated entry (`exp:2026-10-07`) rather than eliminated. Accepted count: **3 → 4 (0 Critical, 4 High)**.
 
 **2026-11-06 — eight acceptances removed: seven fixed in place, one inert.** The same day the three findings below were accepted, they and four older acceptances were remediated instead. Debian unstable carries fixed builds of `zlib1g`, `libsqlite3-0`, `libacl1` and `libsystemd0`/`libudev1`, each depending on `libc6` alone; the runtime stage now installs them from a pinned snapshot (see *Fixed in Place* above), so CVE-2026-76844, CVE-2026-85091, CVE-2026-119373, CVE-2026-119374, CVE-2026-119379, CVE-2026-54369 and CVE-2026-16742 are no longer in the image. CVE-2026-119586 was dropped as inert: the current DB reports it against no package in the image at any severity, so the entry suppressed nothing. *Correction to the 2026-11-05 entry below:* it measured, correctly, that sid's fixed zlib still produced the Trivy finding, and concluded that suite-mixing was therefore "ineffective". Installing the fixed build does remove the vulnerability; it only cannot change Trivy's reading of a release-13 advisory, which a version-exact ignore policy addresses without accepting vulnerable code. Accepted count: **13 → 5 (0 Critical, 5 High)**.
+
+**2026-11-21 re-review — one newly published OpenSSL finding accepted after both remediation routes were checked and found closed.** The blocking Docker Build gate went red between a green scan at 10:21Z (vulnerability DB cached at 04:52Z) and a red one at 10:55Z (fresh DB) with no Dockerfile or dependency change. The SARIF gate names no finding in its log, so the built image's package set (the pinned base's packages with the build log's recorded upgrades and removals) was re-scanned offline with the CI-pinned trivy 0.70.0 under the same ledger and policy: exactly one finding, CVE-2026-124709, against the three binary packages of source `openssl` (3.5.9-1~deb13u1 — the version the image's own `apt-get upgrade` installs). The Debian Security Tracker lists every suite as vulnerable, so there is nothing to upgrade to and nothing to pin from unstable; the packages are irreducible (CPython's `ssl`/`hashlib` and apt link `libssl3t64`). The flaw lives in OpenSSL's QUIC *server*, which nothing in the image runs; the acceptance conditions are machine-checked (see the table above). The failing job now prints the gate's own scan as a table whenever it goes red, so the next DB-published finding names itself in the log instead of needing offline reconstruction. Accepted count: **5 → 6 (0 Critical, 6 High)**.
 
 **2026-11-06 re-review — three newly published findings accepted; the Security workflow on main caught them.** *[Superseded the same day by the fixed-in-place removal above.]* Hours after #399 merged, the scheduled `Security` run on `main` went red on `Container Security Scan (Trivy)` against an unchanged Dockerfile: the vulnerability DB had published CVE-2026-119374 and CVE-2026-119379 against `libsqlite3-0` and CVE-2026-85091 against `zlib1g`. Worth noting how it surfaced — the commit's own check-runs read 58/58 green, because the failing run was a separate workflow run not attached to that commit's check list, so a commit-level green is not evidence that `main` is green. All three are `vulnerable` in bookworm, trixie **and forky** on the Debian tracker, with only sid fixed, so there is no trixie version to upgrade to; and the measurement recorded for CVE-2026-76844 applies unchanged, since a release-13 advisory with no fixed version makes Trivy mark every installed version `affected`. Both packages stay irreducible. Reachability was verified per CVE rather than assumed — including a symbol audit of every native library in the environment, which found zero importers of the session extension and exactly one importer of the `gz*` layer (cv2's FileStorage persistence, which nothing in Mercury invokes), correcting the earlier "no caller in the image" wording — and reproduced locally with the CI-pinned trivy 0.70.0 against a Debian 13.7 dpkg manifest at the exact versions CI reported: the five findings appear without the ledger, the three new entries clear the gate, and removing any one of them fails it again. Accepted count: **10 → 13 (0 Critical, 13 High)**.
 
@@ -432,7 +473,7 @@ Mercury Agent's Docker container implements defense-in-depth:
 
 ### Unresolved Vulnerabilities
 
-Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-11-06 re-review, documented acceptances are 5 CVEs (0 Critical, 5 High) in `ncurses` and `util-linux`, Debian trixie packages linked by bash, CPython and the base image's own util-linux toolchain whose fixed builds need a newer glibc than trixie ships, none on an untrusted-input path in the shipped API. Seven further trixie no-fix CVEs are remediated by fixed-in-place builds, not accepted (see *Fixed in Place*). The ledger file and the table above are the complete record.
+Accepted risks are re-reviewed at most every 90 days, enforced by the `exp:` dates in [`.trivyignore`](.trivyignore). As of the 2026-11-21 re-review, documented acceptances are 6 CVEs (0 Critical, 6 High) in `ncurses`, `util-linux` and `openssl` — Debian trixie packages linked by bash, CPython and apt, for which no suite ships a fixed build (the first two need a newer glibc than trixie ships; the third has no fixed build anywhere yet), none on an untrusted-input path in the shipped API. Seven further trixie no-fix CVEs are remediated by fixed-in-place builds, not accepted (see *Fixed in Place*). The ledger file and the table above are the complete record.
 
 ### Two-Tier Dependency-CVE Coverage
 
@@ -447,11 +488,11 @@ Both gates must be GREEN for any PR to merge. The Python-package gate
 runs with **zero risk acceptance**: `.safety-policy.yml` accepts nothing
 (`tests/security/test_safety_policy.py` pins that) and no `--ignore` /
 `--ignore-vuln` flags are wired into either CI workflow. Findings are remediated by upgrade, isolation, or native
-re-implementation — see the CHANGELOG entries dated 2026-05-20
+re-implementation — see the entries dated 2026-05-20 in `docs/changelog/CHANGELOG-pre-3.0.md`
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in
-[`.trivyignore`](.trivyignore) (5 CVEs, expiring 2026-12-26 — the gate
+[`.trivyignore`](.trivyignore) (6 CVEs, expiring 2026-12-26 — the gate
 fails on expiry until they are re-reviewed); the fixed-in-place exceptions
 in [`trivy-fixed-in-place.rego`](trivy-fixed-in-place.rego) match only the
 exact fixed versions the image installs.
@@ -460,9 +501,9 @@ exact fixed versions the image installs.
 
 Mercury Agent's security analysis is automated and self-assessed:
 
-- **Automated Scanning**: Security scans run on every pull request and push (bandit, safety, pip-audit, semgrep, Trivy, CodeQL) plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC)
+- **Automated Scanning**: Security scans run on every pull request and push — bandit, safety, pip-audit and the blocking Semgrep gate in `ci.yml`; Trivy and CodeQL in `security.yml` — plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC) and the weekly OpenSSF Scorecard run (`.github/workflows/scorecard.yml`)
 - **Dependency Audits**: Dependabot weekly update checks plus the two-tier CVE gates described below
-- **Code Reviews**: All changes require human review before merge
+- **Code Reviews**: Human-authored changes require pull-request review before merge; Dependabot patch/minor updates auto-merge behind the full CI gate set, majors are held for a human
 
 Mercury Agent has **not** been externally audited or penetration-tested. Production deployments requiring assurance beyond self-assessment must commission an independent security review (see "Important Security Considerations" above and the README status line: Research-grade | Community-tested | Not externally audited).
 
@@ -494,18 +535,50 @@ Mercury Agent is designed with compliance in mind:
   under-reported at low humidity — both directions removed in the
   port).
 
-### v1.7 hard-gate boundary contract
+### Hard-gate boundary contract
 
-As of the v1.7 development cycle every public boundary surface
+Every public boundary surface
 (`OmniMercuryEngine.detect_with_fusion[_calibrated]`,
 `CognitiveOrchestrator.analyze`, `NeuroSymbolicHub.predict`) runs **two
-independent mandatory hard ethical gates** — Benevolence (>= 0.99) and
-σ_Immutable (256-D scalar network) — and raises
-`EthicalConstraintViolationError(check=…)` on failure. There is no
-advisory mode. The reserved `check=` codes are `"benevolence"`,
-`"sigma_immutable"`, and `"gosnn_unavailable"`. See
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
-Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2.
+independent mandatory hard gates**: the harm-uplift gate
+(`cognitive/decision_gate.py`), which reads the caller's whole request and
+payload, and σ_Immutable (configuration integrity). Each raises
+`EthicalConstraintViolationError(check=…)` on failure. The `check=` codes
+these two raise are `"harm_uplift"`, `"sigma_immutable"` and
+`"gosnn_unavailable"`.
+
+What can turn a gate off, in full. The harm-uplift gate: nothing. It reads no
+flag, environment variable or argument that skips it. σ_Immutable: one
+module-level flag, `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS`, which is
+`False` unless a unit test sets it and which leaves the harm-uplift gate
+running; a deployment must check that it is `False`
+([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)). Outside these three surfaces, a
+reasoning backend constructed with `ethics_enabled=False` runs neither gate on
+what it generates; the default is `True`.
+
+How the harm-uplift gate reads a long input: the bounded description of the
+decision when that holds everything the caller said, otherwise all of the
+text in overlapping passages of 4,096 characters, each opening with the
+request when the request is short. A hazard and an intent are paired when one
+passage holds both; in a single text they are not paired across more than a
+passage. Past 1,048,576 characters of text the decision is refused unread
+(`details["reason"] == "unassessable"`, HTTP 413 on the detection and
+assessment routes).
+
+An uploaded artifact passes the harm-uplift gate twice. Artifact review
+(`omni_mercury_engine.review`) runs it over the upload itself — a document's
+text and the upload's name — before measuring anything (`check="harm_uplift"`;
+the review's text bound, 1,000,000 characters, sits under what the gate reads,
+so a document is read whole or refused), and then scores through
+`detect_with_fusion`, where both gates run again over the numeric matrix.
+
+The benevolence score is **advisory**: it is computed, logged and attached to
+the verdict, and it decides nothing. This section said until 2026-11-18 that a
+`Benevolence (>= 0.99)` gate was one of the two. That bar was removed
+(`CAPABILITY_MATRIX.md` §6 gives the reason) and these boundaries no longer
+raise `check="benevolence"`; its one remaining enforcing use is the assessment
+purpose screen (`assessment/policy.py`). See [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2 for the history.
 
 **σ_Immutable artifact dependency (fail-closed).** The σ_Immutable gate
 depends on three artifacts shipped inside the package
@@ -548,5 +621,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-10-21*
-*Version: 3.0.0*
+*Last Updated: 2026-11-19*
+*Version: 3.1.0*

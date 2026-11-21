@@ -944,12 +944,14 @@ class TestMockedNetworkCalls:
     @patch("omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url")
     def test_tsunami_fetch_realtime_mocked(self, mock_fetch: MagicMock, tmp_path: Path) -> None:
         """Tsunami loader handles mocked DART data."""
-        # Simulate a DART data file with a header and a few data rows.
+        # NDBC's DART layout: a timestamp to the second, the measurement
+        # type, then the water-column height in metres.
         dart_content = (
-            "# YY  MM DD hh mm  T     HEIGHT\n"
-            "2024  01 15 12 00  1  5000.12\n"
-            "2024  01 15 12 01  1  5000.15\n"
-            "2024  01 15 12 02  1  5000.11\n"
+            "#YY  MM DD hh mm ss T   HEIGHT\n"
+            "#yr  mo dy hr mn  s -        m\n"
+            "2024 01 15 12 02 00 1 5000.110\n"
+            "2024 01 15 12 01 00 1 5000.150\n"
+            "2024 01 15 12 00 00 1 5000.120\n"
         )
         mock_fetch.return_value = dart_content.encode("utf-8")
 
@@ -959,6 +961,9 @@ class TestMockedNetworkCalls:
         df = loader.fetch_realtime()
         assert isinstance(df, pd.DataFrame)
         assert len(df) >= 3  # At least the 3 rows * number of stations that succeed
+        # The height is the reading, not the type code beside it.
+        assert set(df["bpr"]) == {5000.11, 5000.15, 5000.12}
+        assert set(df["sample_type"]) == {1}
 
     @patch("omni_mercury_engine.loaders.base.BaseDomainLoader._fetch_url")
     def test_fema_fetch_realtime_mocked(self, mock_fetch: MagicMock, tmp_path: Path) -> None:

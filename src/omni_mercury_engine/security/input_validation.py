@@ -583,6 +583,11 @@ class TrustedEndpoints:
             "www.nhc.noaa.gov",
             "api.tidesandcurrents.noaa.gov",
             "www.ndbc.noaa.gov",
+            "api.water.noaa.gov",  # NOAA National Water Prediction Service (river gauges)
+            "api.weather.gov",  # National Weather Service alerts in effect (the watch)
+            "api.twilio.com",  # text messages, with the operator's own account (the watch)
+            "severeweather.wmo.int",  # WMO Severe Weather Information Centre: CAP alerts (the watch)
+            "www.gdacs.org",  # Global Disaster Alert and Coordination System (the watch)
             "www.ngdc.noaa.gov",
             "www.ncei.noaa.gov",  # NCEI World Ocean Database
             "exoplanetarchive.ipac.caltech.edu",
@@ -676,6 +681,12 @@ class TrustedEndpoints:
             "www.spc.noaa.gov",  # NOAA Storm Prediction Center (tornadoes)
             "api.stlouisfed.org",  # FRED (Federal Reserve Economic Data)
             "api.eia.gov",  # EIA (Energy Information Administration)
+            # EIA-930 Hourly Electric Grid Monitor six-month balance files
+            # (keyless; the energy loader's grid events read them).
+            "www.eia.gov",
+            # Oak Ridge National Laboratory's Open Energy Hub: DOE's OE-417
+            # electric disturbance reports (energy loader grid-event labels).
+            "openenergyhub.ornl.gov",
             "www.alphavantage.co",  # Alpha Vantage market/financial time series (financial market loader)
             "api.obis.org",  # OBIS (Ocean Biodiversity Information System)
             "ghoapi.azureedge.net",  # WHO Global Health Observatory
@@ -1076,7 +1087,7 @@ class TrustedEndpoints:
     USGS_WATER_SERVICES = "https://nwis.waterservices.usgs.gov/nwis/iv/"
 
     # NOAA Storm Prediction Center (tornado data)
-    NOAA_SPC_TORNADO_ARCHIVE = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+    NOAA_SPC_TORNADO_ARCHIVE = "https://www.spc.noaa.gov/wcm/data/1950-2024_actual_tornadoes.csv"
     NOAA_SPC_DAILY_REPORTS = "https://www.spc.noaa.gov/climo/reports/today.csv"
 
     # IBTrACS (hurricane/cyclone data)

@@ -1,0 +1,59 @@
+{
+  "sample_document.txt": {
+    "kind": "document",
+    "bytes": 12667,
+    "reference": {
+      "seed": 47,
+      "index": 3,
+      "split": "evaluation"
+    },
+    "planted": "scrambled+loop",
+    "planted_at": [
+      [
+        1705.0,
+        3621.0
+      ],
+      [
+        5313.0,
+        6476.0
+      ]
+    ],
+    "units": "characters"
+  },
+  "sample_image.png": {
+    "kind": "image",
+    "bytes": 206067,
+    "reference": {
+      "seed": 49,
+      "index": 1,
+      "split": "evaluation"
+    },
+    "planted": "regrain",
+    "planted_at": [
+      [
+        78,
+        303,
+        119,
+        100
+      ]
+    ],
+    "units": "pixels [x, y, width, height]"
+  },
+  "sample_recording.wav": {
+    "kind": "audio",
+    "bytes": 494348,
+    "reference": {
+      "seed": 58,
+      "index": 3,
+      "split": "evaluation"
+    },
+    "planted": "overdrive",
+    "planted_at": [
+      [
+        5.41,
+        6.89
+      ]
+    ],
+    "units": "seconds"
+  }
+}

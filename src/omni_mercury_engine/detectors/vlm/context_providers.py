@@ -159,7 +159,13 @@ class PositionContextProvider(BaseContextProvider):
         """Compute activity level for each grid region.
 
         Uses frame difference and gradient magnitude as activity proxy.
+        The frames are cast to float first, exactly as
+        ``TemporalContextProvider._compute_motion`` does: ``np.diff`` on
+        uint8 wraps modulo 256, which shrank large brightness changes into
+        small activity values and could name the wrong "most active region"
+        in the LVLM prompt (B5 audit cure).
         """
+        frames = np.asarray(frames, dtype=np.float64)
         t, _c, h, w = frames.shape
         gh, gw = self.grid_size
 

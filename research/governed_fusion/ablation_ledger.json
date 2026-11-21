@@ -77,6 +77,208 @@
           }
         }
       }
+    },
+    {
+      "timestamp_utc": "2026-11-16T18:12:41+00:00",
+      "git_sha": "0a769e0113647af6025482402256998710a5c7bb",
+      "components": [
+        "resonance",
+        "kinematic",
+        "info_geo"
+      ],
+      "cache_dir": "/home/user/gf_cache_2026_11_16",
+      "status": "ok",
+      "external_label_events": 10,
+      "event_keys": [
+        [
+          "fema_activity",
+          "tropical_declarations_2017"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2018"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2019"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2020"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2021"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2022"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2023"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2024"
+        ],
+        [
+          "network_security",
+          "nsl_kdd"
+        ],
+        [
+          "network_security",
+          "batadal"
+        ]
+      ],
+      "full": {
+        "auroc": 0.856290264420893,
+        "auprc": 0.8042195661812048,
+        "f1": 0.7769769644980076,
+        "n_events": 10
+      },
+      "leave_one_out": {
+        "resonance": {
+          "ablated": {
+            "auroc": 0.8581842312755743,
+            "auprc": 0.8067574701677499,
+            "f1": 0.7753815154084224,
+            "n_events": 10
+          },
+          "delta": {
+            "auroc": -0.0018939668546813504,
+            "auprc": -0.002537903986545076,
+            "f1": 0.0015954490895851992
+          }
+        },
+        "kinematic": {
+          "ablated": {
+            "auroc": 0.8154704523897978,
+            "auprc": 0.7999189051247433,
+            "f1": 0.7296164130839098,
+            "n_events": 10
+          },
+          "delta": {
+            "auroc": 0.04081981203109519,
+            "auprc": 0.004300661056461541,
+            "f1": 0.047360551414097785
+          }
+        },
+        "info_geo": {
+          "ablated": {
+            "auroc": 0.8431909319647282,
+            "auprc": 0.7950574668784607,
+            "f1": 0.7666027011065221,
+            "n_events": 10
+          },
+          "delta": {
+            "auroc": 0.013099332456164792,
+            "auprc": 0.009162099302744142,
+            "f1": 0.010374263391485505
+          }
+        }
+      }
+    },
+    {
+      "timestamp_utc": "2026-11-20T06:28:55+00:00",
+      "git_sha": "f7333275826bee3211d0b507ea4000e0d3d5e294",
+      "components": [
+        "resonance",
+        "kinematic",
+        "info_geo"
+      ],
+      "cache_dir": "$GF_CACHE_DIR (a scratch cache rebuilt on 2026-11-20 from the corrected loaders)",
+      "status": "ok",
+      "external_label_events": 10,
+      "event_keys": [
+        [
+          "fema_activity",
+          "tropical_declarations_2017"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2018"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2019"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2020"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2021"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2022"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2023"
+        ],
+        [
+          "fema_activity",
+          "tropical_declarations_2024"
+        ],
+        [
+          "network_security",
+          "nsl_kdd"
+        ],
+        [
+          "network_security",
+          "batadal"
+        ]
+      ],
+      "full": {
+        "auroc": 0.856290264420893,
+        "auprc": 0.7555974964607298,
+        "f1": 0.7769769644980076,
+        "n_events": 10
+      },
+      "leave_one_out": {
+        "resonance": {
+          "ablated": {
+            "auroc": 0.8581842312755743,
+            "auprc": 0.7552088469844508,
+            "f1": 0.7753815154084224,
+            "n_events": 10
+          },
+          "delta": {
+            "auroc": -0.0018939668546813504,
+            "auprc": 0.0003886494762790349,
+            "f1": 0.0015954490895851992
+          }
+        },
+        "kinematic": {
+          "ablated": {
+            "auroc": 0.8154704523897978,
+            "auprc": 0.7110399853126148,
+            "f1": 0.7296164130839098,
+            "n_events": 10
+          },
+          "delta": {
+            "auroc": 0.04081981203109519,
+            "auprc": 0.044557511148115014,
+            "f1": 0.047360551414097785
+          }
+        },
+        "info_geo": {
+          "ablated": {
+            "auroc": 0.8431909319647282,
+            "auprc": 0.7462758807486242,
+            "f1": 0.7666027011065221,
+            "n_events": 10
+          },
+          "delta": {
+            "auroc": 0.013099332456164792,
+            "auprc": 0.009321615712105658,
+            "f1": 0.010374263391485505
+          }
+        }
+      }
     }
   ]
 }

@@ -42,10 +42,12 @@ MIN_SAMPLES_FOR_DECORRELATION: int = 32
 DEFAULT_WINDOW_SIZE: int = 128
 
 # Per-domain bias toward (neural, symbolic). Sums to 0 within each tuple so
-# the renormalisation step is a no-op when no decorrelation fires. Values
-# chosen to match the affinity ranks already encoded in
-# detectors/math_arrest/domain_affinity.py — domains whose top-affinity probe
-# is a statistical/pattern probe lean neural; rule-rich domains lean symbolic.
+# the renormalisation step is a no-op when no decorrelation fires. The keys
+# shared with detectors/math_arrest/domain_affinity.py (earthquake, tsunami,
+# pandemic, marine, geomagnetic, conflict, default) follow its affinity ranks
+# — domains whose top-affinity probe is a statistical/pattern probe lean
+# neural; rule-rich domains lean symbolic. medical, ethical, financial and
+# general are this composer's own additions with no counterpart in that map.
 DOMAIN_AFFINITY_BIAS: dict[str, tuple[float, float]] = {
     # Rule-driven / safety-critical domains: symbolic-favoured
     "medical": (-0.08, 0.08),

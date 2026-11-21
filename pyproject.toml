@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mercury-agent-global"
-version = "3.0.0"
+version = "3.1.0"
 description = "Mercury Agent: civilization-first Computational Systems Intelligence (CSI) for multi-domain anomaly & hazard detection"
 readme = "README.md"
 license = {text = "AGPL-3.0-or-later"}
@@ -257,8 +257,22 @@ compliance = [
 # are guarded (``except Exception`` -> ``DeepFace = None``, and call sites check
 # ``DeepFace is not None``), so the gated-out environments degrade to simulated
 # embeddings.  Remove the markers once TensorFlow publishes a cp314 wheel.
+#
+# The lower bound, 3.11.5, is a security floor.  deepface pulls gdown, which
+# pulls beautifulsoup4, which pulls soupsieve, and the three soupsieve
+# advisories open against this lock (GHSA-6655-6qjp-jx7x exponential ReDoS in
+# selector compilation and GHSA-7g44-g9rc-x53w uncontrolled parser recursion,
+# both fixed in 3.0.2; GHSA-mmhr-3c5m-f64f polynomial-time descendant
+# combinator, fixed in 4.0.0) have no fixed release that installs on Python
+# 3.11.0 to 3.11.4: every soupsieve from 3.0 on requires >= 3.11.5.  On those
+# five patch releases the lock therefore carried soupsieve 2.10, vulnerable to
+# all three.  They get the same treatment as 3.14: the extra installs without
+# face there and the guarded imports degrade, instead of installing a
+# selector engine with no fix.  ``[tool.uv] constraint-dependencies`` holds
+# the floor for every other interpreter, and
+# tests/test_uv_lock_contract.py fails if a soupsieve below it is locked.
 face = [
-    "deepface>=0.0.79; python_version < '3.14'",
+    "deepface>=0.0.79; python_full_version >= '3.11.5' and python_version < '3.14'",
     # tf-keras is required by retinaface (imported transitively by
     # deepface) starting with tensorflow 2.16; without it,
     # ``retinaface.commons.package_utils.validate_for_keras3()``
@@ -267,7 +281,8 @@ face = [
     # block that only catches ``ImportError``.  Pin the floor so the
     # contract is explicit in the extras graph.  Shares the 3.14 gate
     # above: tf-keras pulls TensorFlow, which has no cp314 wheel.
-    "tf-keras>=2.16; python_version < '3.14'",
+    # Shares the 3.11.5 floor too: without deepface nothing imports it.
+    "tf-keras>=2.16; python_full_version >= '3.11.5' and python_version < '3.14'",
 ]
 
 # API server
@@ -289,7 +304,7 @@ api = [
     # CVE-2025-45768 advisory from the audited supply chain.  No
     # third-party JWT library is required at runtime; see the
     # 2026-05-20 "Permanent supply-chain remediation" entry in
-    # ``CHANGELOG.md`` for the rationale.
+    # ``docs/changelog/CHANGELOG-pre-3.0.md`` for the rationale.
     # Prometheus instrumentation: core.metrics records http_requests_total /
     # http_request_duration_seconds (and the omni_* metric surface) into the
     # default registry, exposed at /metrics. Without this the metrics no-op and
@@ -341,7 +356,8 @@ pqc = [
     # ``native_hmac_sha256`` / ``native_hmac_sha256_2`` Python
     # bindings consumed by
     # ``omni_mercury_engine.security.native_jwt._sign`` for the
-    # HS256 / HS512 JOSE signing path.  See CHANGELOG ``[2.0.0]``
+    # HS256 / HS512 JOSE signing path.  See ``docs/changelog/CHANGELOG-pre-3.0.md``
+    # ``[2.0.0]``
     # § "AMA-routed JWT HMAC signatures".  Pinning the
     # git ref (rather than tracking the
     # default branch) protects Mercury's reproducible-build promise:
@@ -365,7 +381,7 @@ streaming = [
 # :mod:`concurrent.futures` from the stdlib, retiring the
 # upstream-disputed PYSEC-2024-277 / CVE-2024-34997 advisory.  See the
 # 2026-05-20 "Permanent supply-chain remediation" entry in
-# ``CHANGELOG.md`` for the supply-chain rationale.
+# ``docs/changelog/CHANGELOG-pre-3.0.md`` for the supply-chain rationale.
 optimization = [
     "psutil>=7.2.2",
 ]
@@ -400,6 +416,17 @@ dev = [
     "pytest-mock>=3.15.1",
     "pytest-xdist>=3.8.0",
     "hypothesis>=6.0.0",
+    # gymnasium is NOT a runtime dependency: ``ml.rl_envs`` serves its in-tree
+    # environments without it and only widens the environment id space when an
+    # operator installs it. It is here so the path that does use it is tested.
+    # No extra installed it, so ``tests/ml/test_ppo_trainer.py::
+    # test_gymnasium_vector_environments`` (``importorskip("gymnasium")``)
+    # skipped in every lane and the Gymnasium vector-environment interop had
+    # never run in CI. Found by scripts/measure_skip_ledger.py, which now fails
+    # on any test guarded by a dependency the full test lane does not install.
+    # 1.4.0 is the release the replay fixtures were recorded with
+    # (tests/fixtures/rl_envs/PROVENANCE.json).
+    "gymnasium>=1.4.0",
     "black==26.10.1",  # CVE-2026-32274; PINNED exact for byte-identical formatting local<->CI
     "mypy==2.4.1",  # PINNED: identical type-ignore set locally and in CI (see [ml])
     "types-requests==2.33.0.20261030",  # PINNED with mypy (see [ml])
@@ -496,8 +523,19 @@ Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGEL
 # direct dependency on each pull request that changes this file, uv.lock or
 # .github/dependabot.yml, and weekly ahead of Dependabot's run, so an
 # unsolvable update fails there instead of in Dependabot.
+#
+# Emscripten (Pyodide) is excluded for the same reason. Nothing in the stack
+# targets it, but ``sys_platform != 'darwin'`` alone admits it, and httpx2
+# carries an emscripten-only dependency (httpx2-jsfetch), so the lock grew an
+# emscripten fork. torch ships no emscripten wheel. uv 0.11.32, which writes
+# this lock, tolerated that fork; Dependabot's bundled uv (0.13.7 on
+# 2026-11-09) does not, and all seven of that week's updates failed with
+# "No solution found when resolving dependencies for split (markers:
+# python_full_version >= '3.15' and sys_platform == 'emscripten')". The
+# replay ran only under 0.11.32 and so passed the day before; it now runs
+# under both (.github/workflows/dependabot-replay.yml).
 environments = [
-    "sys_platform != 'darwin'",
+    "sys_platform != 'darwin' and sys_platform != 'emscripten'",
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 # uv resolves one version per package across every Python the lock covers
@@ -508,8 +546,15 @@ environments = [
 # TensorFlow is absent, and lets it take the h5py release with 3.14 wheels.
 # tests/test_uv_lock_contract.py checks every binary package in the lock has a
 # wheel for every supported Python on Linux.
+#
+# soupsieve is transitive only (deepface -> gdown -> beautifulsoup4, which
+# asks for ``soupsieve>=1.6.1``), so nothing in the dependency tables can
+# raise it. 4.0.0 is the first release with all three open advisories fixed
+# (see the [face] comment); the constraint keeps a later ``uv lock`` from
+# settling on an older one again.
 constraint-dependencies = [
     "h5py>=3.15; python_full_version >= '3.14'",
+    "soupsieve>=4.0.0",
 ]
 
 # =============================================================================
@@ -566,6 +611,9 @@ namespaces = false
 # real (non-editable) install before.
 omni_mercury_engine = [
     "py.typed",
+    # The demonstration's committed window (``mercury-agent demo``): without
+    # it a non-editable install has the command and nothing to run it on.
+    "demo/*.csv",
     "models/checkpoints/*.pt",
     # The streaming worker's learned alarm policy (ml/alarm_policy.py): NumPy
     # arrays, loaded with allow_pickle=False after its sidecar's sha256 check.
@@ -592,6 +640,17 @@ omni_mercury_engine = [
     # rate versus 0.286 with the model. Fail-open by design, so the loss is
     # silent: this entry is what keeps it from happening.
     "cognitive/meaning_level_weights.json",
+    # The fitted geomagnetic-storm forecaster (watch/forecast.py). Without it
+    # the watch has no forecast to commit to and logs that it cannot load one.
+    "watch/kp_g1_model.json",
+    # Each component's evidence tier from the Detector Evidence Ledger
+    # (core/evidence_tiers.py). Without it nothing is excluded from the
+    # default path for being measured broken, as before tiers existed.
+    "core/evidence_tiers.json",
+    # What was measured of decisions on each hazard, on real events held out
+    # (decision/hazard_evidence.py). Without it a decision record carries no
+    # held-out record for its hazard, and says nothing in its place.
+    "decision/hazard_evidence.json",
     # Account-frontend assets (api/frontend.py): the HTML pages, stylesheet,
     # page scripts, and the vendored MIT qrcode-generator. Served straight
     # from the installed package when MERCURY_FRONTEND_ENABLED=true — a

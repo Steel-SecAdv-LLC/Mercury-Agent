@@ -285,6 +285,33 @@ class TestScopedGateContract:
         assert result.returncode != 0
         assert "MUST_NOT_PRINT" not in result.stdout
 
+    def test_api_server_refuses_without_ama(self, tmp_path: Path) -> None:
+        # The API reaches the engine lazily, inside request handlers, so the
+        # engine's own gate did not stop it: a server on an AMA-less install
+        # started, answered /health "healthy", dropped the account routes and
+        # returned 500 from the first engine request. The server module now
+        # runs the gate itself, at import.
+        pytest.importorskip("fastapi", reason="the API server needs the [api] extra")
+        result = self._run_with_unavailable_ama(
+            tmp_path, "import omni_mercury_engine.api.server\nprint('MUST_NOT_PRINT')\n"
+        )
+        assert result.returncode != 0
+        assert "MUST_NOT_PRINT" not in result.stdout
+        assert "AMA" in result.stderr
+
+    def test_serve_command_refuses_before_its_banner_without_ama(self, tmp_path: Path) -> None:
+        # ``mercury-agent serve`` checks first, so the operator gets one refusal
+        # with the build steps instead of a banner followed by a traceback from
+        # each uvicorn worker.
+        result = self._run_with_unavailable_ama(
+            tmp_path,
+            "from omni_mercury_engine.cli import main\nmain(['serve'])\n",
+        )
+        assert result.returncode == 1
+        assert "Mercury Agent API Server" not in result.stdout
+        assert "the API server cannot start" in result.stderr
+        assert "AMA" in result.stderr
+
     def test_security_primitives_import_without_ama(self, tmp_path: Path) -> None:
         # The AMA-free security primitives the analytic path leans on (safe
         # HTTP, endpoint validation, rate limiting, audit logging) resolve

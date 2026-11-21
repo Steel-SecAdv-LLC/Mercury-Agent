@@ -1,0 +1,302 @@
+{
+  "schema": "mercury.research.oae_sensitivity/v1",
+  "generated_at": "2026-11-19T07:55:34.035810+00:00",
+  "commit": "3f16449f03e2376f653dc24a19df959729b06eb8",
+  "protocol": {
+    "window": 128,
+    "stride": 16,
+    "files": [
+      "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv",
+      "realAdExchange/exchange-3_cpc_results.csv",
+      "realKnownCause/rogue_agent_key_hold.csv",
+      "realTraffic/speed_7578.csv"
+    ]
+  },
+  "weights": {
+    "golden": {
+      "weights": [
+        0.4472,
+        0.2764,
+        0.2764
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8579,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8554,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7962,
+      "mean_rank": 6.5
+    },
+    "uniform": {
+      "weights": [
+        0.3333,
+        0.3333,
+        0.3333
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8622,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8576,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8286
+      },
+      "mean_auc": 0.7968,
+      "mean_rank": 5.875
+    },
+    "w_R_x0.8": {
+      "weights": [
+        0.3929,
+        0.3035,
+        0.3035
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8611,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.856,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8296
+      },
+      "mean_auc": 0.7964,
+      "mean_rank": 6.125
+    },
+    "w_R_x0.9": {
+      "weights": [
+        0.4213,
+        0.2893,
+        0.2893
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.86,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8554,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8306
+      },
+      "mean_auc": 0.7962,
+      "mean_rank": 6.375
+    },
+    "w_R_x1.1": {
+      "weights": [
+        0.4709,
+        0.2646,
+        0.2646
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8579,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8548,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7961,
+      "mean_rank": 7.125
+    },
+    "w_R_x1.2": {
+      "weights": [
+        0.4926,
+        0.2537,
+        0.2537
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8558,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8548,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7955,
+      "mean_rank": 7.75
+    },
+    "w_H_x0.8": {
+      "weights": [
+        0.4734,
+        0.2341,
+        0.2926
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8558,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8537,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6764,
+        "realTraffic/speed_7578.csv": 0.8317
+      },
+      "mean_auc": 0.8044,
+      "mean_rank": 8.5
+    },
+    "w_H_x0.9": {
+      "weights": [
+        0.4599,
+        0.2558,
+        0.2842
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8579,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8543,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6585,
+        "realTraffic/speed_7578.csv": 0.8317
+      },
+      "mean_auc": 0.8006,
+      "mean_rank": 7.75
+    },
+    "w_H_x1.1": {
+      "weights": [
+        0.4352,
+        0.2959,
+        0.269
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.86,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8548,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.622,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7924,
+      "mean_rank": 6.125
+    },
+    "w_H_x1.2": {
+      "weights": [
+        0.4238,
+        0.3143,
+        0.2619
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.859,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8504,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6115,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7884,
+      "mean_rank": 9.25
+    },
+    "w_O_x0.8": {
+      "weights": [
+        0.4734,
+        0.2926,
+        0.2341
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.859,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8454,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6084,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7864,
+      "mean_rank": 9.75
+    },
+    "w_O_x0.9": {
+      "weights": [
+        0.4599,
+        0.2842,
+        0.2558
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.859,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8537,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6189,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7911,
+      "mean_rank": 8.5
+    },
+    "w_O_x1.1": {
+      "weights": [
+        0.4352,
+        0.269,
+        0.2959
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.859,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8543,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6577,
+        "realTraffic/speed_7578.csv": 0.8306
+      },
+      "mean_auc": 0.8004,
+      "mean_rank": 7.625
+    },
+    "w_O_x1.2": {
+      "weights": [
+        0.4238,
+        0.2619,
+        0.3143
+      ],
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.859,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8537,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6712,
+        "realTraffic/speed_7578.csv": 0.8306
+      },
+      "mean_auc": 0.8036,
+      "mean_rank": 7.75
+    }
+  },
+  "recursion_depth": {
+    "depth_3": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8632,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8598,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8347
+      },
+      "mean_auc": 0.7992,
+      "mean_rank": 2.5
+    },
+    "depth_4": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8632,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.856,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8347
+      },
+      "mean_auc": 0.7982,
+      "mean_rank": 2.875
+    },
+    "depth_5": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8579,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8554,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7962,
+      "mean_rank": 4.0
+    },
+    "depth_6": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8536,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8615,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8377
+      },
+      "mean_auc": 0.7979,
+      "mean_rank": 2.5
+    },
+    "depth_7": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8568,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.856,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8367
+      },
+      "mean_auc": 0.7971,
+      "mean_rank": 3.125
+    }
+  },
+  "lambda": {
+    "lambda_0.15": {
+      "max_abs_score_delta_vs_0.15": 0.0,
+      "lyapunov_envelope_t1": 0.860708
+    },
+    "lambda_0.2": {
+      "max_abs_score_delta_vs_0.15": 0.0,
+      "lyapunov_envelope_t1": 0.818731
+    },
+    "lambda_0.25": {
+      "max_abs_score_delta_vs_0.15": 0.0,
+      "lyapunov_envelope_t1": 0.778801
+    },
+    "lambda_0.3": {
+      "max_abs_score_delta_vs_0.15": 0.0,
+      "lyapunov_envelope_t1": 0.740818
+    },
+    "lambda_0.35": {
+      "max_abs_score_delta_vs_0.15": 0.0,
+      "lyapunov_envelope_t1": 0.704688
+    },
+    "finding": "the fusion score is exactly flat in lambda; the parameter sets only the reference decay envelope eps*exp(-lambda*t) that verify_lyapunov_stability monitors"
+  }
+}

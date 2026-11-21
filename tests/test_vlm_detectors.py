@@ -62,6 +62,9 @@ class _ScriptedLVLM:
                 if bright:
                     return "A person collapsing amid a blinding bright flash."
                 return "People walking normally through a dim hallway."
+            # CONFIDENCE is the model's confidence IN ITS STATED VERDICT (only
+            # an explicit ANOMALY_PROBABILITY is P(anomaly)), so a sure NO
+            # states a high number -- as this stub did on origin/main.
             if bright:
                 return (
                     "ANOMALY_DETECTED: YES\nCONFIDENCE: 0.9\nEXPLANATION: Bright anomalous flash."
@@ -280,6 +283,11 @@ class TestLAVADDetector:
         assert isinstance(cfg, LAVADConfig)
         assert cfg.sampling_fps == 1.0
         assert cfg.temporal_window == 8
+        # temporal_window is a live alias: it propagates onto window_size.
+        assert cfg.window_size == 8
+        # llm_model / vlm_model are live aliases for the canonical fields.
+        assert cfg.reasoning_model == "mock"
+        assert cfg.caption_model == "mock"
 
     def test_lavad_save_load_keeps_scene_context(
         self, sample_image_batch: Any, tmp_path: Any
@@ -359,23 +367,28 @@ class TestLAVADDetector:
         assert torch.allclose(feats.norm(), torch.tensor(1.0))
 
     def test_lavad_detect_video_mock_hard_fails(self, sample_video_frames: Any) -> None:
-        """``LAVADDetector(config=LAVADConfig(llm_model="mock"))`` must
+        """``LAVADDetector(config=LAVADConfig(caption_backend="mock"))`` must
         raise when ``detect_video`` is called.
 
         Phase 2 audit cure (commit 4d29bf1): ``MockLVLMBackend.initialize``
         and ``MockLLMAdapter.__init__`` are hard-fails — silent mock
         degradation is not permitted in production.  This test pins the
         positive contract: a stale caller that wires up a "mock" LVLM /
-        LLM in production must trip ``NotImplementedError``.
+        LLM in production must trip ``NotImplementedError`` — and it must
+        keep that type through the backend cache the detectors now load
+        models with.
         """
         from omni_mercury_engine.detectors.vlm import LAVADDetector
         from omni_mercury_engine.detectors.vlm.lavad import LAVADConfig
 
         # The shipped default is now the real BLIP captioner, so the
         # anti-mock contract is pinned where it lives: explicitly wiring
-        # the "mock" backend must still hard-fail.
+        # the "mock" backend must still hard-fail.  The llm_model /
+        # vlm_model alias fields are live now, so they propagate "mock"
+        # onto the canonical model fields too.
         config = LAVADConfig(caption_backend="mock", llm_model="mock", vlm_model="mock")
         detector = LAVADDetector(config=config)
+        assert detector.lavad_config.caption_model == "mock"
 
         video = torch.stack(sample_video_frames)
         with pytest.raises(NotImplementedError, match="cannot be used in production"):

@@ -188,21 +188,82 @@ class TestFusionNetworkForwardPass:
         assert 0 <= output["anomaly_probs"].max() <= 1
 
     def test_get_detector_importance(self) -> None:
-        """Test detector importance computation."""
+        """Importance is attention-sourced: input-dependent and normalized.
+
+        The previous source, ``softmax(late_fusion_weights)``, never receives
+        gradient (the late output is a detached diagnostic) and therefore
+        reported exactly ``1/n`` for every detector on every input.
+        """
+        torch.manual_seed(0)
         network = OmniFusionModel(
             feature_dims={"detector1": 64, "detector2": 64},
             hidden_dim=128,
         )
+        network.eval()
 
-        detector_features = {
-            "detector1": torch.randn(8, 64),
-            "detector2": torch.randn(8, 64),
+        features_a = {
+            "detector1": torch.zeros(8, 64),
+            "detector2": torch.ones(8, 64) * 5.0,
+        }
+        features_b = {
+            "detector1": torch.randn(8, 64) * 3.0,
+            "detector2": torch.randn(8, 64) * 0.1,
         }
 
-        importance = network.get_detector_importance(detector_features)
+        importance_a = network.get_detector_importance(features_a)
+        importance_b = network.get_detector_importance(features_b)
 
-        assert isinstance(importance, dict)
-        assert len(importance) > 0
+        assert isinstance(importance_a, dict)
+        assert set(importance_a) == {"detector1", "detector2"}
+        assert abs(sum(importance_a.values()) - 1.0) < 1e-5
+        assert all(v >= 0.0 for v in importance_a.values())
+        # Attention-sourced importance must depend on the input; the old
+        # late_fusion_weights source returned the identical uniform 1/n here.
+        assert importance_a != importance_b
+
+    def test_absent_detector_groups_get_no_importance(self) -> None:
+        """A group that supplied no features is a placeholder token, not a detector.
+
+        The attention map still assigns placeholders mass -- on an untrained
+        model with 3 of 13 groups present the 10 absent ones held 0.77 of the
+        total -- and the importance report passed that on.
+        """
+        torch.manual_seed(0)
+        dims = {f"detector{i}": 16 for i in range(8)}
+        network = OmniFusionModel(feature_dims=dims, hidden_dim=64)
+        network.eval()
+        present = {name: torch.randn(4, 16) for name in ("detector1", "detector4", "detector6")}
+
+        importance = network.get_detector_importance(present)
+
+        assert set(importance) == set(dims)
+        for name, value in importance.items():
+            if name in present:
+                assert value > 0.0, name
+            else:
+                assert value == 0.0, f"{name} supplied nothing but was credited {value}"
+        assert abs(sum(importance.values()) - 1.0) < 1e-5
+
+    def test_detector_importance_matches_single_forward_attention(self) -> None:
+        """importance_from_attention on a forward's own attention dict equals
+        get_detector_importance, so callers need no second forward pass."""
+        torch.manual_seed(0)
+        network = OmniFusionModel(
+            feature_dims={"detector1": 32, "detector2": 32},
+            hidden_dim=64,
+        )
+        network.eval()
+        features = {
+            "detector1": torch.randn(4, 32),
+            "detector2": torch.randn(4, 32),
+        }
+        with torch.no_grad():
+            output = network(features, return_attention=True)
+        from_attention = network.importance_from_attention(output["attention_weights"])
+        from_method = network.get_detector_importance(features)
+        assert set(from_attention) == set(from_method)
+        for name in from_attention:
+            assert abs(from_attention[name] - from_method[name]) < 1e-6
 
 
 class TestGatedFusion:
@@ -543,3 +604,112 @@ class TestCrossDomainFusion:
         probs = output["anomaly_probs"]
         assert 0 <= probs.min() <= 1
         assert 0 <= probs.max() <= 1
+
+
+class TestUnregisteredFeatureGroups:
+    """Groups absent from feature_dims are dropped, not lazily projected.
+
+    The fusion layer only consumes registered detector names, so a lazily
+    minted projection for an unregistered group is dead weight: never trained
+    (created after the optimizer exists), never read, yet written into
+    checkpoints.
+    """
+
+    def test_unknown_group_creates_no_dynamic_projection(self) -> None:
+        """Unknown groups must be ignored without minting dead parameters."""
+        network = OmniFusionModel(feature_dims={"d1": 8, "d2": 8}, hidden_dim=16)
+        features = {
+            "d1": torch.randn(4, 8),
+            "d2": torch.randn(4, 8),
+            "mystery": torch.randn(4, 12),
+        }
+        output = network(features)
+        assert output["anomaly_probs"].shape == (4, 1)
+        assert len(network._dynamic_projections) == 0
+        assert not any(k.startswith("_dynamic_projections") for k in network.state_dict())
+
+    def test_unknown_group_output_identical_to_omitting_it(self) -> None:
+        """The dropped group must not influence the fused output."""
+        torch.manual_seed(0)
+        network = OmniFusionModel(feature_dims={"d1": 8}, hidden_dim=16)
+        network.eval()
+        base = {"d1": torch.randn(4, 8)}
+        with torch.no_grad():
+            with_unknown = network({**base, "mystery": torch.randn(4, 12)})
+            without = network(base)
+        torch.testing.assert_close(with_unknown["anomaly_probs"], without["anomaly_probs"])
+
+    def test_unknown_group_warns_once(self, caplog: pytest.LogCaptureFixture) -> None:
+        """The drop is logged at WARNING, naming the group, once per group."""
+        import logging
+
+        network = OmniFusionModel(feature_dims={"d1": 8}, hidden_dim=16)
+        features = {"d1": torch.randn(2, 8), "mystery": torch.randn(2, 12)}
+        with caplog.at_level(logging.WARNING, logger="omni_mercury_engine.ml.fusion_network"):
+            network(features)
+            network(features)
+        warnings = [r for r in caplog.records if "mystery" in r.getMessage()]
+        assert len(warnings) == 1
+        assert warnings[0].levelno == logging.WARNING
+
+    def test_only_unknown_groups_raises(self) -> None:
+        """All-unregistered input fails loud instead of fusing nothing."""
+        network = OmniFusionModel(feature_dims={"d1": 8}, hidden_dim=16)
+        with pytest.raises(ValueError, match="No registered feature groups"):
+            network({"mystery": torch.randn(2, 12)})
+
+
+class TestZeroFillDeviceSafety:
+    """Zero-filled tensors for absent groups follow the input/module device.
+
+    CUDA is unavailable here, so the always-available ``meta`` device stands
+    in: pre-fix these paths built ``torch.zeros`` with no device (implicit
+    CPU) and crashed on the subsequent cat/stack with non-CPU inputs.
+    """
+
+    @staticmethod
+    def _meta_layer() -> HybridFusionLayer:
+        torch.manual_seed(0)
+        layer = HybridFusionLayer(feature_dims={"a": 4, "b": 4, "c": 4}, hidden_dim=8, num_heads=2)
+        return layer.to("meta")
+
+    def test_extract_features_zero_fill_device(self) -> None:
+        """extract_features zero-fills absent groups on the input's device."""
+        layer = self._meta_layer()
+        extracted = layer.extract_features({"a": torch.randn(3, 4, device="meta")})
+        assert set(extracted) == {"a", "b", "c"}
+        assert all(t.device.type == "meta" for t in extracted.values())
+
+    def test_early_fusion_forward_zero_fill_device(self) -> None:
+        """early_fusion_forward concatenates on the input's device."""
+        layer = self._meta_layer()
+        out = layer.early_fusion_forward({"a": torch.randn(3, 4, device="meta")})
+        assert out.device.type == "meta"
+
+    def test_late_fusion_forward_zero_fill_device(self) -> None:
+        """late_fusion_forward zero-fills absent scores on the input's device."""
+        layer = self._meta_layer()
+        out = layer.late_fusion_forward({"a": torch.rand(3, 1, device="meta")})
+        assert out.device.type == "meta"
+
+    def test_hybrid_detect_zero_fill_device(self) -> None:
+        """hybrid_detect stacks projections on the input's device."""
+        layer = self._meta_layer()
+        fused, _ = layer.hybrid_detect(
+            {"a": torch.randn(3, 4, device="meta")},
+            {"a": torch.rand(3, 1, device="meta")},
+        )
+        assert fused.device.type == "meta"
+
+    def test_default_detector_scores_device(self) -> None:
+        """OmniFusionModel's default zero scores follow the features' device."""
+        torch.manual_seed(0)
+        network = OmniFusionModel(feature_dims={"d1": 8, "d2": 8}, hidden_dim=16)
+        network = network.to("meta")
+        network.eval()
+        features = {
+            "d1": torch.randn(2, 8, device="meta"),
+            "d2": torch.randn(2, 8, device="meta"),
+        }
+        output = network(features)
+        assert output["anomaly_probs"].device.type == "meta"

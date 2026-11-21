@@ -9,9 +9,10 @@ cap used for iteration is reproducible.  The full-event hash anchors the source
 data; the ``capped`` hash anchors the actual measurement input (``cap=6000``,
 ``seed=42`` -- a no-op for every event except the few large ones).
 
-The manifest is split into the **live headline suite** (23 real events / 7
-domains) and the **reconstructed-from-live group** (7 events / 3 domains --
-tsunami, energy, ebola_2014), so provenance is never ambiguous.
+The manifest is split into the **live headline suite** and the
+**reconstructed-from-live group** (``pandemic/ebola_2014`` only, since tsunami
+and energy read recorded archives; empty without the synthetic opt-in), so
+provenance is never ambiguous.
 
 Each entry additionally carries the audited ``label_provenance`` (the
 producing loader's ``LABEL_SOURCE`` -- ``ground_truth | expert_annotated |
@@ -136,9 +137,9 @@ def main() -> None:
         "n_reconstructed_events": len(recon),
         "n_reconstructed_domains": len({e["domain"] for e in recon}),
         "reconstructed_note": (
-            "tsunami/energy synthesise the series by design and ebola_2014 has no "
-            "live WHO feed; these reconstruct documented real events and are "
-            "reported separately, never folded into the live headline mean"
+            "ebola_2014 has no live WHO feed and is reconstructed when the synthetic "
+            "opt-in is set; it is reported separately, never folded into the live "
+            "headline mean. tsunami and energy read recorded archives and are live"
         ),
         "cap": CAP,
         "provenance_summary": _provenance_summary(real, recon),

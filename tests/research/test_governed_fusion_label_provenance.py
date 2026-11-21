@@ -69,21 +69,22 @@ def test_manifest_provenance_matches_loader_audit(manifest: dict[str, Any]) -> N
 
 
 def test_external_label_bucket_is_the_phase_1_finding(manifest: dict[str, Any]) -> None:
-    """Phase 1's provenance finding: only 2 live events feed the fitness signal.
+    """Which live events feed the fitness signal: ten, from two audited loaders.
 
-    Today those are network_security/batadal and network_security/nsl_kdd
-    (the only loader in the manifest with audited ``LABEL_SOURCE = "ground_truth"``).
-    Any change that broadens or empties this set must be intentional: extend
-    the loader registry with an audited justification, then update this test
-    explicitly. Do not weaken the assertion silently.
+    Phase 1 found two (network_security/batadal and nsl_kdd). On 2026-11-16 the
+    registry gained ``FEMAActivityLoader``, whose labels are NOAA NCEI's
+    billion-dollar tropical cyclone catalogue, and its eight yearly events
+    joined them. Any further change that broadens or empties this set must be
+    intentional: extend the loader registry with an audited justification,
+    then update this test explicitly. Do not weaken the assertion silently.
     """
     bucket = manifest["provenance_summary"]["real"][FITNESS_BUCKET]
-    assert bucket["n_events"] == 2, bucket
+    assert bucket["n_events"] == 10, bucket
 
     expected = {
         ("network_security", "batadal"),
         ("network_security", "nsl_kdd"),
-    }
+    } | {("fema_activity", f"tropical_declarations_{year}") for year in range(2017, 2025)}
     actual = {(e["domain"], e["event_id"]) for e in manifest["real"] if e["external_label"]}
     assert actual == expected, sorted(actual)
 

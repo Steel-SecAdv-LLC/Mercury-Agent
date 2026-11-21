@@ -14,6 +14,13 @@ from __future__ import annotations
 
 import numpy as np
 
+from omni_mercury_engine.measurement import MeasurementEvidence
+
+
+def _measured(method: str, n: int = 30) -> MeasurementEvidence:
+    """Evidence for a hand-built estimate: what its numbers are said to rest on."""
+    return MeasurementEvidence.from_samples(method, np.linspace(0.0, 1.0, n))
+
 
 class TestMCDropout:
     """Tests for Monte Carlo Dropout uncertainty estimation."""
@@ -198,15 +205,42 @@ class TestUncertaintyQuantifierIntegration:
 
         uq = UncertaintyQuantifier(n_monte_carlo=100)
 
-        # Low variance predictions - should have low uncertainty
+        # Five members that agree - should have low uncertainty. They are
+        # passed as what they are, an ensemble: the spread across the rows of
+        # a plain ``predictions`` batch is not epistemic uncertainty (see
+        # test_a_batch_with_nothing_drawn_is_not_a_measurement below).
         low_var = np.array([0.8, 0.81, 0.79, 0.8, 0.8])
-        result_low = uq.estimate_uncertainty(low_var)
+        result_low = uq.estimate_uncertainty(low_var[:1], ensemble_predictions=low_var)
 
-        # High variance predictions - should have higher uncertainty
+        # Five members that disagree - should have higher uncertainty
         high_var = np.array([0.3, 0.9, 0.5, 0.7, 0.2])
-        result_high = uq.estimate_uncertainty(high_var)
+        result_high = uq.estimate_uncertainty(high_var[:1], ensemble_predictions=high_var)
 
         assert result_high.total > result_low.total
+        assert result_high.epistemic_measured and result_low.epistemic_measured
+        assert result_high.epistemic_evidence is not None
+        assert (result_high.epistemic_evidence.method, result_high.epistemic_evidence.n) == (
+            "ensemble_variance",
+            5,
+        )
+        assert result_high.mc_samples == 5  # the members used, not the configured draw count
+
+    def test_a_batch_with_nothing_drawn_is_not_a_measurement(self) -> None:
+        """Fails on the prior code, which called this measured with 100 MC samples.
+
+        Five predictions for five inputs, no model, no draws, no ensemble:
+        their spread says how the inputs differ, not how unsure the model is.
+        """
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+
+        uq = UncertaintyQuantifier(n_monte_carlo=100)
+        estimate = uq.estimate_uncertainty(np.array([0.3, 0.9, 0.5, 0.7, 0.2]))
+
+        assert estimate.epistemic_measured is False
+        assert estimate.aleatoric_measured is False
+        assert estimate.epistemic_evidence is None and estimate.aleatoric_evidence is None
+        assert estimate.mc_samples == 0  # no sample was drawn; it used to report 100
+        assert estimate.sample_values is None
 
     def test_decompose_uncertainty_method(self) -> None:
         """Test decompose_uncertainty method."""
@@ -282,6 +316,11 @@ class TestUncertaintyAwareDecision:
             calibration_error=0.02,
             is_reliable=True,
             explanation="Test",
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
 
         decision = uq.uncertainty_aware_decision(estimate, action_threshold=0.5)
@@ -308,6 +347,11 @@ class TestUncertaintyAwareDecision:
             calibration_error=0.02,
             is_reliable=False,
             explanation="Test",
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
 
         decision = uq.uncertainty_aware_decision(estimate, epistemic_threshold=0.3)
@@ -416,6 +460,11 @@ class TestUncertaintyEstimate:
             mutual_information=0.05,
             predictive_entropy=0.3,
             mc_samples=30,
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
 
         d = estimate.to_dict()
@@ -446,6 +495,11 @@ class TestOverconfidenceDetection:
             calibration_error=0.03,
             is_reliable=True,
             explanation="Test",
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
         assert estimate.is_overconfident is False
 
@@ -464,6 +518,11 @@ class TestOverconfidenceDetection:
             is_reliable=False,
             explanation="Test",
             is_overconfident=True,
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
         assert estimate.is_overconfident is True
         assert estimate.to_dict()["overconfident"] is True
@@ -489,6 +548,11 @@ class TestOverconfidenceDetection:
             is_reliable=True,
             explanation="Test",
             is_overconfident=True,
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
 
         decision = uq.uncertainty_aware_decision(estimate, action_threshold=0.5)
@@ -512,6 +576,11 @@ class TestOverconfidenceDetection:
             is_reliable=True,
             explanation="Test",
             is_overconfident=False,
+            # What these hand-built numbers rest on: stated, as the constructor requires.
+            epistemic_evidence=_measured("mc_dropout"),
+            aleatoric_evidence=_measured("sample_variance"),
+            calibration_evidence=None,
+            calibration_error_evidence=_measured("expected_calibration_error"),
         )
         assert estimate.is_overconfident is False
 

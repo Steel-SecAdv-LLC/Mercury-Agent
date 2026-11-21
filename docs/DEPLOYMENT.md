@@ -361,13 +361,32 @@ where it filed each message.
 A host that configures logging itself, with `configure_logging(...)` or a
 handler on the root logger, is left alone.
 
-### Rate Limiting
+### Rate Limiting and Serving Bounds
+
+Every bound below is read and validated at startup from one module
+(`omni_mercury_engine.serving_limits`): an invalid value refuses to start,
+naming the variable. The active values are served to operators at
+`GET /api/v1/detect/flagship/limits` and in OpenAPI `info.x-serving-limits`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OMNI_RATE_LIMIT_ENABLED` | `true` | Enable per-IP rate limiting |
+| `OMNI_RATE_LIMIT_ENABLED` | `true` | Enable per-client rate limiting |
 | `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` | `100` | Steady-state limit |
 | `OMNI_RATE_LIMIT_BURST` | `20` | Burst allowance |
+| `MERCURY_IPV6_RATE_LIMIT_PREFIX` | `64` | IPv6 clients sharing this prefix share one rate-limit identity |
+| `MERCURY_MAX_BODY_BYTES` | `10485760` | Request-body cap on every route, enforced before parsing (chunked bodies counted as they stream) |
+| `MERCURY_MAX_UPLOAD_BODY_BYTES` | `629145600` | Body cap on the authenticated `/api/v1/models` upload surface |
+| `MERCURY_ASSESSMENT_MAX_BODY_BYTES` | `67108864` | Body cap on `/api/v1/assessment` (vital-signs arrays are the large case) |
+| `MERCURY_REVIEW_MAX_BODY_BYTES` | `33554432` | Body cap on `/api/v1/review`: one uploaded document, image or recording (the JSON route carries it base64-encoded, a third larger than the file) |
+| `MERCURY_REVIEW_MAX_TEXT_CHARS` | `1000000` | Text of an uploaded document; a longer one is refused with 413, never reviewed in part. Cannot be raised: the harm-uplift gate reads at most 1,048,576 characters per decision |
+| `MERCURY_REVIEW_MAX_PIXELS` | `25000000` | Width x height of an uploaded image, checked on its header before any pixel is decoded |
+| `MERCURY_REVIEW_MAX_AUDIO_SECONDS` | `600` | Duration of an uploaded recording, checked on its header before any sample is converted |
+| `MERCURY_REVIEW_MAX_CONCURRENT` | `2` | Artifact reviews decoded and measured at once (each also holds a flagship slot); beyond it, 429. Measuring a large upload costs up to about 0.6 GB while it runs, so this bounds that memory |
+| `MERCURY_FLAGSHIP_MAX_QUEUE` | `8` | Flagship calls admitted concurrently (replays recomputing from supplied data and artifact reviews included); beyond it, 429 |
+| `MERCURY_FLAGSHIP_MAX_ROWS` | `65536` | Rows per `/detect/flagship` (and `/flagship/replay` data/reference) request |
+| `MERCURY_FLAGSHIP_MAX_DOMAIN_CHARS` | `128` | `domain` length on `/detect/flagship` |
+| `MERCURY_FLAGSHIP_MAX_SUBJECT_ID_CHARS` | `256` | `subject_id` length on `/detect/flagship` |
+| `MERCURY_ALERT_BUS_MAX_SUBSCRIBERS` | `64` | Concurrent SSE alert-stream subscribers; beyond it, 503 |
 
 ### ML / Performance
 
@@ -390,7 +409,7 @@ handler on the root logger, is left alone.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MERCURY_HUMAN_SUBJECT_CAPABILITIES` | unset (off) | Lawful bases permitted for the Concealed Information Test and contactless vital signs on every surface: `consent`, and/or `vital_interests` (vital signs of people who cannot consent, e.g. survivors under rubble). An unknown value is refused, never guessed |
-| `MERCURY_ASSESSMENT_MAX_BODY_BYTES` | `67108864` | Largest declared request body the `/api/v1/assessment` routes accept (413 above it) |
+| `MERCURY_ASSESSMENT_MAX_BODY_BYTES` | `67108864` | Largest request body the `/api/v1/assessment` routes accept (413 above it; enforced as the body streams, see the serving-bounds table above) |
 
 With the capabilities on, every call still needs a stated purpose (refused
 when it describes covert or non-consensual sensing, or harm to a person) and,
@@ -460,7 +479,13 @@ API some other way, restrict `/metrics` the same way. (The engine /
 streaming-worker tier serves its own metrics on `:9090`, see the streaming
 section above). The `/metrics` endpoint merges the health gauges
 (`omni_mercury_up`, component status/latency) with the `prometheus_client`
-default registry, so a single scrape target covers both. This requires the
+default registry, so a single scrape target covers both. It also carries
+`omni_mercury_api_router_state{router,state}`: one series per API router and
+state (`mounted`, `disabled`, `unavailable`), valued 1 on the router's current
+state. `/health` reports `healthy` whenever the process is up, so a router
+whose import failed at startup is visible only here; the
+`OmniMercuryApiRouterUnavailable` alert fires on it
+(`docs/runbooks/api-router-unavailable.md`). This requires the
 `prometheus-client` dependency from the `[api]` extra (installed by `[all]`; the
 `[api]` extra also carries `torch>=2.2.0`, so a server installed with it serves the
 neural detection routes without a second install);
@@ -548,6 +573,15 @@ Dashboards are auto-provisioned from `monitoring/grafana/` when the Grafana
 container starts. After running `docker compose up -d grafana` the
 Mercury-Agent Overview dashboard is immediately available at
 `http://localhost:3000` (default credentials: admin / admin).
+
+What each row needs:
+
+| Panels | Source | Under docker compose |
+|---|---|---|
+| API Status, Availability SLI, Error Budget, Request Rate, Error Rate, Request Rate by Status, Latency Percentiles | `http_requests_total` / `http_request_duration_seconds` from the API | Data as soon as there is traffic. Error Rate reads 0 on a service with traffic and no 5xx |
+| Routers Down | `omni_mercury_api_router_state` | Always has data; 0 is the only good value |
+| Detections by Type, Detection Processing Time (p95) | `omni_detection_*`, written per engine detector and per API route (`api_<route>`) | Data after the first detection request |
+| API Replicas, CPU Utilization, Memory Utilization | `kube_deployment_*` (kube-state-metrics) and `container_*` (cAdvisor) | **Empty by design.** The compose stack runs neither exporter; these panels have data on Kubernetes only |
 
 ### AlertManager
 

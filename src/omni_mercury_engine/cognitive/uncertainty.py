@@ -28,6 +28,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy import optimize
 
+from omni_mercury_engine.measurement import MeasurementEvidence
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -76,27 +78,65 @@ class UncertaintyEstimate:
     calibration_error: float | None  # Measured ECE; None until >=20 outcomes exist
     is_reliable: bool  # Meets reliability criteria
     explanation: str
+    # What proves each number above (omni_mercury_engine.measurement). These
+    # are REQUIRED and have no default: ``None`` is the statement "not
+    # measured", and it has to be made. The ``*_measured`` / ``*_calibrated``
+    # flags are derived from them below and cannot be passed in. They used to
+    # be plain booleans defaulting to True, so an estimate built by hand
+    # reported its numbers as measurements with nothing behind them.
+    #: Draws or ensemble members behind ``epistemic``; ``None`` = placeholder.
+    epistemic_evidence: MeasurementEvidence | None
+    #: Sample spread or residual history behind ``aleatoric``; ``None`` = placeholder.
+    aleatoric_evidence: MeasurementEvidence | None
+    #: The calibration set behind ``confidence``; ``None`` = the uncalibrated
+    #: monotone prior produced it.
+    calibration_evidence: MeasurementEvidence | None
+    #: The outcomes behind ``calibration_error``; ``None`` exactly when that is ``None``.
+    calibration_error_evidence: MeasurementEvidence | None
     # Additional diagnostics
-    calibration_error_measured: bool = True
     mutual_information: float = 0.0  # BALD acquisition function
     predictive_entropy: float = 0.0  # Total predictive uncertainty
-    mc_samples: int = 0  # Number of MC samples used
+    mc_samples: int = 0  # Draws or members actually used (0 when none were)
     is_overconfident: bool = False  # High confidence despite poor calibration
-    # Transparency flags: whether epistemic/aleatoric were *measured* (ensemble / MC
-    # variance, heteroscedastic residual) versus a default placeholder used when
-    # no ensemble/model/features were supplied. ``confidence_calibrated`` is True
-    # only when a fitted calibrator (not the uncalibrated monotone prior) drove
-    # the confidence number.
-    epistemic_measured: bool = True
-    aleatoric_measured: bool = True
-    confidence_calibrated: bool = False
     #: The raw MC / ensemble sample stack behind ``epistemic`` (one row per
     #: draw or member), when the caller asked for it and samples were
     #: actually drawn; ``None`` otherwise — never a fabricated stand-in.
     sample_values: np.ndarray[Any, Any] | None = None
 
+    def __post_init__(self) -> None:
+        """A calibration error and its evidence come together or not at all."""
+        if (self.calibration_error is None) != (self.calibration_error_evidence is None):
+            raise ValueError(
+                "calibration_error and calibration_error_evidence must both be given or "
+                "both be None: an error with no outcomes behind it is not a measurement"
+            )
+
+    @property
+    def epistemic_measured(self) -> bool:
+        """Whether ``epistemic`` was measured: it carries the evidence, or it was not."""
+        return self.epistemic_evidence is not None
+
+    @property
+    def aleatoric_measured(self) -> bool:
+        """Whether ``aleatoric`` was measured: it carries the evidence, or it was not."""
+        return self.aleatoric_evidence is not None
+
+    @property
+    def confidence_calibrated(self) -> bool:
+        """Whether ``confidence`` came through a calibrator fitted on outcomes."""
+        return self.calibration_evidence is not None
+
+    @property
+    def calibration_error_measured(self) -> bool:
+        """Whether ``calibration_error`` was measured on observed outcomes."""
+        return self.calibration_error_evidence is not None
+
     def to_dict(self) -> dict[str, Any]:
         """To dict."""
+
+        def proof(evidence: MeasurementEvidence | None) -> dict[str, Any] | None:
+            return evidence.to_dict() if evidence is not None else None
+
         return {
             "prediction": self.prediction,
             "epistemic": self.epistemic,
@@ -114,6 +154,11 @@ class UncertaintyEstimate:
             "epistemic_measured": self.epistemic_measured,
             "aleatoric_measured": self.aleatoric_measured,
             "confidence_calibrated": self.confidence_calibrated,
+            "calibration_error_measured": self.calibration_error_measured,
+            "epistemic_evidence": proof(self.epistemic_evidence),
+            "aleatoric_evidence": proof(self.aleatoric_evidence),
+            "calibration_evidence": proof(self.calibration_evidence),
+            "calibration_error_evidence": proof(self.calibration_error_evidence),
             "sample_values": (
                 self.sample_values.tolist() if self.sample_values is not None else None
             ),
@@ -619,6 +664,11 @@ class UncertaintyQuantifier:
         # until then confidence is the uncalibrated monotone prior (see
         # _compute_confidence) and UncertaintyEstimate.confidence_calibrated=False.
         self._confidence_calibrator: Any = None
+        # The calibration set that calibrator was fitted on (size and digest),
+        # recorded by fit_confidence_calibrator. A calibrator that reached
+        # ``_confidence_calibrator`` any other way has none, and the
+        # confidence it produces is reported as uncalibrated.
+        self._calibration_evidence: MeasurementEvidence | None = None
 
         # Calibration history
         self._predictions: deque[float] = deque(maxlen=5000)
@@ -687,6 +737,7 @@ class UncertaintyQuantifier:
         # === MC DROPOUT / ENSEMBLE SAMPLING ===
         mc_predictions = None
         samples_drawn = False  # True only when a genuine multi-draw path ran
+        sample_method = ""  # which path drew them: the method named in the evidence
 
         if model is not None and TORCH_AVAILABLE:
             # Use MC Dropout wrapper for PyTorch models, threading our
@@ -715,6 +766,7 @@ class UncertaintyQuantifier:
                     input_tensor, n_samples=self.n_monte_carlo
                 )
                 samples_drawn = True
+                sample_method = "mc_dropout"
                 self._stats["mc_samples_total"] += self.n_monte_carlo
             except Exception as e:
                 logger.warning(f"MC Dropout failed: {e}, falling back to standard estimation")
@@ -726,6 +778,7 @@ class UncertaintyQuantifier:
                 prediction_function, input_data, self.n_monte_carlo
             )
             samples_drawn = True
+            sample_method = "mc_sampling"
             self._stats["mc_samples_total"] += self.n_monte_carlo
 
         if mc_predictions is None and ensemble_predictions is not None:
@@ -737,39 +790,55 @@ class UncertaintyQuantifier:
             if ens.shape[0] > 1:
                 mc_predictions = ens
                 samples_drawn = True
+                sample_method = "ensemble_variance"
 
         if mc_predictions is None:
             mc_predictions = predictions
 
         # === EPISTEMIC UNCERTAINTY ===
-        # Variance across MC samples (reducible with more data/better model)
-        if mc_predictions.shape[0] > 1:
+        # Variance across the drawn samples (reducible with more data/better
+        # model). Measured only when samples were DRAWN -- MC passes, draws of
+        # a prediction function, or the members of an ensemble. A multi-row
+        # batch of caller predictions is one prediction per input, not a
+        # sample stack: its spread across rows is not epistemic uncertainty,
+        # and this branch used to report it as a measured one (with
+        # ``mc_samples`` naming draws that never ran).
+        sampled = samples_drawn and mc_predictions.shape[0] > 1
+        epistemic_evidence: MeasurementEvidence | None
+        if sampled:
             epistemic = float(np.var(mc_predictions, axis=0).mean())
-            epistemic_measured = True
+            epistemic_evidence = MeasurementEvidence.from_samples(sample_method, mc_predictions)
             # Compute BALD: mutual information for active learning
             predictive_entropy = self._compute_predictive_entropy(mc_predictions)
             expected_entropy = self._compute_expected_entropy(mc_predictions)
             mutual_information = max(0, predictive_entropy - expected_entropy)
         else:
-            # No ensemble/MC samples were supplied -- epistemic uncertainty is
-            # NOT measurable from a single point. Use a neutral placeholder and
-            # flag it as unmeasured rather than presenting 0.1 as a measurement.
+            # No samples were drawn -- epistemic uncertainty is NOT measurable
+            # from the predictions alone. A neutral placeholder, carrying no
+            # evidence, so it cannot be read as a measurement.
             epistemic = 0.1
-            epistemic_measured = False
+            epistemic_evidence = None
             predictive_entropy = 0.0
             mutual_information = 0.0
 
         # === ALEATORIC UNCERTAINTY ===
         # Input-dependent data uncertainty (heteroscedastic)
+        aleatoric_evidence: MeasurementEvidence | None = None
         if input_data is not None:
             aleatoric = self.heteroscedastic.estimate_variance(input_data)
             # estimate_variance returns a default until enough residuals are seen.
-            aleatoric_measured = (
-                len(self.heteroscedastic._residuals) >= self.heteroscedastic.min_samples
-            )
-        else:
+            residuals = self.heteroscedastic._residuals
+            if len(residuals) >= max(2, self.heteroscedastic.min_samples):
+                aleatoric_evidence = MeasurementEvidence.from_samples(
+                    "heteroscedastic_residuals", np.asarray(residuals, dtype=float)
+                )
+        elif sampled:
             aleatoric = self._estimate_aleatoric_from_predictions(mc_predictions)
-            aleatoric_measured = mc_predictions.shape[0] > 1
+            aleatoric_evidence = MeasurementEvidence.from_samples("sample_variance", mc_predictions)
+        else:
+            # Nothing drawn and no residual history: the same placeholder the
+            # single-point path has always used, with no evidence behind it.
+            aleatoric = 0.1
 
         # === TOTAL UNCERTAINTY ===
         # Proper propagation: sqrt(epistemic^2 + aleatoric^2)
@@ -792,13 +861,18 @@ class UncertaintyQuantifier:
         # uncalibrated, parameter-free monotone prior (no golden-ratio constant)
         # and flag it as uncalibrated below.
         confidence = self._compute_confidence(epistemic, aleatoric)
-        confidence_calibrated = bool(
-            self._confidence_calibrator is not None
+        calibration_evidence = (
+            self._calibration_evidence
+            if self._confidence_calibrator is not None
             and getattr(self._confidence_calibrator, "is_calibrated", False)
+            else None
         )
 
         calibration_error = self._compute_ece()
-        calibration_error_measured = calibration_error is not None
+        calibration_error_evidence = self._ece_evidence() if calibration_error is not None else None
+        epistemic_measured = epistemic_evidence is not None
+        aleatoric_measured = aleatoric_evidence is not None
+        confidence_calibrated = calibration_evidence is not None
 
         # === RELIABILITY ASSESSMENT ===
         # Unmeasured calibration neither passes nor fails the ECE clause:
@@ -867,16 +941,18 @@ class UncertaintyQuantifier:
             confidence=confidence,
             confidence_interval=(ci_low, ci_high),
             calibration_error=calibration_error,
-            calibration_error_measured=calibration_error_measured,
             is_reliable=is_reliable,
             explanation=explanation,
+            epistemic_evidence=epistemic_evidence,
+            aleatoric_evidence=aleatoric_evidence,
+            calibration_evidence=calibration_evidence,
+            calibration_error_evidence=calibration_error_evidence,
             mutual_information=mutual_information,
             predictive_entropy=predictive_entropy,
-            mc_samples=self.n_monte_carlo if mc_predictions.shape[0] > 1 else 0,
+            # The draws or members actually used -- not the configured count,
+            # which this reported even for an ensemble of another size.
+            mc_samples=int(mc_predictions.shape[0]) if sampled else 0,
             is_overconfident=is_overconfident,
-            epistemic_measured=epistemic_measured,
-            aleatoric_measured=aleatoric_measured,
-            confidence_calibrated=confidence_calibrated,
             sample_values=(
                 # Only genuinely drawn samples are attached: a multi-row batch
                 # of caller predictions is NOT a sample stack, and labeling it
@@ -1463,8 +1539,20 @@ class UncertaintyQuantifier:
         calibrator = CalibratedConfidence(method=method, seed=self._seed)
         report = calibrator.fit(scores, labels)
         self._confidence_calibrator = calibrator
+        # What the calibrator was fitted on: the set's size and its digest.
+        self._calibration_evidence = MeasurementEvidence.from_samples(
+            "fitted_calibrator", scores, labels
+        )
         self._stats["calibrations_performed"] += 1
         return report
+
+    def _ece_evidence(self) -> MeasurementEvidence:
+        """The outcomes the current ECE was measured on (the window ``_compute_ece`` reads)."""
+        confidences = np.asarray(list(self._confidences)[-500:], dtype=float)
+        outcomes = np.asarray([1.0 if o else 0.0 for o in list(self._outcomes)[-500:]])
+        return MeasurementEvidence.from_samples(
+            "expected_calibration_error", confidences, outcomes, n=int(outcomes.shape[0])
+        )
 
     def _compute_ece(self) -> float | None:
         """Compute current Expected Calibration Error using vectorized operations.

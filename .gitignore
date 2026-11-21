@@ -201,3 +201,14 @@ corpus/pending/*.jsonl
 
 # Output of scripts/console_control_crawl.js (OUT defaults to the working directory)
 crawl_audit.json
+
+# The console browser test's driver (npm ci --prefix tests/api/browser)
+node_modules/
+
+# Datasets a loader downloads beside the script that ran it
+# (research/engine_calibration/build_cache.py run from its own directory):
+# third parties' files, fetched, never committed.
+research/engine_calibration/data/
+
+# Output of `mercury-agent demo` (decision.json + window.csv)
+mercury-demo/

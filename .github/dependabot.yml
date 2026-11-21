@@ -235,3 +235,20 @@ updates:
       helm-charts:
         patterns:
           - "*"
+
+  # The console browser test's driver (Playwright), pinned by its lockfile and
+  # installed in CI with ``npm ci`` (ML Tests lane). A Playwright release
+  # carries its own browser build, so an update here is also a browser update.
+  - package-ecosystem: "npm"
+    directory: "/tests/api/browser"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 2
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(browser-test)"
+      include: "scope"

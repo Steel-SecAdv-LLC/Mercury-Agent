@@ -61,12 +61,23 @@ def test_drift_detection_is_on_by_default_and_can_be_turned_off(
     assert OmniMercuryEngine(mode="fusion").drift_detector is None
 
 
-def test_a_shifted_batch_is_detected_and_deferred(shipped: OmniMercuryEngine) -> None:
+def test_a_shifted_batch_is_detected_and_held(shipped: OmniMercuryEngine) -> None:
+    """Drift is reported, and the decision abstains fail-closed.
+
+    With the uncalibrated artifact this was a drift-demoted DEFER; the shipped
+    checkpoint now carries a conformal certificate, and a two-sigma-shifted
+    batch's probability falls in no certified class: the empty prediction set
+    holds (UNDECIDABLE) before any demotion runs, which is the stricter of the
+    two abstentions.
+    """
     result = shipped.detect_with_fusion(_normals(50, seed=11) + 2.0)
     drift = result["drift_detection"]
     assert drift["status"] == "tested" and drift["is_drift"] is True
     assert drift["reference_source"] == "training_rows:model_normals"
-    assert result["decision"]["disposition"] == "defer"
+    decision = result["decision"]
+    assert decision["disposition"] == "hold"
+    assert decision["state"] == "undecidable"
+    assert decision["abstained"] is True
 
 
 def test_in_distribution_batches_are_not_flagged(shipped: OmniMercuryEngine) -> None:
@@ -259,5 +270,9 @@ def test_training_replaces_an_inference_auto_fit() -> None:
     engine.fit_fusion(train, labels)
     assert engine._inference_auto_fit_detectors == set()
     spatial: Any = engine.detectors["spatial"]
-    state = spatial.get_fitted_state()
-    assert np.allclose(np.asarray(state["lof_points"]), train)
+    points = np.asarray(spatial.get_fitted_state()["lof_points"])
+    # The reference is training rows (the fit's training split), none of them
+    # from the batch that was scored before the fit.
+    assert 0 < len(points) <= len(train)
+    assert all(np.isclose(train, row).all(axis=1).any() for row in points)
+    assert not any(np.isclose(scored, row).all(axis=1).any() for row in points)

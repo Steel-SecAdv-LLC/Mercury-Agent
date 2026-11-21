@@ -619,7 +619,8 @@ def mercury_baseline(features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
 
     detector = MercuryAnomalyDetector()
-    detector.fit(features)
+    # Fitted on the rows it scores: an unlabelled reference.
+    detector.fit(features, unlabeled_reference=True)
     result = detector.detect(features)
     return np.asarray(result["scores"])  # type: ignore[no-any-return, unused-ignore]
 

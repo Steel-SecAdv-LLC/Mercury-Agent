@@ -22,20 +22,30 @@ trained statistical ensemble - over the real streams, with each stream's
 score distribution passed through the symbolic decision gate so the full
 neuro-symbolic path is exercised end to end.
 
-Protocol (leak-free):
+Protocol (leak-free, strictly causal):
 
 * Each point is featurized causally - value, rolling z-score, first
   difference, rolling std over a trailing window - using only past and
   present samples.
 * The detector is fitted on the stream's warmup prefix (the first 15%,
-  which precedes every labeled anomaly window in these streams) and scores
-  the whole stream.
+  which precedes every labeled anomaly window in these streams) and never
+  refitted.
+* Each post-warmup point is scored as the *last* element of its trailing
+  256-sample window, exactly as ``CausalMathArrest`` scores a stream, so no
+  future sample ever influences a score. The protocol is prefix-invariant:
+  the scores of ``F[:k]`` equal the first ``k`` scores of ``F`` to machine
+  precision (an earlier version scored the whole stream in one batch call,
+  where ``MercuryAnomalyDetector``'s centred-window / whole-batch rFFT /
+  forward-looking kinematic stages let later samples shift a point's score
+  by up to ~0.05 - that was not leak-free despite the label).
 * Per-point scores are scored against the NAB window labels by AUROC. A
   point is anomalous iff its timestamp lies in a labeled window.
 
-Recorded result (2026-10-27): per-stream AUROC 0.840 / 0.661 / 0.686 /
-0.728, mean 0.729 - real detection on real labeled streams, replacing the
-authored-scenario theater.
+Recorded result (2026-11-20, causal trailing-window protocol): per-stream
+AUROC 0.817 / 0.692 / 0.665 / 0.749, mean 0.731 - real detection on real
+labeled streams, scored with no future leakage. (The superseded whole-batch
+run read 0.839 / 0.660 / 0.686 / 0.728, mean 0.729; the honest causal
+numbers land within ~0.03 of it per stream.)
 
 Usage::
 
@@ -55,6 +65,13 @@ from typing import Any
 import numpy as np
 
 from omni_mercury_engine.detectors.statistical import MercuryAnomalyDetector
+from omni_mercury_engine.evaluation.nab_scoring import (
+    load_nab_corpus,
+    probationary_length,
+    score_corpus,
+    sweep_table,
+)
+from omni_mercury_engine.streaming.causal_math_arrest import CausalMathArrest
 
 #: Committed NAB fixture root (see its PROVENANCE.json for source + digests).
 _DEFAULT_FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "nab"
@@ -62,6 +79,9 @@ _DEFAULT_FIXTURE = Path(__file__).parent.parent / "tests" / "fixtures" / "nab"
 _FEATURE_WINDOW = 20
 #: Warmup fraction fitted on; precedes every labeled window in these streams.
 _WARMUP_FRACTION = 0.15
+#: Trailing window each point is causally scored within (matches
+#: ``CausalMathArrest`` / ``EngineStreamSession``'s default window).
+_CAUSAL_WINDOW = 256
 #: The four real streams carried in the fixture, by NAB key and relative path.
 _STREAMS: tuple[tuple[str, str], ...] = (
     ("realTraffic/speed_7578.csv", "realTraffic/speed_7578.csv.gz"),
@@ -160,22 +180,197 @@ def causal_features(
     return out
 
 
-def evaluate_stream(values: np.ndarray[Any, Any], labels: np.ndarray[Any, Any]) -> dict[str, Any]:
-    """Fit on the warmup prefix and score the whole stream by AUROC."""
+def causal_scores(
+    features: np.ndarray[Any, Any],
+    warmup: int,
+    window: int = _CAUSAL_WINDOW,
+) -> np.ndarray[Any, Any]:
+    """Strictly causal per-point anomaly scores (no future sample is read).
+
+    The detector is fitted once on ``features[:warmup]`` -- the warmup prefix
+    that precedes every labeled window -- and never refitted. Each point ``i``
+    is then scored as the *last* element of the trailing window
+    ``features[max(0, i - window + 1) : i + 1]``, exactly as
+    :class:`~omni_mercury_engine.streaming.causal_math_arrest.CausalMathArrest`
+    scores a stream. Because point ``i``'s score depends only on samples at or
+    before ``i`` (and on the fixed warmup fit), the scores of ``features[:k]``
+    equal the first ``k`` scores of ``features`` exactly for every
+    ``k >= warmup`` -- the protocol is prefix-invariant and leak-free.
+
+    Args:
+        features: The ``(n, 4)`` causal feature matrix.
+        warmup: Number of leading rows the detector is fitted on.
+        window: Trailing window length each point is scored within.
+
+    Returns:
+        ``(n,)`` per-point scores in ``[0, 1]``.
+    """
+    detector = MercuryAnomalyDetector()
+    detector.fit(features[:warmup])
+    n = len(features)
+    scores = np.empty(n, dtype=np.float64)
+    for i in range(n):
+        lo = max(0, i - window + 1)
+        point = np.asarray(detector.detect(features[lo : i + 1])["scores"], dtype=np.float64)
+        scores[i] = float(point[-1])
+    return scores
+
+
+def evaluate_stream(
+    values: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
+    window: int = _CAUSAL_WINDOW,
+) -> dict[str, Any]:
+    """Fit on the warmup prefix, score each point causally, and report AUROC.
+
+    Each post-warmup point is scored from its trailing ``window`` samples only
+    (see :func:`causal_scores`), so no future value ever influences a score.
+    """
     features = causal_features(values)
     warmup = int(_WARMUP_FRACTION * len(features))
     if warmup < 20 or labels[:warmup].any():
         raise ValueError("warmup prefix is too short or already contains a labeled anomaly")
-    detector = MercuryAnomalyDetector()
-    detector.fit(features[:warmup])
-    scores = np.asarray(detector.detect(features)["scores"], dtype=np.float64)
+    scores = causal_scores(features, warmup, window)
     scored = np.arange(len(features)) >= warmup  # exclude the fitted prefix
     return {
         "n_points": len(values),
         "n_anomalous": int(labels.sum()),
         "warmup": warmup,
+        "window": window,
         "auroc": auroc(labels[scored], scores[scored]),
+        "decision_stability": decision_stability(scores[scored], labels[scored], scores[:warmup]),
     }
+
+
+def _point_prf(labels: np.ndarray[Any, Any], verdicts: np.ndarray[Any, Any]) -> dict[str, float]:
+    """Point precision/recall/F1 of boolean verdicts against 0/1 labels."""
+    flags = np.asarray(verdicts, dtype=bool)
+    positive = np.asarray(labels) == 1
+    tp = int(np.sum(flags & positive))
+    fp = int(np.sum(flags & ~positive))
+    fn = int(np.sum(~flags & positive))
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    return {"precision": precision, "recall": recall, "f1": f1}
+
+
+def decision_stability(
+    scores: np.ndarray[Any, Any],
+    labels: np.ndarray[Any, Any],
+    warmup_scores: np.ndarray[Any, Any],
+    enter_quantile: float = 0.95,
+    exit_quantile: float = 0.80,
+) -> dict[str, Any]:
+    """Verdict churn and point P/R/F1, raw vs the hysteresis gate.
+
+    The raw verdict thresholds each score at the warmup scores'
+    ``enter_quantile``; the hysteresis verdict enters there and clears only
+    at or below the ``exit_quantile`` cut
+    (:func:`omni_mercury_engine.streaming.hysteresis.hysteresis_verdicts`).
+    Churn is the fraction of consecutive verdict flips — the decision-layer
+    instability metric ``EngineStreamSession`` reports per tick, measured
+    here against labels.  The (0.95, 0.80) choice was selected leave-one-
+    stream-out: every fold picks it, and it improves the held-out stream's
+    F1 on three of four (speed_7578 pays 0.051 F1 for its churn cut).
+    """
+    from omni_mercury_engine.streaming.hysteresis import hysteresis_verdicts
+
+    enter = float(np.quantile(warmup_scores, enter_quantile))
+    exit_ = float(np.quantile(warmup_scores, exit_quantile))
+    raw = np.asarray(scores) > enter
+    smoothed = hysteresis_verdicts(np.asarray(scores), enter, min(exit_, enter))
+
+    def churn(verdicts: np.ndarray[Any, Any]) -> float:
+        return float(np.mean(verdicts[1:] != verdicts[:-1])) if len(verdicts) > 1 else 0.0
+
+    return {
+        "enter_threshold": enter,
+        "exit_threshold": min(exit_, enter),
+        "raw": {"churn": churn(raw), **_point_prf(labels, raw)},
+        "hysteresis": {"churn": churn(smoothed), **_point_prf(labels, smoothed)},
+    }
+
+
+#: NAB categories of the four committed streams (for the causal corpus run).
+_CATEGORIES = ("realAWSCloudwatch", "realAdExchange", "realKnownCause", "realTraffic")
+
+
+def run_causal_math_arrest(
+    fixture_root: Path = _DEFAULT_FIXTURE, window: int = 256
+) -> dict[str, Any]:
+    """The 21-probe ensemble in its causal fixed-window execution mode.
+
+    The same instruments and the same protocol as the offline path pinned in
+    ``tests/detectors/test_recorded_nab_series.py`` — fitted on each file's
+    probationary prefix, conformal alarm cut at alpha 0.05 — except that each
+    post-probation point is scored from its trailing ``window`` samples only,
+    so no future value ever influences a score. Reports the same triple the
+    offline path reports: mean AUROC, the NAB standard score, and the mean
+    alarm rate on normal points.
+    """
+    per_stream: dict[str, dict[str, Any]] = {}
+    alarms_by_file: dict[str, np.ndarray[Any, Any]] = {}
+    tables: dict[str, Any] = {}
+    aurocs: list[float] = []
+    false_rates: list[float] = []
+    false_abstentions: list[float] = []
+    for stream in load_nab_corpus(fixture_root, _CATEGORIES):
+        n = stream.values.size
+        probation = int(probationary_length(n))
+        positive = np.zeros(n, dtype=bool)
+        for first, last in stream.windows:
+            positive[first : last + 1] = True
+
+        detector = CausalMathArrest(window=window)
+        detector.fit(stream.values[:probation])
+        details = detector.score_stream_detailed(stream.values[probation:])
+        scores = np.asarray(details["scores"], dtype=np.float64)
+        alarms_tail = np.asarray(details["alarms"], dtype=bool)
+        abstain_tail = np.asarray(details["abstain"], dtype=bool)
+
+        alarms = np.zeros(n, dtype=bool)
+        alarms[probation:] = alarms_tail
+        alarms_by_file[stream.name] = alarms
+        tables[stream.name] = sweep_table(n, stream.windows, "standard")
+
+        held_positive = positive[probation:]
+        stream_auroc = auroc(held_positive.astype(np.int64), scores)
+        false_rate = float(alarms_tail[~held_positive].mean())
+        false_abstention = float(abstain_tail[~held_positive].mean())
+        aurocs.append(stream_auroc)
+        false_rates.append(false_rate)
+        false_abstentions.append(false_abstention)
+        per_stream[stream.name] = {
+            "auroc": round(stream_auroc, 4),
+            "alarm_rate_normal_points": round(false_rate, 4),
+            "false_abstention_rate": round(false_abstention, 4),
+            "abstention_rate_in_windows": round(float(abstain_tail[held_positive].mean()), 4),
+            "threshold": round(float(detector.threshold or 0.0), 4),
+        }
+        print(
+            f"causal math_arrest {stream.name.split('/')[0]:20s} "
+            f"AUROC={stream_auroc:.4f} alarm_rate={false_rate:.4f}"
+        )
+
+    nab_score = float(score_corpus(alarms_by_file, tables)["score"])
+    result = {
+        "detector": "CausalMathArrest (fixed trailing window over the 21-probe ensemble)",
+        "window": window,
+        "per_stream": per_stream,
+        "mean_auroc": round(float(np.mean(aurocs)), 4),
+        "nab_standard_score": round(nab_score, 2),
+        "mean_alarm_rate_normal_points": round(float(np.mean(false_rates)), 4),
+        # The Lyapunov-envelope stability monitor's cost on normal data: how
+        # often it raises the abstention flag where no labelled anomaly is.
+        "mean_false_abstention_rate": round(float(np.mean(false_abstentions)), 4),
+    }
+    print(
+        f"causal math_arrest mean AUROC={result['mean_auroc']:.4f} "
+        f"NAB={result['nab_standard_score']:.2f} "
+        f"alarm_rate={result['mean_alarm_rate_normal_points']:.4f}"
+    )
+    return result
 
 
 def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
@@ -193,17 +388,47 @@ def run_benchmark(fixture_root: Path = _DEFAULT_FIXTURE) -> dict[str, Any]:
         )
     mean_auroc = float(np.mean(aurocs))
     print(f"mean AUROC across {len(aurocs)} real NAB streams: {mean_auroc:.4f}")
+    raw_churn = float(
+        np.mean([s["decision_stability"]["raw"]["churn"] for s in per_stream.values()])
+    )
+    hys_churn = float(
+        np.mean([s["decision_stability"]["hysteresis"]["churn"] for s in per_stream.values()])
+    )
+    raw_f1 = float(np.mean([s["decision_stability"]["raw"]["f1"] for s in per_stream.values()]))
+    hys_f1 = float(
+        np.mean([s["decision_stability"]["hysteresis"]["f1"] for s in per_stream.values()])
+    )
+    print(
+        f"decision stability: churn {raw_churn:.4f} -> {hys_churn:.4f} "
+        f"(hysteresis), mean point F1 {raw_f1:.4f} -> {hys_f1:.4f}"
+    )
+    causal = run_causal_math_arrest(fixture_root)
     return {
         "dataset": "NAB (Numenta Anomaly Benchmark, MIT; committed fixture)",
         "detector": "MercuryAnomalyDetector (trained statistical ensemble)",
+        "math_arrest_causal": causal,
         "protocol": {
             "feature_window": _FEATURE_WINDOW,
             "warmup_fraction": _WARMUP_FRACTION,
+            "causal_window": _CAUSAL_WINDOW,
             "features": ["value", "rolling_zscore", "first_difference", "rolling_std"],
-            "leak_free": "causal features; fitted on warmup prefix preceding all labeled windows",
+            "leak_free": (
+                "causal features; fitted on the warmup prefix preceding all "
+                "labeled windows; each point scored from its trailing "
+                f"{_CAUSAL_WINDOW}-sample window only, so no future sample "
+                "influences any score (prefix-invariant)"
+            ),
         },
         "per_stream": per_stream,
         "mean_auroc": mean_auroc,
+        "decision_stability": {
+            "enter_quantile": 0.95,
+            "exit_quantile": 0.80,
+            "mean_raw_churn": round(raw_churn, 4),
+            "mean_hysteresis_churn": round(hys_churn, 4),
+            "mean_raw_f1": round(raw_f1, 4),
+            "mean_hysteresis_f1": round(hys_f1, 4),
+        },
     }
 
 

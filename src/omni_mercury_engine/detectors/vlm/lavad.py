@@ -29,14 +29,28 @@ import torch
 from torch import nn
 
 from omni_mercury_engine.detectors.provenance import DecisionSource
-from omni_mercury_engine.detectors.vlm.base_vlm import BaseVLMDetector, VLMConfig
-from omni_mercury_engine.detectors.vlm.lvlm_backends import get_lvlm_backend
+from omni_mercury_engine.detectors.vlm.base_vlm import (
+    BaseVLMDetector,
+    ConfigAliasMixin,
+    VLMConfig,
+)
+from omni_mercury_engine.detectors.vlm.lvlm_cache import (
+    get_frozen_cached_backend,
+    touch_cached_backend,
+)
+from omni_mercury_engine.detectors.vlm.text_match import content_words, find_word_matches
 
 logger = logging.getLogger(__name__)
 
+#: Released default values of the canonical model fields.  Their alias
+#: fields (``vlm_model`` / ``llm_model``) default to ``None`` -- "not given"
+#: -- and read back these values once the config is constructed.
+_CAPTION_MODEL_DEFAULT = "Salesforce/blip-image-captioning-base"
+_REASONING_MODEL_DEFAULT = "Qwen/Qwen2.5-0.5B-Instruct"
+
 
 @dataclass
-class LAVADConfig(VLMConfig):
+class LAVADConfig(ConfigAliasMixin, VLMConfig):
     """Configuration for LAVAD detector.
 
     Attributes:
@@ -59,27 +73,63 @@ class LAVADConfig(VLMConfig):
             neighbouring captions are in the prompt).
         window_size: Number of captions for temporal context
         use_llm_reasoning: Use LLM for anomaly reasoning
-        llm_model: Alias for reasoning_model (for test compatibility)
-        vlm_model: Alias for caption_model (for test compatibility)
-        sampling_fps: Frame sampling rate
-        temporal_window: Temporal window size
+        llm_model: Released alias for ``reasoning_model``.  ``None`` means
+            "not given": either name can be passed, the canonical
+            ``reasoning_model`` wins whenever it is given (at any value, its
+            default included), and after construction the alias reads back
+            the model that will actually load (see
+            :class:`ConfigAliasMixin`).  The field's old declared default,
+            ``meta-llama/Meta-Llama-3-8B-Instruct``, was never loaded; passed
+            explicitly it now selects that model like any other value.
+        vlm_model: Released alias for ``caption_model``; same wiring
+            contract as ``llm_model``.
+        sampling_fps: Caption sampling rate in frames per second.  Used when
+            the caller passes the clip's real frame rate to
+            ``detect(data, source_fps=...)``: frames are then captioned at
+            this rate (stride ``round(source_fps / sampling_fps)``) and
+            uncaptioned frames inherit the nearest captioned frame's caption
+            and score.  Without ``source_fps`` every frame is captioned.
+        temporal_window: Alias for the ``window_size`` field above; same
+            wiring contract as ``llm_model`` (resolved in the config itself,
+            so it reads back the effective window, 5 by default).
     """
 
     # Shipped default: the SHA-pinned, CPU-runnable BLIP captioner
     # (BLIPCaptionBackend) so the caption stage is genuinely operational
     # out of the box; any registered backend/model can be configured.
     caption_backend: str = "blip_caption"
-    caption_model: str = "Salesforce/blip-image-captioning-base"
+    caption_model: str = _CAPTION_MODEL_DEFAULT
     reasoning_backend: str = "hf_text"
-    reasoning_model: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    reasoning_model: str = _REASONING_MODEL_DEFAULT
     reasoning_revision: str | None = None
     reasoning_mode: str = "frame_likelihood"
     window_size: int = 5
     use_llm_reasoning: bool = True
-    llm_model: str = "meta-llama/Meta-Llama-3-8B-Instruct"  # Alias for test compatibility
-    vlm_model: str = "Salesforce/blip-image-captioning-base"  # Alias for test compatibility
-    sampling_fps: float = 2.0  # Frame sampling rate
-    temporal_window: int = 8  # Temporal window size
+    # Released alias fields (wired in __post_init__; they were declared but
+    # never read before the B4 audit cure).  ``None`` is "not given"; after
+    # construction each alias mirrors its canonical field, so the pair can
+    # never disagree.
+    llm_model: str | None = None  # Alias for reasoning_model
+    vlm_model: str | None = None  # Alias for caption_model
+    sampling_fps: float = 2.0  # Caption sampling rate (see docstring)
+    temporal_window: int | None = None  # Alias for window_size (see docstring)
+
+    _FIELD_ALIASES = {
+        "llm_model": "reasoning_model",
+        "vlm_model": "caption_model",
+        "temporal_window": "window_size",
+    }
+
+    def __post_init__(self) -> None:
+        """Wire the released alias fields onto their canonical fields.
+
+        Setting either name has effect: an alias that was given propagates
+        onto a canonical field that was not; when both are given, the
+        canonical field wins; and after construction each alias equals its
+        canonical field, so reads through either name see the model (and
+        window) that will actually be used.
+        """
+        self._resolve_aliases()
 
 
 class LAVADDetector(BaseVLMDetector):
@@ -134,6 +184,11 @@ class LAVADDetector(BaseVLMDetector):
         elif isinstance(config, dict):
             config = LAVADConfig(**config)
 
+        # ``temporal_window`` is an alias for ``window_size`` (it was a dead
+        # field); the config resolves the pair itself and keeps both names in
+        # step, so nothing is re-applied here -- re-applying a stale alias
+        # would undo a ``window_size`` set after construction.
+
         super().__init__(config)
         self.lavad_config: LAVADConfig = config
 
@@ -174,32 +229,44 @@ class LAVADDetector(BaseVLMDetector):
             "anomaly_types": anomaly_types or [],
         }
 
-    def detect_video(self, video: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
+    def detect_video(
+        self,
+        video: np.ndarray[Any, Any] | torch.Tensor,
+        source_fps: float | None = None,
+    ) -> dict[str, Any]:
         """Detect anomalies in video.
 
         Args:
             video: Video tensor [T, C, H, W]
+            source_fps: The clip's real frame rate; enables caption
+                subsampling at ``config.sampling_fps`` (see :meth:`detect`).
 
         Returns:
             Detection results with frame_scores
         """
-        result = self.detect(video)
+        result = self.detect(video, source_fps=source_fps)
         # Add frame_scores alias for test compatibility
         result["frame_scores"] = result["scores"]
         return result
 
     def _initialize_model(self) -> None:
-        """Initialize captioning and reasoning models."""
-        # Initialize captioning model (VLM). The default is the shipped
-        # SHA-pinned BLIP captioner; a missing transformers install or an
-        # unpinned/unlisted model still fails loud through the backend and
-        # SafeHFLoader — never a silent mock.
-        self._caption_model = get_lvlm_backend(
+        """Initialize captioning and reasoning models.
+
+        The captioning backend comes through the process-wide cache
+        (:func:`get_frozen_cached_backend`), so repeated detector instances
+        reuse one loaded model; a cached instance with a different frozen
+        configuration is never reused.  The detector keeps its own reference:
+        a cache eviction only drops the cache's, so the backend held here
+        stays fully usable.  The default is the shipped
+        SHA-pinned BLIP captioner; a missing transformers install or an
+        unpinned/unlisted model still fails loud through the backend and
+        SafeHFLoader — never a silent mock.
+        """
+        self._caption_model = get_frozen_cached_backend(
             model_type=self.lavad_config.caption_backend,
             model_name=self.lavad_config.caption_model,
             device=str(self.device),
         )
-        self._caption_model.initialize()
 
         logger.info("LAVAD models initialized")
 
@@ -207,13 +274,15 @@ class LAVADDetector(BaseVLMDetector):
     def reasoner(self) -> Any:
         """The text language model that reasons over the frame captions."""
         if self._reasoning_model is None:
-            self._reasoning_model = get_lvlm_backend(
+            self._reasoning_model = get_frozen_cached_backend(
                 model_type=self.lavad_config.reasoning_backend,
                 model_name=self.lavad_config.reasoning_model,
                 device=str(self.device),
                 revision=self.lavad_config.reasoning_revision,
             )
-            self._reasoning_model.initialize()
+        # Every use goes through this property: tell the cache, so its LRU
+        # order follows use rather than first fetch.
+        touch_cached_backend(self._reasoning_model)
         return self._reasoning_model
 
     @property
@@ -221,6 +290,7 @@ class LAVADDetector(BaseVLMDetector):
         """Get captioning model."""
         if self._caption_model is None:
             self._initialize_model()
+        touch_cached_backend(self._caption_model)
         return self._caption_model
 
     def _create_prompt(
@@ -361,24 +431,59 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
         return str(caption)
 
-    def detect(self, data: np.ndarray[Any, Any] | torch.Tensor) -> dict[str, Any]:
+    def _caption_stride(self, source_fps: float | None) -> int:
+        """Caption-sampling stride derived from ``sampling_fps``.
+
+        Args:
+            source_fps: The clip's real frame rate, or ``None`` when unknown.
+
+        Returns:
+            How many source frames one captioned frame stands for (1 when
+            the frame rate is unknown or already at/below ``sampling_fps``).
+
+        Raises:
+            ValueError: If ``source_fps`` or ``config.sampling_fps`` is not
+                positive.
+        """
+        if source_fps is None:
+            return 1
+        sampling_fps = self.lavad_config.sampling_fps
+        if source_fps <= 0 or sampling_fps <= 0:
+            raise ValueError(
+                f"source_fps ({source_fps}) and sampling_fps ({sampling_fps}) must be positive"
+            )
+        return max(1, round(source_fps / sampling_fps))
+
+    def detect(
+        self,
+        data: np.ndarray[Any, Any] | torch.Tensor,
+        source_fps: float | None = None,
+    ) -> dict[str, Any]:
         """Detect anomalies using caption + reasoning pipeline.
 
         Args:
             data: Video frames [T, C, H, W]
+            source_fps: The clip's real frame rate.  When given, frames are
+                captioned at ``config.sampling_fps`` instead of one caption
+                per frame (the audited efficiency fix: the field was dead
+                and every frame was captioned); uncaptioned frames inherit
+                the nearest captioned frame's caption and score.  ``None``
+                (default) captions every frame.
 
         Returns:
-            Detection results dict
+            Detection results dict; ``caption_frame_indices`` lists the
+            frames that were actually captioned.
         """
         data = self._validate_frames(data)
         t = data.shape[0]
 
-        # Stage 1: Generate captions for each frame
-        logger.info(f"Generating captions for {t} frames...")
-        captions = []
-        for i in range(t):
-            caption = self._generate_caption(data[i])
-            captions.append(caption)
+        # Stage 1: Generate captions at the configured sampling rate.
+        stride = self._caption_stride(source_fps)
+        sampled_indices = list(range(0, t, stride))
+        logger.info(f"Generating captions for {len(sampled_indices)} of {t} frames...")
+        caption_by_sample = {i: self._generate_caption(data[i]) for i in sampled_indices}
+        nearest_sample = [min(sampled_indices, key=lambda s: abs(s - i)) for i in range(t)]
+        captions = [caption_by_sample[nearest_sample[i]] for i in range(t)]
 
         # Stage 2: language-model judgement of the captions
         frame_scores = np.zeros(t)
@@ -397,14 +502,27 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
         frame_likelihood = self.lavad_config.use_llm_reasoning and mode == "frame_likelihood"
         if frame_likelihood:
             description = self.vlm_config.anomaly_description
-            for i, caption in enumerate(captions):
-                p_yes = float(
-                    self.reasoner.yes_probability(self._frame_question(caption, description))
+            # One judgement per captioned frame; frames sharing a caption
+            # share its score.
+            p_by_sample = {
+                s: float(
+                    self.reasoner.yes_probability(
+                        self._frame_question(caption_by_sample[s], description)
+                    )
                 )
+                for s in sampled_indices
+            }
+            for i in range(t):
+                p_yes = p_by_sample[nearest_sample[i]]
                 frame_scores[i], frame_counts[i] = p_yes, 1.0
                 if p_yes > self.vlm_config.confidence_threshold:
                     all_explanations.append(
-                        {"frame": i, "caption": caption, "confidence": p_yes, "window": (i, i + 1)}
+                        {
+                            "frame": i,
+                            "caption": captions[i],
+                            "confidence": p_yes,
+                            "window": (i, i + 1),
+                        }
                     )
 
         for start in range(0, t - window_size + 1) if not frame_likelihood else ():
@@ -435,24 +553,30 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
                 is_anomaly, confidence, explanation = self._simple_analysis(window_captions)
                 anomaly_frames = list(range(window_size)) if is_anomaly else []
 
-            # Update frame scores
+            # Update frame scores.  A YES verdict without a parseable frame
+            # list localises nothing, so the whole window carries the
+            # verdict's score: the old ``base_score * 0.5`` cap meant such a
+            # YES at confidence <= 1.0 could never exceed the strict 0.5
+            # threshold and the alarm was silently lost.
             base_score = confidence if is_anomaly else 0.0
-            for _i, frame_idx in enumerate(range(start, end)):
+            no_localization = is_anomaly and not anomaly_frames
+            for frame_idx in range(start, end):
                 local_idx = frame_idx - start
-                if local_idx in anomaly_frames:
+                if no_localization or local_idx in anomaly_frames:
                     frame_scores[frame_idx] += confidence
                 else:
                     frame_scores[frame_idx] += base_score * 0.5
                 frame_counts[frame_idx] += 1
 
             if is_anomaly:
-                all_explanations.append(
-                    {
-                        "window": (start, end),
-                        "explanation": explanation,
-                        "confidence": confidence,
-                    }
-                )
+                window_explanation = {
+                    "window": (start, end),
+                    "explanation": explanation,
+                    "confidence": confidence,
+                }
+                if no_localization:
+                    window_explanation["no_localization"] = True
+                all_explanations.append(window_explanation)
 
         # Average overlapping window scores.  No normalisation by the clip's
         # maximum: dividing by it (as before) put the top frame of every clip
@@ -471,6 +595,7 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             "scores": scores,
             "is_anomaly": anomaly_mask,
             "captions": captions,
+            "caption_frame_indices": sampled_indices,
             "explanations": all_explanations,
             "features": features,
             "anomaly_frames": np.where(anomaly_mask)[0].tolist(),
@@ -484,6 +609,11 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
 
         Args:
             captions: Frame captions
+
+        Matching is whole-word and case-insensitive (``"hit"`` no longer
+        matches inside ``"white"`` nor ``"run"`` inside ``"brunette"``), and
+        the anomaly description contributes only stop-word-free content
+        words, so its ``"or"`` never matches ``"door"``/``"floor"``.
 
         Returns:
             Tuple of (is_anomaly, confidence, explanation)
@@ -520,16 +650,13 @@ EXPLANATION: [Your reasoning based on the frame descriptions]
             "abnormal",
         ]
 
-        # Check target anomaly description
-        target_words = self.vlm_config.anomaly_description.lower().split()
+        # Check target anomaly description (content words only)
+        target_words = content_words(self.vlm_config.anomaly_description, exclude=anomaly_keywords)
 
-        # Search captions
+        # Search captions with whole-word matching
         matched_keywords = []
         for caption in captions:
-            caption_lower = caption.lower()
-            for keyword in anomaly_keywords + target_words:
-                if keyword in caption_lower:
-                    matched_keywords.append(keyword)
+            matched_keywords.extend(find_word_matches(caption, anomaly_keywords + target_words))
 
         if matched_keywords:
             confidence = min(len(set(matched_keywords)) * 0.2, 0.9)

@@ -53,6 +53,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -152,6 +153,71 @@ def _stratified_split(y: np.ndarray, train_frac: float, seed: int) -> tuple[np.n
     return np.array(sorted(train_idx)), np.array(sorted(test_idx))
 
 
+#: Target coverage of the shipped conformal certificate, and the seed of the
+#: stratified half-split of the corpus's held-out test rows: the calibration
+#: half must come from the SAME generative draw as the training corpus (the
+#: cluster centers are part of the seed's draw, so another seed is another
+#: distribution — measured: the shipped network reads AUC ~0.997 on its own
+#: draw's held-out rows and 0.70 on a reseeded draw). Exchangeability, which
+#: the conformal guarantee rests on, holds within the draw, not across seeds.
+CONFORMAL_COVERAGE = 0.90
+CONFORMAL_SPLIT_SEED_OFFSET = 7
+
+
+def calibrate_and_measure(
+    engine: OmniMercuryEngine,
+    x_test: np.ndarray,
+    y_test: np.ndarray,
+    seed: int,
+) -> dict[str, Any]:
+    """Fit the engine's conformal calibrator and measure held-out coverage.
+
+    Splits the corpus's held-out test rows (never seen by the network or the
+    detectors) into stratified halves; calibrates per-sample on one half
+    (each calibration row scored alone, the regime the CLI, the MCP server
+    and ``DecisionLoop`` serve in) and measures empirical coverage on the
+    other, scored both per-sample and as one batch so the batch regime's
+    coverage is on record too.
+
+    Returns:
+        The calibration report plus ``held_out`` coverage figures.
+    """
+    import numpy as _np
+
+    cal_local, eval_local = _stratified_split(
+        y_test, train_frac=0.5, seed=seed + CONFORMAL_SPLIT_SEED_OFFSET
+    )
+    x_cal, y_cal = x_test[cal_local], y_test[cal_local]
+    x_eval, y_eval = x_test[eval_local], y_test[eval_local]
+    report = engine.calibrate_fusion_conformal(
+        x_cal, y_cal, coverage=CONFORMAL_COVERAGE, per_sample=True
+    )
+    report["n_cal"] = {"rows": len(y_cal), "anomalies": int(y_cal.sum())}
+    conformal = engine._fusion_conformal
+    assert conformal is not None
+    held_out: dict[str, dict[str, float | int]] = {}
+    for regime, probs in (
+        (
+            "per_sample",
+            _np.concatenate(
+                [
+                    _np.asarray(engine.score_fusion(x_eval[i : i + 1])).ravel()
+                    for i in range(len(x_eval))
+                ]
+            ),
+        ),
+        ("batch", _np.asarray(engine.score_fusion(x_eval)).ravel()),
+    ):
+        eval_report = conformal.coverage_report(probs, y_eval.astype(int))
+        held_out[regime] = {
+            "empirical_coverage": float(eval_report["empirical_coverage"]),
+            "average_set_size": float(eval_report["average_set_size"]),
+            "n": len(y_eval),
+        }
+    report["held_out"] = held_out
+    return report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train the shipped default fusion checkpoint.")
     parser.add_argument(
@@ -193,6 +259,18 @@ def main() -> int:
         default=str(default_fusion_checkpoint_path()),
         help="Checkpoint output path (defaults to the in-tree shipped path).",
     )
+    parser.add_argument(
+        "--calibrate-only",
+        action="store_true",
+        help=(
+            "Do not train: load the existing checkpoint at --output, fit the "
+            "split-conformal calibrator on a fresh seeded draw (per-sample "
+            "regime), measure held-out coverage on a second fresh draw, and "
+            "re-save with every weight and fitted state bit-identical. This "
+            "is how conformal_state was added to the shipped checkpoint "
+            "without retraining it."
+        ),
+    )
     args = parser.parse_args()
 
     import torch
@@ -203,6 +281,10 @@ def main() -> int:
     np.random.seed(args.seed)
 
     engine = OmniMercuryEngine(mode="fusion", device="cpu")
+
+    if args.calibrate_only:
+        return _calibrate_existing_checkpoint(engine, args.output, args.seed)
+
     # ``load_model`` rebuilds the engine's fusion model from the checkpoint's
     # ``hidden_dim``/``feature_dims``, so any width here is self-describing on load.
     if args.hidden_dim != engine.fusion_model.hidden_dim:
@@ -299,6 +381,21 @@ def main() -> int:
             "cap_per_dataset": int(args.cap_per_dataset),
         }
 
+    print("Conformal calibration (held-out half of the test split, per-sample regime)...")
+    conformal_report = calibrate_and_measure(engine, x[test_idx], y[test_idx], args.seed)
+    held = conformal_report["held_out"]
+    print(
+        f"  conformal: achieved bound {conformal_report['coverage_achieved']}, "
+        f"held-out coverage per-sample {held['per_sample']['empirical_coverage']:.4f} "
+        f"/ batch {held['batch']['empirical_coverage']:.4f}"
+    )
+    provenance["conformal_calibration"] = {
+        "coverage": CONFORMAL_COVERAGE,
+        "per_sample": True,
+        "split_seed": int(args.seed) + CONFORMAL_SPLIT_SEED_OFFSET,
+        "n_cal": conformal_report["n_cal"],
+        "held_out": held,
+    }
     engine._fusion_provenance = provenance
 
     out = args.output
@@ -330,6 +427,55 @@ def main() -> int:
         "Verified: fresh engine loads the checkpoint, reports trained, restores "
         f"calibrator + provenance (source={fresh._fusion_provenance['source']})."
     )
+    return 0
+
+
+def _calibrate_existing_checkpoint(engine: OmniMercuryEngine, out: str, seed: int) -> int:
+    """Add ``conformal_state`` to an existing checkpoint without retraining it.
+
+    Loads the checkpoint, fits the conformal calibrator on fresh seeded draws
+    (see :func:`calibrate_and_measure`), re-saves, and verifies that every
+    tensor of the network, every fitted detector state and the temperature are
+    bit-identical to the loaded artifact: the only functional additions are
+    ``conformal_state`` and the provenance note recording this step.
+    """
+    import torch
+
+    engine.load_model(out)
+    before = torch.load(out, map_location="cpu", weights_only=False)
+
+    # The exact corpus and test split the checkpoint was trained against:
+    # both are functions of the seed recorded in its provenance.
+    x, y = build_dataset(seed)
+    _, test_idx = _stratified_split(y, train_frac=0.7, seed=seed)
+    report = calibrate_and_measure(engine, x[test_idx], y[test_idx], seed)
+    held = report["held_out"]
+    print(
+        f"Calibrated existing checkpoint: achieved bound {report['coverage_achieved']}, "
+        f"held-out coverage per-sample {held['per_sample']['empirical_coverage']:.4f} "
+        f"/ batch {held['batch']['empirical_coverage']:.4f}"
+    )
+
+    provenance = dict(engine._fusion_provenance or {})
+    provenance["conformal_calibration"] = {
+        "coverage": CONFORMAL_COVERAGE,
+        "per_sample": True,
+        "split_seed": int(seed) + CONFORMAL_SPLIT_SEED_OFFSET,
+        "n_cal": report["n_cal"],
+        "held_out": held,
+    }
+    engine._fusion_provenance = provenance
+    engine.save_model(out)
+
+    after = torch.load(out, map_location="cpu", weights_only=False)
+    assert after["conformal_state"] is not None, "conformal_state was not persisted"
+    for key, tensor in before["model_state_dict"].items():
+        assert torch.equal(after["model_state_dict"][key], tensor), f"weight moved: {key}"
+    assert after["temperature"] == before["temperature"], "temperature moved"
+    assert after["feature_groups"] == before["feature_groups"]
+    assert set(after["detector_fitted_state"]) == set(before["detector_fitted_state"])
+    print("Verified: weights, temperature, groups and detector states are identical;")
+    print("the checkpoint gained conformal_state and a provenance note only.")
     return 0
 
 
