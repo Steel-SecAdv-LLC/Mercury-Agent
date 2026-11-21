@@ -611,6 +611,9 @@ namespaces = false
 # real (non-editable) install before.
 omni_mercury_engine = [
     "py.typed",
+    # The demonstration's committed window (``mercury-agent demo``): without
+    # it a non-editable install has the command and nothing to run it on.
+    "demo/*.csv",
     "models/checkpoints/*.pt",
     # The streaming worker's learned alarm policy (ml/alarm_policy.py): NumPy
     # arrays, loaded with allow_pickle=False after its sidecar's sha256 check.

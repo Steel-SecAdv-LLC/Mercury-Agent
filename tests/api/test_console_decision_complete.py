@@ -230,6 +230,10 @@ out.trail = M.summarize({
   admission: { max_queue: 8, admitted_total: 5, rejected_total: 1, rejection_rate: 1 / 6,
     in_flight: 0, peak_in_flight: 2 },
 });
+const demo = M.CAPS.find((c) => c.id === "flagship-demo");
+out.demo = demo ? { label: demo.label, route: demo.route, body: demo.build(null, {}),
+  fits: demo.block(null, { flagshipWidth: 16 }), other: demo.block(null, { flagshipWidth: 8 }),
+  unknown: demo.block(null) } : null;
 out.empty_trail = M.summarize({ total: 0, recorded: false,
   admission: { max_queue: 8, admitted_total: 0, rejected_total: 0, rejection_rate: 0,
     in_flight: 0, peak_in_flight: 0 } }).kv;
@@ -351,3 +355,28 @@ class TestTheTrailSummaryRenders:
     def test_an_empty_trail_says_so(self, rendered: dict[str, Any]) -> None:
         rows = dict(rendered["empty_trail"])
         assert rows["decisions"].startswith("none recorded")
+
+
+class TestTheDemonstrationIsReachableFromTheConsole:
+    """Mass Run offers the decision ``mercury-agent demo`` shows, on the same window."""
+
+    def test_the_capability_posts_the_committed_window_to_the_flagship(
+        self, rendered: dict[str, Any]
+    ) -> None:
+        import numpy as np
+
+        demo = rendered["demo"]
+        assert demo is not None, "the flagship-demo capability is gone from the console"
+        assert demo["route"] == "POST /api/v1/detect/flagship"
+        assert "three answers" in demo["label"]
+        committed = np.loadtxt(
+            _REPO / "src" / "omni_mercury_engine" / "demo" / "auditable_window.csv", delimiter=","
+        )
+        np.testing.assert_array_equal(np.asarray(demo["body"]["data"]), committed)
+
+    def test_it_says_when_the_served_model_is_not_the_bundled_one(
+        self, rendered: dict[str, Any]
+    ) -> None:
+        demo = rendered["demo"]
+        assert demo["fits"] is None and demo["unknown"] is None
+        assert "16 columns wide" in demo["other"] and "mercury-agent demo" in demo["other"]

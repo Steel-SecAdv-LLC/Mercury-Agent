@@ -1028,7 +1028,7 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     (
         "the landing states the issue the engine resolves and where the three answers live",
         "what to run next.</p>",
-        'what to run next.</p><p style="margin:0;font-size:13px;line-height:1.7;color:var(--fg-2);text-wrap:pretty;font-family:var(--font-sans);max-width:820px;">The issue it resolves: <b>auditable early warning</b> on high-dimensional or multi-source data, where a plain anomaly score is not enough to act. Every flagship decision answers three questions in its DECISION panel (run one in TERMINAL, the API form or MASS RUN, then open RESULTS). <b>Why this row</b> - which row carries the verdict, each detector&apos;s weight, the lead-lag factors and the weakest premise of the derived hypothesis. <b>How sure</b> - the conformal certificate with its stated coverage, drift against the model&apos;s reference, and the self-critique with its measured flags. <b>Can I contest it</b> - the record replays: the CHALLENGE THIS DECISION button on a result that carries one, <code style="font-family:var(--font-mono);color:var(--mercury-200);">mercury-agent replay</code> offline, or <code style="font-family:var(--font-mono);color:var(--mercury-200);">python examples/auditable_decision.py</code> end to end.</p>',
+        'what to run next.</p><p style="margin:0;font-size:13px;line-height:1.7;color:var(--fg-2);text-wrap:pretty;font-family:var(--font-sans);max-width:820px;">The issue it resolves: <b>auditable early warning</b> on high-dimensional or multi-source data, where a plain anomaly score is not enough to act. Every flagship decision answers three questions in its DECISION panel (run one in TERMINAL, the API form or MASS RUN, then open RESULTS). <b>Why this row</b> - which row carries the verdict, each detector&apos;s weight, the lead-lag factors and the weakest premise of the derived hypothesis. <b>How sure</b> - the conformal certificate with its stated coverage, drift against the model&apos;s reference, and the self-critique with its measured flags. <b>Can I contest it</b> - the record replays: the CHALLENGE THIS DECISION button on a result that carries one, <code style="font-family:var(--font-mono);color:var(--mercury-200);">mercury-agent replay</code> offline, or <code style="font-family:var(--font-mono);color:var(--mercury-200);">mercury-agent demo</code> for all three on one committed decision (here: MASS RUN, Flagship three answers).</p>',
     ),
     (
         "a result that carries a decision record offers to challenge it",
@@ -2656,6 +2656,33 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
 )
 
 
+#: The demonstration's committed window (``mercury-agent demo``), embedded so the console
+#: can post the same 80 x 16 matrix to the served flagship and show the same three answers.
+DEMO_WINDOW_CSV = REPO / "src" / "omni_mercury_engine" / "demo" / "auditable_window.csv"
+
+
+def _demo_capability_js() -> str:
+    rows = [
+        [float(cell) for cell in line.split(",")]
+        for line in DEMO_WINDOW_CSV.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if len(rows) != 80 or any(len(row) != 16 for row in rows):
+        raise SystemExit(f"{DEMO_WINDOW_CSV}: expected an 80 x 16 window")
+    window = json.dumps(rows, separators=(",", ":"))
+    return (
+        "  // The demonstration window (mercury-agent demo): one committed decision that shows the\n"
+        "  // three answers. Built from the bundled model's training data; it belongs to that model.\n"
+        "  const DEMO_WINDOW = " + window + ";\n"
+        '  CAPS.push(C("flagship-demo", "Flagship · three answers on one decision (demo window)", '
+        '"Ensembles", "POST /api/v1/detect/flagship", () => ({ data: DEMO_WINDOW, domain: null, '
+        "explain: false }), { prep: flagshipContract, block: (d, ctx) => (ctx && ctx.flagshipWidth "
+        '&& ctx.flagshipWidth !== 16 ? "the demo window is 16 columns wide and belongs to the '
+        'bundled model; the served fusion model was fitted on " + ctx.flagshipWidth + " (run it '
+        'offline: mercury-agent demo)" : null) }));\n'
+    )
+
+
 #: The decision panel (three sections: why this row / how sure / the record) and the
 #: decision-trail summary, inserted into the Mass Run summariser beside explText.
 _DECISION_PANEL_MASS = """
@@ -2838,6 +2865,11 @@ MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + 
         '.forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });\n'
         '    if (d.stability_evaluated === false) kv.push(["is_stable", "not evaluated (series too short)"]); '
         'else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);',
+    ),
+    (
+        "the demonstration window is a Mass Run capability (the same decision as mercury-agent demo)",
+        "  const TIER = { temporal_streaming",
+        _demo_capability_js() + "  const TIER = { temporal_streaming",
     ),
     (
         "the decision-panel and trail-summary formatters ride beside the summariser",

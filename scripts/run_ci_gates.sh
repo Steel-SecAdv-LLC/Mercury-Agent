@@ -128,6 +128,12 @@ run_gate "skip ledger (ci.yml: measure_skip_ledger --check)" \
 run_gate "capability inventory drift (pytest: test_committed_inventory_is_fresh)" \
   python scripts/generate_capability_inventory.py --check
 
+# The demonstration is the first thing the README shows a newcomer. This runs
+# it for real (bundled model, committed window, ~5 s) and fails if any of the
+# three answers, the complete record, or the closing replay command goes.
+run_gate "three-answers smoke (mercury-agent demo: why this row / how sure / the record)" \
+  python -m pytest tests/test_demo_three_answers.py -q -p no:cacheprovider --timeout=600
+
 run_gate "detector catalog drift (docs/DETECTORS.md vs DETECTOR_MANIFEST)" \
   python scripts/generate_detector_catalog.py --check
 

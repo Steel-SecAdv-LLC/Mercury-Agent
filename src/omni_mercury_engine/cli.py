@@ -4677,5 +4677,52 @@ def replay(record: str, data: str | None, reference: str | None, as_json: bool) 
     raise SystemExit(code)
 
 
+@main.command("demo")
+@click.option(
+    "--out",
+    "-o",
+    default="mercury-demo",
+    show_default=True,
+    type=click.Path(file_okay=False),
+    help="Directory to keep decision.json and window.csv in, for the replay command.",
+)
+@click.option(
+    "--json", "as_json", is_flag=True, help="Print the answers, record and challenge as JSON."
+)
+def demo(out: str, as_json: bool) -> None:
+    """Three answers on one real decision, in under a minute, then challenge it.
+
+    A score says a row is unusual. This scores one committed window with the
+    bundled flagship model and shows, beside the complete decision record:
+    WHY THIS ROW (contributions, the lead-lag finding, the hypothesis and its
+    weakest premise), HOW SURE (the conformal certificate and whether its
+    coverage holds here), and THE RECORD (disposition, model digest, the
+    ethical gate's outcome). It then replays the record's findings against
+    the data, shows a tampered copy failing, and ends with the exact command
+    that re-runs the challenge.
+
+    Exit status: 0 when the findings hold and the tampered copy fails; 1
+    otherwise.
+
+    Examples:
+        mercury-agent demo
+        mercury-agent demo --out /tmp/mercury-demo --json
+    """
+    import logging
+    import warnings
+    from pathlib import Path
+
+    from omni_mercury_engine import demo as demonstration
+
+    warnings.simplefilter("ignore")
+    logging.disable(logging.WARNING)
+    try:
+        status, text = demonstration.run(Path(out), as_json=as_json)
+    finally:
+        logging.disable(logging.NOTSET)
+    click.echo(text)
+    raise SystemExit(status)
+
+
 if __name__ == "__main__":
     main()

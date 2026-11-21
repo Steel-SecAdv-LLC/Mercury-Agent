@@ -1051,10 +1051,11 @@ fusion`, the MCP `mercury_detect_fusion` tool) carries them:
    artifact — a tampered record fails.
 
 One command walks all three answers on a single decision, end to end, on a
-committed window with known planted structure, then challenges it:
+committed window with known planted structure, then challenges it (see
+[Quick Start](#quick-start) for its output):
 
 ```bash
-python examples/auditable_decision.py
+mercury-agent demo
 ```
 
 It prints the three answers from a real decision of the shipped model (the
@@ -1188,6 +1189,85 @@ state):
 ---
 
 ## Quick Start
+
+### Ten minutes to three answers on one decision
+
+A score says a row is unusual. Before anyone acts on it they need to know
+**why this row**, **how sure** the system is, and what **record** they can
+reconstruct and contest. One command shows all three on a single real
+decision, then challenges it:
+
+```bash
+git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git && cd Mercury-Agent
+pip install -e ".[pqc,ml]"         # the full agent: native PQC backend + torch
+mercury-agent demo
+```
+
+It scores one committed window with the bundled flagship model, in the posture
+`POST /api/v1/detect/flagship` serves it. The window is built from the model's
+own training data with known structure planted in it (column X0 leads X1 by one
+step; rows 40-43 are labelled anomalies; the ordinary rows are one regime of the
+four the model was calibrated on), so every answer can be checked against what
+was put in. Output of a run on 2026-11-21, abridged (each answer is followed by
+the record fields it was read from, and the complete `DecisionRecord` is printed
+in full):
+
+```text
+1. WHY THIS ROW
+   Row 40 carries the verdict; 4 row(s) are flagged: [40, 41, 42, 43]. The fusion model
+   weighed these feature groups most: neural (0.361), biometric (0.281), dimensional
+   (0.041). Inside the window one column moves before another: X0 → X1 (lag=1, partial
+   R²=0.25, adjusted p=0.00063). The test behind it is corrected for every lag and pair it
+   tried. From the findings that hold, the record derives: Within this window X0 leads X1 at
+   lag 1: a candidate driver of the flagged behaviour. It is a candidate, stated with no
+   confidence number, and it says how it fails: its weakest premise is "The detection
+   flagged this input: P(anomaly) 1.000 at or above the decision threshold 0.500.", and the
+   conclusion is withdrawn if anomaly_flagged: statistic < 0.5.
+
+2. HOW SURE
+   The probability of an anomaly is 1.000 against a threshold of 0.500. The conformal
+   prediction set is {1}: at the 90% coverage the model was calibrated to (251 held-out
+   points, 90% achieved), exactly one label is consistent with this row. But the window's
+   ordinary rows do not look like the data that calibration was done on (drift: CRITICAL),
+   so the 90% coverage is not claimed for this window. Mercury therefore abstains: state
+   'unavailable', no confidence stated.
+
+3. THE RECORD
+   The decision is 'defer' and the response is 'request_input', which needs a human. The
+   record gives its reasons: conformal singleton {1} at 90% coverage (calibrated decision);
+   distribution drift (CRITICAL) detected: the calibration may no longer hold. It names the
+   model that decided (default_fusion.pt, sha256 5a0b97fd25bdd5b2...) and the ethical gate's
+   outcome (passed: score 1.000 against a floor of 0.930). It carries 2 finding(s) that
+   replay from the record alone (causal, hypothesis): anyone holding it can re-run them and
+   contest it.
+
+THE COMPLETE DECISION RECORD (every answer above was read from this)
+{ ... }
+
+CHALLENGE THIS DECISION (its recorded findings, replayed against the data)
+   causal     HOLDS   recomputed from the data: 4 contaminated row(s) set aside, 20 pairs tested, 1 edge(s) at alpha=0.05
+   hypothesis HOLDS   all 2 premise(s) hold and the steps derive candidate_driver
+   -> the decision's findings HOLD
+   and a copy with the lead-lag finding removed:
+   causal     FAILS   the artifact does not match its own digest: it was altered or is incomplete
+   hypothesis FAILS   withdrawn: premise(s) lagged_dependence no longer hold
+   -> the tampered copy FAILS
+
+Re-run the stored challenge recipe yourself:
+  mercury-agent replay mercury-demo/decision.json --data mercury-demo/window.csv
+```
+
+Read the outcome for what it is: the four planted anomalies are flagged, the
+planted driver is recovered, the conformal set is a singleton, and Mercury
+still **defers**, because the window is one regime of four and the drift test
+sees it. A score of 1.000 alone would have hidden all of that. The run itself
+takes seconds (4.4 s measured on a 4-core container; the install dominates);
+the exit status is 0 only when the findings hold on replay *and* the tampered
+copy fails. The same decision is one click in the console (`mercury-agent
+serve`, then MASS RUN → *Flagship · three answers on one decision*, then
+CHALLENGE THIS DECISION), and `tests/test_demo_three_answers.py` fails CI if
+any of the three answers disappears. Instrument error rates:
+[docs/DISCOVERY.md](docs/DISCOVERY.md).
 
 ### Ten minutes to one honest number
 
@@ -1473,6 +1553,9 @@ Once enabled, a detector contributes its feature group to `fit_fusion` and `dete
 ```bash
 # View available commands
 mercury-agent --help
+
+# Start here: three answers on one real decision, then challenge it
+mercury-agent demo
 
 # Anomaly detection (CSV with or without a header row, .json or .npy).
 # The base detectors fit on the input itself:

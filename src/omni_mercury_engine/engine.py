@@ -406,6 +406,18 @@ def default_fusion_checkpoint_path() -> Path:
     installed = installed_fusion_checkpoint_path()
     if installed.is_file():
         return installed
+    return bundled_fusion_checkpoint_path()
+
+
+def bundled_fusion_checkpoint_path() -> Path:
+    """The synthetic fusion checkpoint shipped inside the package.
+
+    What the serving surfaces fall back to when no model is installed, and
+    what the demonstration (``mercury-agent demo``) always scores with: its
+    committed window belongs to this model, not to an operator's own.
+    """
+    from pathlib import Path
+
     return Path(__file__).resolve().parent / "models" / "checkpoints" / "default_fusion.pt"
 
 

@@ -209,3 +209,6 @@ node_modules/
 # (research/engine_calibration/build_cache.py run from its own directory):
 # third parties' files, fetched, never committed.
 research/engine_calibration/data/
+
+# Output of `mercury-agent demo` (decision.json + window.csv)
+mercury-demo/
