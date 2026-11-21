@@ -132,12 +132,17 @@ print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 # The shared object is co-located inside the installed ama_cryptography package
 # so it travels with the venv into the runtime stage and loads without
 # LD_LIBRARY_PATH. Pin matches pyproject's ama-cryptography git ref.
-# The commit the v5.0.0 tag pointed to when pinned (tags are movable;
-# a commit SHA is not). Bump together with pyproject's ama-cryptography
-# pin and tests/security/test_pqc_gate_real_ama.py.
-ARG AMA_REF=702e253a137f98ffe452d2f6e614fcc175112598  # tag v5.0.0
+# AMA_REF is the TAG: the prebuilt archive, the wheel version and the clone
+# are all keyed on it (a commit id here broke every image build -- the
+# script's ``git clone --branch`` takes a branch or tag only). AMA_COMMIT is
+# the commit that tag pointed to when pinned: tags are movable, a commit is
+# not, so a source build whose checkout resolves anywhere else is refused.
+# Bump both together with pyproject's ama-cryptography pin and
+# tests/security/test_pqc_gate_real_ama.py.
+ARG AMA_REF=v5.0.0
+ARG AMA_COMMIT=702e253a137f98ffe452d2f6e614fcc175112598
 COPY scripts/build_ama_native.sh scripts/fetch_ama_prebuilt.sh /app/scripts/
-RUN AMA_REF="${AMA_REF}" bash /app/scripts/build_ama_native.sh
+RUN AMA_REF="${AMA_REF}" AMA_COMMIT="${AMA_COMMIT}" bash /app/scripts/build_ama_native.sh
 
 # Remove unused sample dataset fetchers before the virtualenv is copied into the
 # runtime image; deleting them only after ``COPY --from=builder`` still leaves

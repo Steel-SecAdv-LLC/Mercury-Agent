@@ -289,10 +289,17 @@ a fresh environment of its Python, and the release is published with its
 and its installs build from source.
 
 Override the ref/repo/scratch dir via `AMA_REF`, `AMA_REPO`, `AMA_BUILD_DIR`.
-The source build performs, in order: install the PEP 517 build floors
+`AMA_REF` is a **tag**, not a commit id: the prebuilt archive, the wheel version
+and the clone are all keyed on it. To pin the commit as well, set `AMA_COMMIT`
+to the 40-character commit the tag must resolve to; a source checkout that
+resolves anywhere else is refused before anything is installed (the Dockerfile
+sets both). A prebuilt archive is not a checkout: it is verified against its
+release's `SHA256SUMS` instead.
+The source build performs, in order: `git clone --branch v5.0.0` and, when
+`AMA_COMMIT` is set, the commit check; install the PEP 517 build floors
 (`setuptools>=84.0.0`, `wheel>=0.48.0`, `cmake>=4.4.4` — AMA v5.0.0 raised the
-setuptools and cmake floors; older toolchains fail its preflight); `git clone
---branch v5.0.0`; `cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
+setuptools and cmake floors; older toolchains fail its preflight);
+`cmake -DAMA_USE_NATIVE_PQC=ON -DAMA_BUILD_SHARED=ON` + build;
 `AMA_NO_CYTHON=1 pip install --no-build-isolation --force-reinstall --no-deps .`
 (through `uv pip` in a uv environment, which has no pip);
 co-locate `libama_cryptography.so*`; verify via `get_pqc_backend_info()`.
