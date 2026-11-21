@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -26,9 +27,10 @@ import pytest
 import yaml
 
 _ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_ROOT / "scripts"))
+if str(_ROOT) not in sys.path:  # pragma: no cover - import bootstrap
+    sys.path.insert(0, str(_ROOT))
 
-import verify_release as vr
+from scripts import verify_release as vr
 
 VERSION = "3.1.0"
 TAG = f"v{VERSION}"
@@ -182,7 +184,7 @@ class TestToolChecks:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _write_dist(tmp_path)
-        monkeypatch.setattr(vr.shutil, "which", lambda _name: None)
+        monkeypatch.setattr(shutil, "which", lambda _name: None)
         assert vr.check_sigstore(tmp_path, TAG).status == vr.UNVERIFIED
         assert vr.check_image("ghcr.io/x/y", VERSION).status == vr.UNVERIFIED
 
@@ -190,7 +192,7 @@ class TestToolChecks:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _write_dist(tmp_path)
-        monkeypatch.setattr(vr.shutil, "which", lambda _name: "/usr/bin/gh")
+        monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/gh")
         calls: list[list[str]] = []
 
         def runner(argv: Any) -> tuple[int, str, str]:
@@ -209,13 +211,13 @@ class TestToolChecks:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _write_dist(tmp_path)
-        monkeypatch.setattr(vr.shutil, "which", lambda _name: "/usr/bin/gh")
+        monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/gh")
         result = vr.check_sigstore(tmp_path, TAG, lambda _a: (1, "", "no attestations found"))
         assert result.status == vr.FAIL
         assert "no attestations found" in result.detail
 
     def test_image_without_provenance_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(vr.shutil, "which", lambda _name: "/usr/bin/docker")
+        monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/docker")
         out = json.dumps({"manifest": {"digest": "sha256:abc"}})
         result = vr.check_image("ghcr.io/x/y", VERSION, lambda _a: (0, out, ""))
         assert result.status == vr.FAIL

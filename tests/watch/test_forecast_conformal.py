@@ -71,6 +71,7 @@ class TestShippedCertificate:
         from omni_mercury_engine.core.conformal_prediction import BinaryConformalClassifier
 
         model = load_model()
+        assert model.conformal is not None
         classifier = BinaryConformalClassifier.from_state(dict(model.conformal))
         pred = classifier.predict(np.array([0.05, 0.5, 0.95]))
         assert list(pred.set_size) == [int(s) for s in pred.set_size]
@@ -96,4 +97,5 @@ class TestShippedCertificate:
     def test_model_n_calibration_matches_the_evidence(self) -> None:
         model = load_model()
         evidence = json.loads(_EVIDENCE.read_text(encoding="utf-8"))
+        assert model.conformal is not None
         assert model.conformal["n_calibration"] == evidence["conformal"]["n_calibration"]

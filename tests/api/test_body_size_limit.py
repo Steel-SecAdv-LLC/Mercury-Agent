@@ -13,13 +13,16 @@ and the streamed count that catches chunked and lying-length bodies.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 pytest.importorskip("fastapi", reason="the API server needs the [api] extra")
 
 from omni_mercury_engine.api.server import BodySizeLimitMiddleware
+
+if TYPE_CHECKING:
+    from collections.abc import MutableMapping
 
 
 async def _consuming_app(scope: Any, receive: Any, send: Any) -> None:
@@ -41,14 +44,14 @@ def _run(
 ) -> int:
     middleware = BodySizeLimitMiddleware(_consuming_app)
     middleware.default_limit = limit
-    sent: list[dict[str, Any]] = []
+    sent: list[MutableMapping[str, Any]] = []
     queue = list(chunks)
 
     async def receive() -> dict[str, Any]:
         body = queue.pop(0)
         return {"type": "http.request", "body": body, "more_body": bool(queue)}
 
-    async def send(message: dict[str, Any]) -> None:
+    async def send(message: MutableMapping[str, Any]) -> None:
         sent.append(message)
 
     scope = {"type": "http", "path": path, "headers": headers}
@@ -62,12 +65,12 @@ class TestDeclaredLength:
         # crash, so this also proves the refusal happens before any read.
         middleware = BodySizeLimitMiddleware(_consuming_app)
         middleware.default_limit = 1000
-        sent: list[dict[str, Any]] = []
+        sent: list[MutableMapping[str, Any]] = []
 
         async def receive() -> dict[str, Any]:  # pragma: no cover - must not run
             raise AssertionError("the body was read despite an oversized declared length")
 
-        async def send(message: dict[str, Any]) -> None:
+        async def send(message: MutableMapping[str, Any]) -> None:
             sent.append(message)
 
         scope = {
@@ -107,8 +110,11 @@ class TestScoping:
         async def app(scope: Any, receive: Any, send: Any) -> None:
             passed.append(scope["type"])
 
+        async def untouched(*_args: Any) -> Any:
+            raise AssertionError("a non-HTTP scope's channels were used by the middleware")
+
         middleware.app = app
-        asyncio.run(middleware({"type": "websocket"}, None, None))
+        asyncio.run(middleware({"type": "websocket"}, untouched, untouched))
         assert passed == ["websocket"]
 
 

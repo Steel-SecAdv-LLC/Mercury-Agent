@@ -86,7 +86,9 @@ class TestRegimeSurfacing:
 
     def test_absent_regime_keys_stay_none(self) -> None:
         result = self._result(rows=1)
-        conformal = dict(result["conformal"])  # type: ignore[arg-type]
+        carried = result["conformal"]
+        assert isinstance(carried, dict)
+        conformal = dict(carried)
         conformal.pop("regime")
         conformal.pop("n_rows")
         result["conformal"] = conformal

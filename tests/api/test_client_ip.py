@@ -13,8 +13,6 @@ non-IP identifier on arbitrary adversarial header content.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import pytest
 from hypothesis import (
     given,
@@ -23,9 +21,6 @@ from hypothesis import (
 )
 
 from omni_mercury_engine.api.client_ip import resolve_client_ip, trusted_proxy_hops
-
-if TYPE_CHECKING:
-    import pytest
 
 
 class TestUntrustedDefault:

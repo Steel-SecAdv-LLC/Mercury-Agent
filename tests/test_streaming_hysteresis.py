@@ -99,6 +99,7 @@ class TestCausalMathArrestWiring:
         detector = CausalMathArrest(window=64, probes="minimal", exit_alpha=0.20)
         detector.fit(warmup)
         assert detector._exit_threshold is not None
+        assert detector.threshold is not None
         assert detector._exit_threshold <= detector.threshold
         saw_hold = False
         prev = False

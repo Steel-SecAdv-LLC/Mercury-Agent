@@ -1120,13 +1120,13 @@ class JWTAuth:
             logger.warning("JWT token expired")
             return None
         except jwt.InvalidTokenError as e:
-            # Sanitize error message to prevent log injection via crafted tokens.
-            # PyJWT error text names the failure mode ("Signature verification
-            # failed", ...) and never echoes the token itself.
-            safe_msg = str(e).replace("\n", " ").replace("\r", " ")
-            logger.warning(
-                "Invalid JWT token: %s", safe_msg
-            )  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+            # Logged by failure CLASS only (InvalidSignatureError, DecodeError,
+            # InvalidAudienceError, ...). The library's message text is built
+            # while parsing the presented credential, so none of it is
+            # written: nothing a crafted credential says can reach, or break
+            # up, a log line. This replaces a sanitised copy of that text
+            # plus an inline scanner marker; no marker is needed now.
+            logger.warning("JWT rejected: %s", type(e).__name__)
             return None
         except (KeyError, TypeError, ValueError) as e:
             # Malformed payload - missing required fields or wrong types
