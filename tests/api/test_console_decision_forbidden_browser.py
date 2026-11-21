@@ -18,7 +18,10 @@ terminal state:
 * a 200 whose payload carries a ``decision`` record and an object
   ``explanation`` renders state, disposition, abstention, calibration,
   coverage, reasons and caveats, and the explanation's method, top
-  attributions and faithfulness -- no ``[object Object]`` anywhere.
+  attributions and faithfulness -- no ``[object Object]`` anywhere;
+* a decision carrying discovery artifacts offers **Challenge this decision**,
+  which POSTs the record to ``/detect/flagship/replay`` and renders the
+  verdict in the terminal and in RESULTS, per artifact.
 
 Node with Playwright and a launchable Chromium are required, exactly as for
 ``test_console_watch_alert_browser.py``; where they are absent the test skips
@@ -93,6 +96,51 @@ DECIDED = {
     },
 }
 
+#: What the canned engine answers a challenge with (the /flagship/replay shape).
+REPLAYED = {
+    "verdict": "HOLDS",
+    "artifacts": 2,
+    "replay": [
+        {
+            "kind": "causal",
+            "status": "HOLDS",
+            "detail": "re-derived from the recorded sums of squares",
+        },
+        {"kind": "hypothesis", "status": "HOLDS", "detail": "all premises hold"},
+    ],
+}
+
+#: A decision record carrying a (shape-valid) discovery artifact, so the result
+#: offers CHALLENGE THIS DECISION.
+CHALLENGEABLE = {
+    "scores": [0.12, 0.91],
+    "is_anomaly": [False, True],
+    "threshold": 0.5,
+    "decision": {
+        "state": "GROUNDED",
+        "disposition": "act",
+        "abstained": False,
+        "anomaly_prob": 0.91,
+        "threshold": 0.5,
+        "coverage": 0.9,
+        "calibrated": True,
+        "signals": {
+            "cognitive": {
+                "discovery": {
+                    "causal": {
+                        "schema": "mercury.discovery/v1",
+                        "kind": "causal",
+                        "procedure": "granger_f_bonferroni_holm/v2",
+                        "claim": {"assessed": True, "edges": [], "pairs_tested": 20},
+                        "replayable": "from_record",
+                        "digest": "ab" * 32,
+                    }
+                }
+            }
+        },
+    },
+}
+
 _CTYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -149,6 +197,12 @@ class _CannedEngine(BaseHTTPRequestHandler):
         if path == "/api/v1/detect/multivariate":
             self._json(200, DECIDED)
             return
+        if path == "/api/v1/detect/univariate":
+            self._json(200, CHALLENGEABLE)
+            return
+        if path == "/api/v1/detect/flagship/replay":
+            self._json(200, REPLAYED)
+            return
         self._json(200, {})
 
 
@@ -204,6 +258,34 @@ function check(ok, what, detail) {
   check(t2.includes('faithfulness comprehensiveness 0.810'), 'the faithfulness score is shown');
   check(!t2.includes('[object Object]'), 'no [object Object] anywhere in the terminal');
   check(pageErrors.length === 0, 'no page errors', pageErrors.join(' | '));
+
+  // A decision that carries discovery artifacts offers "Challenge this decision",
+  // and the challenge posts the record to /detect/flagship/replay and renders the verdict.
+  await page.evaluate(async () => {
+    const L = window.MercuryConsoleApp.logic, raw = 'mercury-agent physics dynamics';
+    await L.runLive(raw, L.parse(raw), { errors: [], r: { vals: {} } });
+  });
+  const t3 = await terminal();
+  check(t3.includes('Challenge this decision: replay its recorded findings'),
+    'a challengeable decision offers the action in the terminal', t3.slice(-400));
+  const challenged = await page.evaluate(async () => {
+    const L = window.MercuryConsoleApp.logic;
+    const lines = L.state.lines, row = lines[lines.length - 1 - [...lines].reverse()
+      .findIndex((l) => (l.a || '').includes('Challenge this decision'))];
+    await row.act();
+    const result = L.state.results.find((x) => x.kind === 'CHALLENGE');
+    return { terminal: L.state.lines.map((l) => JSON.stringify(l)).join('\\n'),
+      result: result ? { headline: result.sum && result.sum.headline, route: result.route,
+        kv: result.sum ? result.sum.kv : [] } : null };
+  });
+  check(challenged.terminal.includes('challenge · HOLDS · 2 artifact(s) replayed'),
+    'the challenge verdict lands in the terminal', challenged.terminal.slice(-300));
+  check(!!challenged.result && challenged.result.route === 'POST /api/v1/detect/flagship/replay',
+    'the challenge is kept in RESULTS with its route', JSON.stringify(challenged.result));
+  check(!!challenged.result && /HOLDS · 2 artifact/.test(challenged.result.headline || ''),
+    'the RESULTS headline carries the verdict');
+  check(!!challenged.result && challenged.result.kv.some((kv) => kv[0] === '· causal' &&
+    /HOLDS/.test(kv[1])), 'each artifact renders its own verdict');
 
   await browser.close();
   console.log(failed === 0 ? 'console decision/forbidden: all checks passed'

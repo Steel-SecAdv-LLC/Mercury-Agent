@@ -55,6 +55,38 @@ HEADER_CSS = HEADER_JS
 #: Images the template references by bare file name.
 IMAGES = ("omega-cross.png", "ama-monogram.png")
 
+#: The Challenge-this-decision logic: locate a result's discovery artifacts and replay
+#: them through POST /detect/flagship/replay, rendering the verdict per artifact.
+_CHALLENGE_LOGIC = """
+  // Where a response keeps its discovery artifacts (a whole flagship response, a decision
+  // record, or a cognitive payload), or null when it carries none worth challenging.
+  challengeArtifacts(d) {
+    if (!d || typeof d !== "object") return null;
+    const paths = [["discovery"], ["decision", "signals", "cognitive", "discovery"], ["signals", "cognitive", "discovery"], ["cognitive_analysis", "discovery"], ["cognitive", "discovery"]];
+    for (const path of paths) {
+      let found = d;
+      for (const key of path) found = found && typeof found === "object" ? found[key] : null;
+      if (found && typeof found === "object" && Object.keys(found).some((k) => found[k] && found[k].digest)) return found;
+    }
+    return null;
+  }
+  // Challenge this decision: POST the record to /detect/flagship/replay and report whether
+  // each recorded finding (novelty verdict, causal edges, hypothesis) still holds, from the
+  // record alone. The same check runs offline: mercury-agent replay record.json.
+  async challengeDecision(cur) {
+    const d = cur && cur.data;
+    if (!this.challengeArtifacts(d)) return null;
+    if (!this.live()) { this.setState({ conn: true }); return null; }
+    const r = await this.A.post("/api/v1/detect/flagship/replay", { record: d });
+    const ok = r.ok && r.data && typeof r.data.verdict === "string";
+    const sum = ok ? window.MercuryCLIMass.summarize(r.data) : { headline: String(typeof r.error === "string" ? r.error : r.status), kv: [] };
+    if (ok) sum.headline = r.data.verdict + " · " + r.data.artifacts + " artifact(s) replayed from the record";
+    this.pushResult({ kind: "CHALLENGE", label: "Challenge · " + ((cur && cur.label) || "decision"), route: "POST /api/v1/detect/flagship/replay", status: r.ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: { record: d }, data: r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, sum });
+    this.append([ok ? Object.assign(this.row("⚖ challenge · " + r.data.verdict + " · " + r.data.artifacts + " artifact(s) replayed · open RESULTS for each verdict", r.data.verdict === "HOLDS" ? "var(--normal)" : "var(--warning)"), { act: () => this.setState({ panel: true, tab: "run", ws: "res" }) }) : this.row("✗ challenge failed · " + r.status + " " + (typeof r.error === "string" ? r.error : ""), "var(--anomaly-soft)")]);
+    return r;
+  }
+"""
+
 #: (description, old, new) applied to the logic class; each must match once.
 LOGIC_PATCHES: tuple[tuple[str, str, str], ...] = (
     (
@@ -989,6 +1021,30 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         "useSimBtn: () => this.useSim(), noSim: !window.MercuryCLISim, simOp: window.MercuryCLISim ? 1 : 0.45, "
         'simTip: window.MercuryCLISim ? "in-browser stand-in for mercury-agent serve" : '
         '"the simulated engine is not shipped with the served console; this server is the engine", testConn: () => this.testConn(),',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the landing states the issue the engine resolves and where the three answers live",
+        "what to run next.</p>",
+        'what to run next.</p><p style="margin:0;font-size:13px;line-height:1.7;color:var(--fg-2);text-wrap:pretty;font-family:var(--font-sans);max-width:820px;">The issue it resolves: <b>auditable early warning</b> on high-dimensional or multi-source data, where a plain anomaly score is not enough to act. Every flagship decision answers three questions in its DECISION panel (run one in TERMINAL, the API form or MASS RUN, then open RESULTS). <b>Why this row</b> - which row carries the verdict, each detector&apos;s weight, the lead-lag factors and the weakest premise of the derived hypothesis. <b>How sure</b> - the conformal certificate with its stated coverage, drift against the model&apos;s reference, and the self-critique with its measured flags. <b>Can I contest it</b> - the record replays: the CHALLENGE THIS DECISION button on a result that carries one, <code style="font-family:var(--font-mono);color:var(--mercury-200);">mercury-agent replay</code> offline, or <code style="font-family:var(--font-mono);color:var(--mercury-200);">python examples/auditable_decision.py</code> end to end.</p>',
+    ),
+    (
+        "a result that carries a decision record offers to challenge it",
+        '<button onClick="{{ resNarrate }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+        "padding:5px 10px;background:transparent;color:var(--mercury-200);"
+        'border:1px solid var(--mercury-700);">ASK MERCURY</button>',
+        '<button onClick="{{ resNarrate }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+        "padding:5px 10px;background:transparent;color:var(--mercury-200);"
+        'border:1px solid var(--mercury-700);">ASK MERCURY</button>'
+        '<sc-if value="{{ hasChallenge }}" hint-placeholder-val="{{ false }}">'
+        '<button onClick="{{ resChallenge }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+        "padding:5px 10px;background:transparent;color:var(--brand-gold);"
+        'border:1px solid var(--brand-gold);">CHALLENGE THIS DECISION</button></sc-if>',
     ),
 )
 
@@ -2600,6 +2656,129 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
 )
 
 
+#: The decision panel (three sections: why this row / how sure / the record) and the
+#: decision-trail summary, inserted into the Mass Run summariser beside explText.
+_DECISION_PANEL_MASS = """
+  // A flagship decision, laid out as the three answers an operator needs before acting on a
+  // score: why this row, how sure, and the record they can replay and contest. Every field the
+  // record carries has a row here; tests/api/test_console_decision_complete.py pins that against
+  // decision/record.py and decision/evidence.py, so a field added there fails until it is shown.
+  function decisionRows(d) {
+    const dec = d.decision, kv = [];
+    const c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));
+    const num = (x, n) => (typeof x === "number" && isFinite(x) ? x.toFixed(n == null ? 3 : n) : null);
+    const obj = (x) => (x && typeof x === "object" && !Array.isArray(x) ? x : null);
+    const text = (x) => (x == null ? "" : typeof x === "object" ? JSON.stringify(x) : String(x));
+    const top = (o, n) => Object.entries(o).filter(([, v]) => typeof v === "number" && isFinite(v)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => k + " " + v.toFixed(3)).join(" · ");
+    const proof = (e) => (obj(e) && e.method ? String(e.method) + ", n=" + e.n : "");
+    const sig = obj(dec.signals), mp = sig && obj(sig.model_provenance), cog = sig && obj(sig.cognitive), pol = sig && obj(sig.policy);
+    const nc = cog && obj(cog.novelty_challenge), disc = cog && obj(cog.discovery);
+    kv.push(["decision", dec.disposition || JSON.stringify(dec).slice(0, 80)]);
+    if (dec.state != null) kv.push(["· state", String(dec.state)]);
+    if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);
+
+    // 1. Why this row.
+    kv.push(["1 · WHY THIS ROW", "which row carries the verdict, what each detector weighed, and what moved first"]);
+    const flaggedRows = Array.isArray(d.is_anomaly_rows) ? d.is_anomaly_rows : null;
+    if (Number.isInteger(d.top_row)) kv.push(["· row", "row " + d.top_row + (flaggedRows ? " of " + flaggedRows.length + " carries the verdict (its highest P(anomaly)) · " + flaggedRows.filter(Boolean).length + " row(s) flagged" : " carries the verdict")]);
+    const con = sig && obj(sig.contributions), imp = con && obj(con.detector_importance);
+    if (imp && Object.keys(imp).length) kv.push(["· contributions", top(imp, 5) + " · fusion weight per detector, top 5 of " + Object.keys(imp).length]);
+    if (con && con.integrated_gradients) kv.push(["· attribution", "integrated gradients · " + (explText(con.integrated_gradients) || "").slice(0, 260)]);
+    if (con && con.shapley) kv.push(["· shapley", (explText(con.shapley) || "").slice(0, 260)]);
+    const du = sig && obj(sig.detector_uncertainties);
+    if (du && Object.keys(du).length) kv.push(["· detector uncertainty", top(du, 5) + " · least certain first"]);
+    const skipped = sig && Array.isArray(sig.skipped_detectors) ? sig.skipped_detectors : null, sd = (sig && obj(sig.skipped_detail)) || {};
+    if (skipped && skipped.length) kv.push(["· skipped detectors", skipped.map((k) => k + (obj(sd[k]) && (sd[k].reason || sd[k].detail) ? " (" + c100([sd[k].reason, sd[k].detail].filter(Boolean).join(": ")) + ")" : "")).join(" · ") + " · the probability rests on partial evidence"]);
+    else if (skipped) kv.push(["· skipped detectors", "none" + (Object.keys(sd).length ? " of the trained ones · untrained: " + Object.keys(sd).join(", ") : "")]);
+    const oos = sig && Array.isArray(sig.out_of_support_rows) ? sig.out_of_support_rows : null;
+    if (oos) kv.push(["· out of support", oos.length ? oos.length + " row(s) outside the training envelope, floored at the detector consensus: " + oos.slice(0, 8).join(", ") + (oos.length > 8 ? ", …" : "") : "no row outside the training envelope"]);
+    if (cog && Array.isArray(cog.causal_factors) && cog.causal_factors.length) kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 220)]);
+    // Whether the causal test could be read at all, and how much it tested.
+    if (disc && disc.causal && disc.causal.claim) { const cc = disc.causal.claim; kv.push(["· causal test", cc.assessed === false ? "not assessed: " + c100(cc.not_assessed_because || "") : String(cc.pairs_tested) + " pairs tested, corrected for lags and pairs · " + (Array.isArray(cc.edges) ? cc.edges.length : 0) + " edge(s)"]); }
+    if (cog && obj(cog.hypothesis)) {
+      kv.push(["· hypothesis", String(cog.hypothesis.conclusion || "").slice(0, 170) + (cog.hypothesis.rule ? " · rule " + cog.hypothesis.rule : "") + (typeof cog.hypothesis.confidence === "number" ? " · conf " + cog.hypothesis.confidence.toFixed(2) : "")]);
+      const fz = cog.hypothesis.falsifier;
+      if (fz) kv.push(["· challenge it", "weakest premise: " + String(fz.weakest_step || "").slice(0, 110) + (typeof fz.margin === "number" ? " (margin x" + fz.margin.toFixed(2) + ")" : typeof fz.confidence === "number" ? " (conf " + fz.confidence.toFixed(2) + ")" : "") + (fz.withdrawn_if ? " · withdrawn if " + String(fz.withdrawn_if).slice(0, 70) : "")]);
+    }
+    if (cog && Array.isArray(cog.similar_cases) && cog.similar_cases.length) kv.push(["· similar cases", cog.similar_cases.slice(0, 3).map((x) => c100(text(x))).join(" · ")]);
+    if (cog && Array.isArray(cog.recommendations) && cog.recommendations.length) kv.push(["· recommendations", cog.recommendations.slice(0, 3).map((x) => c100(text(x))).join(" · ")]);
+
+    // 2. How sure.
+    kv.push(["2 · HOW SURE", "the probability against its threshold, the conformal certificate and its coverage, and whether it holds here"]);
+    if (dec.anomaly_prob !== undefined || dec.decision_label !== undefined) kv.push(["· verdict", (num(dec.anomaly_prob) != null ? "P(anomaly) " + num(dec.anomaly_prob) + (num(dec.threshold) != null ? " vs threshold " + num(dec.threshold) : "") : "no probability: nothing was scored") + (sig && typeof sig.is_anomaly === "boolean" ? (sig.is_anomaly ? " · flagged" : " · not flagged") : "") + (dec.decision_label != null ? " · label " + dec.decision_label : " · no label")]);
+    if (num(dec.severity) != null) kv.push(["· severity", num(dec.severity)]);
+    if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);
+    if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);
+    if (typeof dec.decision_confidence === "number") kv.push(["· confidence", dec.decision_confidence.toFixed(3)]);
+    else if (dec.decision_confidence === null) kv.push(["· confidence", "none stated" + (dec.abstained ? ": the decision abstained" : "")]);
+    if (sig) {
+      const mc = mp && obj(mp.conformal), basis = mc ? " · calibrated on " + mc.n_calibration + " held-out points" + (typeof mc.coverage_achieved === "number" ? ", " + (mc.coverage_achieved * 100).toFixed(1) + "% achieved" : "") : "";
+      if (sig.conformal_set_size != null) { const labels = Array.isArray(sig.conformal_labels) ? sig.conformal_labels : [], n = sig.conformal_set_size; kv.push(["· conformal set", "{" + labels.join(", ") + "}" + (n === 0 ? " · empty: no class explains this point at the target coverage" : n === 1 ? " · singleton: one class at the target coverage" : " · ambiguous: " + n + " classes cannot be told apart at the target coverage") + basis]); }
+      else if ("conformal_set_size" in sig) kv.push(["· conformal set", "none: this result carries no conformal certificate"]);
+      if (sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);
+      else if (sig.conformal_regime) kv.push(["· certificate", String(sig.conformal_regime) + (sig.conformal_rows != null ? " · " + sig.conformal_rows + " row(s)" : "")]);
+      if (sig.drift_detected != null) kv.push(["· drift", sig.drift_detected ? "DETECTED · " + String(sig.drift_severity || "severity unknown") + " · the ordinary rows no longer look like the model's reference" : "none detected against the model's reference" + (sig.drift_severity && sig.drift_severity !== "NONE" ? " · " + sig.drift_severity : "")]);
+      else if ("drift_detected" in sig) kv.push(["· drift", "not tested"]);
+      if (num(sig.symbolic_satisfaction) != null) kv.push(["· symbolic agreement", num(sig.symbolic_satisfaction) + " · how far the symbolic rules agree with the verdict"]);
+      else if ("symbolic_satisfaction" in sig) kv.push(["· symbolic agreement", "not evaluated"]);
+      if (num(sig.gosnn_anomaly_prob) != null) kv.push(["· gosnn", "P(anomaly) " + num(sig.gosnn_anomaly_prob) + (num(sig.gosnn_demote_act_below) != null ? " · a positive is demoted below " + num(sig.gosnn_demote_act_below) : "") + (num(sig.gosnn_demote_clear_above) != null ? " · a negative above " + num(sig.gosnn_demote_clear_above) : "")]);
+      else if ("gosnn_anomaly_prob" in sig) kv.push(["· gosnn", "no second opinion on this result"]);
+    }
+    if (cog) kv.push(["· critique", (cog.is_reliable == null ? "reliability unknown" : cog.is_reliable ? "reliable" : "UNRELIABLE") + (typeof cog.confidence === "number" ? " · conf " + cog.confidence.toFixed(2) + (cog.confidence_calibrated === false ? " (uncalibrated)" : cog.confidence_calibrated ? " (calibrated: " + proof(cog.calibration_evidence) + ")" : "") : "") + (cog.epistemic_measured === false ? " · epistemic unmeasured" : cog.epistemic_measured ? " · epistemic " + num(cog.epistemic_uncertainty) + " (" + proof(cog.epistemic_evidence) + ")" : "") + (cog.aleatoric_measured === false ? " · aleatoric unmeasured" : cog.aleatoric_measured ? " · aleatoric " + num(cog.aleatoric_uncertainty) + " (" + proof(cog.aleatoric_evidence) + ")" : "")]);
+    // The novelty verdict with what it rests on: measured or undetermined, the p-value
+    // against its level, and how many reference distances.
+    if (cog && typeof cog.novelty_score === "number") kv.push(["· novelty", cog.novelty_score.toFixed(3) + (cog.novelty_measured === false ? " · verdict undetermined (too few reference observations)" : cog.is_novel ? " · NOVEL" : " · not novel") + (nc && typeof nc.p_value === "number" ? " · p=" + nc.p_value.toFixed(4) + " vs level " + (typeof nc.alpha === "number" ? nc.alpha : "?") : "") + (nc && typeof nc.standardized_distance === "number" && cog.novelty_measured ? " · distance " + nc.standardized_distance.toFixed(2) : "") + (cog.novelty_evidence && cog.novelty_evidence.n != null ? " · ranked among " + cog.novelty_evidence.n + " reference distances" : "")]);
+
+    // 3. The record.
+    kv.push(["3 · THE RECORD", "what was decided, on which model, under which gate and policy, and how to replay and contest it"]);
+    const rsp = obj(dec.response);
+    if (rsp) {
+      kv.push(["· response", String(rsp.action || "?") + (rsp.requires_human ? " · needs a human" : "") + (rsp.urgency != null && rsp.urgency !== "" ? " · urgency " + rsp.urgency : "") + (rsp.notify ? " · notifies" : "") + (rsp.fail_closed ? " · fail-closed" : "")]);
+      (Array.isArray(rsp.countermeasures) ? rsp.countermeasures : []).slice(0, 4).forEach((x, i) => kv.push(["· countermeasure " + (i + 1), c100(x)]));
+      if (rsp.rationale) kv.push(["· rationale", String(rsp.rationale).slice(0, 220)]);
+    }
+    if (mp) kv.push(["· model", String(mp.checkpoint || "?") + (mp.checkpoint_sha256 ? " · sha " + String(mp.checkpoint_sha256).slice(0, 12) : "") + (mp.conformal && mp.conformal.n_calibration != null ? " · conformal n=" + mp.conformal.n_calibration : "") + (num(mp.temperature) != null ? " · temperature " + num(mp.temperature) : "") + (Array.isArray(mp.trained_groups) ? " · " + mp.trained_groups.length + " trained feature groups" : "")]);
+    if (sig && ("ethical_gate_passed" in sig || sig.ethics_report)) {
+      const er = obj(sig.ethics_report), cmp = num(sig.ethical_score) != null && num(sig.ethical_threshold) != null ? " · score " + num(sig.ethical_score) + (sig.ethical_score >= sig.ethical_threshold ? " ≥ " : " < ") + "threshold " + num(sig.ethical_threshold) : num(sig.ethical_score) != null ? " · score " + num(sig.ethical_score) : "";
+      kv.push(["· ethics", (sig.ethical_gate_passed === true ? "gate passed" : sig.ethical_gate_passed === false ? "gate BLOCKED" : "gate not run on this result") + cmp + (er && er.check ? " · check " + er.check : "") + (er && er.ruleset_version ? " · ruleset " + er.ruleset_version : "") + (cog && cog.ethical_permissible != null ? " · critique: " + (cog.ethical_permissible ? "permissible" : "NOT permissible") : "")]);
+      if (er && er.details != null && er.details !== "") kv.push(["· ethics details", text(er.details).slice(0, 220)]);
+    }
+    if (pol) {
+      kv.push(["· policy", "indecision margin " + pol.indecision_margin + " · symbolic agreement floor " + pol.symbolic_agreement_floor + " · critique support floor " + pol.critique_support_confidence_floor + (pol.require_calibrated_for_act ? " · a calibrated certificate is required to act" : " · acts without a certificate only as an uncalibrated fallback")]);
+      kv.push(["· policy gates", [pol.defer_on_drift ? "defers on drift at " + (Array.isArray(pol.drift_defer_severities) ? pol.drift_defer_severities.join("/") : "any severity") : "does not defer on drift", pol.defer_on_gosnn_disagreement ? "defers on GOSNN disagreement" : "ignores GOSNN disagreement", pol.defer_on_unreliable_critique ? "defers on an unreliable critique" : "ignores the critique", pol.fail_closed_on_atypical ? "holds on an empty conformal set" : "does not hold on an empty set", pol.fail_closed_on_ethical_block ? "holds on an ethical block" : "does not hold on an ethical block"].join(" · ")]);
+    }
+    if (dec.domain != null || (sig && sig.domain != null)) kv.push(["· domain", String(dec.domain != null ? dec.domain : sig.domain)]);
+    else if ("domain" in dec) kv.push(["· domain", "none given"]);
+    // The challenge path, visible: which artifacts replay from this record, how to run it,
+    // and why any one cannot be.
+    if (disc) {
+      const kinds = Object.keys(disc).filter((k) => disc[k] && disc[k].digest);
+      if (kinds.length) kv.push(["· replay", kinds.map((k) => k + (disc[k].replayable === "from_record" ? " (from this record)" : " (cannot)")).join(" · ") + " · CHALLENGE THIS DECISION beside this panel, POST /api/v1/detect/flagship/replay, or mercury-agent replay"]);
+      kinds.filter((k) => disc[k].replayable !== "from_record").forEach((k) => kv.push(["· " + k + " not replayable", c100(disc[k].not_replayable_because || "")]));
+    }
+    if (sig) kv.push(["· trail", "churn and abstention rates are measured over the decision trail, not one record: GET /api/v1/detect/flagship/decisions (API form), rendered here when fetched"]);
+    (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));
+    (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));
+    return kv;
+  }
+  // The flagship decision trail's summary (GET /detect/flagship/decisions): counts, rates, churn
+  // and how often the admission bound was reached.
+  function trailRows(d) {
+    const kv = [], pct = (x) => (typeof x === "number" && isFinite(x) ? (x * 100).toFixed(1) + "%" : null), counts = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + " " + v).join(" · ") || "none";
+    kv.push(["decisions", d.recorded === false ? "none recorded: no flagship detection has run on this server yet" : String(d.total) + " in the trail (the most recent, up to 4096)"]);
+    if (d.by_state) kv.push(["· by state", counts(d.by_state)]);
+    if (d.by_disposition) kv.push(["· by disposition", counts(d.by_disposition)]);
+    if (d.by_response_action) kv.push(["· by response", counts(d.by_response_action)]);
+    if (pct(d.abstention_rate) != null) kv.push(["· abstention rate", pct(d.abstention_rate)]);
+    if (pct(d.calibrated_rate) != null) kv.push(["· calibrated rate", pct(d.calibrated_rate)]);
+    if ("churn" in d) kv.push(["· churn", pct(d.churn) != null ? pct(d.churn) + " of consecutive decisions changed disposition" : "not measurable: it needs at least two decisions"]);
+    const a = d.admission && typeof d.admission === "object" ? d.admission : null;
+    if (a) kv.push(["· admission", a.admitted_total + " admitted · " + a.rejected_total + " refused at the queue bound of " + a.max_queue + (pct(a.rejection_rate) != null ? " (" + pct(a.rejection_rate) + ")" : "") + " · " + a.in_flight + " in flight, peak " + a.peak_in_flight]);
+    return kv;
+  }
+"""
+
+
 # The flagship decision surface reaches the operator intact. A flagship
 # response carries a decision record (state, disposition, abstention,
 # calibration, coverage, reasons, caveats), a ``detector_importance`` map, an
@@ -2661,71 +2840,40 @@ MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + 
         'else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);',
     ),
     (
-        "the decision record renders whole: state, abstention, calibration, coverage, confidence, "
-        "response, provenance, certificate regime, critique, the discovery artifacts with their "
-        "challenge and replay path, reasons, caveats; and a replay's verdict renders",
+        "the decision-panel and trail-summary formatters ride beside the summariser",
+        "  function summarize(data) {",
+        _DECISION_PANEL_MASS + "  function summarize(data) {",
+    ),
+    (
+        "per-row flagship scores feed the summary and the charts (anomaly_probs)",
+        "const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => "
+        'typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? '
+        "d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value))"
+        '.filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null);',
+        "const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => "
+        'typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? '
+        "d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value))"
+        '.filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null) '
+        "|| arr(d.anomaly_probs);",
+    ),
+    (
+        "per-row flagship flags feed the summary: a flagship headline is k of N flagged",
+        "const flags = arr(d.anomalies) || arr(d.is_anomaly) || arr(d.flags) || (scores && typeof "
+        'd.threshold === "number" ? scores.map((s) => s >= d.threshold) : null);',
+        "const flags = arr(d.anomalies) || arr(d.is_anomaly) || arr(d.is_anomaly_rows) || "
+        'arr(d.flags) || (scores && typeof d.threshold === "number" ? '
+        "scores.map((s) => s >= d.threshold) : null);",
+    ),
+    (
+        "the decision record renders whole, in the three sections an operator asks in (why this "
+        "row, how sure, the record); the flagship decision-trail summary renders its rates, churn "
+        "and admission counters; and a replay response renders its per-artifact verdicts",
         'if (d.decision && typeof d.decision === "object") kv.push(["decision", d.decision.disposition '
         "|| JSON.stringify(d.decision).slice(0, 80)]);",
-        'if (d.decision && typeof d.decision === "object") {\n'
-        '      const dec = d.decision, c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));\n'
-        '      kv.push(["decision", dec.disposition || JSON.stringify(dec).slice(0, 80)]);\n'
-        '      if (dec.state != null) kv.push(["· state", String(dec.state)]);\n'
-        '      if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);\n'
-        '      if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);\n'
-        '      if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);\n'
-        '      if (typeof dec.decision_confidence === "number") kv.push(["· confidence", dec.decision_confidence.toFixed(3)]);\n'
-        '      if (dec.response && typeof dec.response === "object") kv.push(["· response", String(dec.response.action || "?") + '
-        '(dec.response.requires_human ? " · needs a human" : "") + (typeof dec.response.urgency === "number" ? " · urgency " + dec.response.urgency : "")]);\n'
-        '      const sig = dec.signals && typeof dec.signals === "object" ? dec.signals : null, mp = sig && sig.model_provenance;\n'
-        '      if (mp && typeof mp === "object") kv.push(["· model", String(mp.checkpoint || "?") + '
-        '(mp.checkpoint_sha256 ? " · sha " + String(mp.checkpoint_sha256).slice(0, 12) : "") + '
-        '(mp.conformal && mp.conformal.n_calibration != null ? " · conformal n=" + mp.conformal.n_calibration : "")]);\n'
-        '      if (sig && sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) '
-        'kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);\n'
-        "      const cog = sig && sig.cognitive;\n"
-        '      if (cog && typeof cog === "object") kv.push(["· critique", (cog.is_reliable == null ? "reliability unknown" : '
-        'cog.is_reliable ? "reliable" : "UNRELIABLE") + (typeof cog.confidence === "number" ? " · conf " + cog.confidence.toFixed(2) + '
-        '(cog.confidence_calibrated === false ? " (uncalibrated)" : "") : "") + '
-        '(cog.epistemic_measured === false ? " · epistemic unmeasured" : "") + '
-        '(cog.aleatoric_measured === false ? " · aleatoric unmeasured" : "")]);\n'
-        "      const nc = cog && cog.novelty_challenge, "
-        'disc = cog && cog.discovery && typeof cog.discovery === "object" ? cog.discovery : null;\n'
-        # The novelty verdict with what it rests on: measured or undetermined,
-        # the p-value against its level, and how many reference distances.
-        '      if (cog && typeof cog.novelty_score === "number") kv.push(["· novelty", '
-        'cog.novelty_score.toFixed(3) + (cog.novelty_measured === false ? " · verdict undetermined '
-        '(too few reference observations)" : cog.is_novel ? " · NOVEL" : " · not novel") + '
-        '(nc && typeof nc.p_value === "number" ? " · p=" + nc.p_value.toFixed(4) + " vs level " + '
-        '(typeof nc.alpha === "number" ? nc.alpha : "?") : "") + '
-        "(cog.novelty_evidence && cog.novelty_evidence.n != null ? "
-        '" · ranked among " + cog.novelty_evidence.n + " reference distances" : "")]);\n'
-        "      if (cog && Array.isArray(cog.causal_factors) && cog.causal_factors.length) "
-        'kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 220)]);\n'
-        # Whether the causal test could be read at all, and how much it tested.
-        "      if (disc && disc.causal && disc.causal.claim) { const cc = disc.causal.claim; "
-        'kv.push(["· causal test", cc.assessed === false ? "not assessed: " + '
-        'c100(cc.not_assessed_because || "") : String(cc.pairs_tested) + " pairs tested, corrected '
-        'for lags and pairs · " + (Array.isArray(cc.edges) ? cc.edges.length : 0) + " edge(s)"]); }\n'
-        '      if (cog && cog.hypothesis && typeof cog.hypothesis === "object") { '
-        'kv.push(["· hypothesis", String(cog.hypothesis.conclusion || "").slice(0, 170) + '
-        '(typeof cog.hypothesis.confidence === "number" ? " · conf " + cog.hypothesis.confidence.toFixed(2) : "")]); '
-        "const fz = cog.hypothesis.falsifier; "
-        'if (fz) kv.push(["· challenge it", "weakest premise: " + '
-        'String(fz.weakest_step || "").slice(0, 110) + '
-        '(typeof fz.margin === "number" ? " (margin x" + fz.margin.toFixed(2) + ")" : '
-        'typeof fz.confidence === "number" ? " (conf " + fz.confidence.toFixed(2) + ")" : "") + '
-        '(fz.withdrawn_if ? " · withdrawn if " + String(fz.withdrawn_if).slice(0, 70) : "")]); }\n'
-        # The challenge path, visible: which artifacts replay from this record,
-        # how to run it, and why any one cannot be.
-        "      if (disc) { const kinds = Object.keys(disc).filter((k) => disc[k] && disc[k].digest); "
-        'if (kinds.length) kv.push(["· replay", kinds.map((k) => k + '
-        '(disc[k].replayable === "from_record" ? " (from this record)" : " (cannot)")).join(" · ") + '
-        '" · POST /api/v1/detect/flagship/replay, or mercury-agent replay"]); '
-        'kinds.filter((k) => disc[k].replayable !== "from_record").forEach((k) => '
-        'kv.push(["· " + k + " not replayable", c100(disc[k].not_replayable_because || "")])); }\n'
-        '      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));\n'
-        '      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));\n'
-        "    }\n"
+        'if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));\n'
+        '    if (d.admission && typeof d.admission === "object" && "total" in d) { if (!headline) '
+        'headline = d.recorded === false ? "no decisions recorded on this server yet" : d.total + '
+        '" decision(s) in the trail"; trailRows(d).forEach((row) => kv.push(row)); }\n'
         '    if (Array.isArray(d.replay) && typeof d.verdict === "string") {\n'
         '      kv.push(["replay", d.verdict + " · " + d.replay.length + " artifact(s)"]);\n'
         '      d.replay.forEach((r) => { if (r && typeof r === "object") kv.push(["· " + String(r.kind), '
@@ -2742,6 +2890,16 @@ MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + 
 )
 
 MODULE_PATCHES["mercury-cli-viz.js"] = MODULE_PATCHES["mercury-cli-viz.js"] + (
+    (
+        "flagship per-row scores feed the charts (anomaly_probs beside anomaly_prob)",
+        "const scoresOf = (d) => arr(d.scores) || arr(d.anomaly_prob) ||",
+        "const scoresOf = (d) => arr(d.scores) || arr(d.anomaly_prob) || arr(d.anomaly_probs) ||",
+    ),
+    (
+        "flagship per-row flags feed the charts (is_anomaly_rows)",
+        "const flagsOf = (d) => arr(d.anomalies) || arr(d.is_anomaly) ||",
+        "const flagsOf = (d) => arr(d.anomalies) || arr(d.is_anomaly) || arr(d.is_anomaly_rows) ||",
+    ),
     (
         "the contribution chart reads detector_importance (the flagship response's map)",
         "function contrib(d) { return barsFrom(d.detector_contributions || d.detector_scores || "
@@ -2798,6 +2956,23 @@ MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
 
 LOGIC_PATCHES = LOGIC_PATCHES + (
     (
+        "a result that carries a decision record offers CHALLENGE THIS DECISION",
+        "resNarrate: () => this.narrateData(cur.data, cur.label), resReq:",
+        "resChallenge: () => this.challengeDecision(cur), "
+        "hasChallenge: !!this.challengeArtifacts(cur.data), "
+        "resNarrate: () => this.narrateData(cur.data, cur.label), resReq:",
+    ),
+    (
+        "the challenge action's defaults",
+        "resNarrate: noop, resReq: noop,",
+        "resNarrate: noop, resChallenge: noop, hasChallenge: false, resReq: noop,",
+    ),
+    (
+        "the challenge method: replay the record's discovery artifacts through the engine",
+        "  massCaps() {",
+        _CHALLENGE_LOGIC + "  massCaps() {",
+    ),
+    (
         "a 403 renders the server's refusal (detail plus any ethics fields), not the API-key advice",
         'if (r.kind === "auth") rows.push(Object.assign(this.row("▸ Create an API key in the account '
         'dashboard (" + (this.A.cfg.baseUrl || "") + "/dashboard) and add it under the connection '
@@ -2836,6 +3011,10 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         'rows.push(this.row("    reason · " + c100(x), "var(--fg-2)")));\n'
         "      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x) => "
         'rows.push(this.row("    caveat · " + c100(x), "var(--fg-3)")));\n'
+        '      if (this.challengeArtifacts(d)) rows.push(Object.assign(this.row("▸ Challenge '
+        "this decision: replay its recorded findings (novelty, causal, hypothesis) from the "
+        'record", "var(--mercury-200)"), { act: () => this.challengeDecision({ label: '
+        '"terminal run", data: d }) }));\n'
         "    }",
     ),
     (
