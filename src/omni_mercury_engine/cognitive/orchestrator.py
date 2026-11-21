@@ -425,11 +425,18 @@ class CognitiveOrchestrator(LoggerMixin):
         anomaly_prob = anomaly_score
         severity = detection_result.get("severity", 0.0)
 
-        # Initialize result
+        # Initialize result. Nothing has been estimated yet, so nothing is
+        # measured: the uncertainty step sets these flags from what it
+        # actually did. A path that skips that step (no ``raw_data``) used to
+        # keep the dataclass defaults and report both uncertainties as 0.0
+        # *and measured* -- a placeholder presented as a measurement, which
+        # the decision layer then counted as a measured critique.
         result = CognitiveAnalysisResult(
             anomaly_detected=anomaly_detected,
             anomaly_score=anomaly_score,
             severity=severity,
+            epistemic_measured=False,
+            aleatoric_measured=False,
         )
         symbolic_consistency = context.get("symbolic_consistency")
         if isinstance(symbolic_consistency, dict):
