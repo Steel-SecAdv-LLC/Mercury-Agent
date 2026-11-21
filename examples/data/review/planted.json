@@ -22,40 +22,36 @@
   },
   "sample_image.png": {
     "kind": "image",
-    "bytes": 111801,
+    "bytes": 206067,
     "reference": {
-      "seed": 55,
+      "seed": 49,
       "index": 1,
       "split": "evaluation"
     },
-    "planted": "other_texture",
+    "planted": "regrain",
     "planted_at": [
       [
-        45,
-        117,
-        147,
-        54
+        78,
+        303,
+        119,
+        100
       ]
     ],
     "units": "pixels [x, y, width, height]"
   },
   "sample_recording.wav": {
     "kind": "audio",
-    "bytes": 500216,
+    "bytes": 494348,
     "reference": {
-      "seed": 40,
-      "index": 5,
+      "seed": 58,
+      "index": 3,
       "split": "evaluation"
     },
-    "planted": "overdrive+other_voice",
+    "planted": "overdrive",
     "planted_at": [
       [
-        13.24,
-        13.93
-      ],
-      [
-        8.22,
-        9.54
+        5.41,
+        6.89
       ]
     ],
     "units": "seconds"

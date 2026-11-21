@@ -192,6 +192,10 @@ def review_segments(
         The detection result (with its ``decision`` record) plus the per-segment
         description under ``review``.
     """
+    # The standardized rows say which segment is unlike the rest; the raw
+    # levels they were standardized away from say what kind of artifact this
+    # is, which is what the family test of a checkpoint fitted with them reads.
+    detect.setdefault("batch_descriptor", segmented.levels)
     result: dict[str, Any] = engine.detect_with_fusion(segmented.matrix, **detect)
     result["review"] = _describe(segmented, result)
     return result
@@ -256,24 +260,61 @@ def _measure(decoded: Decoded, filename: str | None) -> Segmented:
     return extract(decoded)
 
 
-def _gate_summary(decoded: Decoded, filename: str | None) -> dict[str, Any]:
-    """What the gate read on the way in, stated with the result.
+#: What the harm-uplift gate cannot see in each kind of upload.  The gate reads
+#: text.  A document's text is extracted and read; an image is pixels and a
+#: recording is samples, and nothing here turns either into words.
+_NOT_INSPECTED = {
+    DOCUMENT: (
+        "images embedded in the document or any text the decoder could not extract "
+        "(scanned pages, text drawn as graphics)"
+    ),
+    IMAGE: (
+        "what the image shows or any words in it (pixels are measured as numbers, "
+        "never recognised or read)"
+    ),
+    AUDIO: (
+        "speech or any other sound in the recording (samples are measured as "
+        "numbers, never transcribed)"
+    ),
+}
 
-    Pixels and samples are numbers: words inside an image or spoken in a
-    recording are not read, and the summary says so.
+
+def _gate_summary(decoded: Decoded, filename: str | None) -> dict[str, Any]:
+    """What the gate read on the way in, and what it could not, stated with the result.
+
+    ``passed`` means the gate found nothing to refuse in what it read.  For an
+    image or a recording that is the upload's name alone, so the summary says
+    in as many words that the content was not inspected, and
+    ``content_inspected`` is ``False``.  ``statement`` is the sentence the
+    decision record carries as its ``harm gate scope`` caveat.
     """
+    text_chars, name_chars = len(decoded.text or ""), len(filename or "")
+    if decoded.kind == DOCUMENT:
+        read = "the document's text and the upload's name"
+        saw = f"this document's extracted text ({text_chars:,} characters)" + (
+            " and the upload's name" if name_chars else " (the upload came without a name)"
+        )
+    elif name_chars:
+        read = (
+            f"the upload's name (the {decoded.kind}'s content is numeric; words in it "
+            "are not read)"
+        )
+        saw = "the upload's name only"
+    else:
+        read = (
+            f"nothing (the upload came without a name, and the {decoded.kind}'s content "
+            "is numeric; words in it are not read)"
+        )
+        saw = "nothing: the upload came without a name"
+    not_inspected = _NOT_INSPECTED[decoded.kind]
     return {
         "check": "harm_uplift",
         "passed": True,
-        "characters_read": len(decoded.text or "") + len(filename or ""),
-        "read": (
-            "the document's text and the upload's name"
-            if decoded.kind == DOCUMENT
-            else (
-                f"the upload's name (the {decoded.kind}'s content is numeric; words in it "
-                "are not read)"
-            )
-        ),
+        "characters_read": text_chars + name_chars,
+        "read": read,
+        "content_inspected": decoded.kind == DOCUMENT,
+        "not_inspected": not_inspected,
+        "statement": f"the harm-uplift gate read {saw}; it did not inspect {not_inspected}",
     }
 
 
@@ -331,7 +372,10 @@ def review_prepared(prepared: Prepared, engine: OmniMercuryEngine) -> dict[str, 
         EthicalConstraintViolationError: When an engine gate refuses.
     """
     segmented = prepared.segmented
-    result = review_segments(segmented, engine)
+    # The record itself says what the gate read and what it could not.
+    result = review_segments(
+        segmented, engine, harm_gate_scope=str(prepared.harm_gate.get("statement") or "")
+    )
     scope = (result.get("model_provenance") or {}).get("certificate_scope")
     result["review"] = {
         "schema": SCHEMA,

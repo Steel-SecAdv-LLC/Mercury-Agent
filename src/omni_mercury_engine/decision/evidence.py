@@ -52,6 +52,9 @@ from omni_mercury_engine.measurement import MeasurementEvidence
 #: the strongest features, never the raw full explanation.
 _MAX_CONTRIBUTION_ENTRIES = 16
 
+#: Longest harm-gate scope statement a record carries (it is one sentence).
+_MAX_GATE_SCOPE_CHARS = 400
+
 
 def _as_float(value: Any) -> float | None:
     """Best-effort scalar coercion; ``None`` when not a finite scalar."""
@@ -449,6 +452,15 @@ class Evidence:
             probability (checkpoint name/sha256, temperature, conformal
             coverage, trained groups) -- the result's ``model_provenance``
             mapping, or ``None`` when the result carried none.
+        harm_gate_scope: What the harm-uplift gate upstream of this decision
+            read of the caller's input, and what it did not, in one sentence
+            -- the result's ``harm_gate_scope`` (the artifact-review path
+            sets it: a document's extracted text and name are read, an
+            image's pixels and a recording's speech are not).  ``None`` when
+            the result states none.  It is a statement about what was
+            inspected, not a signal about the data: it appears on the record
+            as a caveat and takes no part in the verdict, so
+            :meth:`to_dict` does not list it among the signals.
         cognitive: Bounded self-critique summary of the orchestrator's
             ``cognitive_analysis`` (reliability, calibrated confidence, the
             measured uncertainties, historical analogs and recommended
@@ -488,6 +500,7 @@ class Evidence:
     detector_uncertainties: Mapping[str, float] = field(default_factory=dict)
     out_of_support_rows: tuple[int, ...] = ()
     model_provenance: Mapping[str, Any] | None = None
+    harm_gate_scope: str | None = None
     contributions: Mapping[str, Any] | None = None
     cognitive: Mapping[str, Any] | None = None
 
@@ -655,6 +668,15 @@ class Evidence:
             else None
         )
 
+        # What an upstream harm gate read, as the result states it: one
+        # bounded line of text, or nothing.
+        raw_scope = result.get("harm_gate_scope")
+        harm_gate_scope = (
+            " ".join(raw_scope.split())[:_MAX_GATE_SCOPE_CHARS]
+            if isinstance(raw_scope, str) and raw_scope.strip()
+            else None
+        )
+
         # Bounded causal-contribution summary (always three keys; a source
         # absent this run reads None).  ``detector_importance`` rides every
         # fusion result; the IG and Shapley summaries only exist when the
@@ -690,6 +712,7 @@ class Evidence:
             detector_uncertainties=detector_uncertainties,
             out_of_support_rows=_as_int_tuple(result.get("out_of_support_rows")) or (),
             model_provenance=model_provenance,
+            harm_gate_scope=harm_gate_scope,
             contributions=contributions,
             cognitive=_cognitive_summary(result.get("cognitive_analysis")),
         )

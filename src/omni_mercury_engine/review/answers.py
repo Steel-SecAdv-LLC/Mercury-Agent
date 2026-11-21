@@ -173,7 +173,8 @@ def _the_record(result: dict[str, Any]) -> dict[str, Any]:
     )
     sentences.append(
         f"Before anything was measured the harm-uplift gate read {harm_gate.get('read')} "
-        f"({harm_gate.get('characters_read')} characters) and permitted the review"
+        f"({harm_gate.get('characters_read')} characters) and permitted the review. It did "
+        f"not inspect {harm_gate.get('not_inspected')}, and the record says so"
         + (
             f"; the engine's ethical gate {'passed' if gate else 'BLOCKED'} (score {score:.3f} "
             f"against a floor of {floor:.3f})."

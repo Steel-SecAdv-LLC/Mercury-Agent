@@ -466,14 +466,14 @@
           "calibration_batches": 80
         },
         "review_coverage_clean": {
-          "document": 0.98,
-          "image": 0.8933333333333333,
-          "audio": 0.8533333333333334
+          "document": 0.7733333333333333,
+          "image": 0.9533333333333334,
+          "audio": 0.96
         },
         "review_coverage_spliced": {
-          "document": 0.86,
-          "image": 0.92,
-          "audio": 0.9266666666666666
+          "document": 0.9133333333333333,
+          "image": 0.9,
+          "audio": 0.8666666666666667
         },
         "target_coverage": 0.9,
         "scope": "exchangeability is over batches drawn like the calibration batches; the certificate says whether a batch contains an anomaly, not which rows are anomalous"
@@ -489,34 +489,37 @@
         "harness": "research/review/harness_artifact_review.py (deferrals on held-out reference artifacts, and outcomes on artifacts unlike the family); tests/test_fusion_batch_certificate.py",
         "artifact": "artifacts/artifact_review.json",
         "in_family_deferrals_of_300": {
-          "document": 23,
-          "image": 20,
-          "audio": 9
+          "document": 16,
+          "image": 9,
+          "audio": 11
         },
         "unlike_the_family": {
           "document": {
             "artifacts": 17,
-            "abstained": 3,
-            "grounded_clear": 13,
-            "grounded_anomalous": 1,
-            "not_reviewable": 0
+            "abstained": 17,
+            "grounded_clear": 0,
+            "grounded_anomalous": 0,
+            "not_reviewable": 0,
+            "refused_by_gate": 0
           },
           "image": {
             "artifacts": 7,
             "abstained": 7,
             "grounded_clear": 0,
             "grounded_anomalous": 0,
-            "not_reviewable": 0
+            "not_reviewable": 0,
+            "refused_by_gate": 0
           },
           "audio": {
             "artifacts": 24,
-            "abstained": 17,
-            "grounded_clear": 1,
-            "grounded_anomalous": 6,
-            "not_reviewable": 0
+            "abstained": 24,
+            "grounded_clear": 0,
+            "grounded_anomalous": 0,
+            "not_reviewable": 0,
+            "refused_by_gate": 0
           }
         },
-        "scope": "it sees a batch whose overall shape or score level differs from the calibration batches; it does not see everything unlike them",
+        "scope": "two arms at one level (Bonferroni): the batch's standardized shape ranked among the calibration batches, and its raw feature levels (the descriptor self-standardization removes) ranked among theirs; a described family never claims a batch that arrives without a descriptor",
         "not_measured": "its power against any family other than the three tried here (Python source as documents, repository figures as images, generated chords as recordings)"
       },
       "why_adopted_with_a_bar_unmet": "No bar was set for the share of out-of-family artifacts it must defer, and on documents it defers few (3 of 17 Python source files). It is adopted because without it nothing asks the question at all; the measured outcomes are published, and this is not a claim that an out-of-family upload is reliably deferred.",
@@ -537,7 +540,7 @@
         },
         "bars_met": {
           "document": {
-            "coverage_per_class": true,
+            "coverage_per_class": false,
             "grounded_wrong": false,
             "row_auroc": true
           },
@@ -558,34 +561,34 @@
           "audio": true
         },
         "spliced_found": {
-          "document": 0.64,
-          "image": 0.7933333333333333,
-          "audio": 0.8666666666666667
+          "document": 0.49333333333333335,
+          "image": 0.84,
+          "audio": 0.8333333333333334
         },
         "spliced_called_clear": {
-          "document": 0.13333333333333333,
-          "image": 0.06,
-          "audio": 0.006666666666666667
+          "document": 0.07333333333333333,
+          "image": 0.1,
+          "audio": 0.013333333333333334
         },
         "clean_called_anomalous": {
-          "document": 0.02,
-          "image": 0.08666666666666667,
-          "audio": 0.02666666666666667
+          "document": 0.22666666666666666,
+          "image": 0.04666666666666667,
+          "audio": 0.006666666666666667
         },
         "abstained": {
-          "document": 0.38,
-          "image": 0.08666666666666667,
-          "audio": 0.12333333333333334
+          "document": 0.23,
+          "image": 0.04,
+          "audio": 0.10333333333333333
         },
         "row_auroc": {
-          "document": 0.867571995334094,
-          "image": 0.9878909192778533,
-          "audio": 0.967884217546783
+          "document": 0.8686229736791815,
+          "image": 0.9844807699654858,
+          "audio": 0.9588824088401506
         },
         "scope": "procedural reference artifacts with procedurally inserted material: how well internal inconsistency of those kinds is found",
         "not_measured": "real-world tampering, and real-world documents, photographs and speech. No labelled corpus of those is in the repository, and none is claimed."
       },
-      "why_adopted_with_a_bar_unmet": "The document checkpoint misses the wrong-decision bar: 13.3% of spliced documents are called clear against a bar of 12%, and more than half of clean documents are abstained on. It ships because the alternative is no document review at all and because the miss is stated where it is used: in the README table, in this entry, and in the certificate scope every record repeats. This is not a claim that the bar was cleared.",
+      "why_adopted_with_a_bar_unmet": "Re-measured 2026-11-21 after the checkpoints were retrained with the certificate family described by each calibration artifact's raw feature levels and the training draw selected on the trainer's validation draw (scripts/train_review_checkpoints.SEED_CANDIDATES). The first measurement's unmet bar -- 13.3% of spliced documents called clear, bar 12% -- is now met at 7.3%. What the document kind misses now is the clean side, measured and kept visible rather than tuned away: 77.3% clean coverage (floor 85%) and 22.7% of clean documents called anomalous, because this repository's documentation prose carries numeric-dense passages that are, truly, unlike the rest of their document (the top clean segment's dominant feature is digit_share or sentence_length in most cases, standardized at |z| 9-10). A flag remains a pointer to read, not a finding of tampering; the checkpoint's scope statement, the README table and every DecisionRecord's certificate-scope caveat say so. Adopted with that miss recorded, not a claim that the bar was cleared.",
       "rollback": "delete the checkpoint for a kind: its reviews then answer 503 (ReviewError) instead of deciding; python -m scripts.train_review_checkpoints --kind <kind> rebuilds one."
     }
   ]

@@ -198,6 +198,132 @@ class TestTheBatchFamily:
         assert drift.get("reference_source") != "calibration_batches:batch_family"
 
 
+class TestTheFamilyCanBeDescribed:
+    """What a batch is as a whole, when its rows no longer say.
+
+    Rows standardized within their own batch look alike whatever the batch was
+    made of. A caller that knows more (the raw levels the standardization
+    removed) gives it per calibration batch, and the family test ranks a
+    served batch's descriptor among them as well.
+    """
+
+    @staticmethod
+    def _described(seed: int = 11) -> tuple[OmniMercuryEngine, _Batches, np.random.Generator]:
+        engine, batches, rng = _bundled(), _Batches(), np.random.default_rng(seed)
+        calibration, labels = batches.many(N_CALIBRATION)
+        engine.calibrate_fusion_conformal_batches(
+            calibration,
+            labels,
+            descriptors=[rng.normal(size=4) for _ in calibration],
+            descriptor_names=["a", "b", "c", "d"],
+        )
+        return engine, batches, rng
+
+    def test_a_batch_described_like_the_family_is_ranked_on_both_arms(self) -> None:
+        engine, batches, rng = self._described()
+        alarms = []
+        for _ in range(40):
+            drift = engine.detect_with_fusion(batches.one(0), batch_descriptor=rng.normal(size=4))[
+                "drift_detection"
+            ]
+            assert drift["status"] == "tested"
+            smaller = min(drift["shape_p_value"], drift["descriptor_p_value"])
+            assert drift["p_value"] == pytest.approx(min(1.0, 2.0 * smaller))
+            alarms.append(drift["is_drift"])
+        assert float(np.mean(alarms)) <= 0.2  # level 0.05 over the two arms; 40 draws
+
+    def test_ordinary_rows_with_a_foreign_descriptor_defer_the_decision(self) -> None:
+        engine, batches, _ = self._described()
+        batch = batches.one(0)
+        ordinary = engine.detect_with_fusion(batch, batch_descriptor=np.zeros(4))
+        foreign = engine.detect_with_fusion(batch, batch_descriptor=np.full(4, 25.0))
+        assert ordinary["drift_detection"]["is_drift"] is False
+        drift = foreign["drift_detection"]
+        # The rows are the same rows, so the summary arm sees nothing; the
+        # descriptor alone says this batch is something else.
+        assert drift["shape_p_value"] == ordinary["drift_detection"]["shape_p_value"]
+        assert drift["descriptor_p_value"] <= 0.025
+        assert drift["is_drift"] is True and drift["severity"] == "HIGH"
+        assert "not one of the family" in drift["message"]
+        assert foreign["decision"]["abstained"] is True
+        assert any("drift" in reason for reason in foreign["decision"]["reasons"])
+
+    @pytest.mark.parametrize(
+        ("descriptor", "said"),
+        [
+            (None, "without any"),
+            (np.zeros(3), "do not match"),
+            (np.array([0.0, np.nan, 0.0, 0.0]), "do not match"),
+        ],
+    )
+    def test_a_described_family_does_not_claim_a_batch_it_cannot_rank(
+        self, descriptor: np.ndarray[Any, Any] | None, said: str
+    ) -> None:
+        engine, batches, _ = self._described()
+        result = engine.detect_with_fusion(batches.one(0), batch_descriptor=descriptor)
+        drift = result["drift_detection"]
+        assert drift["status"] == "tested"
+        assert drift["is_drift"] is True and drift["severity"] == "HIGH"
+        assert drift["p_value"] is None
+        assert said in drift["message"]
+        assert result["decision"]["abstained"] is True
+
+    def test_a_family_without_descriptors_is_tested_as_before(
+        self, measured: dict[str, Any]
+    ) -> None:
+        engine = measured["engine"]
+        assert "descriptors" not in engine._fusion_batch_family
+        plain = engine.detect_with_fusion(measured["clean"])["drift_detection"]
+        given = engine.detect_with_fusion(measured["clean"], batch_descriptor=np.full(4, 25.0))[
+            "drift_detection"
+        ]
+        assert given == plain
+        assert "descriptor_p_value" not in plain
+
+    def test_descriptors_round_trip_with_the_checkpoint(self, tmp_path: Path) -> None:
+        engine, batches, _ = self._described()
+        path = str(tmp_path / "described.pt")
+        engine.save_model(path)
+        loaded = OmniMercuryEngine(mode="fusion", device="cpu")
+        loaded.load_model(path)
+        family = loaded._fusion_batch_family
+        assert family == engine._fusion_batch_family and family is not None
+        assert family["descriptors"]["names"] == ["a", "b", "c", "d"]
+        batch = batches.one(0)
+        before = engine.detect_with_fusion(batch, batch_descriptor=np.full(4, 25.0))
+        after = loaded.detect_with_fusion(batch, batch_descriptor=np.full(4, 25.0))
+        assert after["drift_detection"]["p_value"] == before["drift_detection"]["p_value"]
+        assert after["drift_detection"]["is_drift"] is True
+
+    @pytest.mark.parametrize(
+        ("build", "message"),
+        [
+            (lambda n: [np.zeros(4)] * (n - 1), "one vector per batch"),
+            (lambda n: [np.full(4, np.inf)] * n, "must be finite"),
+        ],
+    )
+    def test_descriptors_must_be_one_finite_vector_per_batch(
+        self, build: Any, message: str
+    ) -> None:
+        engine = _bundled()
+        calibration, labels = _Batches().many(N_CALIBRATION)
+        with pytest.raises(ValueError, match=message):
+            engine.calibrate_fusion_conformal_batches(
+                calibration, labels, descriptors=build(len(calibration))
+            )
+
+    def test_descriptor_names_must_match_the_descriptor(self) -> None:
+        engine = _bundled()
+        calibration, labels = _Batches().many(N_CALIBRATION)
+        with pytest.raises(ValueError, match="descriptor names"):
+            engine.calibrate_fusion_conformal_batches(
+                calibration,
+                labels,
+                descriptors=[np.zeros(4) + i for i in range(len(calibration))],
+                descriptor_names=["only", "three", "names"],
+            )
+
+
 class TestTheRegimeIsPartOfTheCheckpoint:
     def test_it_round_trips_with_the_family(self, measured: dict[str, Any], tmp_path: Path) -> None:
         path = str(tmp_path / "batch.pt")

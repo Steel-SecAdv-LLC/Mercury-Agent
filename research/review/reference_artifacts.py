@@ -33,6 +33,7 @@ that reports those numbers says so.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import re
@@ -69,6 +70,11 @@ class Reference:
         extents: Where: ``(start, end)`` character spans, a boolean pixel mask,
             or ``(start, end)`` second spans.
         recipe: What was inserted (``clean`` when nothing was).
+        source: What the artifact's own material was drawn from (a document's
+            prose file; empty for generated images and recordings).  Artifacts
+            of one source resemble each other more than artifacts of
+            different sources do, which is what a family test has to allow
+            for.
     """
 
     kind: str
@@ -76,6 +82,7 @@ class Reference:
     spliced: bool
     extents: Any
     recipe: str
+    source: str = ""
 
 
 # --------------------------------------------------------------------------- #
@@ -104,6 +111,29 @@ def prose_files(split: str) -> list[Path]:
     # source, so the certificate needs as many sources as can be spared.
     wanted = {"train": (0,), "calibration": (1, 2), "evaluation": (3,)}[split]
     return [path for position, path in enumerate(files) if position % 4 in wanted]
+
+
+def corpus_digest() -> dict[str, str]:
+    """A SHA-256 of the running prose each split draws its documents from.
+
+    Reference documents are cut from this repository's own documentation, so
+    they change when that documentation does: a checkpoint trained before an
+    edit and a measurement taken after it describe different documents.  The
+    trainer writes this into the document checkpoint's provenance and the
+    harness into its artifact, so whether the two describe the same corpus is
+    a recorded fact, not an assumption.
+
+    Returns:
+        ``{"train": ..., "calibration": ..., "evaluation": ...}``, hex digests.
+    """
+    digests = {}
+    for split in ("train", "calibration", "evaluation"):
+        hasher = hashlib.sha256()
+        for path in prose_files(split):
+            hasher.update(str(path.relative_to(REPO)).encode("utf-8") + b"\x00")
+            hasher.update(" ".join(_prose(path)).encode("utf-8") + b"\x00")
+        digests[split] = hasher.hexdigest()
+    return digests
 
 
 def _code_files() -> list[Path]:
@@ -173,9 +203,12 @@ def documents(count: int, seed: int, split: str) -> Iterator[Reference]:
         The documents.
     """
     rng = np.random.default_rng(seed)
-    pool = [words for words in (_prose(path) for path in prose_files(split)) if len(words) > 800]
+    named = [(path, _prose(path)) for path in prose_files(split)]
+    names = [str(path.relative_to(REPO)) for path, words in named if len(words) > 800]
+    pool = [words for _, words in named if len(words) > 800]
     for number in range(count):
-        source = pool[int(rng.integers(0, len(pool)))]
+        chosen = int(rng.integers(0, len(pool)))
+        source = pool[chosen]
         length = int(rng.integers(1500, 6000))
         start = int(rng.integers(0, max(1, len(source) - length)))
         body = source[start : start + length]
@@ -202,6 +235,7 @@ def documents(count: int, seed: int, split: str) -> Iterator[Reference]:
             spliced,
             extents,
             "+".join(recipes) or "clean",
+            names[chosen],
         )
 
 
@@ -437,7 +471,7 @@ def to_bytes(reference: Reference) -> tuple[bytes, str]:
 #: extents are written beside the samples).  They are examples to run, chosen
 #: to be small and to show a grounded decision; they are not a measurement
 #: (``research/review/harness_artifact_review.py`` is).
-SAMPLES: dict[str, tuple[int, int]] = {DOCUMENT: (47, 3), IMAGE: (55, 1), AUDIO: (40, 5)}
+SAMPLES: dict[str, tuple[int, int]] = {DOCUMENT: (47, 3), IMAGE: (49, 1), AUDIO: (58, 3)}
 SAMPLE_NAMES = {
     DOCUMENT: "sample_document.txt",
     IMAGE: "sample_image.png",

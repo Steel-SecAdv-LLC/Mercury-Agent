@@ -4398,6 +4398,9 @@ class OmniMercuryEngine(LoggerMixin):
         batches: Sequence[np.ndarray[Any, Any]],
         labels: Sequence[int],
         coverage: float = 0.9,
+        *,
+        descriptors: Sequence[np.ndarray[Any, Any]] | None = None,
+        descriptor_names: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """Fit the conformal certificate on whole batches, one statistic each.
 
@@ -4422,6 +4425,15 @@ class OmniMercuryEngine(LoggerMixin):
                 from the training data and from any later evaluation set.
             labels: One binary label per batch (1 = contains an anomaly).
             coverage: Target per-class coverage.
+            descriptors: Optionally, one vector per batch saying what the
+                batch is like as a whole in terms its rows no longer carry --
+                for instance the raw levels a per-batch standardization
+                removed. The batch-family test then has a second arm: a
+                served batch whose descriptor is unlike the calibration
+                batches' is not claimed as one of the family, however
+                ordinary its standardized rows look. The serving call must
+                pass the same descriptor (``batch_descriptor``).
+            descriptor_names: A name per descriptor entry, for the record.
 
         Returns:
             ``coverage``, ``coverage_achieved`` (the finite-sample bound the
@@ -4454,7 +4466,9 @@ class OmniMercuryEngine(LoggerMixin):
             [
                 self._batch_family_summary(np.asarray(batch), rows)
                 for batch, rows in zip(batches, row_probs, strict=True)
-            ]
+            ],
+            descriptors=descriptors,
+            descriptor_names=descriptor_names,
         )
         report = self._fusion_conformal.coverage_report(probs, y)
         from omni_mercury_engine.governance.improvement_ledger import record_adaptive_change
@@ -4564,18 +4578,16 @@ class OmniMercuryEngine(LoggerMixin):
             ]
         )
 
-    def _fit_batch_family(self, summaries: list[np.ndarray[Any, Any]]) -> dict[str, Any] | None:
-        """The calibration batches as a reference: mean, spread, and distances among them.
+    @staticmethod
+    def _family_reference(stacked: np.ndarray[Any, Any]) -> dict[str, Any]:
+        """Mean, spread, and each member's distance from the others.
 
-        Each batch's distance is taken from the mean and spread of the
-        *others* (leave-one-out), so it is the distance a new batch of the
-        same family would have, and a served batch can be ranked among them.
+        Each member's distance is taken from the mean and spread of the
+        *others* (leave-one-out), so it is the distance a newcomer of the same
+        family would have, and a served batch can be ranked among them.
         """
         from omni_mercury_engine.discovery import rms_standardized_distance
 
-        stacked = np.asarray(summaries, dtype=np.float64)
-        if stacked.shape[0] < 20:
-            return None  # too few batches to rank a newcomer among
         distances: list[float] = []
         for index in range(stacked.shape[0]):
             others = np.delete(stacked, index, axis=0)
@@ -4585,16 +4597,57 @@ class OmniMercuryEngine(LoggerMixin):
             if found is not None:
                 distances.append(found)
         return {
-            "names": list(self._BATCH_FAMILY_NAMES),
             "mean": [float(v) for v in stacked.mean(axis=0)],
             "std": [float(v) for v in stacked.std(axis=0, ddof=1)],
             "distances": distances,
+        }
+
+    def _fit_batch_family(
+        self,
+        summaries: list[np.ndarray[Any, Any]],
+        descriptors: Sequence[np.ndarray[Any, Any]] | None = None,
+        descriptor_names: Sequence[str] | None = None,
+    ) -> dict[str, Any] | None:
+        """The calibration batches as a reference to rank a served batch among.
+
+        Always the ten-number summary of each batch; with ``descriptors``,
+        also what the caller said each batch is like as a whole.
+        """
+        stacked = np.asarray(summaries, dtype=np.float64)
+        if stacked.shape[0] < 20:
+            return None  # too few batches to rank a newcomer among
+        family: dict[str, Any] = {
+            "names": list(self._BATCH_FAMILY_NAMES),
+            **self._family_reference(stacked),
             "n_batches": int(stacked.shape[0]),
             "alpha": float(self._BATCH_FAMILY_ALPHA),
         }
+        if descriptors is not None:
+            described = np.asarray([np.ravel(d) for d in descriptors], dtype=np.float64)
+            if described.ndim != 2 or described.shape[0] != stacked.shape[0]:
+                raise ValueError(
+                    f"{described.shape[0] if described.ndim else 0} descriptors for "
+                    f"{stacked.shape[0]} batches: one vector per batch, all the same length"
+                )
+            if not np.all(np.isfinite(described)):
+                raise ValueError("batch descriptors must be finite")
+            names = list(descriptor_names) if descriptor_names is not None else []
+            if names and len(names) != described.shape[1]:
+                raise ValueError(
+                    f"{len(names)} descriptor names for {described.shape[1]} descriptor entries"
+                )
+            family["descriptors"] = {
+                "names": names or [f"descriptor_{i}" for i in range(described.shape[1])],
+                **self._family_reference(described),
+            }
+        return family
 
     def _run_batch_family_check(
-        self, payload: dict[str, Any], batch: np.ndarray[Any, Any], row_probs: Any
+        self,
+        payload: dict[str, Any],
+        batch: np.ndarray[Any, Any],
+        row_probs: Any,
+        descriptor: Any = None,
     ) -> None:
         """Ask whether this batch is one of the certificate's calibration family.
 
@@ -4604,6 +4657,16 @@ class OmniMercuryEngine(LoggerMixin):
         rank test the novelty verdict uses).  A p-value at or below the level
         reports drift at severity HIGH, which the decision layer reads as
         "the certificate is not claimed here".
+
+        When the family was fitted with batch descriptors there is a second
+        arm: the batch's descriptor is ranked the same way, and the two rank
+        p-values are combined by Bonferroni (twice the smaller), so the test
+        keeps its level.  The summary is computed on the rows as served; if
+        those rows were standardized within the batch, only the descriptor
+        can say that the batch as a whole is something else (source code
+        offered as a document has ordinary-looking standardized rows).  A
+        family that has descriptors cannot claim a batch that came without
+        one.
         """
         from omni_mercury_engine.discovery import rank_p_value, rms_standardized_distance
 
@@ -4623,22 +4686,70 @@ class OmniMercuryEngine(LoggerMixin):
             payload.update(status="error", message="the calibration family has no spread")
             return
         p_value = rank_p_value(distance, family["distances"])
-        is_drift = p_value <= float(family["alpha"])
+        alpha = float(family["alpha"])
+        described = family.get("descriptors")
+        if not described:
+            is_drift = p_value <= alpha
+            payload.update(
+                status="tested",
+                is_drift=bool(is_drift),
+                severity="HIGH" if is_drift else "NONE",
+                p_value=float(p_value),
+                statistic=float(distance),
+                message=(
+                    f"batch-family test: this batch's summary is at distance {distance:.2f} "
+                    f"from the {family['n_batches']} calibration batches (rank "
+                    f"p={p_value:.3f}, level {family['alpha']})"
+                    + (
+                        "; it is not one of the family the certificate was calibrated on"
+                        if is_drift
+                        else ""
+                    )
+                ),
+            )
+            return
+
+        not_family = "; it is not one of the family the certificate was calibrated on"
+        given = None if descriptor is None else np.ravel(np.asarray(descriptor, dtype=np.float64))
+        if given is None or given.size != len(described["mean"]) or not np.all(np.isfinite(given)):
+            payload.update(
+                status="tested",
+                is_drift=True,
+                severity="HIGH",
+                p_value=None,
+                statistic=float(distance),
+                shape_p_value=float(p_value),
+                message=(
+                    "batch-family test: this certificate's family is described by "
+                    f"{len(described['mean'])} batch descriptors and this batch came "
+                    + ("without any" if given is None else "with ones that do not match")
+                    + ", so it cannot be ranked among the calibration batches"
+                    + not_family
+                ),
+            )
+            return
+        descriptor_distance = rms_standardized_distance(given, described["mean"], described["std"])
+        if descriptor_distance is None:
+            payload.update(status="error", message="the calibration descriptors have no spread")
+            return
+        descriptor_p = rank_p_value(descriptor_distance, described["distances"])
+        combined = min(1.0, 2.0 * min(p_value, descriptor_p))
+        is_drift = combined <= alpha
         payload.update(
             status="tested",
             is_drift=bool(is_drift),
             severity="HIGH" if is_drift else "NONE",
-            p_value=float(p_value),
+            p_value=float(combined),
             statistic=float(distance),
+            shape_p_value=float(p_value),
+            descriptor_statistic=float(descriptor_distance),
+            descriptor_p_value=float(descriptor_p),
             message=(
-                f"batch-family test: this batch's summary is at distance {distance:.2f} from "
-                f"the {family['n_batches']} calibration batches (rank p={p_value:.3f}, level "
-                f"{family['alpha']})"
-                + (
-                    "; it is not one of the family the certificate was calibrated on"
-                    if is_drift
-                    else ""
-                )
+                f"batch-family test against the {family['n_batches']} calibration batches: "
+                f"this batch's summary is at distance {distance:.2f} (rank p={p_value:.3f}) "
+                f"and its descriptor at distance {descriptor_distance:.2f} (rank "
+                f"p={descriptor_p:.3f}); combined p={combined:.3f} (twice the smaller), "
+                f"level {family['alpha']}" + (not_family if is_drift else "")
             ),
         )
 
@@ -4954,7 +5065,11 @@ class OmniMercuryEngine(LoggerMixin):
     _DRIFT_WINDOW_ROWS = 100
 
     def _drift_payload(
-        self, data: np.ndarray[Any, Any], is_anomaly_rows: Any, row_probs: Any = None
+        self,
+        data: np.ndarray[Any, Any],
+        is_anomaly_rows: Any,
+        row_probs: Any = None,
+        batch_descriptor: Any = None,
     ) -> dict[str, Any] | None:
         """Test this batch's normal-looking rows for drift against the reference.
 
@@ -4989,7 +5104,10 @@ class OmniMercuryEngine(LoggerMixin):
                 # rows: the family question is asked of the batch as a whole.
                 matrix = np.asarray(data, dtype=np.float64)
                 self._run_batch_family_check(
-                    payload, matrix.reshape(1, -1) if matrix.ndim == 1 else matrix, row_probs
+                    payload,
+                    matrix.reshape(1, -1) if matrix.ndim == 1 else matrix,
+                    row_probs,
+                    batch_descriptor,
                 )
             else:
                 self._run_drift_check(payload, data, is_anomaly_rows)
@@ -7103,6 +7221,8 @@ class OmniMercuryEngine(LoggerMixin):
         *,
         reference_scope: str | None = None,
         disclose_reference: bool = True,
+        harm_gate_scope: str | None = None,
+        batch_descriptor: np.ndarray[Any, Any] | Sequence[float] | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with GOSNN synaptic integration.
 
@@ -7179,6 +7299,19 @@ class OmniMercuryEngine(LoggerMixin):
                 reference is shared between callers who may not see each
                 other's data: the artifact then carries digests and says it
                 cannot be replayed.
+            harm_gate_scope: One sentence saying what a harm-uplift gate
+                upstream of this call read of the caller's input and what it
+                did not (the artifact-review path reads an upload's name and
+                a document's extracted text, never an image's pixels or a
+                recording's speech). Carried on the result under the same
+                key and stated on the decision record as a caveat; ``None``
+                states nothing.
+            batch_descriptor: What this batch is like as a whole, in the terms
+                the certificate's calibration batches were described in
+                (``calibrate_fusion_conformal_batches(descriptors=...)``).
+                Read only by the batch-family test of a batch-level
+                certificate fitted with descriptors; such a certificate is
+                not claimed for a batch that comes without one.
 
         Returns:
             Dictionary containing:
@@ -7718,7 +7851,10 @@ class OmniMercuryEngine(LoggerMixin):
                 drift_input = data.detach().cpu().numpy()
             if drift_input is not None:
                 drift_payload = self._drift_payload(
-                    drift_input, result.get("is_anomaly_rows"), result.get("anomaly_probs")
+                    drift_input,
+                    result.get("is_anomaly_rows"),
+                    result.get("anomaly_probs"),
+                    batch_descriptor,
                 )
                 if drift_payload is not None:
                     result["drift_detection"] = drift_payload
@@ -7824,6 +7960,8 @@ class OmniMercuryEngine(LoggerMixin):
         # audit ledger was supplied, the decision is also recorded -- the
         # "verify" step that turns the stream of decisions into a queryable
         # trail.
+        if harm_gate_scope:
+            result["harm_gate_scope"] = harm_gate_scope
         if self.decision_layer is not None:
             decision_record = self.decision_layer.decide(result, domain=domain)
             result["decision"] = decision_record.to_dict()

@@ -54,6 +54,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from omni_mercury_engine import review
+from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
 from omni_mercury_engine.review.decode import Decoded, ReviewError
 from omni_mercury_engine.review.features import extract
 from research.review import reference_artifacts as R
@@ -69,7 +70,17 @@ SCHEMA = "mercury.research.artifact_review/v1"
 COVERAGE = 0.90
 #: Seeds: fitting, calibration, the trainer's own held-out check, and this harness
 #: never share one.
-SEEDS = {"train": 1101, "calibration": 2202, "trainer_held_out": 3303, "harness": 4404}
+#: trainer_held_out is the trainer's validation draw (training-seed selection
+#: reads it); trainer_report is the disjoint draw the checkpoint's own scope
+#: statement quotes; harness is the draw this module's published numbers come
+#: from. No draw is read for two of those purposes.
+SEEDS = {
+    "train": 1101,
+    "calibration": 2202,
+    "trainer_held_out": 3303,
+    "trainer_report": 5505,
+    "harness": 4404,
+}
 #: Fixed before measurement.  With 300 held-out artifacts (150 per class) one
 #: standard error of a 0.90 proportion is 0.024; the floor is two below target.
 BARS = {
@@ -117,10 +128,19 @@ def measure(engine: Any, kind: str, count: int, seed: int) -> dict[str, Any]:
     row_labels: list[np.ndarray[Any, Any]] = []
     located: list[bool] = []
     seconds: list[float] = []
+    refused = {0: 0, 1: 0}
     for reference in R.references(kind, count, seed, "evaluation"):
         data, name = R.to_bytes(reference)
         started = time.perf_counter()
-        result = review.review_bytes(data, name, engine=engine)
+        try:
+            result = review.review_bytes(data, name, engine=engine)
+        except EthicalConstraintViolationError:
+            # The harm-uplift gate refused this reference artifact's text.
+            # A refusal is an outcome of the path, not a crash of the
+            # measurement: it is counted, and the artifact takes no part in
+            # the coverage, decision or ranking numbers (it got no decision).
+            refused[int(reference.spliced)] += 1
+            continue
         seconds.append(time.perf_counter() - started)
         # Labels follow the segments the path itself cut from the decoded file.
         segmented = extract(review.decode(data, name))
@@ -142,6 +162,8 @@ def measure(engine: Any, kind: str, count: int, seed: int) -> dict[str, Any]:
         return float(np.mean([label in s for s in sets])) if sets else float("nan")
 
     decisions = _decisions(results, labels)
+    decisions["clean"]["refused_by_gate"] = refused[0]
+    decisions["spliced"]["refused_by_gate"] = refused[1]
     n_clean, n_spliced = labels.count(0), labels.count(1)
     missed: dict[str, int] = {}
     for result, label, recipe in zip(results, labels, recipes, strict=True):
@@ -154,7 +176,11 @@ def measure(engine: Any, kind: str, count: int, seed: int) -> dict[str, Any]:
                 missed[part] = missed.get(part, 0) + 1
     all_rows, all_truth = np.concatenate(row_probs), np.concatenate(row_labels)
     return {
-        "artifacts": {"clean": n_clean, "spliced": n_spliced},
+        # Drawn counts; an artifact the gate refused is in ``decisions`` under
+        # ``refused_by_gate`` and in no other number (it got no decision, no
+        # prediction set and no ranking).
+        "artifacts": {"clean": n_clean + refused[0], "spliced": n_spliced + refused[1]},
+        "refused_by_gate": {"clean": refused[0], "spliced": refused[1]},
         "segments_per_artifact_median": int(np.median([len(p) for p in row_probs])),
         "coverage": {"clean": covered(0), "spliced": covered(1), "target": COVERAGE},
         "decisions": decisions,
@@ -253,12 +279,21 @@ def measure_outside(engine: Any, kind: str, count: int, seed: int) -> dict[str, 
         review.IMAGE: "this repository's real figures (charts and diagrams), not textures",
         review.AUDIO: "generated chords with sharp onsets, not a voice",
     }[kind]
-    tally = {"abstained": 0, "grounded_clear": 0, "grounded_anomalous": 0, "not_reviewable": 0}
+    tally = {
+        "abstained": 0,
+        "grounded_clear": 0,
+        "grounded_anomalous": 0,
+        "not_reviewable": 0,
+        "refused_by_gate": 0,
+    }
     family = 0
     samples = _outside(kind, count, seed)
     for data, name in samples:
         try:
             result = review.review_bytes(data, name, engine=engine)
+        except EthicalConstraintViolationError:
+            tally["refused_by_gate"] += 1
+            continue
         except ReviewError:
             tally["not_reviewable"] += 1
             continue
@@ -405,9 +440,27 @@ def main(argv: list[str] | None = None) -> int:
             "row_auroc": bool(held_out["row_auroc"] >= BARS["row_auroc_min"]),
         }
         provenance = getattr(engine, "_fusion_provenance", None) or {}
+        corpus = None
+        if kind == review.DOCUMENT:
+            # Reference documents are cut from the repository's documentation,
+            # so a checkpoint and a measurement made on different states of it
+            # describe different documents. Recorded, and said aloud.
+            measured_on, trained_on = R.corpus_digest(), provenance.get("corpus")
+            corpus = {
+                "measured_on": measured_on,
+                "checkpoint_trained_on": trained_on,
+                "same": measured_on == trained_on,
+            }
+            if not corpus["same"]:
+                print(
+                    "document: the documentation has changed since this checkpoint was "
+                    "trained; these numbers are for reference documents it was not "
+                    "calibrated on. Retrain (scripts/train_review_checkpoints.py) first."
+                )
         kinds[kind] = {
             "checkpoint": path.name,
             "checkpoint_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "reference_corpus": corpus,
             "certificate": engine._model_provenance()["conformal"],
             "certificate_regime": engine._fusion_conformal_regime,
             "certificate_scope": provenance.get("certificate_scope"),

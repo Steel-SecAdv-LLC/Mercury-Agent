@@ -3125,6 +3125,7 @@ _REVIEW_ROWS_MASS = """
     if (r.basis) kv.push(["basis", String(r.basis)]);
     if (r.certificate_scope) kv.push(["certificate scope", String(r.certificate_scope)]);
     if (r.harm_gate && typeof r.harm_gate === "object") kv.push(["harm gate", (r.harm_gate.passed ? "passed" : "not passed") + " · read " + r.harm_gate.read + " (" + r.harm_gate.characters_read + " characters)"]);
+    if (r.harm_gate && typeof r.harm_gate === "object" && r.harm_gate.not_inspected) kv.push(["harm gate did not inspect", String(r.harm_gate.not_inspected)]);
     if (r.sha256) kv.push(["sha256", String(r.sha256)]);
     if (r.segmentation && typeof r.segmentation === "object") kv.push(["segmentation", Object.entries(r.segmentation).map(([k, v]) => k + " " + (v && typeof v === "object" ? JSON.stringify(v) : v)).join(" · ")]);
     return kv;

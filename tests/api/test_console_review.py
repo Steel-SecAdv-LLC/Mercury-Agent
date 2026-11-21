@@ -185,6 +185,8 @@ class TestHowAReviewRenders:
         assert rows["basis"] == block["basis"]
         assert rows["sha256"] == block["sha256"]
         assert rows["harm gate"].startswith("passed · read ")
+        gate = block["harm_gate"]
+        assert rows["harm gate did not inspect"] == gate["not_inspected"]
         flagged_rows = [key for key in rows if key.startswith("· segment #")]
         assert len(flagged_rows) == min(8, len(block["flagged_segments"]))
 

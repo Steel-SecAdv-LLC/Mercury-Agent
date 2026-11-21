@@ -86,7 +86,9 @@ class TestASampleOfEachKindBecomesADecision:
         engine.load_default_fusion_checkpoint()
         engine.enable_decision_layer()
         flagship = engine.detect_with_fusion(np.random.default_rng(0).normal(size=(24, 16)))
-        assert set(flagship) | {"review"} == set(result)
+        # A review also states what the harm gate read (the flagship caller
+        # passed no gate, so its result carries no such statement).
+        assert set(flagship) | {"review", "harm_gate_scope"} == set(result)
         assert set(flagship["decision"]) == set(result["decision"])
         assert set(flagship["decision"]["signals"]) == set(result["decision"]["signals"])
 
@@ -309,11 +311,21 @@ class TestTheHarmGateReadsTheUploadFirst:
         assert shown[0].payload == {"filename": "harbour notes.txt"}
         assert shown[0].surface == "omni_mercury_engine.review"
         assert "document" in shown[0].operation
+        not_inspected = (
+            "images embedded in the document or any text the decoder could not extract "
+            "(scanned pages, text drawn as graphics)"
+        )
         assert prepared.harm_gate == {
             "check": "harm_uplift",
             "passed": True,
             "characters_read": len(text) + len("harbour notes.txt"),
             "read": "the document's text and the upload's name",
+            "content_inspected": True,
+            "not_inspected": not_inspected,
+            "statement": (
+                f"the harm-uplift gate read this document's extracted text ({len(text):,} "
+                f"characters) and the upload's name; it did not inspect {not_inspected}"
+            ),
         }
 
     @pytest.mark.parametrize("kind", ["image", "audio"])
@@ -361,6 +373,88 @@ class TestTheHarmGateReadsTheUploadFirst:
         source = inspect.getsource(review.prepare)
         assert source.index("decode(") < source.index("_measure(")
         assert "extract(" not in source  # measuring happens only inside the gated step
+
+
+class TestTheRecordStatesWhatTheGateRead:
+    """A gate that passed an upload it could only partly read has not cleared the rest.
+
+    The harm-uplift gate reads text: an upload's name, and a document's
+    extracted text.  It cannot see what an image shows or hear what a
+    recording says, and ``passed`` alone would let a reader think it had.  The
+    decision record carries the scope as a caveat, in the gate's own words.
+    """
+
+    @staticmethod
+    def _scope(result: dict[str, Any]) -> list[str]:
+        return [c for c in result["decision"]["caveats"] if c.startswith("harm gate scope: ")]
+
+    @pytest.mark.parametrize("kind", KINDS)
+    def test_the_record_repeats_the_gates_own_statement(
+        self, reviewed: dict[str, dict[str, Any]], kind: str
+    ) -> None:
+        result = reviewed[kind]
+        gate = result["review"]["harm_gate"]
+        assert self._scope(result) == [f"harm gate scope: {gate['statement']}"]
+        assert result["harm_gate_scope"] == gate["statement"]
+        assert gate["not_inspected"] in gate["statement"]
+        assert gate["not_inspected"] in result["review"]["answers"]["the_record"]["plain"]
+
+    @pytest.mark.parametrize(
+        ("kind", "unseen"),
+        [
+            ("image", "what the image shows or any words in it"),
+            ("audio", "speech or any other sound in the recording"),
+        ],
+    )
+    def test_an_image_or_a_recording_is_recorded_as_not_inspected(
+        self, reviewed: dict[str, dict[str, Any]], kind: str, unseen: str
+    ) -> None:
+        gate = reviewed[kind]["review"]["harm_gate"]
+        assert gate["passed"] is True and gate["content_inspected"] is False
+        (caveat,) = self._scope(reviewed[kind])
+        assert "read the upload's name only" in caveat
+        assert f"it did not inspect {unseen}" in caveat
+
+    def test_a_document_is_recorded_as_read_except_what_could_not_be_extracted(
+        self, reviewed: dict[str, dict[str, Any]]
+    ) -> None:
+        gate = reviewed["document"]["review"]["harm_gate"]
+        assert gate["content_inspected"] is True
+        text_chars = gate["characters_read"] - len(SAMPLE["document"].name)
+        (caveat,) = self._scope(reviewed["document"])
+        assert f"read this document's extracted text ({text_chars:,} characters)" in caveat
+        assert "it did not inspect images embedded in the document" in caveat
+
+    def test_an_unnamed_image_is_recorded_as_read_by_nothing(
+        self, engines: dict[str, OmniMercuryEngine]
+    ) -> None:
+        result = review.review_bytes(SAMPLE["image"].read_bytes(), "", engine=engines["image"])
+        assert result["review"]["harm_gate"]["characters_read"] == 0
+        (caveat,) = self._scope(result)
+        assert "read nothing: the upload came without a name" in caveat
+        assert "it did not inspect what the image shows" in caveat
+
+    def test_a_detection_that_states_no_scope_has_no_such_caveat(
+        self, engines: dict[str, OmniMercuryEngine], reviewed: dict[str, dict[str, Any]]
+    ) -> None:
+        matrix = review.prepare(SAMPLE["image"].read_bytes(), SAMPLE["image"].name).segmented
+        result = engines["image"].detect_with_fusion(matrix.matrix)
+        assert "harm_gate_scope" not in result
+        assert self._scope(result) == []
+
+    def test_the_scope_is_one_bounded_line_and_not_a_signal(self) -> None:
+        from omni_mercury_engine.decision.evidence import Evidence
+
+        base = {"anomaly_prob": 0.2, "is_anomaly": False}
+        stated = Evidence.from_detection({**base, "harm_gate_scope": "  read the\nname  only "})
+        assert stated.harm_gate_scope == "read the name only"
+        long = Evidence.from_detection({**base, "harm_gate_scope": "x" * 5000}).harm_gate_scope
+        assert long is not None and len(long) == 400
+        for absent in (None, "", "   ", 7, ["read"]):
+            assert (
+                Evidence.from_detection({**base, "harm_gate_scope": absent}).harm_gate_scope is None
+            )
+        assert "harm_gate_scope" not in stated.to_dict()
 
 
 class TestTheEnginesOwnGatesStillApply:

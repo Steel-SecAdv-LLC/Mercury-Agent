@@ -130,6 +130,28 @@ class Segmented:
     segments: tuple[dict[str, Any], ...]
     detail: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def levels(self) -> np.ndarray[Any, Any]:
+        """Each feature's typical raw value in this artifact: its column medians.
+
+        Standardizing an artifact against itself removes exactly this, which
+        is the point for finding a segment unlike the rest, and is also why
+        the standardized rows cannot say what kind of artifact they came from:
+        a file of source code is as self-consistent as a page of prose.  The
+        levels can, and the engine's batch-family test reads them as the
+        batch's descriptor.
+        """
+        data = np.nan_to_num(
+            np.asarray(self.raw, dtype=np.float64), nan=0.0, posinf=0.0, neginf=0.0
+        )
+        levels: np.ndarray[Any, Any] = np.median(data, axis=0)
+        return levels
+
+    @property
+    def level_names(self) -> tuple[str, ...]:
+        """A name for each entry of :attr:`levels`."""
+        return tuple(f"{name}:level" for name in self.names)
+
 
 def standardize(raw: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
     """Robust z-scores of each column against the artifact's own rows.

@@ -589,6 +589,11 @@ class DecisionAbstentionResponder:
         scope = (ev.model_provenance or {}).get("certificate_scope")
         if ev.calibrated and isinstance(scope, str) and scope:
             caveats.append(f"certificate scope: {scope}")
+        # What the harm-uplift gate upstream of this decision read, when the
+        # result says: a gate that passed an upload it could only partly read
+        # has not cleared the part it did not read, and the record says which.
+        if ev.harm_gate_scope:
+            caveats.append(f"harm gate scope: {ev.harm_gate_scope}")
         # What decisions about this hazard have been worth on real events
         # held out, where that has been measured: a "90%" reads the same for
         # every hazard, and has not held the same for every hazard.

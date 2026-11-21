@@ -373,11 +373,16 @@ upload (bytes)
       images     PNG, JPEG, GIF, BMP, WebP, TIFF (Pillow)
       audio      uncompressed WAV (original RIFF reader)
   → harm-uplift gate reads the document's text and the upload's name
-      (GATED_BOUNDARY capability contract on the measuring step)
+      (GATED_BOUNDARY capability contract on the measuring step; pixels and
+      samples are numbers to it — image content and speech are not inspected,
+      and the DecisionRecord says so in a `harm gate scope:` caveat)
   → segments x 16 named features, standardized against the      review/features.py
-      artifact itself (robust z: median and MAD, clipped to ±10)
+      artifact itself (robust z: median and MAD, clipped to ±10); the raw
+      column medians ride along as the artifact's descriptor
   → OmniMercuryEngine.detect_with_fusion on that matrix, with the
-      kind's own checkpoint (models/checkpoints/review_{document,image,audio}.pt)
+      kind's own checkpoint (models/checkpoints/review_{document,image,audio}.pt);
+      the batch-family test ranks the matrix's shape AND the descriptor among
+      the calibration artifacts — an upload of another kind defers
   → the ordinary result + DecisionRecord, plus a `review` block
 ```
 

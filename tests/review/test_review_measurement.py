@@ -95,14 +95,17 @@ class TestTheArtifactIsAboutWhatShips:
     @pytest.mark.parametrize("kind", KINDS)
     def test_the_counts_add_up(self, artifact: dict[str, Any], kind: str) -> None:
         held = artifact["kinds"][kind]["held_out"]
+        decided = {}
         for side in ("clean", "spliced"):
             assert sum(held["decisions"][side].values()) == held["artifacts"][side] == 150
+            decided[side] = held["artifacts"][side] - held["decisions"][side]["refused_by_gate"]
+            assert held["refused_by_gate"][side] == held["decisions"][side]["refused_by_gate"]
         rates = held["rates"]
         assert rates["spliced_found"] == pytest.approx(
-            held["decisions"]["spliced"]["grounded_anomalous"] / 150
+            held["decisions"]["spliced"]["grounded_anomalous"] / decided["spliced"]
         )
         assert rates["clean_grounded_wrong"] == pytest.approx(
-            held["decisions"]["clean"]["grounded_anomalous"] / 150
+            held["decisions"]["clean"]["grounded_anomalous"] / decided["clean"]
         )
         outside = artifact["kinds"][kind]["outside_the_family"]
         assert sum(outside["outcomes"].values()) == outside["artifacts"]
@@ -124,20 +127,79 @@ class TestABarThatWasMissedIsRecordedAsMissed:
         }
         assert entry["all_bars_met"] == all(entry["bars_met"].values())
 
-    def test_the_document_checkpoint_missed_one_and_everything_that_quotes_it_says_so(
+    def test_the_users_bar_is_met_and_the_remaining_miss_is_recorded(
         self, artifact: dict[str, Any], ledger: dict[str, Any]
     ) -> None:
-        """If a retrain clears the bar this fails, and the prose is then due a rewrite."""
+        """Spliced documents called clear is at or under 12%; the clean-side miss is recorded.
+
+        At d39b42c the document checkpoint called 13.3% of spliced documents
+        clear (bar 12%). After the descriptor retrain it is 7.3%. What the
+        document kind misses now is the clean side -- coverage below the 85%
+        floor and clean documents called anomalous above 12% -- because this
+        repository's documentation prose carries numeric-dense passages that
+        truly are unlike the rest of their document. The miss is recorded in
+        the artifact, the ledger, the README table and the checkpoint's own
+        scope statement; if a retrain cures it, the assertions on the miss
+        fail and the prose is due a rewrite. If one regresses the cured bar,
+        the honest move is the old one: record it, do not move the bar.
+        """
         document = artifact["kinds"]["document"]
+        rates = document["held_out"]["rates"]
+        assert rates["spliced_grounded_wrong"] <= 0.12
+        assert document["bars_met"]["row_auroc"] is True
+        assert document["bars_met"]["coverage_per_class"] is False
         assert document["bars_met"]["grounded_wrong"] is False
         assert document["all_bars_met"] is False
         entry = ledger["review.artifact_checkpoints"]
         assert entry["verdict"] == "adopted"
         assert entry["impact"]["all_bars_met"]["document"] is False
-        assert "not a claim that the bar was cleared" in entry["why_adopted_with_a_bar_unmet"]
+        assert "not\na claim that the bar was cleared" in entry[
+            "why_adopted_with_a_bar_unmet"
+        ].replace("not a claim", "not\na claim")
+        scope = document["certificate_scope"]
+        assert "BELOW" in scope
         readme = (REPO / "README.md").read_text(encoding="utf-8")
-        assert "missed: wrong decisions (" in readme
-        assert "Documents are the weak kind" in readme
+        assert "missed: per-class coverage (" in readme
+
+    @pytest.mark.parametrize("kind", ["image", "audio"])
+    def test_the_other_kinds_meet_every_bar(self, artifact: dict[str, Any], kind: str) -> None:
+        entry = artifact["kinds"][kind]
+        assert entry["all_bars_met"] is True, entry["bars_met"]
+
+    def test_an_upload_unlike_the_family_is_deferred_not_judged(
+        self, artifact: dict[str, Any]
+    ) -> None:
+        """Out-of-family uploads get a deferral, never a normal decision.
+
+        At d39b42c the document family test deferred 3 of 17 Python source
+        files uploaded as documents and cleared 13. The family now carries
+        each calibration artifact's raw feature levels as a descriptor
+        (standardizing an artifact against itself removes exactly what says
+        which kind it is), and every out-of-family artifact of the three
+        tried families is deferred.
+        """
+        for kind in KINDS:
+            outside = artifact["kinds"][kind]["outside_the_family"]
+            judged = (
+                outside["outcomes"]["grounded_clear"] + outside["outcomes"]["grounded_anomalous"]
+            )
+            assert judged == 0, (kind, outside)
+            assert outside["outcomes"]["abstained"] == outside["artifacts"] > 0
+            assert outside["family_test_deferrals"] == outside["artifacts"]
+
+    def test_the_document_measurement_names_the_corpus_it_shares_with_the_checkpoint(
+        self, artifact: dict[str, Any]
+    ) -> None:
+        """Reference documents are cut from the repository's documentation.
+
+        A measurement against a checkpoint trained on other documentation is
+        a measurement of different documents; the artifact must record both
+        digests and that they agree.
+        """
+        corpus = artifact["kinds"]["document"]["reference_corpus"]
+        assert corpus["same"] is True
+        assert corpus["measured_on"] == corpus["checkpoint_trained_on"]
+        assert set(corpus["measured_on"]) == {"train", "calibration", "evaluation"}
 
 
 class TestWhatQuotesTheArtifactMatchesIt:
@@ -222,7 +284,7 @@ class TestTheProtocolKeepsItsSetsApart:
 
     def test_every_stage_draws_with_its_own_seed(self) -> None:
         seeds = list(harness.SEEDS.values())
-        assert len(set(seeds)) == len(seeds) == 4
+        assert len(set(seeds)) == len(seeds) == 5
         # The outside-the-family draws use seed + 1 of their stage.
         assert not {seed + 1 for seed in seeds} & set(seeds)
 
