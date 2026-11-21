@@ -2662,7 +2662,8 @@ MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + 
     ),
     (
         "the decision record renders whole: state, abstention, calibration, coverage, confidence, "
-        "response, provenance, certificate regime, critique, reasons, caveats",
+        "response, provenance, certificate regime, critique, the discovery artifacts with their "
+        "challenge and replay path, reasons, caveats; and a replay's verdict renders",
         'if (d.decision && typeof d.decision === "object") kv.push(["decision", d.decision.disposition '
         "|| JSON.stringify(d.decision).slice(0, 80)]);",
         'if (d.decision && typeof d.decision === "object") {\n'
@@ -2687,23 +2688,48 @@ MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + 
         '(cog.confidence_calibrated === false ? " (uncalibrated)" : "") : "") + '
         '(cog.epistemic_measured === false ? " · epistemic unmeasured" : "") + '
         '(cog.aleatoric_measured === false ? " · aleatoric unmeasured" : "")]);\n'
+        "      const nc = cog && cog.novelty_challenge, "
+        'disc = cog && cog.discovery && typeof cog.discovery === "object" ? cog.discovery : null;\n'
+        # The novelty verdict with what it rests on: measured or undetermined,
+        # the p-value against its level, and how many reference distances.
         '      if (cog && typeof cog.novelty_score === "number") kv.push(["· novelty", '
-        'cog.novelty_score.toFixed(3) + (cog.is_novel ? " · NOVEL regime" : "") + '
-        '(cog.novelty_challenge && typeof cog.novelty_challenge.standardized_distance === "number" ? '
-        '" · distance " + cog.novelty_challenge.standardized_distance.toFixed(2) + " vs cut " + '
-        '(typeof cog.novelty_challenge.novelty_threshold === "number" ? '
-        'cog.novelty_challenge.novelty_threshold.toFixed(2) : "?") : "")]);\n'
+        'cog.novelty_score.toFixed(3) + (cog.novelty_measured === false ? " · verdict undetermined '
+        '(too few reference observations)" : cog.is_novel ? " · NOVEL" : " · not novel") + '
+        '(nc && typeof nc.p_value === "number" ? " · p=" + nc.p_value.toFixed(4) + " vs level " + '
+        '(typeof nc.alpha === "number" ? nc.alpha : "?") : "") + '
+        "(cog.novelty_evidence && cog.novelty_evidence.n != null ? "
+        '" · ranked among " + cog.novelty_evidence.n + " reference distances" : "")]);\n'
         "      if (cog && Array.isArray(cog.causal_factors) && cog.causal_factors.length) "
-        'kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 160)]);\n'
+        'kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 220)]);\n'
+        # Whether the causal test could be read at all, and how much it tested.
+        "      if (disc && disc.causal && disc.causal.claim) { const cc = disc.causal.claim; "
+        'kv.push(["· causal test", cc.assessed === false ? "not assessed: " + '
+        'c100(cc.not_assessed_because || "") : String(cc.pairs_tested) + " pairs tested, corrected '
+        'for lags and pairs · " + (Array.isArray(cc.edges) ? cc.edges.length : 0) + " edge(s)"]); }\n'
         '      if (cog && cog.hypothesis && typeof cog.hypothesis === "object") { '
-        'kv.push(["· hypothesis", String(cog.hypothesis.conclusion || "").slice(0, 120) + '
+        'kv.push(["· hypothesis", String(cog.hypothesis.conclusion || "").slice(0, 170) + '
         '(typeof cog.hypothesis.confidence === "number" ? " · conf " + cog.hypothesis.confidence.toFixed(2) : "")]); '
-        'if (cog.hypothesis.falsifier) kv.push(["· challenge it", "weakest step: " + '
-        'String(cog.hypothesis.falsifier.weakest_step || "").slice(0, 100) + '
-        '(typeof cog.hypothesis.falsifier.confidence === "number" ? '
-        '" (conf " + cog.hypothesis.falsifier.confidence.toFixed(2) + ")" : "")]); }\n'
+        "const fz = cog.hypothesis.falsifier; "
+        'if (fz) kv.push(["· challenge it", "weakest premise: " + '
+        'String(fz.weakest_step || "").slice(0, 110) + '
+        '(typeof fz.margin === "number" ? " (margin x" + fz.margin.toFixed(2) + ")" : '
+        'typeof fz.confidence === "number" ? " (conf " + fz.confidence.toFixed(2) + ")" : "") + '
+        '(fz.withdrawn_if ? " · withdrawn if " + String(fz.withdrawn_if).slice(0, 70) : "")]); }\n'
+        # The challenge path, visible: which artifacts replay from this record,
+        # how to run it, and why any one cannot be.
+        "      if (disc) { const kinds = Object.keys(disc).filter((k) => disc[k] && disc[k].digest); "
+        'if (kinds.length) kv.push(["· replay", kinds.map((k) => k + '
+        '(disc[k].replayable === "from_record" ? " (from this record)" : " (cannot)")).join(" · ") + '
+        '" · POST /api/v1/detect/flagship/replay, or mercury-agent replay"]); '
+        'kinds.filter((k) => disc[k].replayable !== "from_record").forEach((k) => '
+        'kv.push(["· " + k + " not replayable", c100(disc[k].not_replayable_because || "")])); }\n'
         '      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));\n'
         '      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));\n'
+        "    }\n"
+        '    if (Array.isArray(d.replay) && typeof d.verdict === "string") {\n'
+        '      kv.push(["replay", d.verdict + " · " + d.replay.length + " artifact(s)"]);\n'
+        '      d.replay.forEach((r) => { if (r && typeof r === "object") kv.push(["· " + String(r.kind), '
+        'String(r.status) + " · " + String(r.detail || "").slice(0, 150)]); });\n'
         "    }",
     ),
     (
