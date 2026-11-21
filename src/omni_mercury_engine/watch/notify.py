@@ -99,6 +99,10 @@ LEGACY_PUBLIC_URL_ENV = "MERCURY_PUBLIC_URL"
 
 _RANK = RANKS
 
+#: The control characters (Unicode category Cc: C0, DEL and C1). None belongs
+#: in a mail header.
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
 #: Headers on every message the watch sends. RFC 3834: a message no person
 #: wrote says so, and an out-of-office responder does not answer each alert.
 AUTOMATIC = {"Auto-Submitted": "auto-generated"}
@@ -248,8 +252,12 @@ def notice(
         ]
     # A headline carries text from the source (a place, an alert's area). A
     # line break in it is refused as a mail header, and the finding would
-    # fail every attempt and never be delivered.
-    subject = " ".join(f"[Mercury watch] {severity}: {finding['headline']}".split())
+    # fail every attempt and never be delivered. Every other control
+    # character goes too: a header body is printable text (RFC 5322 section
+    # 2.2), and the obsolete forms that admit control characters are ones a
+    # sender must not generate (section 4).
+    raw = f"[Mercury watch] {severity}: {finding['headline']}"
+    subject = " ".join(_CONTROL_RE.sub(" ", raw).split())
     return subject, "\n".join(lines)
 
 
@@ -594,20 +602,37 @@ class Notifier:
             # Webhook URLs (Slack/Discord style) carry their secret in the
             # PATH, which the generic redactors do not strip: an HTTPError's
             # "... for url: https://hooks.../T.../B.../<secret>" would land in
-            # this log line and the stored delivery error. Reduce any URL in
-            # the exception text to scheme://host before it is kept anywhere.
-            error = f"{type(exc).__name__}: {_strip_url_paths(str(exc))[:200]}"
+            # this log line and the stored delivery error. Two passes before
+            # the text is kept anywhere: the values this process holds (the
+            # webhook URL and its path, which a connection failure names
+            # WITHOUT a scheme or host; a provider token; a mail password),
+            # then any URL left is reduced to scheme://host.
+            error = f"{type(exc).__name__}: {_scrub(str(exc))[:200]}"
             logger.warning("watch: %s delivery of %s failed: %s", channel, key, error)
         self.store.record_delivery(key, rank, subscriber, channel, error=error, now=self._clock())
         done["failed" if error else "sent"] += 1
 
 
-_URL_RE = re.compile(r"https?://([^/\s\"']+)[^\s\"']*")
+#: A URL in free text: scheme, authority, and everything up to white space.
+#: A quote does not end it: ``'`` is a legal path character (RFC 3986
+#: sub-delims), and ending the match there left the rest of the secret behind.
+_URL_RE = re.compile(r"(https?://)([^/?#\s]*)(\S*)", re.IGNORECASE)
 
 
 def _strip_url_paths(text: str) -> str:
-    """Replace every URL in ``text`` with its scheme-plus-host only."""
-    return _URL_RE.sub(lambda m: m.group(0).split(m.group(1))[0] + m.group(1) + "/...", text)
+    """Replace every URL in ``text`` with its scheme-plus-host only.
+
+    The host is what follows any userinfo: ``https://user:token@host/x``
+    keeps ``host``, not the credentials in front of it.
+    """
+    return _URL_RE.sub(lambda m: f"{m.group(1)}{m.group(2).rpartition('@')[2]}/...", text)
+
+
+def _scrub(text: str) -> str:
+    """What a delivery failure may be kept as: no held secret, no URL beyond its host."""
+    from omni_mercury_engine.security.redaction import redact_env_secrets, redact_text
+
+    return _strip_url_paths(redact_env_secrets(redact_text(text)))
 
 
 def _post_json(url: str, payload: dict[str, Any]) -> None:

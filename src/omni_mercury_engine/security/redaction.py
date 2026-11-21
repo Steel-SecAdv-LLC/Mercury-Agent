@@ -349,6 +349,44 @@ _ENV_SECRET_NAME_RE = re.compile(
 )
 
 
+def _url_credential_parts(value: str | None) -> list[str]:
+    """The pieces of a URL-valued credential that can appear without the rest of it.
+
+    An incoming-webhook URL is the credential, and its secret rides in the
+    path. Replacing the whole value is not enough: urllib3 words every
+    connection failure as ``"Max retries exceeded with url: /services/T0/B0/
+    <secret> (Caused by ...)"`` -- the request target alone, no scheme and no
+    host -- so the value never appears and the secret went out unredacted in
+    the transport error, the delivery log and the stored delivery error. The
+    request target (path, with its query), the path and the query on their
+    own, and any userinfo are therefore credentials of the same variable.
+    Pieces shorter than :data:`_BOUNDARY_SECRET_LEN` are left out: a path
+    like ``/hook`` holds no secret and would be struck from ordinary text.
+
+    Args:
+        value: An environment variable's value.
+
+    Returns:
+        The pieces to redact, longest first; empty when the value is not an
+        ``http(s)`` URL.
+    """
+    candidate = (value or "").strip()
+    if not candidate.lower().startswith(("http://", "https://")):
+        return []
+    try:
+        parts = urlsplit(candidate)
+    except ValueError:
+        return []
+    pieces = [parts.path]
+    if parts.query:
+        pieces += [f"{parts.path}?{parts.query}", parts.query]
+    userinfo = parts.netloc.rpartition("@")[0]
+    if userinfo:
+        pieces += [userinfo, userinfo.partition(":")[2]]
+    kept = {piece for piece in pieces if len(piece) >= _BOUNDARY_SECRET_LEN}
+    return sorted(kept, key=len, reverse=True)
+
+
 def redact_env_secrets(text: str) -> str:
     """Scrub the value of every credential-shaped environment variable.
 
@@ -361,6 +399,9 @@ def redact_env_secrets(text: str) -> str:
     the per-script env-var lists: it needs no per-callsite registry and
     automatically covers keys added later.  Values shorter than 4
     characters are skipped by :func:`redact_secrets`'s degeneracy floor.
+    A value that is itself a URL (an incoming webhook) is also scrubbed
+    piece by piece (:func:`_url_credential_parts`), because a transport
+    error names its path without the rest of it.
 
     Args:
         text: Arbitrary diagnostic text.
@@ -372,9 +413,19 @@ def redact_env_secrets(text: str) -> str:
     if not text:
         return text
     # Names first, values looked up per name: the two channels stay
-    # separate from the origin (see the redact_secrets docstring).
-    labels = [name for name in os.environ if _ENV_SECRET_NAME_RE.search(name)]
-    return redact_secrets(text, labels, [os.environ.get(name) for name in labels])
+    # separate from the origin (see the redact_secrets docstring). A label
+    # is only ever a variable NAME; the whole value comes before its pieces
+    # so the longest match is the one replaced.
+    labels: list[str] = []
+    values: list[str | None] = []
+    for name in os.environ:
+        if not _ENV_SECRET_NAME_RE.search(name):
+            continue
+        value = os.environ.get(name)
+        for secret in (value, *_url_credential_parts(value)):
+            labels.append(name)
+            values.append(secret)
+    return redact_secrets(text, labels, values)
 
 
 __all__ = [

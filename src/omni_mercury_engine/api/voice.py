@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -30,7 +31,7 @@ from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
 from omni_mercury_engine.narrative.languages import SUPPORTED as SUPPORTED_LANGUAGES
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -1211,8 +1212,28 @@ ALERT_HEARTBEAT_SECONDS = 15.0
 ALERT_STORE_POLL_SECONDS = 2.0
 
 
+def _strict_json(value: Any) -> Any:
+    """``value`` with each non-finite float as ``None``, so it serialises as JSON."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _strict_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_strict_json(item) for item in value]
+    return value
+
+
 def _sse(event: str, payload: dict[str, Any]) -> bytes:
-    return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n".encode()
+    """One server-sent event frame whose ``data`` line is strict JSON.
+
+    ``json.dumps`` writes a non-finite float as ``NaN`` / ``Infinity``, which
+    are not JSON: the console reads each frame with ``JSON.parse`` and drops
+    one it cannot parse, so an alert carrying such a value anywhere in its
+    record would never be shown. A value that is not a number is sent as
+    ``null`` (not measured), the same reading the decision records give it.
+    """
+    data = json.dumps(_strict_json(payload), default=str)
+    return f"event: {event}\ndata: {data}\n\n".encode()
 
 
 async def alert_events(
@@ -1221,7 +1242,7 @@ async def alert_events(
     heartbeat: float = ALERT_HEARTBEAT_SECONDS,
     store_poll: float = ALERT_STORE_POLL_SECONDS,
     max_events: int | None = None,
-) -> AsyncIterator[bytes]:
+) -> AsyncGenerator[bytes, None]:
     """Server-sent events for every flagged run ``principal`` may see.
 
     Runs recorded in this process arrive through the alert bus; runs recorded
@@ -1264,8 +1285,8 @@ async def alert_events(
                     logger.debug("alert store poll skipped: %s", exc)
             now = time.time()
             for entry in fresh:
-                record = entry.get("detection") or {}
-                if not record.get("anomaly_detected", False):
+                record = entry.get("detection")
+                if not isinstance(record, dict) or not record.get("anomaly_detected", False):
                     continue
                 key = str(record.get("detection_id") or id(entry))
                 if key in seen:

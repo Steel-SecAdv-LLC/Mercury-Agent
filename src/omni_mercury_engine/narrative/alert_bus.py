@@ -48,6 +48,10 @@ QUEUE_SIZE = 256
 MAX_SUBSCRIBERS = serving_limits().alert_bus_max_subscribers
 
 
+#: What an alert says when its record's fields cannot be worded.
+UNREADABLE_RECORD = "A detection was recorded, but its record could not be read."
+
+
 def principal_may_see(requested: str | None, recorded: str | None) -> bool:
     """The retriever's visibility rule: unowned entries to all, owned to their owner.
 
@@ -79,10 +83,22 @@ def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
     if isinstance(ready, dict):
         # A watch finding arrives already worded: its headline and what to do.
         return dict(ready)
-    record = dict(entry.get("detection") or {})
+    # An entry read back from the shared store is not guaranteed its shape: a
+    # ``detection`` that is not a mapping is an empty record (a clean run with
+    # nothing to say), never an exception that ends the subscriber's stream.
+    detection = entry.get("detection")
+    record = dict(detection) if isinstance(detection, dict) else {}
     timestamp = entry.get("timestamp")
     flagged = bool(record.get("anomaly_detected", False))
     label = record.get("severity_label")
+    try:
+        message = describe_detection(record, timestamp)
+    except Exception as exc:  # a record that cannot be worded is still an alert
+        # The wording reads typed fields (counts, positions, a timestamp). A
+        # record whose fields are not those types raised here, inside the
+        # subscriber's stream, and ended it. The alert goes out saying so.
+        logger.warning("alert for a malformed detection record: %s", type(exc).__name__)
+        message = UNREADABLE_RECORD
     return {
         "initiative_type": (
             f"{label}_anomaly"
@@ -91,7 +107,7 @@ def to_alert(entry: dict[str, Any]) -> dict[str, Any]:
         ),
         "severity": record.get("severity"),
         "domain": entry.get("domain"),
-        "message": describe_detection(record, timestamp),
+        "message": message,
         "timestamp": timestamp,
         "event": record,
     }

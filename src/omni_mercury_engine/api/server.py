@@ -27,6 +27,7 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -38,8 +39,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -727,7 +731,7 @@ from fastapi.openapi.docs import get_redoc_html
 # Runtime import, not TYPE_CHECKING: FastAPI resolves a route handler's return
 # annotation with ``get_type_hints`` when the route is registered, so the name
 # must exist at import time even under ``from __future__ import annotations``.
-from fastapi.responses import HTMLResponse  # noqa: TC002 - resolved at route registration
+from fastapi.responses import HTMLResponse
 
 
 @app.get("/redoc", include_in_schema=False)
@@ -859,6 +863,37 @@ class BodySizeLimitMiddleware:
 # the first thing a request meets, so an oversized body is refused before
 # any other layer spends work on it.
 app.add_middleware(BodySizeLimitMiddleware)
+
+
+def _json_compliant(value: Any) -> Any:
+    """``value`` with each non-finite float replaced by its name (``"nan"``, ``"inf"``)."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_compliant(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_compliant(item) for item in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def _request_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Answer a body that fails validation with 422, whatever number it held.
+
+    A request body may carry ``NaN`` / ``Infinity`` (the JSON decoder accepts
+    them), and a validation error echoes the offending ``input`` back.
+    FastAPI's default handler then hands that non-finite float to a
+    ``JSONResponse``, which refuses it (``allow_nan=False``) and raises: the
+    caller's malformed request became a **500**.  An 18-byte body
+    (``{"data": Infinity}``) did it on every route that validates a body,
+    signed in or not.  The response shape is FastAPI's own; a non-finite
+    value is echoed by name so the caller still sees what was refused.
+    """
+    del request  # the handler signature is fixed; nothing is read from it
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": _json_compliant(jsonable_encoder(exc.errors()))},
+    )
 
 
 # Enums for API parameters

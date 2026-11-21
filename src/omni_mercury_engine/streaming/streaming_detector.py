@@ -102,11 +102,18 @@ class StreamingDetector:
         self._lock = asyncio.Lock()
 
         #: Why the last ingest returned what it did: ``"warmup"`` (not enough
-        #: data yet), ``"ok"``, ``"refit_failed"`` or ``"detect_failed"``. A
-        #: failed ingest returns ``None`` exactly like warm-up does, so this is
-        #: what tells an outage from a cold start.
+        #: data yet), ``"ok"``, ``"refit_failed"``, ``"detect_failed"`` or
+        #: ``"rejected"`` (the sample contradicted the stream's shape and was
+        #: refused with ``ValueError``). A failed ingest returns ``None``
+        #: exactly like warm-up does, so this is what tells an outage from a
+        #: cold start.
         self.last_status: str = "warmup"
         self.last_error: str | None = None
+        #: The shape one observation has in this stream, fixed by the first
+        #: one accepted (``None`` until then), and how many were refused for
+        #: contradicting it.
+        self._sample_shape: tuple[int, ...] | None = None
+        self.rejected_points: int = 0
         #: The most recent refit failure and how many refits have failed in a
         #: row. A successful DETECT does not clear these: a detector whose
         #: refits keep failing goes on serving an ever-staler fit, and that
@@ -136,6 +143,40 @@ class StreamingDetector:
         if not self._latencies:
             return 0.0
         return float(np.mean(list(self._latencies)) * 1000)
+
+    def _admit(self, shape: tuple[int, ...], count: int) -> None:
+        """Refuse observations whose shape contradicts the stream's, before they are kept.
+
+        The window is stacked into one array for every refit. A single
+        observation of another width used to be appended anyway; the next
+        refit then raised from the stacking, *before* that tick's sample was
+        appended, so the window never advanced and every later ``ingest``
+        raised the same error: one malformed sample ended the stream until
+        :meth:`reset`. The contradiction is refused here instead, at the
+        sample that carries it, and the stream goes on.
+
+        Args:
+            shape: Shape of one observation being offered.
+            count: How many observations of that shape are being offered.
+
+        Raises:
+            ValueError: If an observation is empty, or its shape is not the
+                shape this stream's observations have.
+        """
+        problem = None
+        if 0 in shape:
+            problem = "an observation with no features carries nothing to score"
+        elif self._sample_shape is not None and shape != self._sample_shape:
+            problem = (
+                f"observation has shape {shape}; this stream's observations have "
+                f"shape {self._sample_shape}"
+            )
+        if problem is None:
+            self._sample_shape = shape
+            return
+        self.rejected_points += count
+        self.last_status, self.last_error = "rejected", f"ValueError: {problem}"
+        raise ValueError(problem)
 
     def _refit(self) -> None:
         """Re-fit the detector on the current window.
@@ -199,11 +240,16 @@ class StreamingDetector:
             Detection result dict if detection was run, None if not
             enough data yet. The result dict contains the same keys
             as MercuryAnomalyDetector.detect() output.
+
+        Raises:
+            ValueError: If the observation is empty or its shape contradicts
+                the stream's. It is not kept, and the stream is unaffected.
         """
         start = time.monotonic()
 
         # Normalize input
         arr = np.atleast_1d(np.asarray(point, dtype=np.float64))
+        self._admit(arr.shape, 1)
 
         # Refit BEFORE the new point joins the window: the reference a point
         # is scored against must not contain that point, or an anomaly helps
@@ -271,9 +317,14 @@ class StreamingDetector:
 
         Returns:
             Detection result for the entire batch, or None.
+
+        Raises:
+            ValueError: If the rows are empty or their shape contradicts the
+                stream's. None of the batch is kept.
         """
         start = time.monotonic()
         arr = np.atleast_2d(np.asarray(batch, dtype=np.float64))
+        self._admit(arr.shape[1:], len(arr))
 
         # As in :meth:`ingest`, the reference is fitted on what was seen BEFORE
         # this batch. The one exception is a cold start with too little
@@ -365,6 +416,7 @@ class StreamingDetector:
         self.last_status, self.last_error = "warmup", None
         self.last_refit_error, self.refit_failures = None, 0
         self._refit_retry_at = 0
+        self._sample_shape, self.rejected_points = None, 0
         _cls = _get_detector_class()
         self._detector = _cls(
             config=self._detector.config if hasattr(self._detector, "config") else {}
@@ -388,4 +440,5 @@ class StreamingDetector:
             "last_error": self.last_error,
             "last_refit_error": self.last_refit_error,
             "refit_failures": self.refit_failures,
+            "rejected_points": self.rejected_points,
         }
