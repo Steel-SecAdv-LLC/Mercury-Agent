@@ -305,13 +305,11 @@ jobs:
     name: Build Package
     needs: [validate, test]
     runs-on: ubuntu-latest
+    # Read-only. This job runs the build backend and everything it installs,
+    # so it holds no signing identity: the artifacts it uploads are signed by
+    # the ``attest`` job below, which runs no code from the tree at all.
     permissions:
       contents: read
-      # Sigstore-backed build provenance for the exact dist artifacts
-      # (actions/attest-build-provenance signs via the workflow OIDC
-      # identity and stores the attestation on the repository).
-      id-token: write
-      attestations: write
 
     steps:
       - name: Checkout code (attempt 1)
@@ -342,6 +340,12 @@ jobs:
       - name: Checkout code (attempt 3, final; runs only on attempts 1+2 failure)
         if: steps.checkout.outcome == 'failure' && steps.checkout2.outcome == 'failure'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The SBOM step below installs the locked [api] closure (torch and its
+      # wheels) on a runner whose default image leaves too little free disk
+      # for it; every job that installs that closure clears space first.
+      - name: Guard runner disk
+        uses: ./.github/actions/runner-disk-guard
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -422,19 +426,6 @@ jobs:
       - name: Verify package
         run: |
           twine check dist/*
-
-      # SIGNED provenance for the exact artifacts built above: a Sigstore
-      # bundle bound to this workflow's OIDC identity, attached to the
-      # repository's attestation store and verifiable with
-      # ``gh attestation verify``.  This is the cryptographic counterpart of
-      # the self-authored JSON below, which remains for human readers and
-      # explicitly claims no signature.
-      - name: Attest build provenance (Sigstore)
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: |
-            dist/*.whl
-            dist/*.tar.gz
 
       # Dependency SBOM via Mercury's own emitter (CycloneDX 1.5 from the
       # installed environment; src/omni_mercury_engine/tools/sbom_emitter.py):
@@ -597,6 +588,45 @@ jobs:
   # ============================================================================
   # Build Docker Image
   # ============================================================================
+  # ============================================================================
+  # Sign the built artifacts
+  # ============================================================================
+  # SIGNED provenance for the exact files ``build`` uploaded: a Sigstore bundle
+  # bound to this workflow's OIDC identity, stored in the repository's
+  # attestation store and verifiable with ``gh attestation verify`` (or
+  # ``python scripts/verify_release.py <tag>``). It is the cryptographic
+  # counterpart of the self-authored provenance.json, which stays for human
+  # readers and claims no signature.
+  #
+  # Its own job, on purpose. Signing needs ``id-token: write``, and a token
+  # with that scope can mint an identity for this workflow. The job that holds
+  # it therefore checks out nothing and runs nothing from the tree or from a
+  # package index: two pinned actions, download then sign. The build job, which
+  # executes the build backend and its dependencies, stays read-only.
+  attest:
+    name: Attest Build Provenance
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Attest build provenance (Sigstore)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+
   docker:
     name: Build Docker Image
     needs: [validate, test]
@@ -684,7 +714,7 @@ jobs:
   # ============================================================================
   release:
     name: Create Release
-    needs: [validate, build, docker]
+    needs: [validate, build, attest, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -69,7 +69,12 @@ def test_the_dispatch_runs_when_either_persist_step_moved_the_branch() -> None:
 
 def test_the_workflow_may_dispatch_and_ci_accepts_it() -> None:
     workflow = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
-    assert workflow["permissions"]["actions"] == "write"
+    # The workflow default is read-only; the job that dispatches carries the
+    # scope itself. A job's own ``permissions`` block replaces the workflow's
+    # for that job, so the scope is read where the dispatching job gets it.
+    assert workflow["permissions"] == {"contents": "read"}
+    job = next(j for j in workflow["jobs"].values() if j.get("name") == "Run Mercury Benchmarks")
+    assert job["permissions"]["actions"] == "write"
     ci = yaml.safe_load((_WORKFLOW.parent / "ci.yml").read_text(encoding="utf-8"))
     triggers = ci.get("on", ci.get(True))
     assert "workflow_dispatch" in triggers

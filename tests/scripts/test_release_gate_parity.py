@@ -174,6 +174,10 @@ _LEAST_PRIVILEGE = {
     "validate": {"contents": "read"},
     "test": {"contents": "read"},
     "build": {"contents": "read"},
+    # Signs what ``build`` uploaded: an OIDC token for the Sigstore certificate
+    # and a write to the attestation store. See the companion test below for
+    # why this job, and not ``build``, holds them.
+    "attest": {"contents": "read", "id-token": "write", "attestations": "write"},
     "docker": {"contents": "read", "packages": "write"},
     "release": {"contents": "write"},
     "publish-pypi": {"contents": "read", "id-token": "write"},
@@ -194,6 +198,39 @@ def test_every_job_holds_only_the_token_scopes_it_uses() -> None:
     )
     widened = {job: scopes for job, scopes in effective.items() if scopes != _LEAST_PRIVILEGE[job]}
     assert not widened, f"jobs hold scopes beyond what they use: {widened}"
+
+
+def test_the_job_that_can_sign_runs_nothing_from_the_tree() -> None:
+    """``id-token: write`` can mint an identity for this workflow; keep it away from code.
+
+    The build job runs the build backend and whatever it installs. It once held
+    the signing scopes too, so a compromised build dependency could have signed
+    anything as this workflow. Signing is its own job now: no checkout, no
+    ``run`` step, only pinned actions, and it signs exactly what was built.
+    """
+    jobs = _load(_RELEASE)["jobs"]
+    signer = jobs["attest"]
+    assert signer["needs"] == ["build"]
+    steps = signer["steps"]
+    assert not [
+        step.get("name") for step in steps if "run" in step
+    ], "the signing job runs a script"
+    uses = [str(step["uses"]) for step in steps]
+    assert not [
+        u for u in uses if u.startswith("actions/checkout")
+    ], "the signing job checks out code"
+    assert [u.split("@")[0] for u in uses] == [
+        "actions/download-artifact",
+        "actions/attest-build-provenance",
+    ]
+    for action in uses:  # each pinned to a full commit id
+        assert len(action.split("@")[1].split()[0]) == 40, action
+    # Nothing is released that was not signed first.
+    assert "attest" in jobs["release"]["needs"]
+    # And no job that executes build or test code may request an identity.
+    for name in ("validate", "test", "build", "docker"):
+        scopes = jobs[name].get("permissions") or {}
+        assert "id-token" not in scopes and "attestations" not in scopes, name
 
 
 @pytest.mark.parametrize(
