@@ -73,7 +73,15 @@ XDIST_GROUP_USERS: frozenset[str] = frozenset(
     }
 )
 
-_PROBE = textwrap.dedent("""
+#: The probe carries the canonical header and a docstring: while it exists it
+#: is a file under ``tests/``, and the header gate (run by
+#: ``tests/pillars/test_openness.py``, possibly on another worker at the same
+#: moment) must find nothing wrong with it.
+_PROBE = textwrap.dedent("""\
+    # Copyright (C) 2025 Steel Security Advisors LLC
+    # SPDX-License-Identifier: AGPL-3.0-or-later
+    \"\"\"Scratch probe written and removed by tests/scripts/test_xdist_group.py.\"\"\"
+
     import os
     import pathlib
     import pytest

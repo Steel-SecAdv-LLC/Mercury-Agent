@@ -231,6 +231,7 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/measure_skip_ledger.py \
     scripts/api_boot_smoke.py \
     scripts/verify_release.py \
+    scripts/ci_test_partition.py \
     --show-error-codes
 else
   echo ""

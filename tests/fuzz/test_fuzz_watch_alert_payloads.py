@@ -332,9 +332,23 @@ def _url(secret: str, host: str, position: str) -> str:
     }[position]
 
 
-def _survives(secret: str, text: str) -> bool:
-    """Whether any 6 consecutive characters of the secret are still in ``text``."""
-    return any(secret[i : i + 6] in text for i in range(len(secret) - 5))
+def _stand_in(secret: str) -> str:
+    """A secret of the same kind that shares no six characters with ``secret``."""
+    return next(c * 12 for c in "qzjxkvwy0123456789" if c * 6 not in secret)
+
+
+def _survives(secret: str, text: str, wording: str) -> bool:
+    """Whether any 6 consecutive characters of the secret are still in ``text``.
+
+    ``wording`` is the same message produced around a stand-in secret. Six
+    characters found there are the message's own words, not the secret's: a
+    generated secret holding ``ection`` is not leaked by ``Connection
+    refused`` (which is how this test once failed with nothing leaking).
+    """
+    return any(
+        secret[i : i + 6] in text and secret[i : i + 6] not in wording
+        for i in range(len(secret) - 5)
+    )
 
 
 class TestWebhookSecret:
@@ -345,7 +359,8 @@ class TestWebhookSecret:
     ) -> None:
         """Structure alone, nothing known about the secret. Fails on the prior code."""
         kept = _strip_url_paths(wording.format(url=_url(secret, host, position)))
-        assert not _survives(secret, kept)
+        fixed = _strip_url_paths(wording.format(url=_url(_stand_in(secret), host, position)))
+        assert not _survives(secret, kept, fixed)
         assert f"https://{host}/..." in kept  # the host stays, for diagnosis
 
     @settings(max_examples=400, deadline=None, suppress_health_check=_SLOW)
@@ -355,17 +370,37 @@ class TestWebhookSecret:
     ) -> None:
         """urllib3's wording: the request target, no scheme, no host. Fails on the prior code."""
         assume(position != "userinfo")  # userinfo is never part of a request target
-        url = _url(secret, host, position)
-        target = url.split(host, 1)[1] or "/"
-        raw = (
-            f"HTTPSConnectionPool(host='{host}', port=443): Max retries exceeded with url: "
-            f"{target} (Caused by NewConnectionError('Connection refused'))"
-        )
-        with mock.patch.dict(os.environ, {WEBHOOK_URL_ENV: url}):
-            assert not _survives(secret, redact_env_secrets(raw))  # the root
-            assert not _survives(secret, _redact_full(redact_text(raw)))  # the transport
-            assert not _survives(secret, _scrub(raw))  # the delivery layer
-            assert "Max retries exceeded" in _scrub(raw)  # the diagnosis survives
+
+        def failure(configured: str) -> tuple[str, str]:
+            url = _url(configured, host, position)
+            target = url.split(host, 1)[1] or "/"
+            return url, (
+                f"HTTPSConnectionPool(host='{host}', port=443): Max retries exceeded with url: "
+                f"{target} (Caused by NewConnectionError('Connection refused'))"
+            )
+
+        def scrubbed(configured: str) -> tuple[str, str, str]:
+            url, raw = failure(configured)
+            with mock.patch.dict(os.environ, {WEBHOOK_URL_ENV: url}):
+                return redact_env_secrets(raw), _redact_full(redact_text(raw)), _scrub(raw)
+
+        root, transport, delivery = scrubbed(secret)
+        fixed = " ".join(scrubbed(_stand_in(secret)))
+        assert not _survives(secret, root, fixed)  # the root
+        assert not _survives(secret, transport, fixed)  # the transport
+        assert not _survives(secret, delivery, fixed)  # the delivery layer
+        assert "Max retries exceeded" in delivery  # the diagnosis survives
+
+    def test_the_leak_detector_sees_a_leak_and_not_the_messages_own_words(self) -> None:
+        """The oracle of the two properties above, held to both of its duties."""
+        secret, refused = "000ection000", "NewConnectionError('Connection refused')"
+        # Six characters shared with the fixed wording are not a leak...
+        assert not _survives(secret, refused, refused)
+        # ...the secret itself still is, whatever else the message says.
+        assert _survives(secret, f"/hook/{secret} {refused}", refused)
+        assert _survives("s3cr3t-token-ab", "POST /x/s3cr3t-token-ab", "POST /x/qqqqqqqqqqqq")
+        stand_in = _stand_in(secret)
+        assert not any(stand_in[i : i + 6] in secret for i in range(len(stand_in) - 5))
 
     def test_a_path_with_no_secret_is_not_struck_from_ordinary_text(self) -> None:
         """A short path holds no secret; redacting it would corrupt diagnostics."""

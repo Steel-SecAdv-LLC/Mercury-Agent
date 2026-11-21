@@ -90,11 +90,24 @@ def _release_gate() -> list[dict[str, Any]]:
     return _job_steps(_load(_RELEASE), "test")
 
 
+#: How both workflows hand the suite to pytest: the paths of one part of the
+#: partition (``scripts/ci_test_partition.py``), never the whole tree at once.
+_PARTITION_CALL = 'python scripts/ci_test_partition.py "$SUITE_PARTS" "$part"'
+_SUITE_CALL = 'pytest "${paths[@]}"'
+
+
 def _pytest_options(run: str) -> dict[str, str]:
-    """``{option: value}`` for the decisive options of the ``pytest tests/`` call."""
+    """``{option: value}`` for the decisive options of the suite's pytest call.
+
+    The suite runs as the parts of a partition, so the call is ``pytest
+    "${paths[@]}" ...`` and the coverage floor rides in the ``report`` array the
+    last part passes; both are read here.
+    """
     joined = re.sub(r"\\\n\s*", " ", run)
-    call = next(line for line in joined.splitlines() if "pytest tests/" in line)
-    tokens = shlex.split(call.split("pytest", 1)[1].split(">", 1)[0])
+    call = next(line for line in joined.splitlines() if _SUITE_CALL in line)
+    floor = next(line for line in joined.splitlines() if "--cov-fail-under=" in line)
+    tokens = shlex.split(call.split(_SUITE_CALL, 1)[1].split(">", 1)[0].split("||", 1)[0])
+    tokens += [token.strip("()") for token in floor.split() if "--cov-fail-under=" in token]
     options: dict[str, str] = {}
     for index, token in enumerate(tokens):
         name, _, value = token.partition("=")
@@ -268,6 +281,32 @@ def test_the_gate_runs_the_suite_with_cis_decisive_options() -> None:
         f"the release gate's per-test timeout ({gate['--timeout']}s) is tighter than "
         f"CI's ({lane['--timeout']}s), so it can fail tests CI legitimately passes"
     )
+
+
+def test_the_gate_runs_the_same_parts_of_the_same_partition() -> None:
+    """Both run every part, append coverage after the first, and gate on the last.
+
+    One pytest session over the whole tree under coverage does not fit the
+    hosted runner (ci.yml states the measurement), so the lane runs the suite
+    as the parts of ``scripts/ci_test_partition.py``. A gate that still ran it
+    whole would be killed on release day; one that ran different parts would
+    test a different suite.
+    """
+    lane = _step(_ml_lane(), name="Run full test suite")
+    gate = _step(_release_gate(), name="Run tests")
+    assert gate["env"]["SUITE_PARTS"] == lane["env"]["SUITE_PARTS"]
+    assert int(lane["env"]["SUITE_PARTS"]) >= 2
+    for run in (lane["run"], gate["run"]):
+        assert _PARTITION_CALL in run
+        assert _SUITE_CALL in run
+        assert 'for part in $(seq 0 "$last")' in run and "last=$((SUITE_PARTS - 1))" in run
+        assert not re.search(r"pytest\s+tests/\s", run), "a whole-tree session has crept back"
+        assert run.count("--cov-fail-under=") == 1
+        later = run.index('if [ "$part" -gt 0 ]; then')
+        assert run.index("append=(--cov-append)", later) - later < 80
+        final = run.index('if [ "$part" -eq "$last" ]; then')
+        assert 0 < run.index("--cov-fail-under=", final) - final < 200
+        assert "holds no tests" in run
 
 
 def test_the_coverage_floor_is_the_same_number_in_both_workflows() -> None:

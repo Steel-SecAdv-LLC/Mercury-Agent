@@ -263,8 +263,10 @@ jobs:
           MERCURY_REQUIRES_HF_MODELS: "1"
           MERCURY_FULL_LEDGER_CHECK: "1"
           MERCURY_REQUIRES_BROWSER: "1"
+          # Sessions the suite is run as, exactly as the ml-tests lane runs it.
+          SUITE_PARTS: "4"
         run: |
-          set -o pipefail
+          set -uo pipefail
           # NOT `pytest ... | head -100`. `head` closes the pipe the moment it
           # has its 100 lines; pytest then dies of SIGPIPE and the pipeline
           # exits 141, which `set -o pipefail` propagates as a step failure
@@ -278,15 +280,39 @@ jobs:
           # --timeout=60 run was a different test from the one CI proves: a
           # per-test timeout is a hang guard, not an assertion, and sequential
           # order exercised an ordering CI never runs.
-          if ! pytest tests/ -n 4 --dist=loadgroup --timeout=300 -x --tb=short -q \
-              --cov=src/omni_mercury_engine --cov-report=term-missing \
-              --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }} \
-              > pytest-release.log 2>&1; then
-            echo "::error::Release test gate failed. Last 200 lines follow; the"
-            echo "::error::complete log is attached as the pytest-release-log artifact."
-            tail -n 200 pytest-release.log
-            exit 1
-          fi
+          #
+          # The suite runs as SUITE_PARTS sessions that append to one coverage
+          # file, as the ml-tests lane does and for its reason: one session
+          # under coverage does not fit the runner's 16 GB (see ci.yml). The
+          # parts are scripts/ci_test_partition.py's, which together are every
+          # test file pytest collects; the coverage floor is enforced on the
+          # last part, over all of them. The first failing part stops the
+          # release.
+          : > pytest-release.log
+          last=$((SUITE_PARTS - 1))
+          for part in $(seq 0 "$last"); do
+            mapfile -t paths < <(python scripts/ci_test_partition.py "$SUITE_PARTS" "$part")
+            if [ "${#paths[@]}" -eq 0 ]; then
+              echo "::error::part ${part} of ${SUITE_PARTS} holds no tests"
+              exit 1
+            fi
+            append=()
+            report=(--cov-report=)
+            if [ "$part" -gt 0 ]; then
+              append=(--cov-append)
+            fi
+            if [ "$part" -eq "$last" ]; then
+              report=(--cov-report=term-missing --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }})
+            fi
+            if ! pytest "${paths[@]}" -n 4 --dist=loadgroup --timeout=300 -x --tb=short -q \
+                --cov=src/omni_mercury_engine "${append[@]}" "${report[@]}" \
+                >> pytest-release.log 2>&1; then
+              echo "::error::Release test gate failed in part $((part + 1)) of ${SUITE_PARTS}. Last 200 lines follow; the"
+              echo "::error::complete log is attached as the pytest-release-log artifact."
+              tail -n 200 pytest-release.log
+              exit 1
+            fi
+          done
           tail -n 40 pytest-release.log
 
       - name: Upload test log

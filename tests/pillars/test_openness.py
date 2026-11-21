@@ -115,6 +115,43 @@ class TestCiRunsTheSameChecker:
         config = (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
         assert "scripts/normalize_headers.py --check" in config
 
+    def test_a_file_removed_while_the_tree_is_scanned_is_not_a_crash(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Listed, then gone before it is read: skipped, not a traceback.
+
+        ``tests/scripts/test_xdist_group.py`` writes a scratch file under
+        ``tests/`` and removes it; when the gate ran on another worker at that
+        moment it crashed with ``FileNotFoundError`` and this class's own
+        whole-tree check failed with nothing wrong in the tree.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "normalize_headers_under_test", REPO_ROOT / "scripts" / "normalize_headers.py"
+        )
+        assert spec is not None and spec.loader is not None
+        checker = importlib.util.module_from_spec(spec)
+        # Registered while it is executed: its dataclasses look their module up.
+        monkeypatch.setitem(sys.modules, spec.name, checker)
+        spec.loader.exec_module(checker)
+        kept = tmp_path / "kept.py"
+        kept.write_text(
+            "# Copyright (C) 2025 Steel Security Advisors LLC\n"
+            "# SPDX-License-Identifier: AGPL-3.0-or-later\n"
+            '"""A file that stays."""\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(
+            checker, "iter_python_files", lambda _paths: [tmp_path / "gone.py", kept]
+        )
+        monkeypatch.setattr(checker, "iter_rust_files", lambda _paths: [])
+        monkeypatch.setattr(sys, "argv", ["normalize_headers.py", "--check"])
+        assert checker.main() == 0
+        # A file that is there and wrong is still an error.
+        kept.write_text("x = 1\n", encoding="utf-8")
+        assert checker.main() == 1
+
     @pytest.mark.slow
     def test_the_checker_passes_on_the_current_tree(self) -> None:
         """Run the real gate. If it fails here it fails in CI, and vice versa."""

@@ -848,6 +848,7 @@ jobs:
             scripts/measure_skip_ledger.py \
             scripts/api_boot_smoke.py \
             scripts/verify_release.py \
+            scripts/ci_test_partition.py \
             --show-error-codes \
             --pretty
 
@@ -1651,18 +1652,68 @@ jobs:
           # (tests/research/test_served_routes_ledger.py); the other lanes
           # check the ledger's input hashes and floors without recomputing.
           MERCURY_FULL_LEDGER_CHECK: "1"
+          # Sessions the suite is run as (see the step's comment).
+          SUITE_PARTS: "4"
         run: |
-          # Run tests in parallel with 4 workers, 300s timeout per test
-          # Coverage threshold enforced to ensure production readiness
-          pytest tests/ \
-            -v \
-            -n 4 \
-            --timeout=300 \
-            --cov=src/omni_mercury_engine \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }} \
-            --dist=loadgroup
+          # The whole suite, 4 workers, 300s timeout per test, as SUITE_PARTS
+          # pytest sessions that append to ONE coverage file; the coverage
+          # floor is enforced on the last session, over all of them.
+          #
+          # Why not one session: under coverage the four xdist workers do not
+          # fit this runner's 16 GB. Measured 2026-11-21 on a 16 GB, 4-core
+          # machine: 5.9 GB as soon as collection ends (every worker has
+          # imported the package under the tracer), then steady growth as
+          # tests run (7.1 GB at 12%, 11.8 GB at 42%, 13.6 GB peak). Here the
+          # pinned HuggingFace models are loaded as well, and the runner was
+          # killed at 36% ("The runner has received a shutdown signal"). A new
+          # session starts new workers, so what one part accumulated is
+          # returned before the next begins: the same tests, the same four
+          # workers, the same coverage data (78.73% in parts, 78.72% as one
+          # session), a lower peak. Each part's peak is printed as a notice,
+          # so the margin on this runner is measured, not assumed.
+          #
+          # scripts/ci_test_partition.py assigns every top-level entry of
+          # tests/ to exactly one part; tests/scripts/test_ci_test_partition.py
+          # holds that the parts are disjoint and together are every test file
+          # pytest collects, so no test is dropped by the split. Every part
+          # runs even after an earlier one fails, so one red part does not
+          # hide another; the step fails if any part did.
+          set -uo pipefail
+          status=0
+          last=$((SUITE_PARTS - 1))
+          for part in $(seq 0 "$last"); do
+            mapfile -t paths < <(python scripts/ci_test_partition.py "$SUITE_PARTS" "$part")
+            if [ "${#paths[@]}" -eq 0 ]; then
+              echo "::error::part ${part} of ${SUITE_PARTS} holds no tests"
+              exit 1
+            fi
+            # Later parts append to the first part's coverage data; the last
+            # part reports on all of it and enforces the floor.
+            append=()
+            report=(--cov-report=)
+            if [ "$part" -gt 0 ]; then
+              append=(--cov-append)
+            fi
+            if [ "$part" -eq "$last" ]; then
+              report=(--cov-report=xml --cov-report=term-missing --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }})
+            fi
+            echo "::group::suite part $((part + 1)) of ${SUITE_PARTS}: ${#paths[@]} entries"
+            : > suite-memory.log
+            ( while true; do free -m | awk 'NR==2 {print $3}' >> suite-memory.log; sleep 5; done ) &
+            sampler=$!
+            pytest "${paths[@]}" \
+              -v \
+              -n 4 \
+              --timeout=300 \
+              --dist=loadgroup \
+              --cov=src/omni_mercury_engine \
+              "${append[@]}" "${report[@]}" || status=1
+            kill "$sampler" 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::notice::suite part $((part + 1)) of ${SUITE_PARTS}: peak memory in use $(sort -n suite-memory.log | tail -1) MB of $(free -m | awk 'NR==2 {print $2}') MB"
+          done
+          rm -f suite-memory.log
+          exit "$status"
 
       - name: Upload coverage
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
