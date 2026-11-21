@@ -120,6 +120,7 @@ A test behind `pytest.importorskip("x")` runs only where `x` is installed. "Full
 | `pyod` | pyod | yes |
 | `requests` | requests | yes |
 | `scipy` | scipy | yes |
+| `starlette` | starlette | yes |
 | `stumpy` | stumpy | yes |
 | `sympy` | sympy | yes |
 | `timm` | timm | yes |
