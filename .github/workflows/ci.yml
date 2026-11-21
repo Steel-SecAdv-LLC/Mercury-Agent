@@ -2095,6 +2095,7 @@ jobs:
         uses: ./.github/actions/install-trivy
 
       - name: Scan Docker image with Trivy
+        id: trivy_gate
         env:
           TMPDIR: /mnt/trivy-tmp
           TRIVY_TEMP_DIR: /mnt/trivy-tmp
@@ -2134,6 +2135,30 @@ jobs:
           # Use the binary installed in the explicit step above; see
           # that step's comment for the upstream-flake rationale.
           skip-setup-trivy: true
+
+      - name: List the findings that failed the Trivy gate
+        # The gate writes SARIF, and SARIF puts no finding in this log. On
+        # 2026-11-21 it failed three runs on an advisory the vulnerability
+        # DB had just published, and which finding it was had to be
+        # reconstructed offline from the build log's package versions.
+        # This is the same scan, with the same ledger and policy, printed
+        # as a table. It runs only after the gate has failed, sets no exit
+        # code of its own, and so cannot change the job's result.
+        if: ${{ failure() && steps.trivy_gate.outcome == 'failure' }}
+        env:
+          TMPDIR: /mnt/trivy-tmp
+          TRIVY_TEMP_DIR: /mnt/trivy-tmp
+          TRIVY_CACHE_DIR: /mnt/trivy-cache
+          IMAGE_REF: mercury-agent:${{ github.sha }}
+        run: |
+          trivy image \
+            --severity CRITICAL,HIGH \
+            --pkg-types os,library \
+            --ignorefile .trivyignore \
+            --ignore-policy trivy-fixed-in-place.rego \
+            --format table \
+            --timeout 10m \
+            "$IMAGE_REF"
 
       - name: Upload Trivy results
         if: always()
