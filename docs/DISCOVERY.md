@@ -152,16 +152,25 @@ Three ways, same arithmetic:
 |---|---|
 | Offline | `mercury-agent replay record.json [--data window.csv] [--reference rows.csv] [--json]` |
 | API | `POST /api/v1/detect/flagship/replay` with `{"record": ..., "data": ..., "reference": ...}` |
-| Console | The decision panel shows each artifact's basis, the weakest premise and the replay path |
+| Console | The decision panel shows each artifact's basis, the weakest premise and the replay path; **CHALLENGE THIS DECISION** (on any result whose record carries artifacts, and the terminal's challenge row) runs the API replay and renders the verdict per artifact |
 
 `record.json` may be the decision record, a whole flagship response, or its
-`cognitive_analysis`.
+`cognitive_analysis`. Artifacts follow the `mercury.discovery/v1` schema. The
+API responds `{"verdict", "artifacts", "replay"}`: `verdict` is the worst
+outcome among the artifacts (`FAILS` over `CANNOT_REPLAY` over `HOLDS`), or
+`NO_ARTIFACTS` when the record carries none; `replay` holds one report per
+artifact. The served replay is bounded: a causal finding is recomputed only
+up to what the shipped instrument produces (5 columns, lags to 5 — larger is
+`CANNOT_REPLAY` with the reason, and replays offline), and a replay that
+recomputes from supplied `data`/`reference` takes a flagship admission slot
+(429 when full). Offline replay is unbounded.
 
 | Outcome | Meaning | CLI exit status |
 |---|---|---|
 | `HOLDS` | The claim reproduces. | 0 when every artifact holds |
 | `FAILS` | It does not: the numbers changed, the artifact was altered, or the claim is false against what you supplied. | 1 |
 | `CANNOT_REPLAY` | The artifact does not carry enough to decide, and says why. Never read as holding. | 2 |
+| `NO_ARTIFACTS` (API) | The record carries no discovery artifact. | 2, with "nothing to replay" |
 
 Every artifact carries a digest over its claim, procedure and inputs. One that
 does not match its own digest fails.

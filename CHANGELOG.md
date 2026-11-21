@@ -3433,6 +3433,63 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
+### Added — the console and docs now deliver the three answers, with a challenge button
+
+- **Console decision panel, complete**: a flagship decision renders in the
+  three sections an operator asks in — *why this row* (carrying row,
+  contributions, detector uncertainties, skipped detectors, out-of-support
+  rows, causal factors and test, hypothesis with its weakest premise), *how
+  sure* (verdict vs threshold, conformal set with its calibration basis,
+  per-sample certificate note, drift, symbolic agreement, GOSNN second
+  opinion, critique with measured flags, novelty verdict with p-value and
+  reference size) and *the record* (response plan, model provenance, ethics
+  outcome with score vs threshold, policy and its gates, replay paths,
+  reasons, caveats). `tests/api/test_console_decision_complete.py` pins the
+  panel against `DecisionRecord`/`Evidence` field-for-field, so a field added
+  to the record fails CI until the console shows it. The decision-trail
+  summary (`GET /detect/flagship/decisions`) renders its rates, churn and
+  admission counters; flagship per-row arrays (`anomaly_probs`,
+  `is_anomaly_rows`) now feed the headline and charts.
+- **"Challenge this decision"**: a console action (button on any result whose
+  record carries discovery artifacts, and a clickable terminal row under the
+  decision block) that POSTs the record to `/detect/flagship/replay` and
+  renders the verdict per artifact; measured in headless Chromium against the
+  served page (`test_console_decision_forbidden_browser.py`).
+- **End-to-end example** `examples/auditable_decision.py`: one committed
+  window with known planted structure through the shipped flagship model in
+  the served posture; prints the three answers, replays the decision's
+  artifacts (HOLDS), shows a tampered copy failing, and exits 0 only when
+  both come out. The README's new "The Single Issue Mercury Resolves" section
+  and the console landing state the issue and where each answer lives.
+
+### Fixed — honesty and bounds found while closing the loop
+
+- **Record severity honours its contract**: `DecisionRecord.severity` is
+  documented in [0, 1] and the response layer bands it on that scale, but the
+  fusion severity head is an unbounded regression and a real served record
+  carried −0.041; the evidence layer now clamps to the documented range (the
+  raw value stays in the detection result).
+- **Served replay is bounded**: a causal finding is recomputed only up to what
+  the shipped instrument produces (5 columns, lags to 5) — a crafted record
+  naming 64 columns at lag 50 did not finish in ten minutes; larger findings
+  are CANNOT_REPLAY with the reason and replay offline. A replay that
+  recomputes from supplied data takes a flagship admission slot (429 when
+  full), and the novelty reference rebuild is linear-time (the quadratic form
+  measured 0.72 s at 4,000 rows, 13.4 s at 16,000).
+- **Assessment body cap restored**: the every-route 10 MiB cap had silently
+  lowered the assessment surface's documented 64 MiB
+  (`MERCURY_ASSESSMENT_MAX_BODY_BYTES`); the cap now lives in the serving
+  limits and is enforced as the body streams (the old guard read only a
+  declared Content-Length, which a chunked request omits).
+- **Docs match the shipped code**: the decision layer is documented as on by
+  default engine-wide (README, ARCHITECTURE, a stale engine comment); the
+  fusion output and MCP tool return lists are complete; the CLI list gains
+  `replay`; SECURITY.md and DEPLOYMENT.md document every serving bound and
+  the IPv6 /64 rate-limit identity; DISCOVERY.md documents the replay
+  response shape, `NO_ARTIFACTS`, the served bounds and the schema name;
+  API_REFERENCE gains the `decision` / `measurement` / `discovery` /
+  `serving_limits` modules and drops its v2.1.x header; the curiosity rows
+  state the rank-test verdict and the served default.
 ### The streaming worker alarms with a learned policy: PPO on NAB
 
 **Added — `ml/alarm_policy.py`, now the default detector of

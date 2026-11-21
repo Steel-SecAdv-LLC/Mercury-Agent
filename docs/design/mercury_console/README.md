@@ -211,7 +211,7 @@ localStorage keys used by the prototype (keep the names so users keep their data
 
 ## 12. Server routes the console calls
 
-Detection: `POST /api/v1/detect/{univariate,multivariate,neurosymbolic,fusion,three-r,tier,flagship,rca}`, `POST /api/v1/batch/detect` (+ job status/results), `POST /api/v1/hazard/visualize`. Conversation: `POST /api/v1/voice/speak`, `POST /api/v1/voice/narrate`, plus the voice status/greeting GETs. Assessment: `statements/verify`, `intel/screen`, `intel/fuse`, `concealed-information-test`, `vital-signs`, `adjudication/*`. The API routes catalog lists every route on the server; account and model-registry routes are hidden by default because the console workflow does not need them.
+Detection: `POST /api/v1/detect/{univariate,multivariate,neurosymbolic,fusion,three-r,tier,flagship,rca}`, `GET /api/v1/detect/flagship/{model,decisions,limits,improvements}`, `POST /api/v1/detect/flagship/replay` (the CHALLENGE THIS DECISION button and the terminal's challenge row), `POST /api/v1/batch/detect` (+ job status/results), `POST /api/v1/hazard/visualize`. Conversation: `POST /api/v1/voice/speak`, `POST /api/v1/voice/narrate`, plus the voice status/greeting GETs. Assessment: `statements/verify`, `intel/screen`, `intel/fuse`, `concealed-information-test`, `vital-signs`, `adjudication/*`. The API routes catalog lists every route on the server; account and model-registry routes are hidden by default because the console workflow does not need them.
 
 ---
 

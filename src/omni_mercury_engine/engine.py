@@ -7534,10 +7534,11 @@ class OmniMercuryEngine(LoggerMixin):
         # Decision / abstention / response layer: close the loop from the
         # calibrated certificate just assembled (probability + conformal set +
         # ethical verdict + symbolic agreement + drift) to a bounded,
-        # non-destructive response with an explicit "don't-know" gate. A no-op
-        # (no key added) until enable_decision_layer() is called. When an audit
-        # ledger was supplied, the decision is also recorded -- the "verify"
-        # step that turns the stream of decisions into a queryable trail.
+        # non-destructive response with an explicit "don't-know" gate. On by
+        # default (decision_layer=False at construction opts out). When an
+        # audit ledger was supplied, the decision is also recorded -- the
+        # "verify" step that turns the stream of decisions into a queryable
+        # trail.
         if self.decision_layer is not None:
             decision_record = self.decision_layer.decide(result, domain=domain)
             result["decision"] = decision_record.to_dict()

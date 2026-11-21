@@ -320,12 +320,16 @@ Ensemble Averaging
 Calibration + certificate (temperature scaling, conformal coverage set,
    ethical-gate verdict, neuro-symbolic agreement, drift)
    ↓
-Decision / Abstention / Response (opt-in: enable_decision_layer())
+Decision / Abstention / Response (on by default; decision_layer=False opts out)
    ThreeState gate → {GROUNDED | UNAVAILABLE | UNDECIDABLE}
    → Disposition {act | clear | defer | hold}
    → bounded, non-destructive ResponsePlan
    ↓
-Output: {anomaly_prob, is_anomaly, severity, conformal, decision, gosnn_metadata}
+Output: {anomaly_prob, is_anomaly, class_prediction, severity, top_row,
+         anomaly_probs, is_anomaly_rows, severity_scores, out_of_support_rows,
+         detector_importance, detector_uncertainties, mode, threshold_used,
+         model_provenance, gosnn_metadata; plus drift_detection, conformal,
+         cognitive_analysis (cognition on) and decision}
 ```
 
 The **feature-extraction** stage of the domain models that take a numeric
@@ -343,8 +347,18 @@ It is a pure, deterministic function of the certificate above: it reuses the
 engine-wide `ThreeState` transparency contract to make abstention first-class (a
 calibrated "don't-know" gate split into a *resolvable* deferral and a
 *fail-closed* hold), then attaches a bounded response that recommends and
-escalates but never autonomously executes a destructive action. It is an exact
-no-op until `enable_decision_layer()` is called.
+escalates but never autonomously executes a destructive action. It is on by
+default: every `detect_with_fusion` result carries the record (construct with
+`decision_layer=False` to opt out; `enable_decision_layer()` customises the
+policy, calibrator, or — as the served flagship does — attaches a ledger).
+
+Every record's discovery findings are challengeable after the fact: the
+**Challenge this decision** action in the console (on any result whose record
+carries discovery artifacts), `POST /api/v1/detect/flagship/replay`, and
+`mercury-agent replay record.json` all re-run the recorded recipes — the
+novelty rank test, the corrected lead-lag F-tests, the hypothesis's premises —
+and report, per artifact, whether the claim still HOLDS, FAILS, or
+CANNOT_REPLAY (with the reason; never read as holding).
 
 ## Runtime Configuration
 

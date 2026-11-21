@@ -220,6 +220,7 @@ OmniMercuryEngine / narrative engine / agentic operations subagent
         ├─ Step 7: IndicatorDevelopmentSystem (optional, default ON)
         ├─ Step 8: IPBEngine                (optional, default ON)
         ├─ Step 9: CuriosityEngine          (optional, DEFAULT-OFF)
+        ├─ Step 9b: hypothesis derivation   (with Step 9: rules over measured verdicts)
         └─ Step 10: IntegratedAnomalyDetector (optional, DEFAULT-OFF)
 ```
 
@@ -230,7 +231,8 @@ far a detected anomaly lies from what the caller has shown before
 (`CuriosityEngine`) and gives a verdict by rank: novel when the distance is in
 the top 5% of the reference's own distances. Step 9b then derives a hypothesis
 from the verdicts that hold (the detection flag, the novelty verdict, the
-strongest lagged dependence from Step 4) by chaining three explicit rules in
+most significant lagged dependence from Step 4 — smallest adjusted p, partial
+R² breaking ties) by chaining three explicit rules in
 the `MultiHopReasoner`. Step 10 folds each observation into the
 `IntegratedAnomalyDetector` Bayesian/HMM predictive memory and surfaces a
 forecast for detected anomalies; it is constructed with
