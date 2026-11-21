@@ -219,7 +219,7 @@ from omni_mercury_engine.ml.symbolic_constraint import (
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
     from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
@@ -1725,6 +1725,18 @@ class OmniMercuryEngine(LoggerMixin):
             # certificate was restored from a checkpoint (which does not
             # record it -- the provenance says so rather than inventing one).
             self._fusion_conformal_n_calibration: int | None = None
+            # What one calibration unit of the certificate was: "per_sample"
+            # (a row; calibrate_fusion_conformal) or "batch_max" (a whole
+            # batch, represented by its most anomalous row;
+            # calibrate_fusion_conformal_batches). The scalar verdict of a
+            # multi-row detection is the batch-max row, so only a batch_max
+            # certificate covers it; a per_sample one says so in the record.
+            self._fusion_conformal_regime: str = "per_sample"
+            # With a batch_max certificate: what the calibration batches looked
+            # like as wholes (summary mean, spread and the distances among
+            # them), so a served batch can be asked whether it is one of that
+            # family before the certificate is claimed for it. None otherwise.
+            self._fusion_batch_family: dict[str, Any] | None = None
             logger.info(
                 "OmniFusionModel initialized (untrained). Call fit_fusion() "
                 "before detection for optimal performance."
@@ -4335,6 +4347,8 @@ class OmniMercuryEngine(LoggerMixin):
         self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
         # Recorded for model provenance: the certificate's calibration-set size.
         self._fusion_conformal_n_calibration = int(y.size)
+        self._fusion_conformal_regime = "per_sample"
+        self._fusion_batch_family = None
         report = self._fusion_conformal.coverage_report(probs, y)
         # Improvement ledger: replacing the serving certificate is an adaptive
         # change to what "calibrated" means on every later decision.
@@ -4378,6 +4392,250 @@ class OmniMercuryEngine(LoggerMixin):
             "thresholds": report["thresholds"],
             "n_calibration": len(y),
         }
+
+    def calibrate_fusion_conformal_batches(
+        self,
+        batches: Sequence[np.ndarray[Any, Any]],
+        labels: Sequence[int],
+        coverage: float = 0.9,
+    ) -> dict[str, Any]:
+        """Fit the conformal certificate on whole batches, one statistic each.
+
+        :meth:`calibrate_fusion_conformal` certifies a row.  The scalar
+        verdict of a multi-row detection is the batch's most anomalous row,
+        and picking the maximum of many rows is not exchangeable with a
+        per-row fit: a clean batch of a few hundred rows almost always has one
+        row past a per-row threshold.  When the question is about the batch
+        ("does this window / document / image contain an anomaly?"), the
+        certificate has to be calibrated on that statistic.
+
+        This scores each calibration batch exactly as serving will (all its
+        rows together), takes its maximum probability, and fits the conformal
+        classifier on one ``(batch-max probability, batch label)`` pair per
+        batch.  :meth:`detect_with_fusion` already issues its prediction set
+        for the batch-max probability, so the certificate then covers the
+        verdict it is attached to; the result and the decision record name
+        the regime ``"batch_max"``.
+
+        Args:
+            batches: Calibration batches ``(rows_i, n_features)``, disjoint
+                from the training data and from any later evaluation set.
+            labels: One binary label per batch (1 = contains an anomaly).
+            coverage: Target per-class coverage.
+
+        Returns:
+            ``coverage``, ``coverage_achieved`` (the finite-sample bound the
+            smaller class guarantees), ``thresholds``, ``n_calibration``
+            (batches) and ``regime``.
+
+        Raises:
+            ValueError: If mode is not 'fusion', or the counts differ.
+            RuntimeError: If the fusion model is untrained.
+        """
+        if self.mode != "fusion":
+            raise ValueError("calibrate_fusion_conformal_batches() requires mode='fusion'")
+        if not self._fusion_trained:
+            raise RuntimeError(
+                "Fusion model is untrained; call fit_fusion()/train_fusion_model() "
+                "before calibrate_fusion_conformal_batches()."
+            )
+        y = np.asarray(list(labels)).astype(int).ravel()
+        if len(batches) != y.size:
+            raise ValueError(f"{len(batches)} batches but {y.size} labels: one label per batch")
+        row_probs = [np.asarray(self.score_fusion(np.asarray(batch))).ravel() for batch in batches]
+        probs = np.array([float(np.max(rows)) for rows in row_probs])
+        previous = self._fusion_conformal
+        previous_n = self._fusion_conformal_n_calibration
+        previous_regime = self._fusion_conformal_regime
+        self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
+        self._fusion_conformal_n_calibration = int(y.size)
+        self._fusion_conformal_regime = "batch_max"
+        self._fusion_batch_family = self._fit_batch_family(
+            [
+                self._batch_family_summary(np.asarray(batch), rows)
+                for batch, rows in zip(batches, row_probs, strict=True)
+            ]
+        )
+        report = self._fusion_conformal.coverage_report(probs, y)
+        from omni_mercury_engine.governance.improvement_ledger import record_adaptive_change
+
+        record_adaptive_change(
+            "engine.conformal_certificate",
+            "fitted a batch-level conformal certificate (one batch-max statistic per batch)",
+            reason=f"calibrate_fusion_conformal_batches() on {int(y.size)} held-out batches",
+            before=(
+                {
+                    "coverage": float(previous.coverage),
+                    "coverage_achieved": float(previous.coverage_achieved),
+                    "n_calibration": previous_n,
+                    "regime": previous_regime,
+                }
+                if previous is not None
+                else None
+            ),
+            after={
+                "coverage": float(coverage),
+                "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+                "n_calibration": int(y.size),
+                "regime": "batch_max",
+            },
+            impact={"coverage_report_thresholds": report["thresholds"]},
+            rollback=(
+                "reload the previous checkpoint (load_model restores its "
+                "conformal_state and regime), or refit on the previous calibration set"
+            ),
+        )
+        return {
+            "coverage": coverage,
+            "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+            "thresholds": report["thresholds"],
+            "n_calibration": int(y.size),
+            "regime": "batch_max",
+        }
+
+    #: Level of the batch-family test: a batch whose distance from the
+    #: calibration batches ranks in their top 5% is not claimed as one of them.
+    _BATCH_FAMILY_ALPHA = 0.05
+    _BATCH_FAMILY_NAMES = (
+        "log_rows",
+        "mean_absolute_z",
+        "share_beyond_3",
+        "fourth_moment",
+        "mean_absolute_correlation",
+        "leading_eigen_share",
+        "row_norm_median",
+        "row_norm_tail",
+        "bulk_score_median",
+        "bulk_score_mean",
+    )
+
+    @staticmethod
+    def _batch_family_summary(
+        batch: np.ndarray[Any, Any], row_probs: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """What a batch looks like as a whole: ten numbers, scale-free.
+
+        The batch's columns are standardized against the batch itself (median
+        and MAD), so the summary describes the *shape* of its cloud (how
+        heavy the tails, how the columns move together, how long the rows)
+        whatever units the columns are in, together with the level of the
+        model's own scores over the bulk of its rows.  It deliberately
+        leaves out the batch's maximum score: that is the statistic the
+        certificate is about, and a batch is not out of family for containing
+        an anomaly.
+        """
+        data = np.nan_to_num(np.asarray(batch, dtype=np.float64))
+        median = np.median(data, axis=0)
+        scale = 1.4826 * np.median(np.abs(data - median), axis=0)
+        scale = np.where(scale > 1e-9, scale, data.std(axis=0))
+        usable = scale > 1e-9
+        z = np.zeros_like(data)
+        z[:, usable] = np.clip((data[:, usable] - median[usable]) / scale[usable], -10.0, 10.0)
+        norms = np.sqrt(np.mean(z**2, axis=1))
+        moving = z[:, usable]
+        if moving.shape[1] >= 2 and moving.shape[0] >= 3:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                corr = np.nan_to_num(np.corrcoef(moving, rowvar=False))
+            off = corr[~np.eye(corr.shape[0], dtype=bool)]
+            mean_corr = float(np.mean(np.abs(off)))
+            eigen = np.linalg.eigvalsh(corr)
+            leading = float(eigen[-1] / max(float(np.sum(np.abs(eigen))), 1e-12))
+        else:
+            mean_corr, leading = 0.0, 1.0
+        scores = np.sort(np.asarray(row_probs, dtype=np.float64).ravel())
+        bulk = scores[: max(1, int(0.8 * scores.size))]
+        return np.array(
+            [
+                float(np.log(max(data.shape[0], 1))),
+                float(np.mean(np.abs(z))),
+                float(np.mean(np.abs(z) > 3.0)),
+                float(np.log1p(np.mean(z**4))),
+                mean_corr,
+                leading,
+                float(np.median(norms)),
+                float(np.quantile(norms, 0.95) / max(float(np.median(norms)), 1e-9)),
+                float(np.median(bulk)),
+                float(np.mean(bulk)),
+            ]
+        )
+
+    def _fit_batch_family(self, summaries: list[np.ndarray[Any, Any]]) -> dict[str, Any] | None:
+        """The calibration batches as a reference: mean, spread, and distances among them.
+
+        Each batch's distance is taken from the mean and spread of the
+        *others* (leave-one-out), so it is the distance a new batch of the
+        same family would have, and a served batch can be ranked among them.
+        """
+        from omni_mercury_engine.discovery import rms_standardized_distance
+
+        stacked = np.asarray(summaries, dtype=np.float64)
+        if stacked.shape[0] < 20:
+            return None  # too few batches to rank a newcomer among
+        distances: list[float] = []
+        for index in range(stacked.shape[0]):
+            others = np.delete(stacked, index, axis=0)
+            found = rms_standardized_distance(
+                stacked[index], others.mean(axis=0), others.std(axis=0, ddof=1)
+            )
+            if found is not None:
+                distances.append(found)
+        return {
+            "names": list(self._BATCH_FAMILY_NAMES),
+            "mean": [float(v) for v in stacked.mean(axis=0)],
+            "std": [float(v) for v in stacked.std(axis=0, ddof=1)],
+            "distances": distances,
+            "n_batches": int(stacked.shape[0]),
+            "alpha": float(self._BATCH_FAMILY_ALPHA),
+        }
+
+    def _run_batch_family_check(
+        self, payload: dict[str, Any], batch: np.ndarray[Any, Any], row_probs: Any
+    ) -> None:
+        """Ask whether this batch is one of the certificate's calibration family.
+
+        A batch-level certificate is exchangeable over batches, so the drift
+        question is about the batch as a whole: its summary's distance from
+        the calibration batches, ranked among their own distances (the same
+        rank test the novelty verdict uses).  A p-value at or below the level
+        reports drift at severity HIGH, which the decision layer reads as
+        "the certificate is not claimed here".
+        """
+        from omni_mercury_engine.discovery import rank_p_value, rms_standardized_distance
+
+        family = self._fusion_batch_family
+        assert family is not None
+        payload.update(
+            reference_rows=int(family["n_batches"]),
+            reference_source="calibration_batches:batch_family",
+            n_tested=len(batch),
+        )
+        if row_probs is None or len(np.asarray(row_probs).ravel()) != len(batch):
+            payload.update(status="error", message="row probabilities unavailable for the check")
+            return
+        summary = self._batch_family_summary(batch, np.asarray(row_probs))
+        distance = rms_standardized_distance(summary, family["mean"], family["std"])
+        if distance is None:
+            payload.update(status="error", message="the calibration family has no spread")
+            return
+        p_value = rank_p_value(distance, family["distances"])
+        is_drift = p_value <= float(family["alpha"])
+        payload.update(
+            status="tested",
+            is_drift=bool(is_drift),
+            severity="HIGH" if is_drift else "NONE",
+            p_value=float(p_value),
+            statistic=float(distance),
+            message=(
+                f"batch-family test: this batch's summary is at distance {distance:.2f} from "
+                f"the {family['n_batches']} calibration batches (rank p={p_value:.3f}, level "
+                f"{family['alpha']})"
+                + (
+                    "; it is not one of the family the certificate was calibrated on"
+                    if is_drift
+                    else ""
+                )
+            ),
+        )
 
     def score_fusion_conformal(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Return calibrated probabilities *and* conformal label sets for a batch.
@@ -4691,7 +4949,7 @@ class OmniMercuryEngine(LoggerMixin):
     _DRIFT_WINDOW_ROWS = 100
 
     def _drift_payload(
-        self, data: np.ndarray[Any, Any], is_anomaly_rows: Any
+        self, data: np.ndarray[Any, Any], is_anomaly_rows: Any, row_probs: Any = None
     ) -> dict[str, Any] | None:
         """Test this batch's normal-looking rows for drift against the reference.
 
@@ -4721,7 +4979,15 @@ class OmniMercuryEngine(LoggerMixin):
         started = time.perf_counter()
         payload: dict[str, Any] = {"is_drift": None, "severity": None, "p_value": None}
         try:
-            self._run_drift_check(payload, data, is_anomaly_rows)
+            if self._fusion_conformal_regime == "batch_max" and self._fusion_batch_family:
+                # A batch-level certificate is exchangeable over batches, not
+                # rows: the family question is asked of the batch as a whole.
+                matrix = np.asarray(data, dtype=np.float64)
+                self._run_batch_family_check(
+                    payload, matrix.reshape(1, -1) if matrix.ndim == 1 else matrix, row_probs
+                )
+            else:
+                self._run_drift_check(payload, data, is_anomaly_rows)
         except Exception as exc:
             logger.exception("Drift check failed; the detection result is returned without it")
             payload.update(
@@ -7446,7 +7712,9 @@ class OmniMercuryEngine(LoggerMixin):
             elif isinstance(data, torch.Tensor):
                 drift_input = data.detach().cpu().numpy()
             if drift_input is not None:
-                drift_payload = self._drift_payload(drift_input, result.get("is_anomaly_rows"))
+                drift_payload = self._drift_payload(
+                    drift_input, result.get("is_anomaly_rows"), result.get("anomaly_probs")
+                )
                 if drift_payload is not None:
                     result["drift_detection"] = drift_payload
 
@@ -7504,15 +7772,15 @@ class OmniMercuryEngine(LoggerMixin):
                 "set_size": int(pred_set.set_size[0]),
                 "abstain": bool(pred_set.set_size[0] == 2),
                 "coverage": float(pred_set.coverage_level),
-                # The certificate is fitted per sample.  The scalar verdict is
-                # the batch-max row, and selecting the max breaks per-sample
-                # exchangeability, so a multi-row batch must say which regime
-                # the guarantee was issued under rather than let "calibrated"
-                # read as a batch-level promise.
-                "regime": "per_sample",
+                # The scalar verdict is the batch-max row.  A certificate
+                # fitted per sample does not cover it (selecting the max
+                # breaks per-sample exchangeability); one fitted on batch-max
+                # statistics does.  The result says which this is rather than
+                # let "calibrated" read as a batch-level promise it is not.
+                "regime": self._fusion_conformal_regime,
                 "n_rows": n_rows,
             }
-            if n_rows > 1:
+            if n_rows > 1 and self._fusion_conformal_regime == "per_sample":
                 # Per-row label sets ARE individually exchangeable with the
                 # fit; surface their set-size counts so the record carries the
                 # part of the certificate that is sound on a batch.
@@ -7721,6 +7989,10 @@ class OmniMercuryEngine(LoggerMixin):
           (``n_calibration`` is ``None`` for a certificate restored from a
           checkpoint, which does not record it), or ``None`` without one.
         * ``trained_groups``: the feature groups the network was trained on.
+        * ``certificate_scope``: present only when the checkpoint's training
+          provenance states one: what the certificate was calibrated on and
+          what it has been measured to cover, in the trainer's words.  The
+          decision layer carries it into every record as a caveat.
 
         Returns:
             The ``model_provenance`` mapping attached to detection results.
@@ -7738,13 +8010,17 @@ class OmniMercuryEngine(LoggerMixin):
                 "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
                 "n_calibration": self._fusion_conformal_n_calibration,
             }
-        return {
+        provenance: dict[str, Any] = {
             "checkpoint": self._fusion_checkpoint_name or "in-memory fit",
             "checkpoint_sha256": self._fusion_checkpoint_sha256,
             "temperature": temperature,
             "conformal": conformal,
             "trained_groups": list(self._fusion_feature_groups or ()),
         }
+        scope = (self._fusion_provenance or {}).get("certificate_scope")
+        if isinstance(scope, str) and scope:
+            provenance["certificate_scope"] = scope
+        return provenance
 
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_fusion_calibrated_subject)
     def detect_with_fusion_calibrated(
@@ -8525,6 +8801,10 @@ class OmniMercuryEngine(LoggerMixin):
             "model_state_dicts": model_state_dicts,
             "model_fitted_state": model_fitted_state,
             "conformal_state": conformal_state,
+            # Beside conformal_state, whose layout is unchanged: what one
+            # calibration unit was. Absent in older checkpoints = per_sample.
+            "conformal_regime": self._fusion_conformal_regime,
+            "conformal_batch_family": self._fusion_batch_family,
         }
         torch.save(checkpoint, path)
 
@@ -8775,6 +9055,14 @@ class OmniMercuryEngine(LoggerMixin):
             # "unknown" rather than a stale in-process count.
             self._fusion_conformal_n_calibration = (
                 self._fusion_conformal.n_calibration if self._fusion_conformal is not None else None
+            )
+            regime = checkpoint.get("conformal_regime")
+            self._fusion_conformal_regime = regime if regime == "batch_max" else "per_sample"
+            family = checkpoint.get("conformal_batch_family")
+            self._fusion_batch_family = (
+                dict(family)
+                if isinstance(family, dict) and self._fusion_conformal_regime == "batch_max"
+                else None
             )
         else:
             # Legacy bare state_dict (no metadata): load directly.

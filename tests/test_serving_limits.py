@@ -38,6 +38,11 @@ _EXPECTED_KEYS = {
     "max_body_bytes",
     "max_upload_body_bytes",
     "assessment_max_body_bytes",
+    "review_max_body_bytes",
+    "review_max_text_chars",
+    "review_max_pixels",
+    "review_max_audio_seconds",
+    "review_max_concurrent",
     "flagship_max_queue",
     "flagship_max_rows",
     "flagship_max_domain_chars",
@@ -60,6 +65,11 @@ class TestValidation:
         limits = load_serving_limits()
         assert limits.max_body_bytes == 10 * 1024 * 1024
         assert limits.assessment_max_body_bytes == 64 * 1024 * 1024
+        assert limits.review_max_body_bytes == 32 * 1024 * 1024
+        assert limits.review_max_text_chars == 1_000_000
+        assert limits.review_max_pixels == 25_000_000
+        assert limits.review_max_audio_seconds == 600
+        assert limits.review_max_concurrent == 2
         assert limits.flagship_max_queue == 8
         assert limits.ipv6_rate_limit_prefix == 64
 
@@ -67,6 +77,11 @@ class TestValidation:
         ("env", "value", "match"),
         [
             ("MERCURY_FLAGSHIP_MAX_QUEUE", "0", "out of range"),
+            ("MERCURY_REVIEW_MAX_BODY_BYTES", "0", "out of range"),
+            ("MERCURY_REVIEW_MAX_CONCURRENT", "0", "out of range"),
+            ("MERCURY_REVIEW_MAX_PIXELS", "many", "not an integer"),
+            # Not raisable past what the harm-uplift gate reads in one decision.
+            ("MERCURY_REVIEW_MAX_TEXT_CHARS", "1000001", "out of range"),
             ("MERCURY_FLAGSHIP_MAX_ROWS", "-5", "out of range"),
             ("MERCURY_IPV6_RATE_LIMIT_PREFIX", "129", r"in \[1, 128\]"),
             ("MERCURY_IPV6_RATE_LIMIT_PREFIX", "0", r"in \[1, 128\]"),

@@ -116,6 +116,60 @@ _SPECS: tuple[tuple[str, str, int, int, int | None, str, str], ...] = (
         "after parsing)",
     ),
     (
+        "review_max_body_bytes",
+        "MERCURY_REVIEW_MAX_BODY_BYTES",
+        32 * 1024 * 1024,
+        1,
+        None,
+        "bytes",
+        "request body cap on the /api/v1/review surface: one uploaded document, "
+        "image or recording (the JSON route carries it base64-encoded, a third "
+        "larger than the file)",
+    ),
+    (
+        "review_max_text_chars",
+        "MERCURY_REVIEW_MAX_TEXT_CHARS",
+        1_000_000,
+        1,
+        # Not raisable past what the harm-uplift gate reads in one decision
+        # (1,048,576 characters, filename included): a bound above it would
+        # advertise documents the gate then refuses unread.
+        1_000_000,
+        "characters",
+        "text of an uploaded document; a longer one is refused with 413, never " "reviewed in part",
+    ),
+    (
+        "review_max_pixels",
+        "MERCURY_REVIEW_MAX_PIXELS",
+        25_000_000,
+        1,
+        None,
+        "pixels",
+        "width x height of an uploaded image, checked on its header before any " "pixel is decoded",
+    ),
+    (
+        "review_max_audio_seconds",
+        "MERCURY_REVIEW_MAX_AUDIO_SECONDS",
+        600,
+        1,
+        None,
+        "seconds",
+        "duration of an uploaded recording, checked on its header before any "
+        "sample is converted",
+    ),
+    (
+        "review_max_concurrent",
+        "MERCURY_REVIEW_MAX_CONCURRENT",
+        2,
+        1,
+        None,
+        "requests",
+        "artifact reviews decoded and measured at once (each also holds a slot "
+        "of the flagship admission bound); beyond this a caller is refused with "
+        "429. Measuring a large upload costs up to about 0.6 GB while it runs, "
+        "so this is the bound on that memory",
+    ),
+    (
         "flagship_max_queue",
         "MERCURY_FLAGSHIP_MAX_QUEUE",
         8,
@@ -123,9 +177,9 @@ _SPECS: tuple[tuple[str, str, int, int, int | None, str, str], ...] = (
         None,
         "requests",
         "flagship detections admitted concurrently (running or waiting on the "
-        "single engine lock), and replays that recompute from supplied data; "
-        "beyond this a caller is refused with 429 rather than parking a "
-        "threadpool thread",
+        "single engine lock), replays that recompute from supplied data, and "
+        "artifact reviews; beyond this a caller is refused with 429 rather than "
+        "parking a threadpool thread",
     ),
     (
         "flagship_max_rows",
@@ -222,6 +276,11 @@ class ServingLimits:
     max_body_bytes: int
     max_upload_body_bytes: int
     assessment_max_body_bytes: int
+    review_max_body_bytes: int
+    review_max_text_chars: int
+    review_max_pixels: int
+    review_max_audio_seconds: int
+    review_max_concurrent: int
     flagship_max_queue: int
     flagship_max_rows: int
     flagship_max_domain_chars: int

@@ -377,7 +377,12 @@ naming the variable. The active values are served to operators at
 | `MERCURY_MAX_BODY_BYTES` | `10485760` | Request-body cap on every route, enforced before parsing (chunked bodies counted as they stream) |
 | `MERCURY_MAX_UPLOAD_BODY_BYTES` | `629145600` | Body cap on the authenticated `/api/v1/models` upload surface |
 | `MERCURY_ASSESSMENT_MAX_BODY_BYTES` | `67108864` | Body cap on `/api/v1/assessment` (vital-signs arrays are the large case) |
-| `MERCURY_FLAGSHIP_MAX_QUEUE` | `8` | Flagship calls admitted concurrently (replays recomputing from supplied data included); beyond it, 429 |
+| `MERCURY_REVIEW_MAX_BODY_BYTES` | `33554432` | Body cap on `/api/v1/review`: one uploaded document, image or recording (the JSON route carries it base64-encoded, a third larger than the file) |
+| `MERCURY_REVIEW_MAX_TEXT_CHARS` | `1000000` | Text of an uploaded document; a longer one is refused with 413, never reviewed in part. Cannot be raised: the harm-uplift gate reads at most 1,048,576 characters per decision |
+| `MERCURY_REVIEW_MAX_PIXELS` | `25000000` | Width x height of an uploaded image, checked on its header before any pixel is decoded |
+| `MERCURY_REVIEW_MAX_AUDIO_SECONDS` | `600` | Duration of an uploaded recording, checked on its header before any sample is converted |
+| `MERCURY_REVIEW_MAX_CONCURRENT` | `2` | Artifact reviews decoded and measured at once (each also holds a flagship slot); beyond it, 429. Measuring a large upload costs up to about 0.6 GB while it runs, so this bounds that memory |
+| `MERCURY_FLAGSHIP_MAX_QUEUE` | `8` | Flagship calls admitted concurrently (replays recomputing from supplied data and artifact reviews included); beyond it, 429 |
 | `MERCURY_FLAGSHIP_MAX_ROWS` | `65536` | Rows per `/detect/flagship` (and `/flagship/replay` data/reference) request |
 | `MERCURY_FLAGSHIP_MAX_DOMAIN_CHARS` | `128` | `domain` length on `/detect/flagship` |
 | `MERCURY_FLAGSHIP_MAX_SUBJECT_ID_CHARS` | `256` | `subject_id` length on `/detect/flagship` |

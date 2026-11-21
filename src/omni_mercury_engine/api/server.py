@@ -784,10 +784,15 @@ class BodySizeLimitMiddleware:
       to two million signal values in one vital-signs request and has always
       documented this cap; the every-route default above, added later,
       silently lowered it to 10 MiB until this entry restored it.
+    * ``MERCURY_REVIEW_MAX_BODY_BYTES`` — default 32 MiB, for the artifact
+      review surface (``/api/v1/review``), whose requests are one uploaded
+      document, image or recording.  What the upload decodes to is bounded
+      again by the ``review_max_*`` limits before anything is expanded.
     """
 
     _UPLOAD_PREFIX = "/api/v1/models"
     _ASSESSMENT_PREFIX = "/api/v1/assessment"
+    _REVIEW_PREFIX = "/api/v1/review"
 
     def __init__(self, app: ASGIApp) -> None:
         """Read the caps once; the per-request work is a counter."""
@@ -798,12 +803,15 @@ class BodySizeLimitMiddleware:
         self.default_limit = limits.max_body_bytes
         self.upload_limit = limits.max_upload_body_bytes
         self.assessment_limit = limits.assessment_max_body_bytes
+        self.review_limit = limits.review_max_body_bytes
 
     def _limit_for(self, path: str) -> int:
         if path.startswith(self._UPLOAD_PREFIX):
             return self.upload_limit
         if path.startswith(self._ASSESSMENT_PREFIX):
             return self.assessment_limit
+        if path.startswith(self._REVIEW_PREFIX):
+            return self.review_limit
         return self.default_limit
 
     @staticmethod
@@ -1972,6 +1980,14 @@ with mounting("watch", "Watch routes", logger):
     from omni_mercury_engine.api.routes.watch import router as watch_router
 
     app.include_router(watch_router)
+
+
+# Include the artifact review routes (upload a document, an image or a
+# recording; it is scored on the flagship path and answered with a decision)
+with mounting("review", "Artifact review routes", logger):
+    from omni_mercury_engine.api.routes.review import router as review_router
+
+    app.include_router(review_router)
 
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left

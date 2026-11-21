@@ -4724,5 +4724,93 @@ def demo(out: str, as_json: bool) -> None:
     raise SystemExit(status)
 
 
+@main.command("review")
+@click.argument("file", type=click.Path(dir_okay=False))
+@click.option(
+    "--kind",
+    type=click.Choice(["document", "image", "audio"]),
+    default=None,
+    help="Require this kind; a file recognised as another is refused.",
+)
+@click.option(
+    "--out",
+    "-o",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Also write the whole result (decision record and review) to this JSON file.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Print the whole result as JSON.")
+def review_file(file: str, kind: str | None, out: str | None, as_json: bool) -> None:
+    """Review a document, an image or a recording: is part of it unlike the rest?
+
+    FILE is decoded (text, Markdown, CSV, JSON, HTML, DOCX, PDF; PNG, JPEG,
+    GIF, BMP, WebP, TIFF; WAV), read by the harm-uplift gate, cut into
+    segments measured against the file itself, and scored on the flagship
+    path: fusion network, batch-level conformal certificate, ethical gates,
+    decision layer. Prints why this segment, how sure, and the record, beside
+    the complete DecisionRecord.
+
+    The scope is internal consistency: a flagged segment is unlike the rest
+    of this file. That is not a finding that it was altered.
+
+    Exit status: 0 when the file was reviewed (whatever the decision); 1 when
+    an ethical gate refused it; 2 when it could not be reviewed (format,
+    bounds, or too short to be its own reference).
+
+    Examples:
+        mercury-agent review report.pdf
+        mercury-agent review scan.png --json
+        mercury-agent review call.wav -o call.review.json
+    """
+    import json
+    import logging
+    import shlex
+    import warnings
+    from pathlib import Path
+
+    needs = (
+        "Error: artifact review scores on the fusion engine, which needs the ML extra "
+        "(pip install 'mercury-agent-global[ml]')"
+    )
+    try:
+        from omni_mercury_engine import review
+        from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+        from omni_mercury_engine.review import answers
+    except ImportError as exc:  # never review around a gate that could not be imported
+        click.echo(f"{needs}: {exc}", err=True)
+        raise SystemExit(2) from exc
+
+    try:
+        uploaded = Path(file).read_bytes()
+    except OSError as exc:
+        click.echo(f"Error: cannot read {file}: {exc.strerror or exc}", err=True)
+        raise SystemExit(2) from exc
+    warnings.simplefilter("ignore")
+    logging.disable(logging.WARNING)
+    try:
+        result = review.review_bytes(uploaded, Path(file).name, kind=kind)
+    except review.ReviewError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(2) from exc
+    except EthicalConstraintViolationError as exc:
+        click.echo(f"Refused by the '{exc.check}' ethical gate: not reviewed.", err=True)
+        raise SystemExit(1) from exc
+    except ImportError as exc:
+        click.echo(f"{needs}: {exc}", err=True)
+        raise SystemExit(2) from exc
+    finally:
+        logging.disable(logging.NOTSET)
+    document = json.dumps(result, indent=2, default=_json_default)
+    if out:
+        Path(out).write_text(document + "\n", encoding="utf-8")
+    if as_json:
+        click.echo(document)
+        return
+    rerun = "mercury-agent review " + shlex.quote(file) + (f" --kind {kind}" if kind else "")
+    click.echo(answers.render(result, rerun=rerun))
+    if out:
+        click.echo(f"\nKept: {out} (the whole result).")
+
+
 if __name__ == "__main__":
     main()

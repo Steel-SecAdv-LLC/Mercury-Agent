@@ -573,6 +573,22 @@ class DecisionAbstentionResponder:
                 f"exchangeable with the per-sample fit, so the stated coverage is "
                 f"not a batch-level guarantee"
             )
+        elif (
+            ev.conformal_regime == "batch_max"
+            and ev.conformal_rows is not None
+            and ev.conformal_rows > 1
+        ):
+            caveats.append(
+                f"the conformal certificate is batch-level: it covers whether this "
+                f"batch of {ev.conformal_rows} rows contains an anomaly (through its "
+                f"most anomalous row), not which other rows are anomalous"
+            )
+        # What the certificate was calibrated on and measured to cover, when
+        # the model's own provenance says: a "90%" is a statement about that
+        # calibration family, and the record should not let it read wider.
+        scope = (ev.model_provenance or {}).get("certificate_scope")
+        if ev.calibrated and isinstance(scope, str) and scope:
+            caveats.append(f"certificate scope: {scope}")
         # What decisions about this hazard have been worth on real events
         # held out, where that has been measured: a "90%" reads the same for
         # every hazard, and has not held the same for every hazard.

@@ -8,10 +8,11 @@ Provides univariate, multivariate, and advanced detection methods.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import math
 import threading
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import numpy as np
@@ -350,6 +351,38 @@ def _admit_flagship_call() -> None:
     _admission_stats.admit()
 
 
+@contextlib.contextmanager
+def flagship_admission_slot() -> Iterator[None]:
+    """Hold one slot of the flagship admission bound for the block.
+
+    The one bound on heavy work in flight on this server: a flagship
+    detection, a replay that recomputes from supplied data, and an artifact
+    review each hold a slot while they run.
+
+    Raises:
+        HTTPException: 429 when the bound is full (nothing is held).
+    """
+    _admit_flagship_call()
+    try:
+        yield
+    finally:
+        _admission_stats.release()
+        _flagship_admission.release()
+
+
+@contextlib.contextmanager
+def flagship_engine_lock() -> Iterator[None]:
+    """Serialize one call on a fusion engine in this process.
+
+    Every fusion engine here shares the process-global GOSNN singleton (see
+    the comment at the top of this module), so a second engine -- the
+    artifact-review engines are three -- must take the same lock the served
+    flagship does, not one of its own.
+    """
+    with _flagship_lock:
+        yield
+
+
 def _replay_served(
     record: dict[str, Any],
     data: np.ndarray[Any, Any] | None,
@@ -371,12 +404,8 @@ def _replay_served(
 
     if data is None and reference is None:
         return replay_record(record, bounds=SERVED_REPLAY_BOUNDS)
-    _admit_flagship_call()
-    try:
+    with flagship_admission_slot():
         return replay_record(record, data=data, reference=reference, bounds=SERVED_REPLAY_BOUNDS)
-    finally:
-        _admission_stats.release()
-        _flagship_admission.release()
 
 
 def _run_flagship_detection(
@@ -396,22 +425,17 @@ def _run_flagship_detection(
     scalar bleed described above. Any :class:`EthicalConstraintViolationError`
     propagates to the caller, which maps it to HTTP 403.
     """
-    _admit_flagship_call()
-    try:
-        with _flagship_lock:
-            result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
-                matrix,
-                domain=domain,
-                explain=explain,
-                gdpr_report=gdpr_report,
-                subject_id=subject_id,
-                reference_scope=reference_scope,
-                disclose_reference=disclose_reference,
-            )
-            return result
-    finally:
-        _admission_stats.release()
-        _flagship_admission.release()
+    with flagship_admission_slot(), _flagship_lock:
+        result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
+            matrix,
+            domain=domain,
+            explain=explain,
+            gdpr_report=gdpr_report,
+            subject_id=subject_id,
+            reference_scope=reference_scope,
+            disclose_reference=disclose_reference,
+        )
+        return result
 
 
 class NeurosymbolicRequest(BaseModel):

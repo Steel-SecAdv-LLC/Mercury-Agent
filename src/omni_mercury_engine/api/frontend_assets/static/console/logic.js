@@ -1636,6 +1636,30 @@ class Component extends DCLogic {
     const matrix = all.map((r) => cols.map((c) => { const x = parseFloat(r[c]); return isNaN(x) ? 0 : x; }));
     return { name, rows: matrix.length, preview: rows.length, total, truncated, capped, cols: cols.length, names: cols.map((c) => String((head && head[c]) || "col " + (c + 1)).trim()), scores, matrix };
   }
+
+  // Review a file: a document, an image or a recording is read here and sent, base64 in JSON,
+  // to POST /api/v1/review/inline; the response is the engine's decision about it (is some part
+  // of it unlike the rest?). Never simulated: a review of a real file is the engine's or it is
+  // nothing, so without a live server this says so and stops.
+  reviewFile(file) {
+    const capMib = 23;
+    if (file.size > capMib * 1024 * 1024) { this.say([{ role: "agent", text: file.name + " is " + (file.size / 1048576).toFixed(1) + " MB. The console sends files up to " + capMib + " MB for review (the server's request cap, base64-encoded). For a larger file run: mercury-agent review " + this.q(file.name) }]); this.setState({ panel: true, tab: "chat" }); return; }
+    const simulated = !!(this.A && this.A.cfg && String(this.A.cfg.baseUrl || "").startsWith("sim://"));
+    if (!this.live() || simulated) { this.append([this.row("▸ Review needs a live Mercury server: a file's review is never simulated. Connect one under the connection badge, or run: mercury-agent review " + this.q(file.name), "var(--warning)")]); this.setState({ conn: true }); return; }
+    const rd = new FileReader();
+    rd.onload = async () => {
+      const url = String(rd.result || ""), content = url.slice(url.indexOf(",") + 1);
+      this.append([this.row("$ review " + file.name + " · " + file.size + " bytes → POST /api/v1/review/inline", "var(--fg-2)")]);
+      const r = await this.A.post("/api/v1/review/inline", { filename: file.name, content_base64: content });
+      const ok = r.ok && r.data && r.data.review && typeof r.data.review === "object";
+      const detail = r.data && r.data.detail, why = typeof detail === "string" ? detail : detail && typeof detail === "object" && detail.message ? String(detail.message) : typeof r.error === "string" ? r.error : "";
+      const sum = ok ? window.MercuryCLIMass.summarize(r.data) : { headline: "not reviewed · " + r.status + (why ? " · " + why : ""), kv: [] };
+      this.pushResult({ kind: "REVIEW", label: "Review · " + file.name, route: "POST /api/v1/review/inline", status: ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: { filename: file.name, content_base64: "(" + file.size + " bytes, base64)" }, data: ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, sum, ds: null });
+      this.append([ok ? Object.assign(this.row("◈ review · " + sum.headline + " · open RESULTS for the three answers and the decision record", r.data.decision && r.data.decision.abstained ? "var(--warning)" : "var(--normal)"), { act: () => this.setState({ panel: true, tab: "run", ws: "res" }) }) : this.row("✗ not reviewed · " + r.status + (why ? " · " + why : ""), "var(--anomaly-soft)")]);
+      if (ok) this.setState({ panel: true, tab: "run", ws: "res" });
+    };
+    rd.readAsDataURL(file);
+  }
   loadFile(file) {
     if (file.size > 10 * 1024 * 1024) { this.say([{ role: "agent", text: file.name + " is " + (file.size / 1048576).toFixed(1) + " MB. The browser preview accepts files up to 10 MB; for larger data run mercury-agent detect -i locally or use mercury-agent stream." }]); this.setState({ panel: true, tab: "chat" }); return; }
     const rd = new FileReader();
@@ -1861,6 +1885,7 @@ class Component extends DCLogic {
       dataTitle: s.data ? s.data.name + " · " + s.data.rows + " rows · " + s.data.cols + " numeric columns" : "Drop a CSV or JSON file to use it as --input",
       nLoaders: String(this.D.loaders.length), dataSub: s.data ? (s.data.truncated ? "Preview uses the first 500 of " + s.data.total + " rows. " : "") + (this.live() ? "RUN sends the rows to the connected server." : "RUN previews robust z-scores in the browser; connect a server or COPY the command to score with the engine.") : "CSV or JSON, up to 10 MB; the browser previews the first 500 rows and the file never leaves your machine unless a server is connected. Live data can also come from the package's " + this.D.loaders.length + " loaders or Kafka/Redis streams.",
       onFile: (e) => { const fl = e.target.files && e.target.files[0]; if (fl) this.loadFile(fl); },
+      onReviewFile: (e) => { const fl = e.target.files && e.target.files[0]; if (fl) this.reviewFile(fl); e.target.value = ""; },
       askData: () => this.ask("How do I collect data?"),
     });
   }

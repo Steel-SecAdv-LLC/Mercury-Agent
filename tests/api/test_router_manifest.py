@@ -54,6 +54,7 @@ _SERVER_ROUTERS = (
     "source",
     "catalog",
     "watch",
+    "review",
     "frontend",
     "voice",
     "metrics",

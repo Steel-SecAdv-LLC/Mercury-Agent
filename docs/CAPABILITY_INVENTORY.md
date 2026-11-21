@@ -7,18 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 > Generated from source by `scripts/generate_capability_inventory.py` (`ast` walk of `src/omni_mercury_engine`, no runtime). Every row is a class that exists in the tree — this is the auditable answer to "what can Mercury do", not a hand-curated list. Re-run to refresh.
 
-- **Total top-level classes:** 3,194
-- **Capability-bearing classes:** 2,138 (excludes config/result/enum/error support types)
-- **Subsystems (top-level packages):** 51
+- **Total top-level classes:** 3,201
+- **Capability-bearing classes:** 2,143 (excludes config/result/enum/error support types)
+- **Subsystems (top-level packages):** 52
 - **Refined via base-class analysis:** 95 classes categorized from their ancestor chain (e.g. `nn.Module` subclasses whose own name carries no suffix)
-- **Unresolved (`Other`):** 1,260 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
+- **Unresolved (`Other`):** 1,265 — no name suffix and no informative ancestor (predominantly `object`-only classes, which base-class analysis cannot refine).
 
 ## Capability classes by category
 
 | Category | Count |
 |---|---|
-| Other capability classes | 1260 |
-| Support types (config / result / enum / error) | 1056 |
+| Other capability classes | 1265 |
+| Support types (config / result / enum / error) | 1058 |
 | Detection | 181 |
 | Neural models & layers | 164 |
 | Data sources & loaders | 114 |
@@ -206,7 +206,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 </details>
 
-### `api/` — 178 classes (64 capability)
+### `api/` — 179 classes (64 capability)
 
 **Adapters & backends**
 
@@ -287,9 +287,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `_BodyLimitExceeded` (`api.server`) — Raised inside the guarded receive when a body outgrows its cap.
 - `_FallbackVoice` (`api.voice`) — Fallback voice implementation when narrative module unavailable.
 
-<details><summary>Support types (114)</summary>
+<details><summary>Support types (115)</summary>
 
-`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReplayRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `RouterRecord`, `RouterState`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WatchPhoneCodeRequest`, `WatchPhoneRequest`, `WatchPhoneResponse`, `WatchSubscriptionRequest`, `WatchSubscriptionResponse`, `WatchSubscriptionsResponse`, `WeakPasswordError`
+`AccountDisabledError`, `AccountNotVerifiedError`, `AccountResponse`, `ApiKeyCreatedResponse`, `ApiKeyResponse`, `AuditLogRecord`, `AuthConfig`, `AuthError`, `AuthMethod`, `AuthenticationError`, `AuthorizationError`, `BackendsResponse`, `BatchDetectRequest`, `BatchDetectionMethod`, `BatchJobResponse`, `BatchJobSubmitResponse`, `BatchResultsResponse`, `ChangeEmailRequest`, `ChangePasswordRequest`, `ComponentStatus`, `CounterStore`, `CreateApiKeyRequest`, `DeploymentRequest`, `DetailedHealthResponse`, `DetectionMethod`, `DetectionNarrationRequest`, `DetectionRecord`, `DuplicateEmailError`, `EmailAlreadyRegisteredError`, `EmailRequest`, `EnrollmentResponse`, `EnrollmentResult`, `ErrorResponse`, `ExportFormat`, `ExportJobResponse`, `ExportRequest`, `ExportRequest`, `ExportStatus`, `ExportSummaryResponse`, `ExportType`, `FlagshipDetectRequest`, `FusionRequest`, `FusionResponse`, `GreetingResponse`, `HazardVisualizeRequest`, `HealthResponse`, `HealthStatus`, `IdentityStore`, `InlineReviewRequest`, `InvalidCredentialsError`, `InvalidEmailError`, `InvalidTokenError`, `InvalidTwoFactorError`, `JobStatus`, `KeyStore`, `LivenessResponse`, `LoginRequest`, `LoginResponse`, `LoginResult`, `Mailer`, `MessageResponse`, `MetricsUpdateRequest`, `ModelCreateRequest`, `ModelFramework`, `ModelResponse`, `ModelStatus`, `ModelType`, `ModelVersionRequest`, `ModelVersionResponse`, `MultivariateRequest`, `MultivariateResponse`, `NarrationResponse`, `NeurosymbolicRequest`, `NeurosymbolicResponse`, `PasswordConfirmRequest`, `Permission`, `ProbeResult`, `ProviderRecord`, `ProviderResealReport`, `ProviderStoreError`, `ProviderUpdate`, `QuotaConfig`, `QuotaOverrideStore`, `ReadinessResponse`, `RecoveryCodesResponse`, `RegisterRequest`, `ReplayRequest`, `ReportExportFormat`, `ReserveResult`, `ResetConfirmRequest`, `RootCauseRequest`, `RouterRecord`, `RouterState`, `SealedSecretError`, `SeverityLevel`, `SpeakRequest`, `StatusResponse`, `ThreeRRequest`, `ThreeRResponse`, `TierDetectRequest`, `TokenRequest`, `TotpCodeRequest`, `TwoFactorRequiredError`, `UnivariateRequest`, `UnivariateResponse`, `UsageEvent`, `UsageLedger`, `UsageResponse`, `WatchPhoneCodeRequest`, `WatchPhoneRequest`, `WatchPhoneResponse`, `WatchSubscriptionRequest`, `WatchSubscriptionResponse`, `WatchSubscriptionsResponse`, `WeakPasswordError`
 
 </details>
 
@@ -2659,6 +2659,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 - `HealthMetrics` (`resilience.health_monitoring`) — Health metrics for a component.
 - `RetryPolicy` (`resilience.retry`) — Retry policy with exponential backoff.
 - `_CircuitBreakerWrapper` (`resilience.api_circuit_breakers`) — Type stub for wrapped functions with circuit_breaker attribute.
+
+### `review/` — 6 classes (5 capability)
+
+**Other capability classes**
+
+- `DecodeBounds` (`review.decode`) — How far a decoder may expand an upload.
+- `Decoded` (`review.decode`) — What a decoder recovered.
+- `Prepared` (`review.__init__`) — An upload that has been decoded, read by the harm-uplift gate, and measured.
+- `Segmented` (`review.features`) — An artifact as segments x features.
+- `_VisibleText` (`review.decode`) — The text a reader sees: no scripts, no styles, blocks on their own lines.
+
+<details><summary>Support types (1)</summary>
+
+`ReviewError`
+
+</details>
 
 ### `safeguards/` — 3 classes (2 capability)
 

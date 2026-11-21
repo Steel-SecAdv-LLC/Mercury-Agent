@@ -360,6 +360,77 @@ novelty rank test, the corrected lead-lag F-tests, the hypothesis's premises —
 and report, per artifact, whether the claim still HOLDS, FAILS, or
 CANNOT_REPLAY (with the reason; never read as holding).
 
+### Artifact Review (documents, images, recordings)
+
+An uploaded file takes the same inference pipeline; only the front of it is
+new (`omni_mercury_engine.review`). The question a review answers is narrow:
+**is some part of this artifact unlike the rest of it?**
+
+```
+upload (bytes)
+  → decode, within the served review_max_* bounds          review/decode.py
+      documents  text, Markdown, CSV, JSON, HTML, DOCX, PDF (text layer)
+      images     PNG, JPEG, GIF, BMP, WebP, TIFF (Pillow)
+      audio      uncompressed WAV (original RIFF reader)
+  → harm-uplift gate reads the document's text and the upload's name
+      (GATED_BOUNDARY capability contract on the measuring step)
+  → segments x 16 named features, standardized against the      review/features.py
+      artifact itself (robust z: median and MAD, clipped to ±10)
+  → OmniMercuryEngine.detect_with_fusion on that matrix, with the
+      kind's own checkpoint (models/checkpoints/review_{document,image,audio}.pt)
+  → the ordinary result + DecisionRecord, plus a `review` block
+```
+
+Three design points follow from an upload having no population to be compared
+with:
+
+- **Self-reference.** A document is cut into 48 word-windows, an image into
+  about 96 tiles, a recording into 48 blocks (a constant count per kind, so
+  the most anomalous segment of a long artifact is comparable with that of a
+  short one), and every feature is standardized against the artifact's own
+  median and spread. The features are computed here or by instruments the
+  package already had (`vision/features.py` patch statistics; the cepstral
+  frames of `biometric/voice_recognition.py`); there is no learned embedding
+  and no external detector. The scope is therefore internal consistency: an
+  artifact that is unusual as a whole, or altered throughout, is not what a
+  review finds.
+- **A batch-level certificate.** The verdict of a multi-row detection is its
+  most anomalous row, and a per-row conformal certificate does not cover a
+  maximum over rows (measured on the bundled flagship model: 4 of 30 clean
+  40-row batches kept label 0 in the set, against 25 of 30 with a batch-level
+  certificate). `calibrate_fusion_conformal_batches`
+  fits the certificate on one batch-max statistic per calibration artifact;
+  the regime (`conformal.regime: "batch_max"`) is named in the result, the
+  record and the checkpoint.
+- **A family test instead of row drift.** Self-standardized segments have no
+  fixed population, so the row-level drift ensemble does not apply. With a
+  batch-level certificate the engine asks the question that does: is this
+  batch one of the batches the certificate was calibrated on? Ten scale-free
+  numbers summarize the batch, their standardized distance from the
+  calibration batches is ranked among the calibration batches' own
+  leave-one-out distances, and a rank p-value at or below 0.05 reports drift
+  (HIGH), which defers the decision.
+
+Each review checkpoint carries, in its own provenance, a statement of what its
+certificate was calibrated on and what that has been measured to cover; the
+decider repeats it on every record as a caveat (`certificate scope: ...`).
+The review engines do not run the cognitive critique: its instruments assume
+a time-ordered stream and a caller's history of comparable windows.
+
+Served at `POST /api/v1/review/upload` (multipart) and `POST
+/api/v1/review/inline` (base64 JSON, used by the console's REVIEW A FILE);
+`GET /api/v1/review` reports the accepted formats, the enforced bounds and the
+review decision trail. At most `review_max_concurrent` (default 2) reviews are
+decoded and measured at once; each also holds one slot of the flagship
+admission bound from decode to decision and scores under the flagship engine
+lock (every fusion engine in a process shares one GOSNN singleton); decoding
+and feature extraction run outside the lock. An image larger than 720 pixels
+on its longer side is reduced to that as it is decoded (the upper end of the
+sizes the image checkpoint was calibrated on), and its segment boxes are
+reported in the original's pixels. Offline: `mercury-agent review FILE`.
+Measurement: `research/review/harness_artifact_review.py` →
+`artifacts/artifact_review.json`.
+
 ## Runtime Configuration
 
 ### Deep Mode Toggles
@@ -941,6 +1012,13 @@ adjudication ledger ──► held-out (reports, label) pairs ──► merit ga
   inference data), else the fusion training sample, each filtered to the rows
   the model calls normal. Drift at MEDIUM or above defers the decision; see
   `docs/runbooks/data-drift.md`.
+- A model whose conformal certificate is batch-level (`conformal.regime:
+  "batch_max"`, fitted by `calibrate_fusion_conformal_batches` on at least 20
+  calibration batches) is asked the batch-level question instead: whether the
+  served batch belongs to the family of batches it was calibrated on
+  (`drift_detection.reference_source: "calibration_batches:batch_family"`,
+  a rank test at level 0.05; a batch outside the family reports HIGH and
+  defers). The artifact-review checkpoints are of this kind.
 
 ## Subagent Fleet (Greek Pantheon — Internal Delegation Tier)
 
@@ -1067,6 +1145,12 @@ than silently serving another model), else the installed model
 (`$MERCURY_MODEL_DIR/fusion.pt`, written atomically by
 `mercury-agent train --install`, which keeps the replaced model as
 `fusion.previous.pt`), else the bundled synthetic checkpoint.
+
+Artifact review does not use that model: each kind is served by its own
+bundled checkpoint (`review_document.pt`, `review_image.pt`,
+`review_audio.pt`; trained, calibrated and measured by
+`scripts/train_review_checkpoints.py`), loaded on first use and reported, by
+name and SHA-256, in every review's record.
 
 ### Kubernetes monitoring
 

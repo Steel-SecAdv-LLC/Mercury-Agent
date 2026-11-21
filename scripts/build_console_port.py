@@ -2743,6 +2743,7 @@ _DECISION_PANEL_MASS = """
       if (sig.conformal_set_size != null) { const labels = Array.isArray(sig.conformal_labels) ? sig.conformal_labels : [], n = sig.conformal_set_size; kv.push(["· conformal set", "{" + labels.join(", ") + "}" + (n === 0 ? " · empty: no class explains this point at the target coverage" : n === 1 ? " · singleton: one class at the target coverage" : " · ambiguous: " + n + " classes cannot be told apart at the target coverage") + basis]); }
       else if ("conformal_set_size" in sig) kv.push(["· conformal set", "none: this result carries no conformal certificate"]);
       if (sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);
+      else if (sig.conformal_regime === "batch_max") kv.push(["· certificate", "batch-level" + (sig.conformal_rows != null ? " · covers whether this batch of " + sig.conformal_rows + " row(s) contains an anomaly, through its most anomalous row" : "")]);
       else if (sig.conformal_regime) kv.push(["· certificate", String(sig.conformal_regime) + (sig.conformal_rows != null ? " · " + sig.conformal_rows + " row(s)" : "")]);
       if (sig.drift_detected != null) kv.push(["· drift", sig.drift_detected ? "DETECTED · " + String(sig.drift_severity || "severity unknown") + " · the ordinary rows no longer look like the model's reference" : "none detected against the model's reference" + (sig.drift_severity && sig.drift_severity !== "NONE" ? " · " + sig.drift_severity : "")]);
       else if ("drift_detected" in sig) kv.push(["· drift", "not tested"]);
@@ -3085,6 +3086,129 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         '    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);\n'
         "  }\n"
         "  dossierVals(cur) {",
+    ),
+)
+
+
+# --------------------------------------------------------------------------- #
+# Artifact review: upload a document, an image or a recording from the console.
+# --------------------------------------------------------------------------- #
+
+#: Largest file the console sends for review. The served request cap for
+#: /api/v1/review is 32 MiB and the JSON route carries the file base64-encoded
+#: (4/3 of its size); 23 MiB leaves room for the envelope.
+REVIEW_MAX_FILE_MIB = 23
+
+#: What the review file picker offers (the server recognises a file by its
+#: bytes; this only filters the picker).
+REVIEW_ACCEPT = (
+    ".txt,.md,.csv,.json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp,.tif,.tiff,.wav"
+)
+
+#: The review rows of the summariser: which segment, where, what sets it apart,
+#: the three answers in the server's own words, and the certificate's scope.
+_REVIEW_ROWS_MASS = """
+  // An artifact review (POST /api/v1/review/upload or /inline): the upload, the segments the
+  // engine flagged and where they are, the three answers the server states in plain language,
+  // and the certificate's own statement of what it has been measured to cover. The complete
+  // decision record follows in the decision panel.
+  function reviewRows(d) {
+    const r = d.review, kv = [];
+    const c = (x, n) => (String(x).length > n ? String(x).slice(0, n - 1) + "…" : String(x));
+    const where = (s) => (!s || typeof s !== "object" ? "" : Array.isArray(s.characters) ? "characters " + s.characters[0] + "–" + s.characters[1] + (s.excerpt ? " · “" + c(s.excerpt, 70) + "”" : "") : Array.isArray(s.box) ? "tile " + s.box[2] + "×" + s.box[3] + " px at (" + s.box[0] + ", " + s.box[1] + ")" : Array.isArray(s.seconds) ? s.seconds[0] + "–" + s.seconds[1] + " s" : "");
+    const feats = (s) => (Array.isArray(s && s.top_features) ? s.top_features.map((f) => f.name + " " + (f.robust_z > 0 ? "+" : "") + f.robust_z).join(" · ") : "");
+    kv.push(["REVIEW", (r.filename || "upload") + " · " + r.kind + " (" + r.format + ") · " + r.bytes + " bytes · " + r.segments + " segments"]);
+    kv.push(["flagged segments", r.flagged_count + " of " + r.segments]);
+    if (r.top_segment) { kv.push(["top segment", "#" + r.top_segment.index + " · p " + (+r.top_segment.probability).toFixed(3) + " · " + where(r.top_segment)]); kv.push(["sets it apart", feats(r.top_segment) + " (robust z against the rest of this " + r.kind + ")"]); }
+    (Array.isArray(r.flagged_segments) ? r.flagged_segments : []).slice(0, 8).forEach((s) => kv.push(["· segment #" + s.index, "p " + (+s.probability).toFixed(3) + " · " + where(s) + " · " + feats(s)]));
+    if (r.answers && typeof r.answers === "object") [["why_this_segment", "ANSWER 1 · WHY THIS SEGMENT"], ["how_sure", "ANSWER 2 · HOW SURE"], ["the_record", "ANSWER 3 · THE RECORD"]].forEach(([k, label]) => { if (r.answers[k] && r.answers[k].plain) kv.push([label, String(r.answers[k].plain)]); });
+    if (r.basis) kv.push(["basis", String(r.basis)]);
+    if (r.certificate_scope) kv.push(["certificate scope", String(r.certificate_scope)]);
+    if (r.harm_gate && typeof r.harm_gate === "object") kv.push(["harm gate", (r.harm_gate.passed ? "passed" : "not passed") + " · read " + r.harm_gate.read + " (" + r.harm_gate.characters_read + " characters)"]);
+    if (r.sha256) kv.push(["sha256", String(r.sha256)]);
+    if (r.segmentation && typeof r.segmentation === "object") kv.push(["segmentation", Object.entries(r.segmentation).map(([k, v]) => k + " " + (v && typeof v === "object" ? JSON.stringify(v) : v)).join(" · ")]);
+    return kv;
+  }
+  // What a review decided, in three words an operator can act on.
+  function reviewHeadline(d) {
+    const dec = d.decision && typeof d.decision === "object" ? d.decision : null, r = d.review;
+    const verdict = !dec ? "REVIEWED" : dec.abstained ? "ABSTAINED" : dec.decision_label ? "ANOMALOUS SEGMENT" : "NO ANOMALOUS SEGMENT";
+    return verdict + " · " + r.flagged_count + " of " + r.segments + " segments flagged · " + r.kind;
+  }
+"""
+
+MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + (
+    (
+        "the review-row formatters ride beside the summariser",
+        "  function summarize(data) {",
+        _REVIEW_ROWS_MASS + "  function summarize(data) {",
+    ),
+    (
+        "a review response renders its review block ahead of the decision panel, under a "
+        "headline that states the decision",
+        'if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));',
+        'if (d.review && typeof d.review === "object" && d.review.kind) { headline = reviewHeadline(d); '
+        "reviewRows(d).forEach((row) => kv.push(row)); }\n"
+        '    if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));',
+    ),
+)
+
+#: Review a file: read it in the browser, send it to POST /api/v1/review/inline, show the decision.
+_REVIEW_LOGIC = """
+  // Review a file: a document, an image or a recording is read here and sent, base64 in JSON,
+  // to POST /api/v1/review/inline; the response is the engine's decision about it (is some part
+  // of it unlike the rest?). Never simulated: a review of a real file is the engine's or it is
+  // nothing, so without a live server this says so and stops.
+  reviewFile(file) {
+    const capMib = __CAP__;
+    if (file.size > capMib * 1024 * 1024) { this.say([{ role: "agent", text: file.name + " is " + (file.size / 1048576).toFixed(1) + " MB. The console sends files up to " + capMib + " MB for review (the server's request cap, base64-encoded). For a larger file run: mercury-agent review " + this.q(file.name) }]); this.setState({ panel: true, tab: "chat" }); return; }
+    const simulated = !!(this.A && this.A.cfg && String(this.A.cfg.baseUrl || "").startsWith("sim://"));
+    if (!this.live() || simulated) { this.append([this.row("▸ Review needs a live Mercury server: a file's review is never simulated. Connect one under the connection badge, or run: mercury-agent review " + this.q(file.name), "var(--warning)")]); this.setState({ conn: true }); return; }
+    const rd = new FileReader();
+    rd.onload = async () => {
+      const url = String(rd.result || ""), content = url.slice(url.indexOf(",") + 1);
+      this.append([this.row("$ review " + file.name + " · " + file.size + " bytes → POST /api/v1/review/inline", "var(--fg-2)")]);
+      const r = await this.A.post("/api/v1/review/inline", { filename: file.name, content_base64: content });
+      const ok = r.ok && r.data && r.data.review && typeof r.data.review === "object";
+      const detail = r.data && r.data.detail, why = typeof detail === "string" ? detail : detail && typeof detail === "object" && detail.message ? String(detail.message) : typeof r.error === "string" ? r.error : "";
+      const sum = ok ? window.MercuryCLIMass.summarize(r.data) : { headline: "not reviewed · " + r.status + (why ? " · " + why : ""), kv: [] };
+      this.pushResult({ kind: "REVIEW", label: "Review · " + file.name, route: "POST /api/v1/review/inline", status: ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: { filename: file.name, content_base64: "(" + file.size + " bytes, base64)" }, data: ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, sum, ds: null });
+      this.append([ok ? Object.assign(this.row("◈ review · " + sum.headline + " · open RESULTS for the three answers and the decision record", r.data.decision && r.data.decision.abstained ? "var(--warning)" : "var(--normal)"), { act: () => this.setState({ panel: true, tab: "run", ws: "res" }) }) : this.row("✗ not reviewed · " + r.status + (why ? " · " + why : ""), "var(--anomaly-soft)")]);
+      if (ok) this.setState({ panel: true, tab: "run", ws: "res" });
+    };
+    rd.readAsDataURL(file);
+  }
+""".replace("__CAP__", str(REVIEW_MAX_FILE_MIB))
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the review method: send a chosen file to the engine and show its decision",
+        "  loadFile(file) {",
+        _REVIEW_LOGIC + "  loadFile(file) {",
+    ),
+    (
+        "the review file picker's handler",
+        "onFile: (e) => { const fl = e.target.files && e.target.files[0]; if (fl) this.loadFile(fl); },",
+        "onFile: (e) => { const fl = e.target.files && e.target.files[0]; if (fl) this.loadFile(fl); },\n"
+        "      onReviewFile: (e) => { const fl = e.target.files && e.target.files[0]; "
+        'if (fl) this.reviewFile(fl); e.target.value = ""; },',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "REVIEW A FILE: upload a document, an image or a recording for an engine decision",
+        'CHOOSE FILE<input type="file" accept=".csv,.json,.txt" onChange="{{ onFile }}" '
+        'style="display:none;" /></label>',
+        'CHOOSE FILE<input type="file" accept=".csv,.json,.txt" onChange="{{ onFile }}" '
+        'style="display:none;" /></label>\n'
+        '              <label title="Upload a document, an image or a WAV recording: Mercury reviews it '
+        "(is some part of it unlike the rest?) and answers with a decision record. Needs a live "
+        'server." style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;'
+        "border-radius:var(--r-sm);font-size:11px;letter-spacing:.1em;padding:7px 12px;"
+        "background:var(--surface-2);color:var(--mercury-100);border:1px solid var(--mercury-600);"
+        '">REVIEW A FILE<input type="file" accept="' + REVIEW_ACCEPT + '" '
+        'onChange="{{ onReviewFile }}" style="display:none;" /></label>',
     ),
 )
 

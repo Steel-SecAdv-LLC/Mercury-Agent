@@ -145,6 +145,7 @@
       if (sig.conformal_set_size != null) { const labels = Array.isArray(sig.conformal_labels) ? sig.conformal_labels : [], n = sig.conformal_set_size; kv.push(["· conformal set", "{" + labels.join(", ") + "}" + (n === 0 ? " · empty: no class explains this point at the target coverage" : n === 1 ? " · singleton: one class at the target coverage" : " · ambiguous: " + n + " classes cannot be told apart at the target coverage") + basis]); }
       else if ("conformal_set_size" in sig) kv.push(["· conformal set", "none: this result carries no conformal certificate"]);
       if (sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);
+      else if (sig.conformal_regime === "batch_max") kv.push(["· certificate", "batch-level" + (sig.conformal_rows != null ? " · covers whether this batch of " + sig.conformal_rows + " row(s) contains an anomaly, through its most anomalous row" : "")]);
       else if (sig.conformal_regime) kv.push(["· certificate", String(sig.conformal_regime) + (sig.conformal_rows != null ? " · " + sig.conformal_rows + " row(s)" : "")]);
       if (sig.drift_detected != null) kv.push(["· drift", sig.drift_detected ? "DETECTED · " + String(sig.drift_severity || "severity unknown") + " · the ordinary rows no longer look like the model's reference" : "none detected against the model's reference" + (sig.drift_severity && sig.drift_severity !== "NONE" ? " · " + sig.drift_severity : "")]);
       else if ("drift_detected" in sig) kv.push(["· drift", "not tested"]);
@@ -205,6 +206,34 @@
     if (a) kv.push(["· admission", a.admitted_total + " admitted · " + a.rejected_total + " refused at the queue bound of " + a.max_queue + (pct(a.rejection_rate) != null ? " (" + pct(a.rejection_rate) + ")" : "") + " · " + a.in_flight + " in flight, peak " + a.peak_in_flight]);
     return kv;
   }
+
+  // An artifact review (POST /api/v1/review/upload or /inline): the upload, the segments the
+  // engine flagged and where they are, the three answers the server states in plain language,
+  // and the certificate's own statement of what it has been measured to cover. The complete
+  // decision record follows in the decision panel.
+  function reviewRows(d) {
+    const r = d.review, kv = [];
+    const c = (x, n) => (String(x).length > n ? String(x).slice(0, n - 1) + "…" : String(x));
+    const where = (s) => (!s || typeof s !== "object" ? "" : Array.isArray(s.characters) ? "characters " + s.characters[0] + "–" + s.characters[1] + (s.excerpt ? " · “" + c(s.excerpt, 70) + "”" : "") : Array.isArray(s.box) ? "tile " + s.box[2] + "×" + s.box[3] + " px at (" + s.box[0] + ", " + s.box[1] + ")" : Array.isArray(s.seconds) ? s.seconds[0] + "–" + s.seconds[1] + " s" : "");
+    const feats = (s) => (Array.isArray(s && s.top_features) ? s.top_features.map((f) => f.name + " " + (f.robust_z > 0 ? "+" : "") + f.robust_z).join(" · ") : "");
+    kv.push(["REVIEW", (r.filename || "upload") + " · " + r.kind + " (" + r.format + ") · " + r.bytes + " bytes · " + r.segments + " segments"]);
+    kv.push(["flagged segments", r.flagged_count + " of " + r.segments]);
+    if (r.top_segment) { kv.push(["top segment", "#" + r.top_segment.index + " · p " + (+r.top_segment.probability).toFixed(3) + " · " + where(r.top_segment)]); kv.push(["sets it apart", feats(r.top_segment) + " (robust z against the rest of this " + r.kind + ")"]); }
+    (Array.isArray(r.flagged_segments) ? r.flagged_segments : []).slice(0, 8).forEach((s) => kv.push(["· segment #" + s.index, "p " + (+s.probability).toFixed(3) + " · " + where(s) + " · " + feats(s)]));
+    if (r.answers && typeof r.answers === "object") [["why_this_segment", "ANSWER 1 · WHY THIS SEGMENT"], ["how_sure", "ANSWER 2 · HOW SURE"], ["the_record", "ANSWER 3 · THE RECORD"]].forEach(([k, label]) => { if (r.answers[k] && r.answers[k].plain) kv.push([label, String(r.answers[k].plain)]); });
+    if (r.basis) kv.push(["basis", String(r.basis)]);
+    if (r.certificate_scope) kv.push(["certificate scope", String(r.certificate_scope)]);
+    if (r.harm_gate && typeof r.harm_gate === "object") kv.push(["harm gate", (r.harm_gate.passed ? "passed" : "not passed") + " · read " + r.harm_gate.read + " (" + r.harm_gate.characters_read + " characters)"]);
+    if (r.sha256) kv.push(["sha256", String(r.sha256)]);
+    if (r.segmentation && typeof r.segmentation === "object") kv.push(["segmentation", Object.entries(r.segmentation).map(([k, v]) => k + " " + (v && typeof v === "object" ? JSON.stringify(v) : v)).join(" · ")]);
+    return kv;
+  }
+  // What a review decided, in three words an operator can act on.
+  function reviewHeadline(d) {
+    const dec = d.decision && typeof d.decision === "object" ? d.decision : null, r = d.review;
+    const verdict = !dec ? "REVIEWED" : dec.abstained ? "ABSTAINED" : dec.decision_label ? "ANOMALOUS SEGMENT" : "NO ANOMALOUS SEGMENT";
+    return verdict + " · " + r.flagged_count + " of " + r.segments + " segments flagged · " + r.kind;
+  }
   function summarize(data) {
     const d = data || {}, kv = [];
     const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value)).filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null) || arr(d.anomaly_probs);
@@ -226,6 +255,7 @@
     [["fused_score", 3], ["confidence", 3], ["threshold", 3], ["overall_score", 3], ["overall_confidence", 3], ["fusion_score", 3], ["recursion_score", 3], ["resonance_score", 3], ["lyapunov_bound", 3], ["neural_contribution", 3], ["symbolic_contribution", 3]].forEach(([k, p]) => { if (typeof d[k] === "number") kv.push([k, d[k].toFixed(p)]); });
     ["method", "decision", "patterns_detected", "rules_fired", "threshold_source"].forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });
     if (d.stability_evaluated === false) kv.push(["is_stable", "not evaluated (series too short)"]); else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);
+    if (d.review && typeof d.review === "object" && d.review.kind) { headline = reviewHeadline(d); reviewRows(d).forEach((row) => kv.push(row)); }
     if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));
     if (d.admission && typeof d.admission === "object" && "total" in d) { if (!headline) headline = d.recorded === false ? "no decisions recorded on this server yet" : d.total + " decision(s) in the trail"; trailRows(d).forEach((row) => kv.push(row)); }
     if (Array.isArray(d.replay) && typeof d.verdict === "string") {

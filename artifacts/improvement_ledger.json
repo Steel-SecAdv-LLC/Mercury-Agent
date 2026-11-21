@@ -448,6 +448,145 @@
         "not_measured": "whether a derived conclusion is true of the world beyond its premises holding. No harness exists for that, and none is claimed."
       },
       "rollback": "enable_cognitive_analysis(enable_curiosity=False) removes the novelty premise; the rules live in cognitive.orchestrator._DISCOVERY_RULES."
+    },
+    {
+      "component": "engine.conformal_certificate.batch_level",
+      "change": "calibrate_fusion_conformal_batches() fits the conformal certificate on one batch-max statistic per calibration batch, and the result, the record and the checkpoint name the regime (batch_max). Per-row calibration is unchanged and remains the default.",
+      "reason": "detect_with_fusion reports one verdict for a batch, its most anomalous row, and a per-row certificate does not cover a maximum over rows: on the bundled flagship model, clean 40-row batches kept the right label in their prediction set 4 times in 30.",
+      "verdict": "adopted_opt_in",
+      "impact": {
+        "harness": "tests/test_fusion_batch_certificate.py (per-row vs batch-level coverage of held-out batches on the bundled model's data); research/review/harness_artifact_review.py (the three review checkpoints, which use it)",
+        "artifact": "artifacts/artifact_review.json",
+        "bundled_model_clean_batch_coverage": {
+          "per_row_certificate": 0.13333333333333333,
+          "batch_level_certificate": 0.8333333333333334,
+          "anomalous_batches_batch_level_certificate": 1.0,
+          "batches_per_class": 30,
+          "rows_per_batch": 40,
+          "calibration_batches": 80
+        },
+        "review_coverage_clean": {
+          "document": 0.98,
+          "image": 0.8933333333333333,
+          "audio": 0.8533333333333334
+        },
+        "review_coverage_spliced": {
+          "document": 0.86,
+          "image": 0.92,
+          "audio": 0.9266666666666666
+        },
+        "target_coverage": 0.9,
+        "scope": "exchangeability is over batches drawn like the calibration batches; the certificate says whether a batch contains an anomaly, not which rows are anomalous"
+      },
+      "rollback": "calibrate_fusion_conformal() refits a per-row certificate and clears the batch family; a checkpoint without conformal_regime loads as per_sample."
+    },
+    {
+      "component": "engine.drift_detection.batch_family",
+      "change": "With a batch-level certificate fitted on at least 20 calibration batches, the drift question is asked of the batch: ten scale-free summary numbers, their standardized distance from the calibration batches, ranked among the calibration batches' own leave-one-out distances (level 0.05). A batch outside the family reports drift HIGH and the decision defers. The row-level drift ensemble is unchanged for per-row certificates.",
+      "reason": "The row-level ensemble compares rows with a fixed reference population. Rows standardized against their own artifact have none: it reported CRITICAL drift on nearly every reference artifact, which would have deferred every review.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/review/harness_artifact_review.py (deferrals on held-out reference artifacts, and outcomes on artifacts unlike the family); tests/test_fusion_batch_certificate.py",
+        "artifact": "artifacts/artifact_review.json",
+        "in_family_deferrals_of_300": {
+          "document": 23,
+          "image": 20,
+          "audio": 9
+        },
+        "unlike_the_family": {
+          "document": {
+            "artifacts": 17,
+            "abstained": 3,
+            "grounded_clear": 13,
+            "grounded_anomalous": 1,
+            "not_reviewable": 0
+          },
+          "image": {
+            "artifacts": 7,
+            "abstained": 7,
+            "grounded_clear": 0,
+            "grounded_anomalous": 0,
+            "not_reviewable": 0
+          },
+          "audio": {
+            "artifacts": 24,
+            "abstained": 17,
+            "grounded_clear": 1,
+            "grounded_anomalous": 6,
+            "not_reviewable": 0
+          }
+        },
+        "scope": "it sees a batch whose overall shape or score level differs from the calibration batches; it does not see everything unlike them",
+        "not_measured": "its power against any family other than the three tried here (Python source as documents, repository figures as images, generated chords as recordings)"
+      },
+      "why_adopted_with_a_bar_unmet": "No bar was set for the share of out-of-family artifacts it must defer, and on documents it defers few (3 of 17 Python source files). It is adopted because without it nothing asks the question at all; the measured outcomes are published, and this is not a claim that an out-of-family upload is reliably deferred.",
+      "rollback": "refit with calibrate_fusion_conformal() (per-row certificate, row-level drift ensemble), or set MERCURY_DRIFT_DETECTION=0 to disable drift testing altogether."
+    },
+    {
+      "component": "review.artifact_checkpoints",
+      "change": "Three checkpoints (review_document.pt, review_image.pt, review_audio.pt) score an uploaded artifact's self-standardized segments on the flagship path, each with a batch-level certificate calibrated on 300 reference artifacts and a statement of that certificate's scope in its provenance.",
+      "reason": "Uploading a document, an image or a recording for review had no served path. An upload has no population to be compared with, so each is measured against itself and judged by a model fitted on reference artifacts with known inserted material.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/review/harness_artifact_review.py",
+        "artifact": "artifacts/artifact_review.json",
+        "bars": {
+          "coverage_per_class_min": 0.85,
+          "grounded_wrong_max": 0.12,
+          "row_auroc_min": 0.8
+        },
+        "bars_met": {
+          "document": {
+            "coverage_per_class": true,
+            "grounded_wrong": false,
+            "row_auroc": true
+          },
+          "image": {
+            "coverage_per_class": true,
+            "grounded_wrong": true,
+            "row_auroc": true
+          },
+          "audio": {
+            "coverage_per_class": true,
+            "grounded_wrong": true,
+            "row_auroc": true
+          }
+        },
+        "all_bars_met": {
+          "document": false,
+          "image": true,
+          "audio": true
+        },
+        "spliced_found": {
+          "document": 0.64,
+          "image": 0.7933333333333333,
+          "audio": 0.8666666666666667
+        },
+        "spliced_called_clear": {
+          "document": 0.13333333333333333,
+          "image": 0.06,
+          "audio": 0.006666666666666667
+        },
+        "clean_called_anomalous": {
+          "document": 0.02,
+          "image": 0.08666666666666667,
+          "audio": 0.02666666666666667
+        },
+        "abstained": {
+          "document": 0.38,
+          "image": 0.08666666666666667,
+          "audio": 0.12333333333333334
+        },
+        "row_auroc": {
+          "document": 0.867571995334094,
+          "image": 0.9878909192778533,
+          "audio": 0.967884217546783
+        },
+        "scope": "procedural reference artifacts with procedurally inserted material: how well internal inconsistency of those kinds is found",
+        "not_measured": "real-world tampering, and real-world documents, photographs and speech. No labelled corpus of those is in the repository, and none is claimed."
+      },
+      "why_adopted_with_a_bar_unmet": "The document checkpoint misses the wrong-decision bar: 13.3% of spliced documents are called clear against a bar of 12%, and more than half of clean documents are abstained on. It ships because the alternative is no document review at all and because the miss is stated where it is used: in the README table, in this entry, and in the certificate scope every record repeats. This is not a claim that the bar was cleared.",
+      "rollback": "delete the checkpoint for a kind: its reviews then answer 503 (ReviewError) instead of deciding; python -m scripts.train_review_checkpoints --kind <kind> rebuilds one."
     }
   ]
 }
