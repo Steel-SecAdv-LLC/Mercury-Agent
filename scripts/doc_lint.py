@@ -85,6 +85,10 @@ SCAN_SUFFIXES: frozenset[str] = frozenset({".md", ".py", ".rst", ".txt"})
 #: linted.
 EXCLUDED: tuple[tuple[str, str], ...] = (
     ("CHANGELOG.md", "historical record; past wording is preserved, not rewritten"),
+    (
+        "docs/changelog/",
+        "historical record: releases before 3.0.0, moved out of CHANGELOG.md unchanged",
+    ),
     ("docs/CAPABILITY_INVENTORY.md", "machine-generated from source by a script"),
     ("tests/", "test corpora quote banned phrases in order to assert they are banned"),
 )

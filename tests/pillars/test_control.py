@@ -136,7 +136,11 @@ class TestLedgerIsAppendOnly:
         ledger = DecisionLedger(maxlen=3)
         for prob in (0.1, 0.2, 0.3, 0.4, 0.5):
             ledger.record(_record(anomaly_prob=prob))
-        assert [round(e.anomaly_prob, 1) for e in ledger.entries] == [0.3, 0.4, 0.5]
+        kept = [entry.anomaly_prob for entry in ledger.entries]
+        # ``anomaly_prob`` is ``None`` only for a record with no probability;
+        # every record here was built from a real one.
+        assert all(prob is not None for prob in kept)
+        assert [round(prob, 1) for prob in kept if prob is not None] == [0.3, 0.4, 0.5]
         assert ledger.summary()["total"] == 3
 
     def test_a_non_positive_maxlen_is_refused(self) -> None:

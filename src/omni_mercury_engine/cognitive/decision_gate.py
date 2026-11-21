@@ -57,9 +57,25 @@ identical verdict" across ``detect`` / ``detect_batch`` / ``detect_biometric`` /
 
 from __future__ import annotations
 
+import collections
+import dataclasses
+import io
 import logging
+import re
+import socket
+import threading
+import types
+import unicodedata
+from array import array
+from collections import UserString, deque
+from collections.abc import (
+    Mapping as _Mapping,
+    Sequence as _Sequence,
+)
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from enum import Enum
+from pathlib import PurePath
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from omni_mercury_engine.cognitive.ethical_bounding import (
     USE_SHIPPED_CLASSIFIER,
@@ -78,10 +94,60 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Upper bound on the free-text handed to the harm gate.  Bounds hot-path cost
-#: and the size of an audited record; the cap is generous enough that a real
-#: uplift request cannot hide past it (the gate's lexicons match early tokens).
+#: Size of one passage handed to the harm gate, and of an audited record.
+#:
+#: It is NOT a bound on what the gate reads. It used to be: the gate scored one
+#: string cut at this length, on the stated ground that "a real uplift request
+#: cannot hide past it". It could. Each of the pillar suite's own red-team
+#: requests was permitted behind 4,640 characters of weather small-talk. The
+#: gate now reads all of the caller's text: once whole, and, where that
+#: reading finds something, as overlapping passages of this size
+#: (:func:`enforce_decision_boundary`).
 MAX_SUBJECT_CHARS = 4096
+
+#: How much caller text one decision may carry. Past it the gate does not
+#: guess: the decision is refused, fail-closed, like any other it cannot
+#: evaluate. Reading it whole is about 1.1 ms per thousand characters, so
+#: this bounds a decision with nothing in it at roughly one second; one with
+#: hazard vocabulary in it is read again as passages, about 2.5 ms per
+#: thousand more.
+MAX_ASSESSED_CHARS = 1_048_576
+
+#: How many values of a structured payload the gate will walk looking for
+#: text before it refuses to decide. A numeric array is not walked at all
+#: (its shape is its summary), so this is reached only by very large plain
+#: Python containers.
+MAX_ASSESSED_NODES = 5_000_000
+
+#: Nesting the walk follows before it refuses to decide.
+_MAX_TEXT_DEPTH = 64
+
+#: The machinery of the process: what these hold is not the caller's, and one
+#: of them leads to all the others of its kind (a logger to every logger).
+_PROCESS_STATE: tuple[type, ...] = (
+    logging.Logger, logging.Handler, logging.Manager, logging.PlaceHolder, logging.Formatter,
+    threading.Thread, type(threading.Lock()), type(threading.RLock()), threading.Event,
+    threading.Condition, io.IOBase, socket.socket,
+)  # fmt: skip
+
+#: How often one thing is read over. A label of a letter or two is read
+#: this many times (a word kept a letter to a cell repeats its letters), and
+#: of a run of equal elements in a list this many are read: the rest of a
+#: column of 300,000 "ok" says nothing the first of them did not.
+_REPEATS = 16
+
+#: A label this short is never passed over for holding no word.
+_SHORT_STRING = 3
+
+
+class _Labels(list[Any]):
+    """The cells of a table: an array, a column of a frame, its row labels.
+
+    Read as labels, each distinct one once: a column of two million names of
+    forty machines is forty names. What a caller hands over in lists and
+    records is not read this way.
+    """
+
 
 #: Upper bound on the rendered summary of a single structured payload value.
 _MAX_VALUE_CHARS = 512
@@ -105,6 +171,750 @@ _MAX_PAYLOAD_SUMMARY_CHARS = 2048
 #: old depth-2 ceiling hid exactly that. The total-character cap above, not the
 #: depth, is what bounds cost, so this can be generous.
 _MAX_PAYLOAD_DEPTH = 6
+
+
+#: Types that are numbers and nothing else (a subclass could carry text).
+_NUMBERS: frozenset[type] = frozenset({int, float, bool, complex, type(None)})
+
+#: Plain containers of values, a dict's keys, values and items as views among them.
+_SEQUENCES: tuple[type, ...] = (
+    list, tuple, set, frozenset, deque,
+    type({}.keys()), type({}.values()), type({}.items()),
+)  # fmt: skip
+
+#: A letter that a date, a time or a number is not written with. A string
+#: without one (``2026-11-18T10:00:00Z``, an id of digits, ``1.5e-3``) has no
+#: word in it for the gate to read.
+#:
+#: This was "two letters together", which also passed over text written one
+#: letter at a time: ``s a r i n`` in a payload went unread, though the
+#: normalizer exists to put exactly that back together.
+_WORD = re.compile(r"[^\W\d_TtZzEe]")
+
+#: A run of printable ASCII inside bytes that are not text: what ``strings``
+#: would show of them, at a length a phrase has and chance seldom does. In a
+#: buffer of small numbers two bytes in three are printable ones; at six in
+#: a row a quarter of such a buffer was "text".
+_PRINTABLE_RUN = re.compile(rb"[\x20-\x7e]{16,}")
+
+
+class UnassessableSubjectError(ValueError):
+    """The decision carries more than the gate can read; it must be refused."""
+
+
+def _object_text(payload: Any) -> list[Any] | None:
+    """What an object that is not a plain container holds, or ``None`` if nothing is read.
+
+    A float matrix has no words in it and is summarised by its shape. An array
+    of strings or objects, the text columns of a data frame, the fields of a
+    dataclass or a pydantic model, the attributes of a plain object, the
+    arguments of an exception, a path and the name and value of an enum
+    member are the caller's words in another container. Summarised by shape
+    or by type name they went unread: the reasoning backend hands the gate a
+    ``ReasoningContext``, which it saw as the single word ``ReasoningContext``
+    while the evidence inside went on to a language model.
+
+    What is left opaque, and stays its type name as it always was: a class, a
+    module, a function (their attributes are code, not what a caller said);
+    the machinery of the process itself (:data:`_PROCESS_STATE`: a logger, a
+    lock, an open file), which holds nothing a caller wrote and leads to
+    everything else of its kind; and a generator or any other one-shot
+    iterator, which cannot be read without using it up for the surface it
+    was passed to. One of the kinds above that cannot be read the way its
+    kind is read is opaque too: this never raises, so that an odd object is
+    not a way to have a decision refused.
+
+    An object's attributes are followed as deep as containers are
+    (:data:`_MAX_TEXT_DEPTH`) and no deeper. Followed four deep and then
+    passed over, a request five objects down went unread; followed eight
+    deep and then refused, a linked list of ten was a refusal.
+
+    Returns:
+        What it holds; ``None`` when nothing is read.
+    """
+    try:
+        if isinstance(payload, (type, types.ModuleType, *_PROCESS_STATE)):
+            return None
+        if isinstance(payload, range):
+            return []  # numbers
+        if isinstance(payload, PurePath):
+            return [str(payload)]
+        if isinstance(payload, Enum):
+            return [payload.name, payload.value]
+        if isinstance(payload, array):
+            return [payload.tounicode()] if payload.typecode in "uw" else []
+        if isinstance(payload, UserString):
+            return [str(payload)]
+        if hasattr(type(payload), "dtypes") and hasattr(type(payload), "columns"):  # a frame
+            return _frame_text(payload)
+        dtype: Any = getattr(payload, "dtype", None)
+        kind = getattr(dtype, "kind", None)
+        if isinstance(kind, str):
+            names = getattr(dtype, "names", None)
+            if kind == "V" and names:
+                # A structured array: only the fields that can hold text, each
+                # as the array it is. Converted whole, six million records of
+                # numbers were six million tuples to walk, and a refusal.
+                held = [payload[name] for name in names if dtype[name].kind in _TEXT_KINDS]
+            else:
+                held = [_Labels(_as_list(payload))] if kind in _TEXT_KINDS else []
+            return held + _index_text(payload)
+        if isinstance(payload, _Sequence):
+            # As a plain list, which is walked like any other: numbers in one
+            # pass, and within the same budget.
+            return [list(payload)]
+        values: list[Any] = []
+        if isinstance(payload, BaseException):
+            values.extend(payload.args)
+        record = dataclasses.is_dataclass(payload) or any(
+            hasattr(type(payload), mark) for mark in ("__pydantic_fields__", "__fields__")
+        )
+        if callable(payload) and not record:
+            # A function, a partial, a mock: code. (A record that can also be
+            # called is still a record.)
+            return values or None
+        # The instance's own attributes, by value (their names are the code's
+        # words, not the caller's). Each value once: a dataclass's fields and
+        # a model's are in its ``__dict__`` or its slots already, and read
+        # from there and again from the fields or a dump they were walked,
+        # and counted against the budget, twice.
+        attributes = getattr(payload, "__dict__", None)
+        if isinstance(attributes, dict):
+            values.extend(attributes.values())
+        for owner in type(payload).__mro__:
+            slots = owner.__dict__.get("__slots__", ())
+            for name in (slots,) if isinstance(slots, str) else slots:
+                # A double-underscore slot is the class's own bookkeeping (a
+                # model's set of field names), not something it was given.
+                if not (name.startswith("__") and name.endswith("__")):
+                    values.append(getattr(payload, name, None))
+        # What a pydantic model holds beside its stored fields.
+        for beside in ("__pydantic_extra__", "__pydantic_private__"):
+            held_beside = getattr(payload, beside, None)
+            if isinstance(held_beside, dict):
+                values.append(held_beside)
+        computed = getattr(type(payload), "model_computed_fields", None)
+        if isinstance(computed, dict):
+            values.extend(getattr(payload, name, None) for name in computed)
+        return values or None
+    except Exception:
+        return None
+
+
+def _frame_text(frame: Any) -> list[Any]:
+    """The column names, row labels and text columns of a data frame.
+
+    Columns are taken by position. Taken by name, a frame with two columns of
+    one name gave back a frame where a column was expected, the read failed,
+    and the whole frame went through as its type name.
+    """
+    values: list[Any] = [str(name) for name in frame.columns]
+    values.extend(_index_text(frame))
+    if callable(getattr(type(frame), "get_columns", None)):  # polars
+        columns = frame.get_columns()
+    else:  # pandas
+        columns = [column for _, column in frame.items()]
+    for column in columns:
+        if getattr(getattr(column, "dtype", None), "kind", "O") in _TEXT_KINDS:
+            values.append(_Labels(_as_list(column)))
+    return values
+
+
+#: dtype kinds that can hold text: object, unicode, bytes, the string dtype, and
+#: structured records.
+_TEXT_KINDS = "OUSTV"
+
+
+def _index_text(labelled: Any) -> list[Any]:
+    """The row labels of a frame or a series, when they can hold text."""
+    index = getattr(labelled, "index", None)
+    if index is None or callable(index):
+        return []
+    if getattr(getattr(index, "dtype", None), "kind", "O") not in _TEXT_KINDS:
+        return []
+    return [_Labels(_as_list(index))]
+
+
+def _as_list(values: Any) -> list[Any]:
+    """An array or a column as a Python list (numpy and pandas ``tolist``, polars ``to_list``)."""
+    convert = getattr(values, "tolist", None) or values.to_list
+    listed: list[Any] = convert()
+    return listed
+
+
+def _bytes_text(raw: bytes) -> str:
+    """The text in ``raw``: every reading that makes text of it, else its printable runs.
+
+    Bytes that are not text used to be decoded as though they were, every
+    undecodable byte becoming a replacement character: a megabyte of
+    compressed or random data counted as a megabyte of text, was refused for
+    its size, and below that size was scored as noise. Text is told from
+    data by what it decodes to:
+
+    * UTF-8, when it is that and at most one byte in ten is a control code.
+    * Otherwise nothing in the bytes says what they are, and each of these
+      that makes text of them is read: Latin-1, when it is mostly ASCII;
+      UTF-16 (:func:`_utf16_text`), in the order a byte-order mark declares
+      or else in both; UTF-8 with control codes between its words
+      (:func:`_words_between_controls`).
+    * Where they are not Latin-1, their runs of printable ASCII as well, as
+      ``strings`` would give.
+
+    A byte-order mark does not end the reading: two bytes before an ASCII
+    request made UTF-16 of it, in which it says nothing.
+    """
+    declared = _BYTE_ORDER_MARKS.get(raw[:2])
+    if declared:
+        raw = raw[2:]  # the mark is not text in any reading
+    even = raw[: len(raw) - len(raw) % 2]  # a UTF-16 text cut in the middle of a unit
+    plain = _is_text(raw)
+    if not declared:
+        # As it is, or without the NULs a fixed-width field is padded with:
+        # "sarin 12345678" and four NULs was neither text by its control
+        # codes nor words by its letters.
+        for whole in (raw, raw.strip(b"\x00")) if plain else (raw.strip(b"\x00"),):
+            if whole and _is_text(whole):
+                try:
+                    return whole.decode("utf-8")
+                except UnicodeDecodeError:
+                    pass
+    latin = (
+        plain
+        and len(raw.translate(None, _LATIN1_TEXT)) * 20 <= len(raw)
+        and len(raw.translate(None, _ASCII)) * 10 <= len(raw) * 3
+    )
+    readings = [
+        (
+            raw.decode("latin-1")
+            if latin
+            else " ".join(run.decode("ascii") for run in _PRINTABLE_RUN.findall(raw))
+        )
+    ]
+    if declared:
+        readings.append(_utf16_text(even, declared, declared=True))
+    elif not latin:
+        wide = [_utf16_text(even, order) for order in _BYTE_ORDER_MARKS.values()]
+        # Every reading is read, so their order decides nothing but where the
+        # passages are cut; of the two byte orders the one with more ASCII is first.
+        readings += sorted(wide, key=lambda text: -sum(map(str.isascii, text[:_MAX_VALUE_CHARS])))
+    if not latin:
+        readings.append(_words_between_controls(raw))
+    return "\n".join(dict.fromkeys(filter(None, readings)))  # each reading once
+
+
+_BYTE_ORDER_MARKS = {b"\xff\xfe": "utf-16-le", b"\xfe\xff": "utf-16-be"}
+#: Bytes that are text in Latin-1: tab, line ends, and the printable ranges.
+_LATIN1_TEXT = bytes([9, 10, 13, *range(0x20, 0x7F), *range(0xA0, 0x100)])
+_ASCII = bytes(range(0x80))
+#: Bytes no text is made of: the control codes other than tab and the line ends.
+_CONTROL = bytes([*range(0, 9), 11, 12, *range(14, 0x20), 0x7F])
+_CONTROL_TO_SPACE = bytes.maketrans(_CONTROL, b" " * len(_CONTROL))
+_WHITE_SPACE = b"\t\n\r "
+#: What words are made of, in UTF-8: ASCII letters and the bytes of any other letter.
+_LETTER_BYTES = bytes([*range(0x41, 0x5B), *range(0x61, 0x7B), *range(0x80, 0x100)])
+#: Characters no text is made of: control codes, and code points that are
+#: unassigned or for private use (``unicodedata`` general categories).
+_NOT_TEXT = frozenset({"Cc", "Cn", "Co", "Cs"})
+#: A UTF-16 text shorter than this many units is not recognised without a
+#: byte-order mark: any few bytes are a character or two of some alphabet.
+_MIN_UTF16_UNITS = 4
+#: A text uses few characters and uses them unevenly; numbers read as
+#: UTF-16 do neither. Half of a text is made of its this many commonest
+#: characters (Chinese, which uses most, has about three fifths of a text
+#: in its 256 commonest; 16-bit values up to 1,000 have a quarter)...
+_COMMONEST = 256
+#: ...and in a text of :data:`_LONG_ENOUGH` characters or more, the
+#: commonest is used at least this many times as often as the average one
+#: (a space in English: eleven times; counts from 0 to 9, which are a
+#: hundred characters used alike: under twice). A shorter text is too
+#: short to tell, and is read.
+_UNEVEN = 3
+_LONG_ENOUGH = 512
+
+
+def _is_text(raw: bytes) -> bool:
+    """Whether ``raw`` could be text: at most one byte in ten is a control code.
+
+    A buffer of small numbers decodes without error in more than one
+    encoding (as UTF-8, or as UTF-16 when it holds 16-bit values below 256)
+    and was then a megabyte of "text" to count and score.
+    """
+    return (len(raw) - len(raw.translate(None, _CONTROL))) * 10 <= len(raw)
+
+
+def _words_between_controls(raw: bytes) -> str:
+    """``raw`` as UTF-8 without its control codes, when what is left is words.
+
+    A field padded with NULs to a fixed width, values with a unit separator
+    between them, a request with a control code between its letters: more
+    than a tenth control codes, so not text by that count, and all of it
+    words. A NUL is padding and is dropped; any other control code stood
+    between two things and is read as a space. Small numbers are valid UTF-8
+    as well, and between their control codes are digits and punctuation as
+    often as letters: three in four of what is left must be letters.
+    """
+    marks = raw.translate(None, _CONTROL + _WHITE_SPACE)
+    if not marks or len(marks.translate(None, _LETTER_BYTES)) * 4 > len(marks):
+        return ""
+    try:
+        return raw.replace(b"\x00", b"").translate(_CONTROL_TO_SPACE).decode("utf-8").strip()
+    except UnicodeDecodeError:
+        return ""
+
+
+def _utf16_text(even: bytes, order: str, *, declared: bool = False) -> str:
+    """``even`` read as UTF-16 in ``order``, or ``""`` when that does not make text of it.
+
+    It is text when at most one character in ten is a control code, half of
+    a surrogate pair (a buffer of numbers soon holds one) or a code point
+    nothing is assigned to; and, where no byte-order mark ``declared`` it,
+    when it is written as text is: in few characters (:data:`_COMMONEST`),
+    unevenly used (:data:`_UNEVEN`). A text in one byte order is as a rule
+    also text in the other, in an alphabet it was not written in, and
+    nothing in the bytes says which was meant: both are read and both are
+    counted.
+
+    What this does not read is a text padded with thousands of different
+    characters, which is what numbers look like. Nothing tells the two apart.
+    """
+    if not declared and len(even) < 2 * _MIN_UTF16_UNITS:
+        return ""
+    text = even.decode(order, errors="replace")
+    counts = collections.Counter(text)
+    spoiled = sum(
+        count
+        for ch, count in counts.items()
+        if ch == "\ufffd" or (ch not in "\t\n\r" and unicodedata.category(ch) in _NOT_TEXT)
+    )
+    if spoiled * 10 > len(text):
+        return ""
+    if declared:
+        return text
+    commonest = counts.most_common(_COMMONEST)
+    if sum(count for _, count in commonest) * 2 < len(text):
+        return ""
+    if len(text) >= _LONG_ENOUGH and commonest[0][1] * len(counts) < _UNEVEN * len(text):
+        return ""
+    return text
+
+
+def payload_text(payload: Any) -> list[str]:
+    """Every piece of text in ``payload``, and then what its keys stood between.
+
+    The two lists of :func:`_payload_readings`, one after the other.
+    """
+    said, again = _payload_readings(payload)
+    return said + again
+
+
+def _payload_readings(payload: Any) -> tuple[list[str], list[str]]:
+    """Every piece of text in ``payload``, however deep and however far along.
+
+    :func:`summarize_payload` is a bounded description for the audit record:
+    the first 24 keys, the first 512 characters of a string, six levels. The
+    gate cannot decide on a description that leaves text out, so it reads this
+    instead: every string value, every string key, bytes that are text (and
+    the printable runs of bytes that are not), the string cells of arrays and
+    data frames, and what :func:`_object_text` reads of an object. Numbers
+    carry no words and are skipped.
+
+    Returns:
+        What the caller said, in the order it was given; and what its keys
+        stood between, to be read again without them
+        (:func:`_with_what_keys_kept_apart`). The limit on a decision's text
+        is on the first: the second is made of it and is no longer.
+
+    Raises:
+        UnassessableSubjectError: When the payload holds more text than
+            :data:`MAX_ASSESSED_CHARS`, more values than
+            :data:`MAX_ASSESSED_NODES`, or nests deeper, in containers or in
+            objects, than :data:`_MAX_TEXT_DEPTH`.
+    """
+    reader = _Reader()
+    nodes = 0
+    # Containers already read, by identity -- and held, not just their ids. A
+    # set of bare ids was wrong: the dict a model dumps to and the list an
+    # array converts to are made here and freed as soon as they are read, the
+    # next one is given the same address, and it was skipped as "already
+    # seen". A payload of two models or two string arrays was read as the
+    # first alone, and whatever the second said went through unread.
+    seen: dict[int, Any] = {}
+    named = False  # whether the value now read is what a key of a record names
+    # Each value, how deep it lies, and whether it is inside a table.
+    stack: list[tuple[Any, int, bool]] = [(payload, 0, False)]
+    while stack:
+        value, depth, table = stack.pop()
+        if type(value) is _Names:
+            reader.open_key(value.key)
+            named = True
+            continue
+        if value is _KEY_CLOSES:
+            reader.close_key()
+            continue
+        if value is _RECORD_CLOSES:
+            reader.close_record()
+            continue
+        direct, named = named, False
+        nodes += 1
+        if nodes > MAX_ASSESSED_NODES:
+            raise UnassessableSubjectError(
+                f"the payload holds more than {MAX_ASSESSED_NODES:,} values; "
+                "pass numeric data as an array"
+            )
+        if value is None or isinstance(value, (bool, int, float, complex)):
+            continue
+        if isinstance(value, (bytes, bytearray, memoryview)):
+            value = _bytes_text(bytes(value))
+        if isinstance(value, str):
+            # A cell of a table is a label. Anything else is read every time
+            # it occurs, in the order given: "how", "to" and "make" came
+            # round again further down a list of words, were passed over as
+            # read already, and the request they opened was permitted.
+            if reader.once(value) if table else _holds_a_word(value):
+                reader.say(value)
+            elif value in _A_SPACE and not table:
+                # No word, and the gap between two: a request kept a letter
+                # to a record keeps its spaces the same way.
+                reader.gap(value)
+            continue
+        if depth >= _MAX_TEXT_DEPTH:
+            raise UnassessableSubjectError(
+                f"the payload nests deeper than {_MAX_TEXT_DEPTH} levels"
+            )
+        if id(value) in seen:  # a container reached twice is read, and counted, once
+            continue
+        seen[id(value)] = value
+        if isinstance(value, _Mapping) and not table:
+            words: list[str] = []
+            numbers = _record_of_numbers(value, words, 4) if type(value) is dict else None
+            if numbers is not None:
+                # A record of numbers, which is most records: known for one
+                # without a visit to each thing in it.
+                reader.silent_record(numbers, words, direct)
+                continue
+            reader.open_record(tuple(key for key in value if isinstance(key, str)), direct)
+            stack.append((_RECORD_CLOSES, depth, table))
+            for key, held in reversed(list(value.items())):
+                stack += (
+                    (_KEY_CLOSES, depth, table),
+                    (held, depth + 1, table),
+                    (_Names(key), depth, table),
+                )
+            continue
+        children: Any
+        if isinstance(value, _Mapping):
+            children = [part for item in value.items() for part in item]
+        elif isinstance(value, _SEQUENCES):
+            # A sequence of nothing but numbers has no words in it. Its types
+            # are checked in one pass at C speed instead of visiting every
+            # element here (a 1,000 x 1,000 list of floats cost 170 ms a
+            # decision); eight of them count as one value walked.
+            items: Any = value
+            if set(map(type, items)) <= _NUMBERS:
+                nodes += len(items) // 8
+                continue
+            table = table or isinstance(value, _Labels)
+            children = list(items) if table else _runs_cut(items)
+        else:
+            children = _object_text(value)
+            if children is None:
+                continue
+        stack.extend((child, depth + 1, table) for child in reversed(children))
+    return _with_what_keys_kept_apart(reader.found, reader.is_key, reader.field)
+
+
+def _record_of_numbers(record: dict[Any, Any], words: list[str], deep: int) -> Any:
+    """What ``record`` is, keys and all, when nothing in it says anything; else ``None``.
+
+    Numbers, strings no word could be in, lists of numbers, and records of
+    the same inside it. Its keys that could hold a word are added to
+    ``words`` in the order they stand.
+    """
+    inside = []
+    for key, held in record.items():
+        if isinstance(key, str) and _holds_a_word(key):
+            words.append(key)
+        kind = type(held)
+        if kind in _NUMBERS:
+            continue
+        if kind is str:
+            if held in _A_SPACE or _holds_a_word(held):
+                return None
+        elif kind is dict and deep:
+            within = _record_of_numbers(held, words, deep - 1)
+            if within is None:
+                return None
+            inside.append(within)
+        elif kind not in (list, tuple) or not set(map(type, held)) <= _NUMBERS:
+            return None
+    return tuple(key for key in record if isinstance(key, str)), tuple(inside)
+
+
+_NUMBERS_AND_STRINGS = _NUMBERS | {str}
+_A_SPACE = frozenset(" \t\n")
+
+
+class _Names:
+    """Stands on the stack of :func:`_payload_readings` before what ``key`` names."""
+
+    __slots__ = ("key",)
+
+    def __init__(self, key: Any) -> None:
+        self.key = key
+
+
+#: Stand on that stack after what a key names, and after a record.
+_KEY_CLOSES: Any = object()
+_RECORD_CLOSES: Any = object()
+
+
+class _Record:
+    """A record being read: a dict a caller wrote, not a row of a table."""
+
+    __slots__ = ("before", "header", "nested", "parts", "waiting")
+
+    def __init__(self, header: tuple[str, ...], before: int, nested: bool) -> None:
+        self.header = header
+        #: How much had been read when it was opened.
+        self.before = before
+        #: Whether it is what a key of another record names.
+        self.nested = nested
+        #: Of the records it holds that said nothing: their keys, and theirs.
+        self.parts: list[Any] = []
+        #: Its keys whose values said nothing, and the place kept for each.
+        self.waiting: list[tuple[int | None, str]] = []
+
+
+class _Reader:
+    """What :func:`_payload_readings` has read, and the rule for reading a record's keys.
+
+    A record that says anything is read with every one of its keys, each
+    where it stands. Read as labels, once each, "how to make" beside a count
+    was read for the first of 400 records and not in the record that named
+    an agent in its next field, nor in the one that named it in its next
+    key; and words kept one to a record as keys were dropped when they came
+    round again.
+
+    A record that says nothing (numbers, and strings no word could be in) is
+    read with its keys too, unless it is the same record, keys and all, as
+    the one before it in the same place with nothing read between: one row
+    more of a table. The keys of 45,000 rows of readings are three strings,
+    and read for each row they filled the reading budget and a table of
+    numbers was refused. The first two rows are read, so that what ends one
+    and begins the next is read side by side once.
+    """
+
+    def __init__(self) -> None:
+        #: What is read, in the order it is read. A key's place is kept
+        #: (``None``) until its record is done.
+        self.found: list[str | None] = []
+        self.is_key: list[bool] = []  # of each entry of ``found``
+        self.field: list[tuple[Any, ...]] = []  # of each entry, the keys it lies under
+        self.chars = 0
+        self.said = 0  # how many of them have been read, to ask "anything since?"
+        self.under: tuple[Any, ...] = ()
+        self._labels: dict[str, int] = {}
+        self._keys: list[tuple[int | None, int, tuple[Any, ...]]] = []
+        self._records: list[_Record] = []
+        #: Under each field, the last record that said nothing: what it was,
+        #: how many like it in a row, and how much had been read by then.
+        self._silent: dict[tuple[Any, ...], tuple[Any, int, int]] = {}
+
+    def say(self, text: str, *, key: bool = False) -> None:
+        self.found.append(text)
+        self.is_key.append(key)
+        self.field.append(self.under)
+        self._count(text)
+
+    def gap(self, space: str) -> None:
+        """A space between two letters: kept in its place, and nothing said."""
+        self.found.append(space)
+        self.is_key.append(False)
+        self.field.append(self.under)
+
+    def once(self, label: str) -> bool:
+        """Whether a label is still to be read: once, a short one a few times over."""
+        times = self._labels.get(label, 0)
+        if times < 0 or times >= (_REPEATS if len(label) <= _SHORT_STRING else 1):
+            return False
+        wanted = _holds_a_word(label)
+        self._labels[label] = times + 1 if wanted else -1
+        return wanted
+
+    def open_key(self, key: Any) -> None:
+        place = None
+        if isinstance(key, str) and _holds_a_word(key):
+            place = self._place((*self.under, key))
+        self._keys.append((place, self.said, self.under))
+        self.under = (*self.under, key)
+
+    def close_key(self) -> None:
+        key = self.under[-1]
+        place, before, self.under = self._keys.pop()
+        if place is None:
+            return
+        if self.said > before:
+            self._fill(place, key)
+        else:
+            self._records[-1].waiting.append((place, key))
+
+    def open_record(self, header: tuple[str, ...], nested: bool) -> None:
+        self._records.append(_Record(header, self.said, nested))
+
+    def close_record(self) -> None:
+        record = self._records.pop()
+        if self.said > record.before:
+            for place, key in record.waiting:
+                self._fill(place, key)
+        elif record.nested:
+            self._records[-1].parts.append((record.header, tuple(record.parts)))
+            self._records[-1].waiting += record.waiting
+        else:
+            self._settle((record.header, tuple(record.parts)), record.waiting)
+
+    def silent_record(self, record: Any, words: list[str], nested: bool) -> None:
+        """A record of numbers (:func:`_record_of_numbers`), which no visit was made to."""
+        if nested:
+            self._records[-1].parts.append(record)
+            self._records[-1].waiting += [(self._place(self.under), key) for key in words]
+        else:
+            self._settle(record, [(None, key) for key in words])
+
+    def _settle(self, record: Any, waiting: list[tuple[int | None, str]]) -> None:
+        """Read the keys of a record that said nothing, unless it repeats the one before."""
+        like = self._silent.get(self.under)
+        run = like[1] + 1 if like and like[0] == record and like[2] == self.said else 1
+        if run <= 2:
+            for place, key in waiting:
+                self._fill(place, key)
+        self._silent[self.under] = (record, run, self.said)
+
+    def _place(self, under: tuple[Any, ...]) -> int:
+        self.found.append(None)
+        self.is_key.append(True)
+        self.field.append(under)
+        return len(self.found) - 1
+
+    def _fill(self, place: int | None, key: str) -> None:
+        if place is None:
+            self.say(key, key=True)
+            return
+        self.found[place] = key
+        self._count(key)
+
+    def _count(self, text: str) -> None:
+        self.said += 1
+        self.chars += len(text)
+        if self.chars > MAX_ASSESSED_CHARS:
+            raise UnassessableSubjectError(
+                f"the payload holds more than {MAX_ASSESSED_CHARS:,} characters of text"
+            )
+
+
+def _with_what_keys_kept_apart(
+    found: list[str | None], is_key: list[bool], field: list[tuple[Any, ...]]
+) -> tuple[list[str], list[str]]:
+    """What was read, and what its keys stood between, to be read without them.
+
+    Read once with its keys, a request kept a word to a record had the
+    field's name between each word and the next, and was no request:
+    ``[{"w": "how"}, {"w": "to"}, {"w": "make"}, ...]`` was permitted. So the
+    values are given twice more: all of them in the order they came, and,
+    where they lie under more than one field, each field's by itself (one
+    column of a table, read down). Each stretch of text that no key broke
+    was read whole the first time and is given here by its two ends, which
+    is where it meets its neighbours: given whole, 600,000 characters of
+    notes were counted again and refused.
+
+    What this does not put together is a request kept a piece to a record
+    under field names that change from one record to the next, with other
+    text in each record beside it.
+    """
+    texts = [text for text in found if text is not None]
+    stretches: list[tuple[tuple[Any, ...], list[str]]] = []
+    broken = True
+    for text, key, lies_under in zip(found, is_key, field, strict=True):
+        if key:
+            broken = broken or text is not None
+        elif text is not None:
+            if broken:
+                stretches.append((lies_under, []))
+                broken = False
+            stretches[-1][1].append(text)
+    if len(stretches) < 2:
+        return texts, []
+    ends = [(lies_under, _two_ends(stretch)) for lies_under, stretch in stretches]
+    again = [_runs_cut([piece for _, pieces in ends for piece in pieces])]
+    # By the name of the field itself, wherever it lies: the "w" of each
+    # record is one column whether the records are in a list or in a dict.
+    by_field: dict[Any, list[str]] = {}
+    for lies_under, pieces in ends:
+        by_field.setdefault(lies_under[-1:], []).extend(pieces)
+    if len(by_field) > 1:
+        again += [_runs_cut(pieces) for pieces in by_field.values() if len(pieces) > 1]
+    return texts, [piece for pieces in again for piece in pieces]
+
+
+def _two_ends(stretch: list[str]) -> list[str]:
+    """``stretch`` as it is when short; when long, its first and its last characters."""
+    if sum(map(len, stretch)) <= 2 * _CUT_MARGIN:
+        return stretch
+    whole = ", ".join(stretch)
+    return [whole[:_CUT_MARGIN], whole[-_CUT_MARGIN:]]
+
+
+def _holds_a_word(text: str) -> bool:
+    """Whether ``text`` could hold a word (see ``_WORD``).
+
+    60,000 timestamps are no text at all. A string of a letter or two is not
+    passed over for holding no word: "n", "e", "r", "v", "e" is one.
+    """
+    if len(text) <= _SHORT_STRING:
+        return any(char.isalpha() for char in text)
+    return _WORD.search(text) is not None
+
+
+def _runs_cut(items: Any) -> list[Any]:
+    """``items`` as a caller's list is read: letters joined, long runs of one thing cut.
+
+    Elements of one character each are a string handed over a letter at a
+    time, spaces and all, and are joined as ``"".join`` would join them.
+
+    A run of equal elements is cut to its first :data:`_REPEATS`. What is
+    left out stood next to its like, which is read: nothing that was beside
+    something else is beside it no longer.
+    """
+    kept: list[Any] = []
+    letters: list[str] = []
+    before: Any = _runs_cut  # equal to no element
+    run = 0
+    for item in items:
+        if type(item) is str and len(item) == 1:
+            letters.append(item)
+            continue
+        if letters:
+            kept.append("".join(letters))
+            letters.clear()
+            before = _runs_cut
+        alike = type(item) is type(before) and isinstance(item, (str, dict, list, tuple))
+        run = run + 1 if alike and item == before else 0
+        if run < _REPEATS:
+            kept.append(item)
+        before = item
+    if letters:
+        kept.append("".join(letters))
+    return kept
+
+
+def _spans(length: int, size: int) -> list[tuple[int, int]]:
+    """``[start, end)`` of the passages of ``size`` that cover ``length``, overlapping by half.
+
+    Any stretch up to half a passage long lies whole inside at least one of
+    them, so a request is not cut in two at every boundary it meets.
+    """
+    stride = max(size // 2, 1)
+    last_start = max(length - (size - stride), 1)
+    return [(start, min(start + size, length)) for start in range(0, last_start, stride)]
 
 
 def summarize_payload(payload: Any, *, _depth: int = 0) -> str:
@@ -180,7 +990,7 @@ class DecisionSubject:
             :func:`~omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain`
             so a hostile hint cannot inject either harm or allow keywords.
         request: The caller's own free text, verbatim (a query, a payload, a
-            file path).  Empty when the surface takes no text.
+            file path).  Empty, or ``None``, when the surface takes no text.
         payload: The caller's structured input; summarised by
             :func:`summarize_payload`.
         context: Extra structured provenance passed to the gate (e.g.
@@ -212,12 +1022,103 @@ class DecisionSubject:
         scored.
         """
         parts = [f"{self.surface}: {self.operation}", f"domain={sanitize_domain(self.domain)}"]
-        if self.request:
-            parts.append(f"request={self.request}")
+        request = self._request()
+        if request:
+            parts.append(f"request={request}")
         summary = summarize_payload(self.payload)
         if summary:
             parts.append(f"input={summary[:_MAX_PAYLOAD_SUMMARY_CHARS]}")
         return " | ".join(parts)[:MAX_SUBJECT_CHARS]
+
+    def _request(self) -> str:
+        """The request as text. ``None`` is no request, as it was before the gate measured it."""
+        if isinstance(self.request, str):
+            return self.request
+        return "" if self.request is None else str(self.request)
+
+    def _reading(self) -> _Reading:
+        """Everything the caller said, laid out for :func:`enforce_decision_boundary`.
+
+        Raises:
+            UnassessableSubjectError: When the caller's text exceeds what the
+                gate will read (:data:`MAX_ASSESSED_CHARS`).
+        """
+        first = self.describe()
+        request = self._request()
+        texts, again = _payload_readings(self.payload)
+        if len(request) + sum(map(len, texts)) > MAX_ASSESSED_CHARS:
+            raise UnassessableSubjectError(
+                f"the decision carries more than {MAX_ASSESSED_CHARS:,} characters of text"
+            )
+        heading = f"{self.surface}: {self.operation} | domain={sanitize_domain(self.domain)}"
+        if (not request or f"request={request}" in first) and (
+            not again and len(texts) <= _MAX_KEYS and all(text in first for text in texts)
+        ):
+            return _Reading(first=first, lead=heading, body=None)
+        said = ", ".join((*texts, *again))
+        if len(request) > _MAX_VALUE_CHARS:
+            # A request this long is read as the payload is: in passages.
+            body = f"request={request} | input={said}" if said else f"request={request}"
+            return _Reading(first=first, lead=f"{heading} | ", body=body)
+        # A short request is what the caller asks of the payload, so it opens
+        # every passage of it: "how do I make it" is put to the agent named in
+        # the last row as it is to the one named in the first.
+        asked = f"request={request} | " if request else ""
+        return _Reading(first=first, lead=f"{heading} | {asked}input=", body=said)
+
+    def passages(self) -> list[str]:
+        """Everything the caller said, as passages of :data:`MAX_SUBJECT_CHARS`.
+
+        When :meth:`describe` holds all of the caller's text it is the only
+        one. When it does not -- the request runs past
+        :data:`MAX_SUBJECT_CHARS`, or the payload holds text its bounded
+        summary leaves out -- the text is cut into overlapping passages under
+        the same ``surface: operation | domain=`` heading, each opening with
+        the request when the request is short.
+
+        Raises:
+            UnassessableSubjectError: When the caller's text exceeds what the
+                gate will read (:data:`MAX_ASSESSED_CHARS`).
+        """
+        reading = self._reading()
+        if reading.body is None:
+            return [reading.first]
+        return [reading.passage(start, end) for start, end in reading.spans()]
+
+
+@dataclass(frozen=True)
+class _Reading:
+    """What the gate scores of one decision.
+
+    Attributes:
+        first: :meth:`DecisionSubject.describe`: the bounded description that
+            is audited.
+        lead: What every passage opens with: the heading, and a short request.
+        body: The text that is cut into passages, when ``first`` does not hold
+            all the caller said; ``None`` when it does.
+    """
+
+    first: str
+    lead: str
+    body: str | None
+
+    def whole(self) -> str:
+        """The decision in one string, everything the caller said included."""
+        return self.first if self.body is None else self.lead + self.body
+
+    def spans(self) -> list[tuple[int, int]]:
+        """Where in ``body`` each passage lies."""
+        return _spans(len(self.body or ""), max(MAX_SUBJECT_CHARS - len(self.lead), 1024))
+
+    def passage(self, start: int, end: int) -> str:
+        """``body[start:end]`` under the lead."""
+        return self.lead + (self.body or "")[start:end]
+
+
+#: The response ladder, least restrictive first (``WeaponsDisposition``'s own order).
+_RESTRICTION: dict[WeaponsDisposition, int] = {
+    disposition: rank for rank, disposition in enumerate(WeaponsDisposition)
+}
 
 
 @dataclass(frozen=True)
@@ -247,6 +1148,140 @@ class BoundaryVerdict:
     def requires_provenance(self) -> bool:
         """True when the permit is conditional on source attribution."""
         return self.assessment.disposition is WeaponsDisposition.ALLOW_PROVENANCE
+
+
+def _assess(
+    reading: _Reading, context: dict[str, Any], harm_classifier: Any
+) -> tuple[str, WeaponsRiskAssessment]:
+    """Score one decision: the text to quote for it, and the assessment that stands.
+
+    A decision whose bounded description holds all the caller said is scored
+    as that description, as it always was.
+
+    A longer one is read whole first. When that finds no hazard vocabulary
+    and no offensive intent anywhere, no part of it can, and the decision is
+    permitted there: one reading, where passages take two and a half.
+
+    When it finds something, the verdict is the passages'. The gate pairs a
+    hazard with an intent inside the text it is handed, and what a passage
+    pairs was said together; what the whole text pairs may be a production
+    phrase on one page and a hazard word forty pages on. Measured on 80
+    encyclopedia articles (``research/harm_gate_long_text``): pairing at any
+    distance refused 7 of 40 on general subjects, each on such a pair, where
+    passages refuse none. So cues further apart than a passage are not paired --
+    the locality of every sliding-window control in ``docs/HARM_POLICY.md`` --
+    with one exception that is not a matter of distance: a short request is
+    put to every passage of the payload (:meth:`DecisionSubject._reading`).
+
+    A passage is cut where its length runs out, which can be in the middle of
+    a phrase: "make a nerve agent | detector" reads as production of the
+    agent. So a passage that blocks is read again with a few words more at
+    each end (:data:`_CUT_MARGIN`); if that does not block, the cut did it,
+    and the longer reading stands. It is a few words, not the neighbouring
+    passages: those were read at first, and anything defensive in eight
+    thousand characters around a request then talked its passage down. The
+    most restrictive passage decides, and is what a refusal quotes.
+    """
+
+    def score(text: str, *, in_windows: bool = True) -> WeaponsRiskAssessment:
+        return assess_weapons_uplift(
+            text, context, harm_classifier=harm_classifier, in_windows=in_windows
+        )
+
+    if reading.body is None:
+        return reading.first, score(reading.first)
+    # As a whole, to learn whether anything is in it at all. Its windows are
+    # the passages' windows, and are looked at there.
+    whole = score(reading.whole(), in_windows=False)
+    if _nothing_found(whole):
+        return reading.first, whole
+
+    spans = reading.spans()
+    worst: tuple[str, WeaponsRiskAssessment] | None = None
+    for position, (start, end) in enumerate(spans):
+        passage = reading.passage(start, end)
+        scored = score(passage)
+        if scored.blocks and len(spans) > 1:
+            around = reading.passage(
+                max(start - _CUT_MARGIN, 0), min(end + _CUT_MARGIN, len(reading.body))
+            )
+            scored = min(scored, score(around), key=_restriction)
+        if worst is None or _restriction(scored) > _restriction(worst[1]):
+            worst = (passage, scored)
+            if scored.disposition is WeaponsDisposition.HARD_REFUSE:
+                break  # nothing later can be more restrictive
+    if worst is None:  # pragma: no cover - a body always has a passage
+        raise RuntimeError("no passage was scored")
+    return worst if worst[1].blocks else (reading.first, worst[1])
+
+
+#: How much is read beyond each end of a passage that blocks, to finish a
+#: phrase its cut may have broken.
+_CUT_MARGIN = 256
+
+
+def _restriction(assessment: WeaponsRiskAssessment) -> int:
+    """Where an assessment stands on the response ladder."""
+    return _RESTRICTION[assessment.disposition]
+
+
+def _nothing_found(assessment: WeaponsRiskAssessment) -> bool:
+    """No hazard vocabulary and no offensive intent: a plain permit with nothing behind it."""
+    return (
+        assessment.disposition is WeaponsDisposition.ALLOW
+        and assessment.hazard_domain is HazardDomain.NONE
+        and not assessment.signals
+    )
+
+
+def _refuse_unassessed(
+    subject: DecisionSubject,
+    *,
+    reason: str,
+    unassessable: bool = False,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Record and raise the refusal of a decision the gate did not get to assess."""
+    surface = f"{subject.surface}:{subject.operation}"
+    details: dict[str, Any] = {
+        "surface": subject.surface,
+        "domain": sanitize_domain(subject.domain),
+        "error": reason,
+        "fail_closed": True,
+    }
+    if unassessable:
+        details["reason"] = UNASSESSABLE
+    record_gate_decision(
+        decision="refused",
+        source="decision_boundary",
+        disposition=WeaponsDisposition.HARD_REFUSE.value,
+        signals=("unassessable_subject" if unassessable else "gate_error",),
+        reason=reason,
+        query=surface,
+        extra={"surface": subject.surface, "domain": sanitize_domain(subject.domain)},
+    )
+    raise EthicalConstraintViolationError(
+        action=surface, score=0.0, threshold=1.0, check="harm_uplift", details=details
+    ) from cause
+
+
+#: ``details["reason"]`` of a refusal made because the decision carries more
+#: than the gate reads, as against one made on what it read.
+UNASSESSABLE = "unassessable"
+
+
+def refused_for_size(refusal: BaseException) -> str | None:
+    """Why the gate could not read a decision, when that is why it refused it.
+
+    Returns:
+        The gate's statement of what was too much ("the decision carries more
+        than 1,048,576 characters of text"), or ``None`` for a refusal made on
+        what the decision said. A route answers the first with 413.
+    """
+    details = getattr(refusal, "details", None)
+    if isinstance(details, dict) and details.get("reason") == UNASSESSABLE:
+        return str(details.get("error") or "more than the gate reads")
+    return None
 
 
 def enforce_decision_boundary(
@@ -287,10 +1322,20 @@ def enforce_decision_boundary(
             unexpectedly.
     """
     try:
-        action = subject.describe()
-        assessment = assess_weapons_uplift(
-            action, dict(subject.context), harm_classifier=harm_classifier
+        reading = subject._reading()
+        action, assessment = _assess(reading, dict(subject.context), harm_classifier)
+    except UnassessableSubjectError as exc:
+        # Not an accident inside the gate: the caller sent more than it reads.
+        # Refused like anything else it cannot evaluate, but said plainly and
+        # put on the audit trail, where it used to be an ERROR with a
+        # traceback and no record.
+        logger.warning(
+            "decision boundary %s (domain=%s): refused, %s",
+            subject.surface,
+            sanitize_domain(subject.domain),
+            exc,
         )
+        _refuse_unassessed(subject, reason=str(exc), unassessable=True)
     except Exception as exc:
         # Fail closed. Never return normally on an error path: an exception in
         # the gate must read as "refused", not as "allowed".
@@ -300,25 +1345,14 @@ def enforce_decision_boundary(
         # user input (credentials in a scanned payload, patient text, an
         # intercepted attacker body) into an unstructured error log with a
         # different retention and access policy than the audit trail, and would
-        # emit up to MAX_SUBJECT_CHARS per failure. The full detail still
-        # reaches the structured refusal below and the gate audit record.
+        # emit up to MAX_SUBJECT_CHARS per failure. The refusal and the gate
+        # audit record name the error and nothing of the caller's.
         logger.exception(
             "decision boundary %s (domain=%s): gate evaluation failed; failing closed",
             subject.surface,
             sanitize_domain(subject.domain),
         )
-        raise EthicalConstraintViolationError(
-            action=f"{subject.surface}:{subject.operation}",
-            score=0.0,
-            threshold=1.0,
-            check="harm_uplift",
-            details={
-                "surface": subject.surface,
-                "domain": sanitize_domain(subject.domain),
-                "error": f"{type(exc).__name__}: {exc}",
-                "fail_closed": True,
-            },
-        ) from exc
+        _refuse_unassessed(subject, reason=f"{type(exc).__name__}: {exc}", cause=exc)
 
     if assessment.blocks:
         record_gate_decision(
@@ -371,11 +1405,17 @@ def enforce_decision_boundary(
 
 
 __all__ = [
+    "MAX_ASSESSED_CHARS",
+    "MAX_ASSESSED_NODES",
     "MAX_SUBJECT_CHARS",
+    "UNASSESSABLE",
     "BoundaryVerdict",
     "DecisionSubject",
     "HazardDomain",
     "OperationalIntent",
+    "UnassessableSubjectError",
     "enforce_decision_boundary",
+    "payload_text",
+    "refused_for_size",
     "summarize_payload",
 ]

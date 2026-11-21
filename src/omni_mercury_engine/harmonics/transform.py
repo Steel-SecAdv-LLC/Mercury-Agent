@@ -63,6 +63,13 @@ class HarmonicCoefficients:
         return cls(l_max=l_max, coefficients=array)
 
 
+#: Steps of a recurrence between rescalings. One step multiplies a value by at
+#: most ``sqrt(3) * 2`` going up in degree, or by ``sin(theta)`` -- as small as
+#: 1e-16 next to a pole -- building the seed; eight of either stay far inside
+#: the range of a float.
+_RESCALE_EVERY = 8
+
+
 class AssociatedLegendre:
     """Compute associated Legendre polynomials with numerical stability.
 
@@ -106,29 +113,87 @@ class AssociatedLegendre:
             self._plm_cache.clear()
             self._cache_grid = np.array(cos_theta, copy=True)
 
+        ortho = self._normalization == "ortho"
         key = (degree, m_abs)
         if key in self._plm_cache:
             plm = self._plm_cache[key].copy()
         else:
-            plm = self._compute_plm(degree, m_abs, cos_theta)
+            # The orthonormal value is computed as such, never as the
+            # unnormalised one times a factorial ratio: see
+            # :meth:`_compute_normalised`.
+            compute = self._compute_normalised if ortho else self._compute_plm
+            plm = compute(degree, m_abs, cos_theta)
             if len(self._plm_cache) < 10000:
                 self._plm_cache[key] = plm.copy()
-
-        if self._normalization == "ortho":
-            # ``np.math`` was removed in NumPy 2.0; the stdlib module it
-            # aliased is the drop-in replacement (bit-identical results).
-            norm = np.sqrt(
-                (2 * degree + 1)
-                / (4 * np.pi)
-                * math.factorial(degree - m_abs)
-                / math.factorial(degree + m_abs)
-            )
-            plm = plm * norm
 
         if m < 0:
             plm = plm * ((-1) ** m_abs)
 
         return plm
+
+    def _compute_normalised(
+        self,
+        degree: int,
+        m: int,
+        cos_theta: np.ndarray[Any, Any],
+    ) -> np.ndarray[Any, Any]:
+        """The orthonormal P_l^m, by a recurrence on the normalised values themselves.
+
+        ``sqrt((2l+1)/(4 pi) (l-m)!/(l+m)!) P_l^m`` used to be formed as the
+        unnormalised ``P_l^m`` times that factor. Both pieces leave the range
+        of a float long before their product does: ``P_m^m`` is
+        ``(2m-1)!! sin^m``, past 1e308 from m = 151, and ``(l+m)!`` cannot be
+        converted to a float from l + m = 171. So the class that offers
+        "numerical stability for high degrees" raised ``OverflowError`` at
+        l = 150 and returned NaN before that. The normalised values are all of
+        order one, and each follows from the two below it:
+
+            N_m^m     = (-1)^m sqrt((2m+1)/(4 pi)) sqrt(prod_{k=1..m} (2k-1)/(2k)) sin^m
+            N_{m+1}^m = sqrt(2m+3) x N_m^m
+            N_l^m     = a (x N_{l-1}^m - b N_{l-2}^m)
+            a = sqrt((4 l^2 - 1)/(l^2 - m^2)),  b = sqrt(((l-1)^2 - m^2)/(4 (l-1)^2 - 1))
+
+        The sign convention (Condon-Shortley) is the one :meth:`_compute_plm` has.
+
+        The result is of order one, but the steps toward it are not. The seed
+        carries ``sin^m``, which is below the smallest float for large ``m``
+        away from the equator, and the recurrence then climbs back from it: a
+        seed that had underflowed to zero stayed zero, and one that had gone
+        subnormal lost its digits, so that from about degree 1,900 the values
+        came back finite and wrong (their squared norm 0.82 at l = 2,500,
+        m = 1,000 and 6e252 at l = 3,000, m = 1,500, where it is 1). Each
+        point therefore carries a binary exponent beside its value, the pair
+        is rescaled whenever the value leaves the middle of the float range,
+        and the exponent is applied once at the end.
+        """
+        x = np.asarray(cos_theta, dtype=np.float64)
+        sin_theta = np.sqrt(np.clip(1.0 - x**2, 0.0, None))
+
+        value = np.full_like(x, math.sqrt(1.0 / (4.0 * math.pi)))
+        # A C int, which is what ``frexp`` gives and ``ldexp`` takes on every
+        # platform; a 64-bit exponent has no ``ldexp`` where a C long is 32 bits.
+        exponent = np.zeros(x.shape, dtype=np.intc)
+        for k in range(1, m + 1):
+            value = value * (-math.sqrt((2.0 * k + 1.0) / (2.0 * k))) * sin_theta
+            if k % _RESCALE_EVERY == 0 or k == m:
+                value, shift = np.frexp(value)
+                exponent = exponent + shift
+        if degree == m:
+            return np.ldexp(value, exponent).astype(self._dtype)
+
+        below = value
+        value = math.sqrt(2.0 * m + 3.0) * x * below
+        for ll in range(m + 2, degree + 1):
+            a = math.sqrt((4.0 * ll * ll - 1.0) / (ll * ll - m * m))
+            b = math.sqrt(((ll - 1.0) ** 2 - m * m) / (4.0 * (ll - 1.0) ** 2 - 1.0))
+            below, value = value, a * (x * value - b * below)
+            if (ll - m) % _RESCALE_EVERY == 0:
+                # One exponent for the pair: the recurrence is linear in it.
+                _, shift = np.frexp(np.maximum(np.abs(value), np.abs(below)))
+                value = np.ldexp(value, -shift)
+                below = np.ldexp(below, -shift)
+                exponent = exponent + shift
+        return np.ldexp(value, exponent).astype(self._dtype)
 
     def _compute_plm(
         self,
@@ -136,7 +201,7 @@ class AssociatedLegendre:
         m: int,
         cos_theta: np.ndarray[Any, Any],
     ) -> np.ndarray[Any, Any]:
-        """Compute P_l^m using stable recurrence."""
+        """Compute the unnormalised P_l^m by recurrence (it grows without bound in l)."""
         sin_theta = np.sqrt(1 - cos_theta**2)
 
         if degree == 0 and m == 0:
@@ -420,7 +485,22 @@ class SphericalHarmonicTransform:
 class FastSHTransform:
     """Optimized spherical harmonic transform using FFT.
 
-    Provides faster computation for large datasets.
+    The transform is on a regular grid, with the FFT along phi. The
+    coefficients are those of the complex orthonormal basis that
+    ``SHBasis(real_basis=False)`` evaluates,
+    ``Y_l^m(theta, phi) = N_l^m(cos theta) exp(i m phi)`` with
+    ``Y_l^{-m} = (-1)^m conj(Y_l^m)``, so that
+    ``c_lm = integral f conj(Y_l^m) dOmega`` and ``f = sum c_lm Y_l^m``.
+
+    The grid is ``n_theta`` colatitudes from 0 to pi inclusive and ``n_phi``
+    equally spaced longitudes. Along phi the rectangle rule is exact for
+    ``|m| <= l_max`` when ``n_phi >= 2 l_max + 1``; along theta the weights
+    are Clenshaw-Curtis weights in ``cos theta``, exact for the products
+    ``N_l^m N_l'^m`` (polynomials of degree at most ``2 l_max``) when
+    ``n_theta >= 2 l_max + 1``. Both hold for the default grid, so for a
+    function band-limited to ``l_max`` ``inverse(forward(f))`` is ``f`` to
+    rounding. A coarser grid passed explicitly aliases, as any quadrature
+    does.
     """
 
     def __init__(
@@ -437,16 +517,39 @@ class FastSHTransform:
         self._setup_grids()
         self._precompute_basis()
 
+    @staticmethod
+    def _clenshaw_curtis_weights(n_theta: int) -> np.ndarray[Any, Any]:
+        """Weights w_j with ``sum_j w_j g(theta_j) = integral_0^pi g sin(theta) dtheta``.
+
+        The nodes are ``theta_j = j pi / (n_theta - 1)``; the rule is exact
+        when ``g`` is a polynomial in ``cos theta`` of degree below
+        ``n_theta``.
+        """
+        if n_theta == 1:
+            return np.array([2.0])
+        intervals = n_theta - 1
+        j = np.arange(n_theta)
+        total = np.ones(n_theta)
+        for k in range(1, intervals // 2 + 1):
+            b_k = 1.0 if 2 * k == intervals else 2.0
+            total -= b_k / (4.0 * k * k - 1.0) * np.cos(2.0 * k * j * np.pi / intervals)
+        weights = 2.0 * total / intervals
+        weights[0] *= 0.5
+        weights[-1] *= 0.5
+        return weights
+
     def _setup_grids(self) -> None:
-        """Setup sampling grids."""
+        """Setup sampling grids and their quadrature weights."""
         self._theta = np.linspace(0, np.pi, self._n_theta)
         self._phi = np.linspace(0, 2 * np.pi, self._n_phi, endpoint=False)
 
         self._theta_grid, self._phi_grid = np.meshgrid(self._theta, self._phi, indexing="ij")
 
-        sin_theta = np.sin(self._theta)
-        self._weights = np.outer(sin_theta, np.ones(self._n_phi))
-        self._weights *= (np.pi / self._n_theta) * (2 * np.pi / self._n_phi)
+        # ``sin(theta) dtheta`` is inside the theta weights; ``dphi`` is the
+        # 2 pi / n_phi of the rectangle rule the FFT sums.
+        self._theta_weights = self._clenshaw_curtis_weights(self._n_theta)
+        self._phi_weight = 2 * np.pi / self._n_phi
+        self._weights = np.outer(self._theta_weights, np.full(self._n_phi, self._phi_weight))
 
     def _precompute_basis(self) -> None:
         """Precompute basis functions for speed."""
@@ -463,11 +566,15 @@ class FastSHTransform:
         """Fast forward SH transform using FFT.
 
         Args:
-            f: Function values on grid (n_theta, n_phi)
+            f: Function values on grid (n_theta, n_phi), real or complex
 
         Returns:
-            HarmonicCoefficients
+            HarmonicCoefficients in the complex basis (``real_basis`` False),
+            ``c_lm = integral f conj(Y_l^m) dOmega``: a pure ``Y_l^m`` gives a
+            single coefficient equal to one.
         """
+        # Column k holds sum_j f(phi_j) exp(-i k phi_j); order m is column
+        # m mod n_phi, which for m < 0 is n_phi - |m|.
         f_phi_fft = np.fft.fft(f, axis=1)
 
         n_coeffs = (self._l_max + 1) ** 2
@@ -481,32 +588,43 @@ class FastSHTransform:
                 if plm is None:
                     continue
 
-                if m >= 0:
-                    f_m = f_phi_fft[:, m]
-                else:
-                    f_m = np.conj(f_phi_fft[:, -m])
+                # N_l^{-m} = (-1)^m N_l^m.
+                sign = -1.0 if (m < 0 and m % 2) else 1.0
+                f_m = f_phi_fft[:, m % self._n_phi]
 
-                integral = np.sum(f_m * plm * np.sin(self._theta)) * np.pi / self._n_theta
+                integral = np.sum(f_m * plm * self._theta_weights) * self._phi_weight
 
-                coefficients[idx] = integral
+                coefficients[idx] = sign * integral
 
         return HarmonicCoefficients(
             l_max=self._l_max,
             coefficients=coefficients,
+            real_basis=False,
         )
 
-    def inverse(self, coefficients: HarmonicCoefficients) -> np.ndarray[Any, Any]:
+    def inverse(
+        self,
+        coefficients: HarmonicCoefficients,
+        *,
+        real: bool = True,
+    ) -> np.ndarray[Any, Any]:
         """Fast inverse SH transform using FFT.
 
         Args:
-            coefficients: Spherical harmonic coefficients
+            coefficients: Spherical harmonic coefficients (complex basis, as
+                :meth:`forward` returns them)
+            real: Return the real part of the synthesised field (the
+                default). For the coefficients of a real function, which
+                satisfy ``c_{l,-m} = (-1)^m conj(c_lm)``, that is the field
+                itself. Pass ``False`` to get the complex field, which is
+                what round-trips a complex function.
 
         Returns:
             Function values on grid (n_theta, n_phi)
         """
         f_phi_fft = np.zeros((self._n_theta, self._n_phi), dtype=np.complex128)
 
-        for degree in range(coefficients.l_max + 1):
+        for degree in range(min(coefficients.l_max, self._l_max) + 1):
             for m in range(-degree, degree + 1):
                 idx = degree * (degree + 1) + m
                 c = coefficients.coefficients[idx]
@@ -515,11 +633,25 @@ class FastSHTransform:
                 if plm is None:
                     continue
 
-                if m >= 0:
-                    f_phi_fft[:, m] += c * plm
-                else:
-                    f_phi_fft[:, -m] += np.conj(c) * plm
+                # c_lm Y_l^m contributes to the exp(i m phi) column, which is
+                # column m mod n_phi: n_phi - |m| for a negative order, never
+                # column |m|.
+                sign = -1.0 if (m < 0 and m % 2) else 1.0
+                f_phi_fft[:, m % self._n_phi] += sign * c * plm
 
-        f = np.fft.ifft(f_phi_fft, axis=1).real
+        # ``ifft`` divides by n_phi; the synthesis sum does not.
+        field_values = np.fft.ifft(f_phi_fft, axis=1) * self._n_phi
 
-        return f
+        if not real:
+            return field_values
+
+        imaginary = float(np.max(np.abs(field_values.imag), initial=0.0))
+        scale = float(np.max(np.abs(field_values.real), initial=0.0))
+        if imaginary > 1e-9 * max(scale, 1.0):
+            logger.warning(
+                "FastSHTransform.inverse(real=True) is discarding an imaginary part of "
+                "magnitude %.3g: these are not the coefficients of a real function; "
+                "pass real=False for the complex field.",
+                imaginary,
+            )
+        return np.asarray(field_values.real)

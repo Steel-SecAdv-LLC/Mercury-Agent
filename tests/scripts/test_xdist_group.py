@@ -50,8 +50,17 @@ _PROBE_DIR = "_xdist_group_probe"
 #: grouping is a visible change rather than a silent slowdown.
 XDIST_GROUP_USERS: frozenset[str] = frozenset(
     {
+        "tests/benchmarks/test_fusion_mode_ablation.py",
         "tests/core/test_adaptive_domain_thresholding_measured.py",
+        "tests/detectors/test_affinity_lodo.py",
+        "tests/decision/test_record_provenance.py",
+        "tests/detectors/test_contrastive_refinement.py",
+        "tests/detectors/test_fusion_monotonicity.py",
+        "tests/detectors/test_probe_redundancy.py",
         "tests/detectors/test_recorded_math_arrest.py",
+        "tests/detectors/test_vector_calibration.py",
+        "tests/streaming/test_causal_math_arrest.py",
+        "tests/streaming/test_score_fusion_causal.py",
         "tests/test_decision_coverage_empirical.py",
         "tests/test_decision_layer_wiring.py",
         "tests/test_fusion_calibration.py",
@@ -64,7 +73,15 @@ XDIST_GROUP_USERS: frozenset[str] = frozenset(
     }
 )
 
-_PROBE = textwrap.dedent("""
+#: The probe carries the canonical header and a docstring: while it exists it
+#: is a file under ``tests/``, and the header gate (run by
+#: ``tests/pillars/test_openness.py``, possibly on another worker at the same
+#: moment) must find nothing wrong with it.
+_PROBE = textwrap.dedent("""\
+    # Copyright (C) 2025 Steel Security Advisors LLC
+    # SPDX-License-Identifier: AGPL-3.0-or-later
+    \"\"\"Scratch probe written and removed by tests/scripts/test_xdist_group.py.\"\"\"
+
     import os
     import pathlib
     import pytest

@@ -55,6 +55,38 @@ HEADER_CSS = HEADER_JS
 #: Images the template references by bare file name.
 IMAGES = ("omega-cross.png", "ama-monogram.png")
 
+#: The Challenge-this-decision logic: locate a result's discovery artifacts and replay
+#: them through POST /detect/flagship/replay, rendering the verdict per artifact.
+_CHALLENGE_LOGIC = """
+  // Where a response keeps its discovery artifacts (a whole flagship response, a decision
+  // record, or a cognitive payload), or null when it carries none worth challenging.
+  challengeArtifacts(d) {
+    if (!d || typeof d !== "object") return null;
+    const paths = [["discovery"], ["decision", "signals", "cognitive", "discovery"], ["signals", "cognitive", "discovery"], ["cognitive_analysis", "discovery"], ["cognitive", "discovery"]];
+    for (const path of paths) {
+      let found = d;
+      for (const key of path) found = found && typeof found === "object" ? found[key] : null;
+      if (found && typeof found === "object" && Object.keys(found).some((k) => found[k] && found[k].digest)) return found;
+    }
+    return null;
+  }
+  // Challenge this decision: POST the record to /detect/flagship/replay and report whether
+  // each recorded finding (novelty verdict, causal edges, hypothesis) still holds, from the
+  // record alone. The same check runs offline: mercury-agent replay record.json.
+  async challengeDecision(cur) {
+    const d = cur && cur.data;
+    if (!this.challengeArtifacts(d)) return null;
+    if (!this.live()) { this.setState({ conn: true }); return null; }
+    const r = await this.A.post("/api/v1/detect/flagship/replay", { record: d });
+    const ok = r.ok && r.data && typeof r.data.verdict === "string";
+    const sum = ok ? window.MercuryCLIMass.summarize(r.data) : { headline: String(typeof r.error === "string" ? r.error : r.status), kv: [] };
+    if (ok) sum.headline = r.data.verdict + " · " + r.data.artifacts + " artifact(s) replayed from the record";
+    this.pushResult({ kind: "CHALLENGE", label: "Challenge · " + ((cur && cur.label) || "decision"), route: "POST /api/v1/detect/flagship/replay", status: r.ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: { record: d }, data: r.ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, sum });
+    this.append([ok ? Object.assign(this.row("⚖ challenge · " + r.data.verdict + " · " + r.data.artifacts + " artifact(s) replayed · open RESULTS for each verdict", r.data.verdict === "HOLDS" ? "var(--normal)" : "var(--warning)"), { act: () => this.setState({ panel: true, tab: "run", ws: "res" }) }) : this.row("✗ challenge failed · " + r.status + " " + (typeof r.error === "string" ? r.error : ""), "var(--anomaly-soft)")]);
+    return r;
+  }
+"""
+
 #: (description, old, new) applied to the logic class; each must match once.
 LOGIC_PATCHES: tuple[tuple[str, str, str], ...] = (
     (
@@ -76,6 +108,36 @@ LOGIC_PATCHES: tuple[tuple[str, str, str], ...] = (
         "AMA brand panel mark is served from /static/console/",
         'o.brMark = kind === "ama" ? "ama-monogram.png" : "";',
         'o.brMark = kind === "ama" ? "/static/console/ama-monogram.png" : "";',
+    ),
+    # The three patches below give the console a third connection state. The
+    # prototype knows two -- live, or not -- and its first GET /health leaves
+    # 1.2 s after mount, so a console served by a running engine opened on
+    # "no server · browser preview" and "SERVER DOWN" before it had asked.
+    # ``pending()`` is true from mount until the first probe answers; a probe
+    # that fails clears it, so a server that really is down still reads as down.
+    (
+        "a configured server that has not answered its first probe is pending, not down",
+        "  live() { return !!(this.A && this.A.connected() && this.state.health "
+        "&& this.state.health.ok); }",
+        "  live() { return !!(this.A && this.A.connected() && this.state.health "
+        "&& this.state.health.ok); }\n"
+        "  pending() { return !!(this.A && this.A.connected() && !this._probeAnswered); }",
+    ),
+    (
+        "the first probe's answer, either way, ends the pending state",
+        "this.setState({ testing: false, health: h });",
+        "this._probeAnswered = true; this.setState({ testing: false, health: h });",
+    ),
+    (
+        "the boot line reports an unanswered first probe as a check in progress",
+        '"engine live") : "no server · browser preview")',
+        '"engine live") : this.pending() ? "checking engine…" : "no server · browser preview")',
+    ),
+    (
+        "the header reports an unanswered first probe as a check in progress",
+        '(this.A && this.A.connected() ? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER")',
+        '(this.pending() ? "◌ CHECKING ENGINE…" : this.A && this.A.connected() '
+        '? "○ SERVER DOWN · PREVIEW" : "PREVIEW · NO SERVER")',
     ),
 )
 
@@ -370,6 +432,42 @@ MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
         "    set(o) { Object.assign(cfg, o); save(); },",
         '    set(o) { Object.assign(cfg, o); if (typeof location !== "undefined" && '
         "/^https?:/.test(location.protocol)) cfg.baseUrl = location.origin; save(); },",
+    ),
+)
+
+# The presence caption is a template node whose text ("starting") the runtime
+# owns, and the figure module writes its own text into the same element. The
+# module skipped the write when its text had not changed, so after a re-render
+# restored the template's node the caption read "startingLIVE · activity …"
+# until the next change, which on an idle console can be a long time. The
+# module now also rewrites when the element no longer holds what it wrote.
+MODULE_PATCHES["mercury-cli-figure.js"] = MODULE_PATCHES.get("mercury-cli-figure.js", ()) + (
+    (
+        "the presence caption is rewritten when a re-render has put the template text back",
+        "if (text !== S.lastKey) { CV.cap.textContent = text; S.lastKey = text; }",
+        "if (text !== S.lastKey || CV.cap.textContent !== text) { CV.cap.textContent = text; S.lastKey = text; }",
+    ),
+)
+
+# A request that asks for an attribution is slow by design. The flagship route
+# with ``explain: true`` (Integrated Gradients; the Mass Run capability sends
+# it) took 11.1 s for the built-in 16-row sample on a 4-core machine, against
+# the console's 12 s limit for every request: it passed on a quiet machine and
+# was reported "Timed out after 12000 ms" on a busy one, while the server went
+# on to finish it and raise its alert. Such requests get at least a minute, and
+# the message states the limit that actually applied.
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "requests that ask for an attribution or a GDPR report get at least 60 s",
+        'const to = setTimeout(() => ctrl.abort(), path === "/health" ? PROBE_TIMEOUT : cfg.timeoutMs);',
+        'const limit = path === "/health" ? PROBE_TIMEOUT : body && (body.explain || body.gdpr_report '
+        "|| body.include_attribution || body.include_counterfactual) ? Math.max(cfg.timeoutMs, 60000) "
+        ": cfg.timeoutMs; const to = setTimeout(() => ctrl.abort(), limit);",
+    ),
+    (
+        "the timeout message reports the limit that applied to this request",
+        '"Timed out after " + cfg.timeoutMs + " ms"',
+        '"Timed out after " + limit + " ms"',
     ),
 )
 
@@ -866,7 +964,11 @@ MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + 
         'const sig = () => JSON.stringify([T.state.sel, T.state.ref && (T.state.ref.kind + (T.state.ref.n ? T.state.ref.n.t : "")), T.state.menu, '
         "T.state.ws, T.state.tool, T.state.domain, T.state.input, T.state.showAdmin, T.state.lines.length, T.state.script.length, T.state.browse, "
         "T.state.pal, T.state.panel, T.state.tab]); const b0 = sig(); if (it) it.act(); "
-        's.ok(!it || sig() !== b0 || T._exec || T._dl || T._said, k + " · " + i.t + " does something when picked", "no state change"); }',
+        # Picking the command that is already selected changes nothing, and
+        # ``detect`` is selected on every fresh console, so the unqualified
+        # check failed once on each first run of ``:diag``.
+        's.ok(!it || sig() !== b0 || T._exec || T._dl || T._said || (k === "commands" && T.state.sel === i.t), '
+        'k + " · " + i.t + " does something when picked", "no state change"); }',
     ),
     (
         "the AMA notes are menu items too",
@@ -919,6 +1021,30 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
         "useSimBtn: () => this.useSim(), noSim: !window.MercuryCLISim, simOp: window.MercuryCLISim ? 1 : 0.45, "
         'simTip: window.MercuryCLISim ? "in-browser stand-in for mercury-agent serve" : '
         '"the simulated engine is not shipped with the served console; this server is the engine", testConn: () => this.testConn(),',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the landing states the issue the engine resolves and where the three answers live",
+        "what to run next.</p>",
+        'what to run next.</p><p style="margin:0;font-size:13px;line-height:1.7;color:var(--fg-2);text-wrap:pretty;font-family:var(--font-sans);max-width:820px;">The issue it resolves: <b>auditable early warning</b> on high-dimensional or multi-source data, where a plain anomaly score is not enough to act. Every flagship decision answers three questions in its DECISION panel (run one in TERMINAL, the API form or MASS RUN, then open RESULTS). <b>Why this row</b> - which row carries the verdict, each detector&apos;s weight, the lead-lag factors and the weakest premise of the derived hypothesis. <b>How sure</b> - the conformal certificate with its stated coverage, drift against the model&apos;s reference, and the self-critique with its measured flags. <b>Can I contest it</b> - the record replays: the CHALLENGE THIS DECISION button on a result that carries one, <code style="font-family:var(--font-mono);color:var(--mercury-200);">mercury-agent replay</code> offline, or <code style="font-family:var(--font-mono);color:var(--mercury-200);">mercury-agent demo</code> for all three on one committed decision (here: MASS RUN, Flagship three answers).</p>',
+    ),
+    (
+        "a result that carries a decision record offers to challenge it",
+        '<button onClick="{{ resNarrate }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+        "padding:5px 10px;background:transparent;color:var(--mercury-200);"
+        'border:1px solid var(--mercury-700);">ASK MERCURY</button>',
+        '<button onClick="{{ resNarrate }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+        "padding:5px 10px;background:transparent;color:var(--mercury-200);"
+        'border:1px solid var(--mercury-700);">ASK MERCURY</button>'
+        '<sc-if value="{{ hasChallenge }}" hint-placeholder-val="{{ false }}">'
+        '<button onClick="{{ resChallenge }}" style="cursor:pointer;font-family:var(--font-mono);'
+        "white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+        "padding:5px 10px;background:transparent;color:var(--brand-gold);"
+        'border:1px solid var(--brand-gold);">CHALLENGE THIS DECISION</button></sc-if>',
     ),
 )
 
@@ -1088,18 +1214,44 @@ GREY_THEME_CSS = """
    neutral slate greys, the same signal hues. Applied as html.ds-grey by the
    console's MercurySettings (dc-runtime.js). */
 html.ds-grey {
-  --void:#2A2E33; --bg:#31363C; --surface-1:#383E45; --surface-2:#41484F;
-  --surface-3:#4B535B; --surface-4:#565F68;
-  --border-faint:#454D55; --border:#525B64; --border-strong:#6B7681;
-  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#A3ADB8; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --void:#24282C; --bg:#2A2E33; --surface-1:#30353B; --surface-2:#383E44;
+  --surface-3:#40474E; --surface-4:#4B535B;
+  --border-faint:#3E454C; --border:#4C545C; --border-strong:#69747F;
+  --fg:#EEF1F4; --fg-2:#CBD2D9; --fg-3:#B2BBC4; --fg-muted:#8893A0; --fg-faint:#6F7A86;
+  --brand-cyan:#52C5F3; --brand-ink-grey:#B2BAC4; --cognitive:#B8B1F1; --cognitive-soft:#CFCAF6;
+  --anomaly:#FF9A9C; --anomaly-soft:#FFB3B5;
   --shadow-sm:0 1px 2px rgba(0,0,0,.18); --shadow-md:0 4px 14px rgba(0,0,0,.22);
   --shadow-lg:0 14px 40px rgba(0,0,0,.30);
-  background:#31363C;
+  background:#2A2E33;
 }
 html.ds-contrast.ds-grey {
   --fg:#FFFFFF; --fg-2:#EEF1F4; --fg-3:#D5DBE1; --fg-muted:#B6BFC9;
   --border-faint:#5A636C; --border:#6E7882; --border-strong:#8C97A2;
 }
+
+/* ---- TEXT CONTRAST (console) ----------------------------------------------
+   The design system's tokens were tuned on its darkest surface. The console
+   also sets text on raised surfaces, on tinted status grounds and, in the
+   light theme, on the terminal's own ground; there several tokens fell
+   under WCAG AA's 4.5:1 (as low as 2.5:1 for the primary button's label in
+   the light theme). Each value below is the token's own hue moved only as
+   far as 4.5:1 needs on every ground the console sets it on; the grey
+   theme's are in its block above. */
+:root { --fg-3:#95A2B1; --brand-ink-grey:#98A3B0; }
+html.ds-grey { --fg-3:#B2BBC4; --brand-ink-grey:#B2BAC4; }
+html.ds-light {
+  --fg-3:#545F6E; --brand-ink-grey:#545F6E;
+  --mercury-300:#0A6578; --mercury-400:#057083; --mercury-500:#007385;
+  --brand-cyan:#057083; --brand-gold:#7D630E;
+  --normal:#167342; --normal-bright:#115A33;
+  --warning:#935C00; --warning-bright:#7A4C00;
+  --anomaly:#C32B25; --cognitive:#6352D4; --verified:#2564C2; --benevolence:#86630E;
+}
+html.ds-contrast { --fg-3:#C2CCD6; --brand-ink-grey:#C2CCD6; }
+html.ds-contrast.ds-light { --fg-3:#33404F; --brand-ink-grey:#33404F; }
+html.ds-contrast.ds-grey { --fg-3:#D5DBE1; --brand-ink-grey:#D5DBE1; }
+/* A heading for the page once the opening screen (which carries its own) is gone; read, not shown. */
+.mcli-sr { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
 
 /* ---- VISUAL ALERT CUE (console) -------------------------------------------
    The frame flashes when an alert lands; under reduced motion it holds the
@@ -1126,7 +1278,7 @@ TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
     (
         "an alert banner and an assertive live region sit above the shell",
         '    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
-        '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">\n      <div role="alert" style="position:absolute;left:0;right:0;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--warning-bg);border-bottom:2px solid var(--warning);color:var(--fg);font-family:var(--font-mono);font-size:12px;"><span style="flex:none;font-size:10px;letter-spacing:.18em;color:var(--warning);">◆ MERCURY ALERT</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ alertBannerText }}</span><button onClick="{{ alertDismiss }}" aria-label="Dismiss alert" style="flex:none;cursor:pointer;font-family:var(--font-mono);font-size:12px;border-radius:var(--r-sm);padding:3px 9px;background:transparent;color:var(--fg-2);border:1px solid var(--border);">DISMISS</button></div>\n    </sc-if>\n    <div class="sr-only" aria-live="assertive" aria-atomic="true">{{ announceText }}</div>\n    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
+        '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">\n      <div role="alert" style="position:absolute;left:0;right:0;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:10px 16px;background:linear-gradient(var(--warning-bg),var(--warning-bg)),var(--bg);border-bottom:2px solid var(--warning);color:var(--fg);font-family:var(--font-mono);font-size:12px;"><span style="flex:none;font-size:10px;letter-spacing:.18em;color:var(--warning);">◆ MERCURY ALERT</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ alertBannerText }}</span><button onClick="{{ alertDismiss }}" aria-label="Dismiss alert" style="flex:none;cursor:pointer;font-family:var(--font-mono);font-size:12px;border-radius:var(--r-sm);padding:3px 9px;background:transparent;color:var(--fg-2);border:1px solid var(--border);">DISMISS</button></div>\n    </sc-if>\n    <div class="sr-only" aria-live="assertive" aria-atomic="true">{{ announceText }}</div>\n    <sc-if value="{{ setOpen }}" hint-placeholder-val="{{ false }}">',
     ),
 )
 
@@ -1708,6 +1860,21 @@ LOGIC_PATCHES = LOGIC_PATCHES + (
 )
 
 
+# The right-panel tab buttons carry role="tab" (patch "right-panel tabs are
+# tabs"), but their container had no role. ARIA requires a tab to be owned by
+# a tablist; without one a screen reader announces neither the set nor a
+# position in it. Measured with axe-core 4 on the served console: critical
+# ``aria-required-parent`` on each tab button.
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "right-panel tabs sit in a tablist",
+        '<div style="display:flex;align-items:center;gap:4px;padding:0 12px 10px;border-bottom:1px solid var(--border);flex:none;">',
+        '<div role="tablist" aria-label="Side panel" style="display:flex;align-items:center;gap:4px;padding:0 12px 10px;'
+        'border-bottom:1px solid var(--border);flex:none;">',
+    ),
+)
+
+
 def _unescape(value: str) -> str:
     import html
 
@@ -2134,6 +2301,917 @@ MODULE_PATCHES["mercury-cli-agent.js"] = MODULE_PATCHES["mercury-cli-agent.js"] 
     ),
 )
 
+# --------------------------------------------------------------------------- #
+# The watch: a WATCH tab in the Mercury Agent workspace
+# --------------------------------------------------------------------------- #
+# The console could call GET /api/v1/watch as a raw route and nothing else: what
+# Mercury is reading live, what it found and how its findings turned out were
+# only on the separate /watch page. The tab reads the same route, re-reads it
+# every 30 seconds while it is open, and invents nothing when the engine is
+# offline or the route fails.
+
+OLD_AG_FLAGS = 'agFleet: tab === "fleet", agTrust: tab === "trust" };\n'
+OLD_AG_BASE = "agFleet: false, agTrust: false, "
+OLD_AG_TABS = (
+    '["trust", "TRUST", "Agent notice, security contact and source"]].map(([id, t, tip]) =>'
+)
+OLD_AG_TRUST_BRANCH = '    if (tab === "trust") {\n      const N = G.NOTICE, L2 = s.agLive;\n'
+OLD_AG_UNMOUNT = "  componentWillUnmount() { clearTimeout(this._ic); this.alertsClose();"
+OLD_AG_UPDATE_END = "if (!this.live() && this._wsTried) { this._wsTried = false; this.alertsClose(true); } this.capSave();"
+OLD_AG_PALETTE = (
+    '    { const h = hit("run diagnostics self test selftest verify health check console");'
+)
+OLD_AG_INTENT = "    if (/architecture|how are you built|neuro.?symbolic (ai|architecture)|your components/.test(q))"
+OLD_AG_SESSION_ITEM = '{ t: "Use simulated engine", s: window.MercuryCLISim ?'
+OLD_ALERT_BANNER = '    <sc-if value="{{ alertBanner }}" hint-placeholder-val="{{ false }}">'
+OLD_BOOT_SHOW = "bootShow: !s.opened,"
+OLD_PRESENCE_CAP = 'letter-spacing:.12em;color:var(--mercury-200);text-shadow:0 0 6px rgba(0,0,0,.9);">starting</span>'
+OLD_AG_TAB_STRIP = '<sc-for list="{{ agTabs }}" as="at" hint-placeholder-count="4">'
+OLD_AG_TRUST_END = (
+    'max-height:320px;">{{ agTrustText }}</pre></div></sc-if>\n              </sc-if>\n'
+)
+OLD_DIAG_TABS = 'for (const tb of ["act", "arch", "fleet", "trust"]) s.guard("agent tab " + tb,'
+OLD_DIAG_TAB_COUNT = (
+    's.ok(o.wsAgent && o.agTabs.length === 4, "agent workspace " + tb + " renders", "");\n'
+)
+OLD_DIAG_TRUST = (
+    'if (tb === "trust") s.ok(o.agNotice.length === 8 && o.agPrinciples.length === 8, '
+    '"trust tab renders the notice", ""); });\n'
+)
+
+_WATCH_VALS = (
+    '    if (tab === "watch") {\n'
+    "      const W = s.agWatch || {}, d = W.data || null, all = d && Array.isArray(d.findings) ? d.findings : [], "
+    "feeds = d && Array.isArray(d.feeds) ? d.feeds : [], tr = d && d.track_record || {};\n"
+    '      const ago = (iso) => { const at = typeof iso === "number" ? iso : Date.parse(iso); if (!iso || !isFinite(at)) '
+    'return "never"; const sec = Math.max(0, (Date.now() - at) / 1000); if (sec < 90) return "just now"; if (sec < 5400) '
+    'return Math.round(sec / 60) + " min ago"; if (sec < 129600) return Math.round(sec / 3600) + " h ago"; return '
+    'Math.round(sec / 86400) + " d ago"; };\n'
+    '      const SEV = { severe: "var(--anomaly)", significant: "var(--warning)", notable: "var(--mercury-300)" }, '
+    'ST = { ok: "var(--normal)", stale: "var(--warning)", down: "var(--anomaly)" }, VC = { confirmed: "var(--normal)", '
+    'revised: "var(--warning)", unconfirmed: "var(--warning)", withdrawn: "var(--anomaly)" }, VERDICTS = ["confirmed", '
+    '"revised", "withdrawn", "unconfirmed"];\n'
+    '      const str = (v) => v == null ? "" : String(v), card = (f) => { const oc = f.outcome || null, sev = str(f.severity); '
+    'return { sev: sev.toUpperCase(), c: SEV[sev] || "var(--fg-2)", head: str(f.headline), detail: str(f.detail), '
+    'meta: "Source: " + str(f.source) + " · Basis: " + str(f.basis), when: "first seen " + ago(f.first_seen) + '
+    '(f.ended ? " · ended " + ago(f.ended) : " · standing"), has: !!oc, verdict: oc ? str(oc.verdict).toUpperCase() : "", '
+    'todo: f.action ? str(f.action) + (f.action_source ? " (" + str(f.action_source) + ")" : "") : "", hasTodo: !!f.action, vc: oc ? VC[oc.verdict] || "var(--fg-2)" : "var(--fg-2)", check: oc ? "Checked " + ago(f.reviewed_at) + " against the " '
+    '+ str(oc.record) + ". " + str(oc.note) : "" }; };\n'
+    "      const RANK = { severe: 0, significant: 1, notable: 2 }, rank = (f) => RANK[f.severity] == null ? 3 : RANK[f.severity], open = all.filter((f) => !f.ended).sort((a, b) => rank(a) - rank(b)), past = all.filter((f) => f.ended).slice(0, 5), up = "
+    'feeds.filter((f) => f.state === "ok" || f.state === "stale").length, read = feeds.some((f) => f.state !== "waiting"), '
+    "checked = VERDICTS.reduce((n, v) => n + (+tr[v] || 0), 0), waiting = +tr.unchecked || 0;\n"
+    '      const lead = !live ? "Connect mercury-agent serve to see the watch. It reads public feeds (USGS, NOAA, FEMA) on '
+    'the engine; this tab shows what it recorded and never invents a reading." : W.err && !d ? "The engine did not answer '
+    'GET /api/v1/watch: " + W.err : !d ? "Reading the watch…" : (open.length ? open.length + (open.length === 1 ? " finding" '
+    ': " findings") + " standing. " : read ? "Nothing notable in any feed. " : "") + (read ? up + " of " + feeds.length + '
+    '" feeds answering." : "No feed has been read yet.") + (d.watching ? "" : " The watch is not running in this engine: '
+    'start it with MERCURY_WATCH_ENABLED=true, or run mercury-agent watch beside it.") + (W.err ? " Last refresh failed: " '
+    '+ W.err : "");\n'
+    "      Object.assign(o, {\n"
+    '        agWatchMeta: !live ? "OFFLINE" : W.busy ? "READING…" : !d ? (W.err ? "UNREACHABLE" : "") : (d.watching ? '
+    '"WATCHING" : "NOT WATCHING") + " · read " + ago(W.at) + " · refreshes every 30 s", agWatchLead: lead,\n'
+    "        agWatchRefresh: () => this.watchRefresh(), agWatchHasOpen: open.length > 0, agWatchOpen: open.map(card), "
+    "agWatchHasPast: past.length > 0, agWatchPast: past.map(card), agWatchHasFeeds: feeds.length > 0,\n"
+    '        agWatchFeeds: feeds.map((f) => ({ st: str(f.state).toUpperCase(), c: ST[f.state] || "var(--fg-3)", title: '
+    'str(f.title || f.feed), sum: str(f.summary) + (f.error ? " (" + f.error + ")" : ""), when: f.checked_at ? "read " + '
+    'ago(f.checked_at) : "not read yet" })),\n'
+    '        agWatchTelling: !d || !d.telling ? "" : (!d.telling.subscribers ? "No one is subscribed to be told. People subscribe from Watch alerts on their account page; whoever runs the engine can also subscribe them with mercury-agent alerts add." : d.telling.subscribers + (d.telling.subscribers === 1 ? " subscription is" : " subscriptions are") + " told by email" + (d.telling.email ? "." : ", but the engine has no mail server configured, so they cannot be reached.")) + (d.telling.webhook ? " Findings also go to the operator webhook." : "") + (d.telling.sent || d.telling.failed ? " Delivered: " + (d.telling.sent || 0) + "; failed: " + (d.telling.failed || 0) + "." : ""),\n'
+    '        agWatchRecord: !d ? "" : checked === 0 ? (waiting ? waiting + (waiting === 1 ? " finding" : " findings") + '
+    '" not yet checked against a later record." : "No findings yet.") : "Of " + checked + " checked against later records: " '
+    '+ VERDICTS.filter((v) => +tr[v]).map((v) => tr[v] + " " + v).join(", ") + (waiting ? "; " + waiting + " not yet checked." '
+    ': "."),\n'
+    "      });\n"
+    "    }\n"
+)
+
+_WATCH_METHODS = (
+    "  async watchRefresh() {\n"
+    "    // The WATCH tab's only source is GET /api/v1/watch. A failed read keeps the last good one on screen and says so.\n"
+    "    clearTimeout(this._watchT); const again = () => { if (this._watchOn) this._watchT = setTimeout(() => "
+    "this.watchRefresh(), 30000); };\n"
+    "    if (!this.live()) { again(); return; }\n"
+    "    if (this._watchBusy) return; this._watchBusy = true; const seq = (this._watchSeq = (this._watchSeq || 0) + 1);\n"
+    "    this.setState((p) => ({ agWatch: Object.assign({}, p.agWatch, { busy: true }) }));\n"
+    '    let r; try { r = await this.A.get("/api/v1/watch?limit=25"); } catch (e) { r = { ok: false, status: 0, error: '
+    "String(e && e.message || e) }; }\n"
+    "    this._watchBusy = false; if (seq !== this._watchSeq) return;\n"
+    "    this.setState((p) => ({ agWatch: r.ok && r.data && Array.isArray(r.data.feeds) ? { data: r.data, at: Date.now() } : "
+    '{ data: (p.agWatch || {}).data || null, at: (p.agWatch || {}).at || null, err: (r.status || "no response") + " " + '
+    '(r.error || "unexpected response") } }));\n'
+    "    again();\n"
+    "  }\n"
+    "  watchSync() {\n"
+    "    // Reads when the tab opens (a click, the palette, the agent, a restored session) and stops when it closes.\n"
+    '    const on = this.state.ws === "agent" && this.state.agTab === "watch";\n'
+    "    if (on && !this._watchOn) { this._watchOn = true; this.watchRefresh(); }\n"
+    "    else if (!on && this._watchOn) { this._watchOn = false; clearTimeout(this._watchT); }\n"
+    "  }\n"
+)
+
+_WATCH_CARD = (
+    '<div style="border:1px solid var(--border);border-left:3px solid {{ wf.c }};border-radius:var(--r-md);'
+    'background:var(--surface-1);padding:12px 14px;display:flex;flex-direction:column;gap:6px;">'
+    '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;">'
+    '<span style="font-size:10px;letter-spacing:.18em;color:{{ wf.c }};">{{ wf.sev }}</span>'
+    '<span style="font-size:13px;color:var(--fg);font-family:var(--font-sans);">{{ wf.head }}</span></div>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg-2);font-family:var(--font-sans);text-wrap:pretty;">'
+    "{{ wf.detail }}</span>"
+    '<sc-if value="{{ wf.hasTodo }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:3px;border-left:2px solid var(--mercury-400);padding:2px 0 2px 10px;">'
+    '<span style="font-size:10px;letter-spacing:.18em;color:var(--mercury-300);">WHAT TO DO</span>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg);font-family:var(--font-sans);text-wrap:pretty;">'
+    "{{ wf.todo }}</span></div></sc-if>"
+    '<span style="font-size:11px;line-height:1.5;color:var(--fg-3);font-family:var(--font-sans);">{{ wf.meta }}</span>'
+    '<span style="font-size:10.5px;color:var(--fg-3);">{{ wf.when }}</span>'
+    '<sc-if value="{{ wf.has }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;border-top:1px solid var(--border-faint);'
+    'padding-top:6px;"><span style="font-size:10px;letter-spacing:.14em;color:{{ wf.vc }};border:1px solid {{ wf.vc }};'
+    'border-radius:999px;padding:1px 8px;">{{ wf.verdict }}</span>'
+    '<span style="flex:1;min-width:220px;font-size:11.5px;line-height:1.55;color:var(--fg-2);font-family:var(--font-sans);'
+    'text-wrap:pretty;">{{ wf.check }}</span></div></sc-if></div>'
+)
+
+_WATCH_GRID = (
+    "display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:12px;"
+)
+_WATCH_LABEL = "font-size:10px;letter-spacing:.18em;color:var(--fg-3);"
+
+_WATCH_TAB = (
+    '              <sc-if value="{{ agWatch }}" hint-placeholder-val="{{ false }}">\n'
+    '                <div style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;">'
+    '<span style="font-size:15px;color:var(--fg);">What Mercury is watching</span>'
+    '<span style="font-size:11px;color:var(--fg-3);flex:1;min-width:0;">{{ agWatchMeta }}</span>'
+    '<button onClick="{{ agWatchRefresh }}" title="Read GET /api/v1/watch now" style="cursor:pointer;'
+    "font-family:var(--font-mono);white-space:nowrap;border-radius:var(--r-sm);font-size:10.5px;letter-spacing:.1em;"
+    'padding:5px 10px;background:transparent;color:var(--fg-2);border:1px solid var(--border-strong);">REFRESH</button>'
+    "</div>\n"
+    '                <span role="status" style="font-size:12.5px;line-height:1.6;color:var(--fg);'
+    'font-family:var(--font-sans);text-wrap:pretty;">{{ agWatchLead }}</span>\n'
+    '                <sc-if value="{{ agWatchHasOpen }}" hint-placeholder-val="{{ false }}">'
+    f'<div style="{_WATCH_GRID}"><sc-for list="{{{{ agWatchOpen }}}}" as="wf" hint-placeholder-count="1">'
+    f"{_WATCH_CARD}</sc-for></div></sc-if>\n"
+    '                <sc-if value="{{ agWatchHasFeeds }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    f'<span style="{_WATCH_LABEL}">FEEDS</span>'
+    '<sc-for list="{{ agWatchFeeds }}" as="fd" hint-placeholder-count="5">'
+    '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:7px 0;'
+    'border-top:1px solid var(--border-faint);">'
+    '<span style="flex:0 0 64px;font-size:10px;letter-spacing:.14em;color:{{ fd.c }};">{{ fd.st }}</span>'
+    '<span style="flex:0 1 250px;font-size:12px;color:var(--fg);font-family:var(--font-sans);">{{ fd.title }}</span>'
+    '<span style="flex:1 1 280px;min-width:0;font-size:12px;line-height:1.5;color:var(--fg-2);'
+    'font-family:var(--font-sans);overflow-wrap:anywhere;">{{ fd.sum }}</span>'
+    '<span style="flex:none;font-size:10.5px;color:var(--fg-3);">{{ fd.when }}</span></div></sc-for></div></sc-if>\n'
+    '                <sc-if value="{{ agWatchHasFeeds }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    f'<span style="{_WATCH_LABEL}">TRACK RECORD</span>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg);font-family:var(--font-sans);">{{ agWatchRecord }}</span>'
+    '<span style="font-size:11px;line-height:1.55;color:var(--fg-3);font-family:var(--font-sans);text-wrap:pretty;">'
+    "Mercury checks each finding later against the record that settles it: the USGS catalogue once a seismologist has "
+    "reviewed an earthquake, NOAA's tsunami database, the same gauge's later readings.</span></div></sc-if>\n"
+    '                <sc-if value="{{ agWatchHasFeeds }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:4px;">'
+    f'<span style="{_WATCH_LABEL}">WHO IS TOLD</span>'
+    '<span style="font-size:12px;line-height:1.6;color:var(--fg);font-family:var(--font-sans);text-wrap:pretty;">'
+    "{{ agWatchTelling }}</span></div></sc-if>\n"
+    '                <sc-if value="{{ agWatchHasPast }}" hint-placeholder-val="{{ false }}">'
+    '<div style="display:flex;flex-direction:column;gap:8px;">'
+    f'<span style="{_WATCH_LABEL}">EARLIER</span>'
+    f'<div style="{_WATCH_GRID}"><sc-for list="{{{{ agWatchPast }}}}" as="wf" hint-placeholder-count="0">'
+    f"{_WATCH_CARD}</sc-for></div></div></sc-if>\n"
+    "              </sc-if>\n"
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the shell's heading shows when the opening screen does not",
+        OLD_BOOT_SHOW,
+        OLD_BOOT_SHOW + " shellHead: !!s.opened,",
+    ),
+    (
+        "the agent workspace has a WATCH tab",
+        OLD_AG_FLAGS,
+        'agFleet: tab === "fleet", agTrust: tab === "trust", agWatch: tab === "watch" };\n',
+    ),
+    (
+        "the WATCH tab's bindings have defaults",
+        OLD_AG_BASE,
+        OLD_AG_BASE
+        + 'agWatch: false, agWatchMeta: "", agWatchLead: "", agWatchRefresh: noop, agWatchHasOpen: false, '
+        "agWatchOpen: [], agWatchHasPast: false, agWatchPast: [], agWatchHasFeeds: false, agWatchFeeds: [], "
+        'agWatchRecord: "", agWatchTelling: "", ',
+    ),
+    (
+        "WATCH sits beside ACT in the tab strip",
+        OLD_AG_TABS,
+        '["trust", "TRUST", "Agent notice, security contact and source"], ["watch", "WATCH", "What Mercury is '
+        'reading live, what it found and how its findings turned out"]].map(([id, t, tip]) =>',
+    ),
+    (
+        "the WATCH tab renders what GET /api/v1/watch returned",
+        OLD_AG_TRUST_BRANCH,
+        _WATCH_VALS + OLD_AG_TRUST_BRANCH,
+    ),
+    (
+        "the watch is read while its tab is open and its timer ends with the console",
+        OLD_AG_UNMOUNT,
+        _WATCH_METHODS
+        + "  componentWillUnmount() { clearTimeout(this._watchT); clearTimeout(this._ic); this.alertsClose();",
+    ),
+    (
+        "opening or leaving the WATCH tab starts or stops its reads",
+        OLD_AG_UPDATE_END,
+        OLD_AG_UPDATE_END + " this.watchSync();",
+    ),
+    (
+        "the agent's search finds the watch",
+        OLD_AG_PALETTE,
+        '    { const h = hit("watch live feeds findings earthquake tsunami space weather river gauge declarations '
+        'volcano flood happening now track record"); if (h) out.push({ h, label: "Agent · Watch · live feeds and findings", act: () => '
+        'this.setState({ ws: "agent", agTab: "watch", menu: null, pal: false }) }); }\n'
+        + OLD_AG_PALETTE,
+    ),
+    (
+        "the command palette opens the watch",
+        OLD_AG_SESSION_ITEM,
+        '{ t: "Open the watch", s: "live feeds, findings and how they turned out · Mercury Agent, WATCH tab", '
+        'k: "SESSION", act: () => this.setState({ ws: "agent", agTab: "watch", menu: null, pal: false }) }, '
+        + OLD_AG_SESSION_ITEM,
+    ),
+    (
+        "asked what it is watching, the agent opens the watch",
+        OLD_AG_INTENT,
+        "    if (/what are you (watching|monitoring|seeing)|anything happening|what(?:'s| is) happening|live feeds?|"
+        'the watch\\b|any (earthquakes?|tsunamis?|storms?|floods?|eruptions?|findings)/.test(q)) return { steps: ["intent · watch"], text: '
+        '"The watch reads nine public feeds on the engine (USGS earthquakes and volcano alert levels, NOAA space '
+        "weather and tsunami buoys, NWS river gauges and warnings, national authorities' alerts through the WMO, GDACS, FEMA declarations), reports what is notable by each source's own scale, and later checks each "
+        'finding against the record that settles it. The WATCH tab shows what it has recorded.", acts: [{ label: "Open '
+        'WATCH", act: () => this.setState({ ws: "agent", agTab: "watch" }) }] };\n' + OLD_AG_INTENT,
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "the console has a level-one heading once the opening screen, which carried the only one, is dismissed",
+        OLD_ALERT_BANNER,
+        '    <sc-if value="{{ shellHead }}" hint-placeholder-val="{{ false }}"><h1 class="mcli-sr">Mercury Console</h1>'
+        "</sc-if>\n" + OLD_ALERT_BANNER,
+    ),
+    (
+        "the caption over the agent figure sits on the figure's own dark ground in every theme, so its colour is "
+        "that ground's, not the theme's (in the light theme the theme's was 2.8:1 against it)",
+        OLD_PRESENCE_CAP,
+        'letter-spacing:.12em;color:#8AE3F5;text-shadow:0 0 6px rgba(0,0,0,.9);">starting</span>',
+    ),
+    (
+        "the tab strip reserves room for five tabs",
+        OLD_AG_TAB_STRIP,
+        '<sc-for list="{{ agTabs }}" as="at" hint-placeholder-count="5">',
+    ),
+    ("the WATCH tab's markup", OLD_AG_TRUST_END, OLD_AG_TRUST_END + _WATCH_TAB),
+)
+
+MODULE_PATCHES["mercury-cli-diag.js"] = MODULE_PATCHES["mercury-cli-diag.js"] + (
+    (
+        "self-test: the WATCH tab is one of the agent tabs",
+        OLD_DIAG_TABS,
+        'for (const tb of ["act", "arch", "fleet", "trust", "watch"]) s.guard("agent tab " + tb,',
+    ),
+    (
+        "self-test: five agent tabs",
+        OLD_DIAG_TAB_COUNT,
+        's.ok(o.wsAgent && o.agTabs.length === 5, "agent workspace " + tb + " renders", "");\n',
+    ),
+    (
+        "self-test: the WATCH tab offline, unreachable, quiet and with findings",
+        OLD_DIAG_TRUST,
+        OLD_DIAG_TRUST.replace(" });\n", "\n")
+        + '          if (tb === "watch") { const st = { bg: "a", fg: "b", bd: "c" }, iso = (h) => new Date(Date.now() - h * '
+        "3600000).toISOString(), bad = /undefined|NaN|\\[object Object\\]/;\n"
+        "            T.live = () => false; const off = T.agentVals(st, st); s.ok(off.agWatch && /Connect mercury-agent serve/"
+        '.test(off.agWatchLead) && off.agWatchMeta === "OFFLINE" && !off.agWatchHasFeeds && !off.agWatchHasOpen, '
+        '"watch tab offline: says how to connect and shows no reading", off.agWatchLead);\n'
+        '            T.live = () => true; T.state.agWatch = { err: "503 Service Unavailable" }; const un = T.agentVals(st, st); '
+        's.ok(/did not answer GET \\/api\\/v1\\/watch: 503/.test(un.agWatchLead) && un.agWatchMeta === "UNREACHABLE" && '
+        '!un.agWatchHasFeeds, "watch tab unreachable: names the failure and shows no reading", un.agWatchLead);\n'
+        '            const feeds = [{ feed: "earthquakes", title: "Earthquakes worldwide (USGS)", state: "ok", summary: '
+        '"9 earthquakes in the past hour", checked_at: iso(0.1) }, { feed: "river_gauges", title: "River gauges in flood (NOAA NWPS)", '
+        'state: "down", summary: "could not be read", error: "ConnectionError: unreachable", checked_at: iso(0.2) }, '
+        '{ feed: "declarations", title: "FEMA declarations", state: "waiting", summary: "not read yet" }];\n'
+        "            T.state.agWatch = { data: { watching: false, feeds: feeds.map((f) => Object.assign({}, f, { state: "
+        '"waiting", checked_at: null })), findings: [], track_record: {} }, at: Date.now() }; const idle = '
+        "T.agentVals(st, st); s.ok(/No feed has been read yet\\. The watch is not running/.test(idle.agWatchLead) && "
+        'idle.agWatchRecord === "No findings yet." && idle.agWatchFeeds.every((f) => f.when === "not read yet"), '
+        '"watch tab before any read: says nothing was read and how to start the watch", idle.agWatchLead);\n'
+        "            T.state.agWatch = { data: { watching: true, feeds, findings: [], track_record: { unchecked: 0 } }, at: "
+        "Date.now() }; const quiet = T.agentVals(st, st); s.ok(/^Nothing notable in any feed\\. 1 of 3 feeds answering\\.$/"
+        ".test(quiet.agWatchLead) && /^WATCHING · read just now/.test(quiet.agWatchMeta) && !quiet.agWatchHasOpen, "
+        '"watch tab quiet: nothing notable, feeds counted", quiet.agWatchLead);\n'
+        '            const fnd = [{ severity: "notable", headline: "Minor flooding: Test River", detail: "d", source: "NWS", basis: "NWS flood category", first_seen: iso(1), ended: null, outcome: null }, { severity: "severe", headline: "Magnitude 7.4 earthquake, 130 km E of Sendai, Japan", '
+        'detail: "USGS located it 29 km deep.", action: "Drop, cover and hold on.", action_source: "USGS", source: "U.S. Geological Survey", basis: "USGS magnitude class: major", '
+        'first_seen: iso(3), ended: null, reviewed_at: iso(2), outcome: { verdict: "revised", note: "USGS now lists it at '
+        'magnitude 7.1.", record: "USGS earthquake catalogue", final: true } }, { severity: "notable", headline: "G1 storm", '
+        'detail: "Kp 5.", source: "NOAA SWPC", basis: "NOAA G scale", first_seen: iso(50), ended: iso(40), outcome: null }];\n'
+        "            T.state.agWatch = { data: { watching: true, feeds, findings: fnd, track_record: { confirmed: 0, revised: 1, "
+        'withdrawn: 0, unconfirmed: 0, unchecked: 2 }, telling: { subscribers: 2, email: false, webhook: true, sent: 3, failed: 1 } }, at: Date.now(), err: "0 Network error" }; const w = '
+        "T.agentVals(st, st);\n"
+        '            s.ok(w.agWatchOpen.length === 2 && w.agWatchOpen[0].sev === "SEVERE" && w.agWatchPast.length === 1 && /^2 findings standing\\. 1 of 3 feeds '
+        'answering\\. Last refresh failed: 0 Network error$/.test(w.agWatchLead), "watch tab: standing and ended findings '
+        'are separated; a failed refresh keeps the last reading and says so", w.agWatchLead);\n'
+        '            s.ok(w.agWatchOpen[0].has && w.agWatchOpen[0].verdict === "REVISED" && w.agWatchOpen[0].check === '
+        '"Checked 2 h ago against the USGS earthquake catalogue. USGS now lists it at magnitude 7.1." && '
+        '!w.agWatchPast[0].has && /ended 2 d ago/.test(w.agWatchPast[0].when), "watch tab: a checked finding says what the '
+        'later record said; an unchecked one claims no check", w.agWatchOpen[0].check);\n'
+        '            s.ok(w.agWatchFeeds.length === 3 && w.agWatchFeeds[1].st === "DOWN" && /ConnectionError/.test('
+        'w.agWatchFeeds[1].sum) && w.agWatchFeeds[2].when === "not read yet", "watch tab: every feed has a row; a feed that '
+        'is down says why", w.agWatchFeeds[1].sum);\n'
+        '            s.ok(w.agWatchOpen[0].hasTodo && w.agWatchOpen[0].todo === "Drop, cover and hold on. (USGS)" && !w.agWatchOpen[1].hasTodo, "watch tab: a finding says what to do, in the agency words, when it has guidance", w.agWatchOpen[0].todo);\n'
+        '            s.ok(w.agWatchTelling === "2 subscriptions are told by email, but the engine has no mail server configured, so they cannot be reached. Findings also go to the operator webhook. Delivered: 3; failed: 1.", "watch tab: says who is told, and when they cannot be reached", w.agWatchTelling);\n'
+        '            s.ok(w.agWatchRecord === "Of 1 checked against later records: 1 revised; 2 not yet checked.", '
+        '"watch tab: the track record is counted", w.agWatchRecord);\n'
+        "            s.ok(!bad.test(JSON.stringify([off, un, idle, quiet, w].map((x) => [x.agWatchLead, x.agWatchMeta, "
+        'x.agWatchRecord, x.agWatchOpen, x.agWatchPast, x.agWatchFeeds]))), "watch tab output is clean in every state", "");\n'
+        '            const a = T.agentIntent("what are you watching"); s.ok(a && a.acts && /WATCH/.test(a.acts[0].label), '
+        '"asked what it is watching, the agent offers the WATCH tab", a && a.text);\n'
+        "            } });\n"
+        "        { const T5 = mk(); T5.live = () => true; T5._watchOn = false; T5._watchBusy = false; let calls = 0; "
+        'const snap = { watching: true, feeds: [{ feed: "earthquakes", title: "Earthquakes worldwide (USGS)", state: '
+        '"ok", summary: "quiet" }], findings: [], track_record: {} }; T5.A = Object.assign({}, T5.A, { get: async () => '
+        "{ calls++; return calls === 1 ? { ok: true, status: 200, data: snap } : { ok: false, status: 502, error: "
+        '"Bad Gateway" }; } }); T5.state.ws = "agent"; T5.state.agTab = "watch"; T5.watchSync(); T5.watchSync(); '
+        "await new Promise((r) => setTimeout(r, 30)); const first = T5.state.agWatch || {}; await T5.watchRefresh(); "
+        'const second = T5.state.agWatch || {}; T5.state.agTab = "act"; T5.watchSync(); clearTimeout(T5._watchT); '
+        "s.ok(calls === 2 && first.data === snap && !first.err && !first.busy && second.data === snap && "
+        '/502 Bad Gateway/.test(second.err || "") && T5._watchOn === false, "opening the WATCH tab reads the route once; '
+        'a failed re-read keeps the last reading; leaving the tab stops the reads", calls + " calls · " + (second.err || "")); }\n'
+        "        { const q = (sel, at) => Array.from(document.querySelectorAll(sel)).filter((el) => !el.hasAttribute(at)), "
+        'miss = q(\'[role="radio"],[role="checkbox"],[role="switch"]\', "aria-checked").concat(q(\'[role="tab"]\', '
+        '"aria-selected")); s.ok(miss.length === 0, "every radio, checkbox, switch and tab on screen states whether it is '
+        'chosen (a false state is written, not dropped)", miss.length + " without the state: " + miss.slice(0, 3).map((el) => '
+        '(el.getAttribute("title") || el.textContent || "").slice(0, 24)).join(" | ")); '
+        's.ok(Array.from(document.querySelectorAll("pre")).every((el) => !/auto|scroll/.test(getComputedStyle(el).overflowY) '
+        '|| el.tabIndex === 0), "every scrolling block can take keyboard focus", ""); '
+        's.ok(document.querySelectorAll("h1").length === 1, "the page has one level-one heading", '
+        'document.querySelectorAll("h1").length); }\n',
+    ),
+)
+
+
+#: The demonstration's committed window (``mercury-agent demo``), embedded so the console
+#: can post the same 80 x 16 matrix to the served flagship and show the same three answers.
+DEMO_WINDOW_CSV = REPO / "src" / "omni_mercury_engine" / "demo" / "auditable_window.csv"
+
+
+def _demo_capability_js() -> str:
+    rows = [
+        [float(cell) for cell in line.split(",")]
+        for line in DEMO_WINDOW_CSV.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if len(rows) != 80 or any(len(row) != 16 for row in rows):
+        raise SystemExit(f"{DEMO_WINDOW_CSV}: expected an 80 x 16 window")
+    window = json.dumps(rows, separators=(",", ":"))
+    return (
+        "  // The demonstration window (mercury-agent demo): one committed decision that shows the\n"
+        "  // three answers. Built from the bundled model's training data; it belongs to that model.\n"
+        "  const DEMO_WINDOW = " + window + ";\n"
+        '  CAPS.push(C("flagship-demo", "Flagship · three answers on one decision (demo window)", '
+        '"Ensembles", "POST /api/v1/detect/flagship", () => ({ data: DEMO_WINDOW, domain: null, '
+        "explain: false }), { prep: flagshipContract, block: (d, ctx) => (ctx && ctx.flagshipWidth "
+        '&& ctx.flagshipWidth !== 16 ? "the demo window is 16 columns wide and belongs to the '
+        'bundled model; the served fusion model was fitted on " + ctx.flagshipWidth + " (run it '
+        'offline: mercury-agent demo)" : null) }));\n'
+    )
+
+
+#: The decision panel (three sections: why this row / how sure / the record) and the
+#: decision-trail summary, inserted into the Mass Run summariser beside explText.
+_DECISION_PANEL_MASS = """
+  // A flagship decision, laid out as the three answers an operator needs before acting on a
+  // score: why this row, how sure, and the record they can replay and contest. Every field the
+  // record carries has a row here; tests/api/test_console_decision_complete.py pins that against
+  // decision/record.py and decision/evidence.py, so a field added there fails until it is shown.
+  function decisionRows(d) {
+    const dec = d.decision, kv = [];
+    const c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));
+    const num = (x, n) => (typeof x === "number" && isFinite(x) ? x.toFixed(n == null ? 3 : n) : null);
+    const obj = (x) => (x && typeof x === "object" && !Array.isArray(x) ? x : null);
+    const text = (x) => (x == null ? "" : typeof x === "object" ? JSON.stringify(x) : String(x));
+    const top = (o, n) => Object.entries(o).filter(([, v]) => typeof v === "number" && isFinite(v)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => k + " " + v.toFixed(3)).join(" · ");
+    const proof = (e) => (obj(e) && e.method ? String(e.method) + ", n=" + e.n : "");
+    const sig = obj(dec.signals), mp = sig && obj(sig.model_provenance), cog = sig && obj(sig.cognitive), pol = sig && obj(sig.policy);
+    const nc = cog && obj(cog.novelty_challenge), disc = cog && obj(cog.discovery);
+    kv.push(["decision", dec.disposition || JSON.stringify(dec).slice(0, 80)]);
+    if (dec.state != null) kv.push(["· state", String(dec.state)]);
+    if (dec.abstained != null) kv.push(["· abstained", String(dec.abstained)]);
+
+    // 1. Why this row.
+    kv.push(["1 · WHY THIS ROW", "which row carries the verdict, what each detector weighed, and what moved first"]);
+    const flaggedRows = Array.isArray(d.is_anomaly_rows) ? d.is_anomaly_rows : null;
+    if (Number.isInteger(d.top_row)) kv.push(["· row", "row " + d.top_row + (flaggedRows ? " of " + flaggedRows.length + " carries the verdict (its highest P(anomaly)) · " + flaggedRows.filter(Boolean).length + " row(s) flagged" : " carries the verdict")]);
+    const con = sig && obj(sig.contributions), imp = con && obj(con.detector_importance);
+    if (imp && Object.keys(imp).length) kv.push(["· contributions", top(imp, 5) + " · fusion weight per detector, top 5 of " + Object.keys(imp).length]);
+    if (con && con.integrated_gradients) kv.push(["· attribution", "integrated gradients · " + (explText(con.integrated_gradients) || "").slice(0, 260)]);
+    if (con && con.shapley) kv.push(["· shapley", (explText(con.shapley) || "").slice(0, 260)]);
+    const du = sig && obj(sig.detector_uncertainties);
+    if (du && Object.keys(du).length) kv.push(["· detector uncertainty", top(du, 5) + " · least certain first"]);
+    const skipped = sig && Array.isArray(sig.skipped_detectors) ? sig.skipped_detectors : null, sd = (sig && obj(sig.skipped_detail)) || {};
+    if (skipped && skipped.length) kv.push(["· skipped detectors", skipped.map((k) => k + (obj(sd[k]) && (sd[k].reason || sd[k].detail) ? " (" + c100([sd[k].reason, sd[k].detail].filter(Boolean).join(": ")) + ")" : "")).join(" · ") + " · the probability rests on partial evidence"]);
+    else if (skipped) kv.push(["· skipped detectors", "none" + (Object.keys(sd).length ? " of the trained ones · untrained: " + Object.keys(sd).join(", ") : "")]);
+    const oos = sig && Array.isArray(sig.out_of_support_rows) ? sig.out_of_support_rows : null;
+    if (oos) kv.push(["· out of support", oos.length ? oos.length + " row(s) outside the training envelope, floored at the detector consensus: " + oos.slice(0, 8).join(", ") + (oos.length > 8 ? ", …" : "") : "no row outside the training envelope"]);
+    if (cog && Array.isArray(cog.causal_factors) && cog.causal_factors.length) kv.push(["· causal factors", cog.causal_factors.slice(0, 3).join("; ").slice(0, 220)]);
+    // Whether the causal test could be read at all, and how much it tested.
+    if (disc && disc.causal && disc.causal.claim) { const cc = disc.causal.claim; kv.push(["· causal test", cc.assessed === false ? "not assessed: " + c100(cc.not_assessed_because || "") : String(cc.pairs_tested) + " pairs tested, corrected for lags and pairs · " + (Array.isArray(cc.edges) ? cc.edges.length : 0) + " edge(s)"]); }
+    if (cog && obj(cog.hypothesis)) {
+      kv.push(["· hypothesis", String(cog.hypothesis.conclusion || "").slice(0, 170) + (cog.hypothesis.rule ? " · rule " + cog.hypothesis.rule : "") + (typeof cog.hypothesis.confidence === "number" ? " · conf " + cog.hypothesis.confidence.toFixed(2) : "")]);
+      const fz = cog.hypothesis.falsifier;
+      if (fz) kv.push(["· challenge it", "weakest premise: " + String(fz.weakest_step || "").slice(0, 110) + (typeof fz.margin === "number" ? " (margin x" + fz.margin.toFixed(2) + ")" : typeof fz.confidence === "number" ? " (conf " + fz.confidence.toFixed(2) + ")" : "") + (fz.withdrawn_if ? " · withdrawn if " + String(fz.withdrawn_if).slice(0, 70) : "")]);
+    }
+    if (cog && Array.isArray(cog.similar_cases) && cog.similar_cases.length) kv.push(["· similar cases", cog.similar_cases.slice(0, 3).map((x) => c100(text(x))).join(" · ")]);
+    if (cog && Array.isArray(cog.recommendations) && cog.recommendations.length) kv.push(["· recommendations", cog.recommendations.slice(0, 3).map((x) => c100(text(x))).join(" · ")]);
+
+    // 2. How sure.
+    kv.push(["2 · HOW SURE", "the probability against its threshold, the conformal certificate and its coverage, and whether it holds here"]);
+    if (dec.anomaly_prob !== undefined || dec.decision_label !== undefined) kv.push(["· verdict", (num(dec.anomaly_prob) != null ? "P(anomaly) " + num(dec.anomaly_prob) + (num(dec.threshold) != null ? " vs threshold " + num(dec.threshold) : "") : "no probability: nothing was scored") + (sig && typeof sig.is_anomaly === "boolean" ? (sig.is_anomaly ? " · flagged" : " · not flagged") : "") + (dec.decision_label != null ? " · label " + dec.decision_label : " · no label")]);
+    if (num(dec.severity) != null) kv.push(["· severity", num(dec.severity)]);
+    if (dec.calibrated != null) kv.push(["· calibrated", String(dec.calibrated)]);
+    if (typeof dec.coverage === "number") kv.push(["· coverage", (dec.coverage * 100).toFixed(1) + "%"]);
+    if (typeof dec.decision_confidence === "number") kv.push(["· confidence", dec.decision_confidence.toFixed(3)]);
+    else if (dec.decision_confidence === null) kv.push(["· confidence", "none stated" + (dec.abstained ? ": the decision abstained" : "")]);
+    if (sig) {
+      const mc = mp && obj(mp.conformal), basis = mc ? " · calibrated on " + mc.n_calibration + " held-out points" + (typeof mc.coverage_achieved === "number" ? ", " + (mc.coverage_achieved * 100).toFixed(1) + "% achieved" : "") : "";
+      if (sig.conformal_set_size != null) { const labels = Array.isArray(sig.conformal_labels) ? sig.conformal_labels : [], n = sig.conformal_set_size; kv.push(["· conformal set", "{" + labels.join(", ") + "}" + (n === 0 ? " · empty: no class explains this point at the target coverage" : n === 1 ? " · singleton: one class at the target coverage" : " · ambiguous: " + n + " classes cannot be told apart at the target coverage") + basis]); }
+      else if ("conformal_set_size" in sig) kv.push(["· conformal set", "none: this result carries no conformal certificate"]);
+      if (sig.conformal_regime === "per_sample" && sig.conformal_rows > 1) kv.push(["· certificate", "per-sample · batch of " + sig.conformal_rows + " (coverage is not batch-level)"]);
+      else if (sig.conformal_regime === "batch_max") kv.push(["· certificate", "batch-level" + (sig.conformal_rows != null ? " · covers whether this batch of " + sig.conformal_rows + " row(s) contains an anomaly, through its most anomalous row" : "")]);
+      else if (sig.conformal_regime) kv.push(["· certificate", String(sig.conformal_regime) + (sig.conformal_rows != null ? " · " + sig.conformal_rows + " row(s)" : "")]);
+      if (sig.drift_detected != null) kv.push(["· drift", sig.drift_detected ? "DETECTED · " + String(sig.drift_severity || "severity unknown") + " · the ordinary rows no longer look like the model's reference" : "none detected against the model's reference" + (sig.drift_severity && sig.drift_severity !== "NONE" ? " · " + sig.drift_severity : "")]);
+      else if ("drift_detected" in sig) kv.push(["· drift", "not tested"]);
+      if (num(sig.symbolic_satisfaction) != null) kv.push(["· symbolic agreement", num(sig.symbolic_satisfaction) + " · how far the symbolic rules agree with the verdict"]);
+      else if ("symbolic_satisfaction" in sig) kv.push(["· symbolic agreement", "not evaluated"]);
+      if (num(sig.gosnn_anomaly_prob) != null) kv.push(["· gosnn", "P(anomaly) " + num(sig.gosnn_anomaly_prob) + (num(sig.gosnn_demote_act_below) != null ? " · a positive is demoted below " + num(sig.gosnn_demote_act_below) : "") + (num(sig.gosnn_demote_clear_above) != null ? " · a negative above " + num(sig.gosnn_demote_clear_above) : "")]);
+      else if ("gosnn_anomaly_prob" in sig) kv.push(["· gosnn", "no second opinion on this result"]);
+    }
+    if (cog) kv.push(["· critique", (cog.is_reliable == null ? "reliability unknown" : cog.is_reliable ? "reliable" : "UNRELIABLE") + (typeof cog.confidence === "number" ? " · conf " + cog.confidence.toFixed(2) + (cog.confidence_calibrated === false ? " (uncalibrated)" : cog.confidence_calibrated ? " (calibrated: " + proof(cog.calibration_evidence) + ")" : "") : "") + (cog.epistemic_measured === false ? " · epistemic unmeasured" : cog.epistemic_measured ? " · epistemic " + num(cog.epistemic_uncertainty) + " (" + proof(cog.epistemic_evidence) + ")" : "") + (cog.aleatoric_measured === false ? " · aleatoric unmeasured" : cog.aleatoric_measured ? " · aleatoric " + num(cog.aleatoric_uncertainty) + " (" + proof(cog.aleatoric_evidence) + ")" : "")]);
+    // The novelty verdict with what it rests on: measured or undetermined, the p-value
+    // against its level, and how many reference distances.
+    if (cog && typeof cog.novelty_score === "number") kv.push(["· novelty", cog.novelty_score.toFixed(3) + (cog.novelty_measured === false ? " · verdict undetermined (too few reference observations)" : cog.is_novel ? " · NOVEL" : " · not novel") + (nc && typeof nc.p_value === "number" ? " · p=" + nc.p_value.toFixed(4) + " vs level " + (typeof nc.alpha === "number" ? nc.alpha : "?") : "") + (nc && typeof nc.standardized_distance === "number" && cog.novelty_measured ? " · distance " + nc.standardized_distance.toFixed(2) : "") + (cog.novelty_evidence && cog.novelty_evidence.n != null ? " · ranked among " + cog.novelty_evidence.n + " reference distances" : "")]);
+
+    // 3. The record.
+    kv.push(["3 · THE RECORD", "what was decided, on which model, under which gate and policy, and how to replay and contest it"]);
+    const rsp = obj(dec.response);
+    if (rsp) {
+      kv.push(["· response", String(rsp.action || "?") + (rsp.requires_human ? " · needs a human" : "") + (rsp.urgency != null && rsp.urgency !== "" ? " · urgency " + rsp.urgency : "") + (rsp.notify ? " · notifies" : "") + (rsp.fail_closed ? " · fail-closed" : "")]);
+      (Array.isArray(rsp.countermeasures) ? rsp.countermeasures : []).slice(0, 4).forEach((x, i) => kv.push(["· countermeasure " + (i + 1), c100(x)]));
+      if (rsp.rationale) kv.push(["· rationale", String(rsp.rationale).slice(0, 220)]);
+    }
+    if (mp) kv.push(["· model", String(mp.checkpoint || "?") + (mp.checkpoint_sha256 ? " · sha " + String(mp.checkpoint_sha256).slice(0, 12) : "") + (mp.conformal && mp.conformal.n_calibration != null ? " · conformal n=" + mp.conformal.n_calibration : "") + (num(mp.temperature) != null ? " · temperature " + num(mp.temperature) : "") + (Array.isArray(mp.trained_groups) ? " · " + mp.trained_groups.length + " trained feature groups" : "")]);
+    if (sig && ("ethical_gate_passed" in sig || sig.ethics_report)) {
+      const er = obj(sig.ethics_report), cmp = num(sig.ethical_score) != null && num(sig.ethical_threshold) != null ? " · score " + num(sig.ethical_score) + (sig.ethical_score >= sig.ethical_threshold ? " ≥ " : " < ") + "threshold " + num(sig.ethical_threshold) : num(sig.ethical_score) != null ? " · score " + num(sig.ethical_score) : "";
+      kv.push(["· ethics", (sig.ethical_gate_passed === true ? "gate passed" : sig.ethical_gate_passed === false ? "gate BLOCKED" : "gate not run on this result") + cmp + (er && er.check ? " · check " + er.check : "") + (er && er.ruleset_version ? " · ruleset " + er.ruleset_version : "") + (cog && cog.ethical_permissible != null ? " · critique: " + (cog.ethical_permissible ? "permissible" : "NOT permissible") : "")]);
+      if (er && er.details != null && er.details !== "") kv.push(["· ethics details", text(er.details).slice(0, 220)]);
+    }
+    if (pol) {
+      kv.push(["· policy", "indecision margin " + pol.indecision_margin + " · symbolic agreement floor " + pol.symbolic_agreement_floor + " · critique support floor " + pol.critique_support_confidence_floor + (pol.require_calibrated_for_act ? " · a calibrated certificate is required to act" : " · acts without a certificate only as an uncalibrated fallback")]);
+      kv.push(["· policy gates", [pol.defer_on_drift ? "defers on drift at " + (Array.isArray(pol.drift_defer_severities) ? pol.drift_defer_severities.join("/") : "any severity") : "does not defer on drift", pol.defer_on_gosnn_disagreement ? "defers on GOSNN disagreement" : "ignores GOSNN disagreement", pol.defer_on_unreliable_critique ? "defers on an unreliable critique" : "ignores the critique", pol.fail_closed_on_atypical ? "holds on an empty conformal set" : "does not hold on an empty set", pol.fail_closed_on_ethical_block ? "holds on an ethical block" : "does not hold on an ethical block"].join(" · ")]);
+    }
+    if (dec.domain != null || (sig && sig.domain != null)) kv.push(["· domain", String(dec.domain != null ? dec.domain : sig.domain)]);
+    else if ("domain" in dec) kv.push(["· domain", "none given"]);
+    // The challenge path, visible: which artifacts replay from this record, how to run it,
+    // and why any one cannot be.
+    if (disc) {
+      const kinds = Object.keys(disc).filter((k) => disc[k] && disc[k].digest);
+      if (kinds.length) kv.push(["· replay", kinds.map((k) => k + (disc[k].replayable === "from_record" ? " (from this record)" : " (cannot)")).join(" · ") + " · CHALLENGE THIS DECISION beside this panel, POST /api/v1/detect/flagship/replay, or mercury-agent replay"]);
+      kinds.filter((k) => disc[k].replayable !== "from_record").forEach((k) => kv.push(["· " + k + " not replayable", c100(disc[k].not_replayable_because || "")]));
+    }
+    if (sig) kv.push(["· trail", "churn and abstention rates are measured over the decision trail, not one record: GET /api/v1/detect/flagship/decisions (API form), rendered here when fetched"]);
+    (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x, i) => kv.push(["· reason " + (i + 1), c100(x)]));
+    (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x, i) => kv.push(["· caveat " + (i + 1), c100(x)]));
+    return kv;
+  }
+  // The flagship decision trail's summary (GET /detect/flagship/decisions): counts, rates, churn
+  // and how often the admission bound was reached.
+  function trailRows(d) {
+    const kv = [], pct = (x) => (typeof x === "number" && isFinite(x) ? (x * 100).toFixed(1) + "%" : null), counts = (o) => Object.entries(o || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + " " + v).join(" · ") || "none";
+    kv.push(["decisions", d.recorded === false ? "none recorded: no flagship detection has run on this server yet" : String(d.total) + " in the trail (the most recent, up to 4096)"]);
+    if (d.by_state) kv.push(["· by state", counts(d.by_state)]);
+    if (d.by_disposition) kv.push(["· by disposition", counts(d.by_disposition)]);
+    if (d.by_response_action) kv.push(["· by response", counts(d.by_response_action)]);
+    if (pct(d.abstention_rate) != null) kv.push(["· abstention rate", pct(d.abstention_rate)]);
+    if (pct(d.calibrated_rate) != null) kv.push(["· calibrated rate", pct(d.calibrated_rate)]);
+    if ("churn" in d) kv.push(["· churn", pct(d.churn) != null ? pct(d.churn) + " of consecutive decisions changed disposition" : "not measurable: it needs at least two decisions"]);
+    const a = d.admission && typeof d.admission === "object" ? d.admission : null;
+    if (a) kv.push(["· admission", a.admitted_total + " admitted · " + a.rejected_total + " refused at the queue bound of " + a.max_queue + (pct(a.rejection_rate) != null ? " (" + pct(a.rejection_rate) + ")" : "") + " · " + a.in_flight + " in flight, peak " + a.peak_in_flight]);
+    return kv;
+  }
+"""
+
+
+# The flagship decision surface reaches the operator intact. A flagship
+# response carries a decision record (state, disposition, abstention,
+# calibration, coverage, reasons, caveats), a ``detector_importance`` map, an
+# Integrated-Gradients explanation OBJECT and ``is_stable`` paired with
+# ``stability_evaluated``; the console rendered one word of the decision, no
+# importance chart, "[object Object]" for the explanation and UNSTABLE for a
+# series too short to evaluate. A 403 was also folded into kind "auth", so an
+# ethical-gate refusal told the operator to create an API key.
+# tests/api/test_console_response_rendering.py (Node units on the pure
+# functions) and tests/api/test_console_decision_forbidden_browser.py (the
+# served page against a canned engine) drive all five.
+_EXPL_TEXT_MASS = (
+    "  // An object explanation (flagship explain: true -> the Integrated-Gradients dict; a\n"
+    "  // gdpr_report Shapley block) renders its substance -- method, top attributions,\n"
+    '  // faithfulness -- instead of String()\'s "[object Object]".\n'
+    "  function explText(e) {\n"
+    "    if (e == null) return null;\n"
+    '    if (typeof e !== "object") return String(e).slice(0, 220);\n'
+    "    const parts = [], method = e.method || e.explanation_type || e.type;\n"
+    "    if (method) parts.push(String(method));\n"
+    "    let fa = null;\n"
+    "    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);\n"
+    "    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);\n"
+    '    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }\n'
+    '    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }\n'
+    "    const fs = e.faithfulness_scores || e.faithfulness;\n"
+    '    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));\n'
+    '    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }\n'
+    '    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);\n'
+    "  }\n"
+)
+
+MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + (
+    (
+        "object explanations get a formatter",
+        "  function summarize(data) {",
+        _EXPL_TEXT_MASS + "  function summarize(data) {",
+    ),
+    (
+        "3R headline: the stability verdict only when stability was evaluated",
+        'd.fusion_score.toFixed(3) + (d.is_stable === false ? " · UNSTABLE" : "")',
+        'd.fusion_score.toFixed(3) + (d.stability_evaluated === false ? " · stability not evaluated '
+        '(series too short)" : d.is_stable === false ? " · UNSTABLE" : "")',
+    ),
+    (
+        "neuro headline: an object decision names its disposition, not [object Object]",
+        'headline = "score " + d.overall_score.toFixed(3) + (d.decision ? " · " + d.decision : "");',
+        'headline = "score " + d.overall_score.toFixed(3) + (d.decision && typeof d.decision === '
+        '"object" ? " · " + String(d.decision.disposition || d.decision.state || "") : d.decision ? '
+        '" · " + d.decision : "");',
+    ),
+    (
+        "the is_stable row says when stability was not evaluated (a short series read as UNSTABLE)",
+        '["method", "decision", "is_stable", "patterns_detected", "rules_fired", "threshold_source"]'
+        '.forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });',
+        '["method", "decision", "patterns_detected", "rules_fired", "threshold_source"]'
+        '.forEach((k) => { if (d[k] != null && typeof d[k] !== "object") kv.push([k, String(d[k])]); });\n'
+        '    if (d.stability_evaluated === false) kv.push(["is_stable", "not evaluated (series too short)"]); '
+        'else if (d.is_stable != null && typeof d.is_stable !== "object") kv.push(["is_stable", String(d.is_stable)]);',
+    ),
+    (
+        "the demonstration window is a Mass Run capability (the same decision as mercury-agent demo)",
+        "  const TIER = { temporal_streaming",
+        _demo_capability_js() + "  const TIER = { temporal_streaming",
+    ),
+    (
+        "the decision-panel and trail-summary formatters ride beside the summariser",
+        "  function summarize(data) {",
+        _DECISION_PANEL_MASS + "  function summarize(data) {",
+    ),
+    (
+        "per-row flagship scores feed the summary and the charts (anomaly_probs)",
+        "const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => "
+        'typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? '
+        "d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value))"
+        '.filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null);',
+        "const scores = arr(d.scores) || (arr(d.anomaly_scores) && d.anomaly_scores.every((x) => "
+        'typeof x === "number") ? d.anomaly_scores : null) || (arr(d.anomaly_scores) ? '
+        "d.anomaly_scores.map((x) => x && (x.score ?? x.anomaly_score ?? x.value))"
+        '.filter((x) => typeof x === "number") : null) || (arr(d.anomaly_prob) ? d.anomaly_prob : null) '
+        "|| arr(d.anomaly_probs);",
+    ),
+    (
+        "per-row flagship flags feed the summary: a flagship headline is k of N flagged",
+        "const flags = arr(d.anomalies) || arr(d.is_anomaly) || arr(d.flags) || (scores && typeof "
+        'd.threshold === "number" ? scores.map((s) => s >= d.threshold) : null);',
+        "const flags = arr(d.anomalies) || arr(d.is_anomaly) || arr(d.is_anomaly_rows) || "
+        'arr(d.flags) || (scores && typeof d.threshold === "number" ? '
+        "scores.map((s) => s >= d.threshold) : null);",
+    ),
+    (
+        "the decision record renders whole, in the three sections an operator asks in (why this "
+        "row, how sure, the record); the flagship decision-trail summary renders its rates, churn "
+        "and admission counters; and a replay response renders its per-artifact verdicts",
+        'if (d.decision && typeof d.decision === "object") kv.push(["decision", d.decision.disposition '
+        "|| JSON.stringify(d.decision).slice(0, 80)]);",
+        'if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));\n'
+        '    if (d.admission && typeof d.admission === "object" && "total" in d) { if (!headline) '
+        'headline = d.recorded === false ? "no decisions recorded on this server yet" : d.total + '
+        '" decision(s) in the trail"; trailRows(d).forEach((row) => kv.push(row)); }\n'
+        '    if (Array.isArray(d.replay) && typeof d.verdict === "string") {\n'
+        '      kv.push(["replay", d.verdict + " · " + d.replay.length + " artifact(s)"]);\n'
+        '      d.replay.forEach((r) => { if (r && typeof r === "object") kv.push(["· " + String(r.kind), '
+        'String(r.status) + " · " + String(r.detail || "").slice(0, 150)]); });\n'
+        "    }",
+    ),
+    (
+        "an object explanation and the gdpr report render their substance",
+        'if (d.explanation) kv.push(["explanation", String(d.explanation).slice(0, 220)]);',
+        'if (d.explanation) { const ex = explText(d.explanation); if (ex) kv.push(["explanation", ex.slice(0, 300)]); }\n'
+        '    if (d.gdpr_report && typeof d.gdpr_report === "object") { const g = d.gdpr_report.explanation '
+        '|| d.gdpr_report.shapley, gx = g ? explText(g) : null; if (gx) kv.push(["gdpr report", gx.slice(0, 300)]); }',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-viz.js"] = MODULE_PATCHES["mercury-cli-viz.js"] + (
+    (
+        "flagship per-row scores feed the charts (anomaly_probs beside anomaly_prob)",
+        "const scoresOf = (d) => arr(d.scores) || arr(d.anomaly_prob) ||",
+        "const scoresOf = (d) => arr(d.scores) || arr(d.anomaly_prob) || arr(d.anomaly_probs) ||",
+    ),
+    (
+        "flagship per-row flags feed the charts (is_anomaly_rows)",
+        "const flagsOf = (d) => arr(d.anomalies) || arr(d.is_anomaly) ||",
+        "const flagsOf = (d) => arr(d.anomalies) || arr(d.is_anomaly) || arr(d.is_anomaly_rows) ||",
+    ),
+    (
+        "the contribution chart reads detector_importance (the flagship response's map)",
+        "function contrib(d) { return barsFrom(d.detector_contributions || d.detector_scores || "
+        'd.attribution || d.weights, d.detector_contributions ? "DETECTOR CONTRIBUTION TO FUSED SCORE" : '
+        'd.attribution ? "TIER ATTRIBUTION · mean score per member" : d.detector_scores ? '
+        '"DETECTOR SCORES" : "FUSION WEIGHTS", C.cy); }',
+        "function contrib(d) { return barsFrom(d.detector_contributions || d.detector_importance || "
+        "d.detector_scores || d.attribution || d.weights, d.detector_contributions ? "
+        '"DETECTOR CONTRIBUTION TO FUSED SCORE" : d.detector_importance ? '
+        '"DETECTOR IMPORTANCE · fusion weight per detector" : d.attribution ? '
+        '"TIER ATTRIBUTION · mean score per member" : d.detector_scores ? '
+        '"DETECTOR SCORES" : "FUSION WEIGHTS", C.cy); }',
+    ),
+    (
+        "a response with detector_importance is a fusion response for the recommended charts",
+        'd.detector_contributions || d.detector_scores ? "fusion"',
+        'd.detector_contributions || d.detector_importance || d.detector_scores ? "fusion"',
+    ),
+    (
+        "3R bar colour: unstable only when stability was evaluated",
+        '["fusion", d.fusion_score, d.is_stable === false ? C.red : C.grn]',
+        '["fusion", d.fusion_score, d.stability_evaluated !== false && d.is_stable === false ? C.red : C.grn]',
+    ),
+    (
+        "3R title: a short series (stability_evaluated false) is not UNSTABLE",
+        '(d.is_stable === false ? "UNSTABLE" : "STABLE")',
+        '(d.stability_evaluated === false ? "stability not evaluated (series too short)" : '
+        'd.is_stable === false ? "UNSTABLE" : "STABLE")',
+    ),
+    (
+        "fusion network title: the same stability gate",
+        '(d.is_stable === false ? " · UNSTABLE" : " · stable")',
+        '(d.stability_evaluated === false ? " · stability not evaluated" : '
+        'd.is_stable === false ? " · UNSTABLE" : " · stable")',
+    ),
+)
+
+MODULE_PATCHES["mercury-cli-api.js"] = MODULE_PATCHES["mercury-cli-api.js"] + (
+    (
+        "a 403 is kind forbidden, not auth: an ethical-gate refusal is not a missing key (sim engine)",
+        'kind: r.status === 401 || r.status === 403 ? "auth" : r.status === 429 ? "ratelimit" : '
+        'r.status === 422 ? "validation" : "http"',
+        'kind: r.status === 401 ? "auth" : r.status === 403 ? "forbidden" : r.status === 429 ? '
+        '"ratelimit" : r.status === 422 ? "validation" : "http"',
+    ),
+    (
+        "a 403 is kind forbidden, not auth: an ethical-gate refusal is not a missing key (live server)",
+        'kind: res.status === 401 || res.status === 403 ? "auth" : res.status === 429 ? "ratelimit" : '
+        'res.status === 422 ? "validation" : "http"',
+        'kind: res.status === 401 ? "auth" : res.status === 403 ? "forbidden" : res.status === 429 ? '
+        '"ratelimit" : res.status === 422 ? "validation" : "http"',
+    ),
+)
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "a result that carries a decision record offers CHALLENGE THIS DECISION",
+        "resNarrate: () => this.narrateData(cur.data, cur.label), resReq:",
+        "resChallenge: () => this.challengeDecision(cur), "
+        "hasChallenge: !!this.challengeArtifacts(cur.data), "
+        "resNarrate: () => this.narrateData(cur.data, cur.label), resReq:",
+    ),
+    (
+        "the challenge action's defaults",
+        "resNarrate: noop, resReq: noop,",
+        "resNarrate: noop, resChallenge: noop, hasChallenge: false, resReq: noop,",
+    ),
+    (
+        "the challenge method: replay the record's discovery artifacts through the engine",
+        "  massCaps() {",
+        _CHALLENGE_LOGIC + "  massCaps() {",
+    ),
+    (
+        "a 403 renders the server's refusal (detail plus any ethics fields), not the API-key advice",
+        'if (r.kind === "auth") rows.push(Object.assign(this.row("▸ Create an API key in the account '
+        'dashboard (" + (this.A.cfg.baseUrl || "") + "/dashboard) and add it under the connection '
+        'badge.", "var(--mercury-200)"), { act: () => this.setState({ conn: true }) }));',
+        'if (r.kind === "auth") rows.push(Object.assign(this.row("▸ Create an API key in the account '
+        'dashboard (" + (this.A.cfg.baseUrl || "") + "/dashboard) and add it under the connection '
+        'badge.", "var(--mercury-200)"), { act: () => this.setState({ conn: true }) }));\n'
+        '      if (r.kind === "forbidden") {\n'
+        '        const eth = r.data && r.data.ethics && typeof r.data.ethics === "object" ? r.data.ethics : null;\n'
+        '        rows.push(this.row("▸ Forbidden: " + ((r.data && (r.data.detail || r.data.message)) || '
+        '(typeof r.error === "string" && r.error ? r.error : "the server refused this request")) + '
+        '" — a policy refusal, not a missing API key.", "var(--warning)"));\n'
+        '        if (eth) [["check", eth.check], ["score", eth.score], ["threshold", eth.threshold], '
+        '["ruleset", eth.ruleset_version], ["details", eth.details]].forEach(([k, v]) => { if (v != null '
+        '&& v !== "") rows.push(this.row("    " + k + " · " + (typeof v === "number" ? (+v).toFixed(3) : '
+        'typeof v === "object" ? JSON.stringify(v).slice(0, 160) : String(v).slice(0, 160)), "var(--fg-2)")); });\n'
+        "      }",
+    ),
+    (
+        "the terminal explanation line renders an object explanation's substance",
+        'if (d.explanation) rows.push(this.row("  " + d.explanation));',
+        'if (d.explanation) rows.push(this.row("  " + this.explText(d.explanation)));',
+    ),
+    (
+        "the terminal renders the decision record whole",
+        'if (d.method) rows.push(this.row("  method " + d.method + " · threshold " + thr));',
+        'if (d.method) rows.push(this.row("  method " + d.method + " · threshold " + thr));\n'
+        '    if (d.decision && typeof d.decision === "object") {\n'
+        '      const dec = d.decision, c100 = (x) => (String(x).length > 100 ? String(x).slice(0, 99) + "…" : String(x));\n'
+        '      rows.push(this.row("  decision " + [dec.state, dec.disposition].filter((x) => x != null && '
+        'x !== "").join(" · ") + (dec.abstained != null ? " · abstained " + dec.abstained : "") + '
+        '(dec.calibrated != null ? " · calibrated " + dec.calibrated : "") + (typeof dec.coverage === '
+        '"number" ? " · coverage " + (dec.coverage * 100).toFixed(1) + "%" : ""), dec.abstained ? '
+        '"var(--warning)" : "var(--normal)"));\n'
+        "      (Array.isArray(dec.reasons) ? dec.reasons : []).slice(0, 5).forEach((x) => "
+        'rows.push(this.row("    reason · " + c100(x), "var(--fg-2)")));\n'
+        "      (Array.isArray(dec.caveats) ? dec.caveats : []).slice(0, 5).forEach((x) => "
+        'rows.push(this.row("    caveat · " + c100(x), "var(--fg-3)")));\n'
+        '      if (this.challengeArtifacts(d)) rows.push(Object.assign(this.row("▸ Challenge '
+        "this decision: replay its recorded findings (novelty, causal, hypothesis) from the "
+        'record", "var(--mercury-200)"), { act: () => this.challengeDecision({ label: '
+        '"terminal run", data: d }) }));\n'
+        "    }",
+    ),
+    (
+        "the dossier narrative renders an object explanation's substance (contributions present)",
+        'text = D.d.explanation ? String(D.d.explanation) : "Detector contributions, from the response.";',
+        'text = D.d.explanation ? this.explText(D.d.explanation) : "Detector contributions, from the response.";',
+    ),
+    (
+        "the dossier narrative renders an object explanation's substance (explanation only)",
+        "else if (D.d.explanation) text = String(D.d.explanation);",
+        "else if (D.d.explanation) text = this.explText(D.d.explanation);",
+    ),
+    (
+        "the agent's per-sample explanation renders an object explanation's substance",
+        '" Engine explanation: " + String(D.d.explanation)',
+        '" Engine explanation: " + this.explText(D.d.explanation)',
+    ),
+    (
+        "the explanation formatter for object explanations",
+        "  dossierVals(cur) {",
+        "  // An object explanation (the flagship Integrated-Gradients dict, or a gdpr_report Shapley\n"
+        '  // block) renders method, top attributions and faithfulness, not "[object Object]".\n'
+        "  explText(e) {\n"
+        '    if (e == null) return "";\n'
+        '    if (typeof e !== "object") return String(e);\n'
+        "    const parts = [], method = e.method || e.explanation_type || e.type;\n"
+        "    if (method) parts.push(String(method));\n"
+        "    let fa = null;\n"
+        "    if (Array.isArray(e.feature_importances)) fa = e.feature_importances.map((x) => x && [x.feature, x.importance]);\n"
+        "    else if (Array.isArray(e.top_factors)) fa = e.top_factors.map((x) => x && [x.feature, x.contribution]);\n"
+        '    else { const o = e.feature_attributions || e.attributions || e.feature_contributions; if (o && typeof o === "object" && !Array.isArray(o)) fa = Object.entries(o); }\n'
+        '    if (fa) { fa = fa.filter((x) => x && typeof x[1] === "number").sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 5); if (fa.length) parts.push("top " + fa.map(([k, v]) => k + ": " + (+v).toFixed(3)).join(", ")); }\n'
+        "    const fs = e.faithfulness_scores || e.faithfulness;\n"
+        '    if (typeof fs === "number" && isFinite(fs)) parts.push("faithfulness " + (+fs).toFixed(3));\n'
+        '    else if (fs && typeof fs === "object") { const fe = Object.entries(fs).filter(([, v]) => typeof v === "number").slice(0, 3); if (fe.length) parts.push("faithfulness " + fe.map(([k, v]) => k + " " + (+v).toFixed(3)).join(" · ")); }\n'
+        '    return parts.length ? parts.join(" · ") : JSON.stringify(e).slice(0, 220);\n'
+        "  }\n"
+        "  dossierVals(cur) {",
+    ),
+)
+
+
+# --------------------------------------------------------------------------- #
+# Artifact review: upload a document, an image or a recording from the console.
+# --------------------------------------------------------------------------- #
+
+#: Largest file the console sends for review. The served request cap for
+#: /api/v1/review is 32 MiB and the JSON route carries the file base64-encoded
+#: (4/3 of its size); 23 MiB leaves room for the envelope.
+REVIEW_MAX_FILE_MIB = 23
+
+#: What the review file picker offers (the server recognises a file by its
+#: bytes; this only filters the picker).
+REVIEW_ACCEPT = (
+    ".txt,.md,.csv,.json,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp,.tif,.tiff,.wav"
+)
+
+#: The review rows of the summariser: which segment, where, what sets it apart,
+#: the three answers in the server's own words, and the certificate's scope.
+_REVIEW_ROWS_MASS = """
+  // An artifact review (POST /api/v1/review/upload or /inline): the upload, the segments the
+  // engine flagged and where they are, the three answers the server states in plain language,
+  // and the certificate's own statement of what it has been measured to cover. The complete
+  // decision record follows in the decision panel.
+  function reviewRows(d) {
+    const r = d.review, kv = [];
+    const c = (x, n) => (String(x).length > n ? String(x).slice(0, n - 1) + "…" : String(x));
+    const where = (s) => (!s || typeof s !== "object" ? "" : Array.isArray(s.characters) ? "characters " + s.characters[0] + "–" + s.characters[1] + (s.excerpt ? " · “" + c(s.excerpt, 70) + "”" : "") : Array.isArray(s.box) ? "tile " + s.box[2] + "×" + s.box[3] + " px at (" + s.box[0] + ", " + s.box[1] + ")" : Array.isArray(s.seconds) ? s.seconds[0] + "–" + s.seconds[1] + " s" : "");
+    const feats = (s) => (Array.isArray(s && s.top_features) ? s.top_features.map((f) => f.name + " " + (f.robust_z > 0 ? "+" : "") + f.robust_z).join(" · ") : "");
+    kv.push(["REVIEW", (r.filename || "upload") + " · " + r.kind + " (" + r.format + ") · " + r.bytes + " bytes · " + r.segments + " segments"]);
+    kv.push(["flagged segments", r.flagged_count + " of " + r.segments]);
+    if (r.top_segment) { kv.push(["top segment", "#" + r.top_segment.index + " · p " + (+r.top_segment.probability).toFixed(3) + " · " + where(r.top_segment)]); kv.push(["sets it apart", feats(r.top_segment) + " (robust z against the rest of this " + r.kind + ")"]); }
+    (Array.isArray(r.flagged_segments) ? r.flagged_segments : []).slice(0, 8).forEach((s) => kv.push(["· segment #" + s.index, "p " + (+s.probability).toFixed(3) + " · " + where(s) + " · " + feats(s)]));
+    if (r.answers && typeof r.answers === "object") [["why_this_segment", "ANSWER 1 · WHY THIS SEGMENT"], ["how_sure", "ANSWER 2 · HOW SURE"], ["the_record", "ANSWER 3 · THE RECORD"]].forEach(([k, label]) => { if (r.answers[k] && r.answers[k].plain) kv.push([label, String(r.answers[k].plain)]); });
+    if (r.basis) kv.push(["basis", String(r.basis)]);
+    if (r.certificate_scope) kv.push(["certificate scope", String(r.certificate_scope)]);
+    if (r.harm_gate && typeof r.harm_gate === "object") kv.push(["harm gate", (r.harm_gate.passed ? "passed" : "not passed") + " · read " + r.harm_gate.read + " (" + r.harm_gate.characters_read + " characters)"]);
+    if (r.sha256) kv.push(["sha256", String(r.sha256)]);
+    if (r.segmentation && typeof r.segmentation === "object") kv.push(["segmentation", Object.entries(r.segmentation).map(([k, v]) => k + " " + (v && typeof v === "object" ? JSON.stringify(v) : v)).join(" · ")]);
+    return kv;
+  }
+  // What a review decided, in three words an operator can act on.
+  function reviewHeadline(d) {
+    const dec = d.decision && typeof d.decision === "object" ? d.decision : null, r = d.review;
+    const verdict = !dec ? "REVIEWED" : dec.abstained ? "ABSTAINED" : dec.decision_label ? "ANOMALOUS SEGMENT" : "NO ANOMALOUS SEGMENT";
+    return verdict + " · " + r.flagged_count + " of " + r.segments + " segments flagged · " + r.kind;
+  }
+"""
+
+MODULE_PATCHES["mercury-cli-mass.js"] = MODULE_PATCHES["mercury-cli-mass.js"] + (
+    (
+        "the review-row formatters ride beside the summariser",
+        "  function summarize(data) {",
+        _REVIEW_ROWS_MASS + "  function summarize(data) {",
+    ),
+    (
+        "a review response renders its review block ahead of the decision panel, under a "
+        "headline that states the decision",
+        'if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));',
+        'if (d.review && typeof d.review === "object" && d.review.kind) { headline = reviewHeadline(d); '
+        "reviewRows(d).forEach((row) => kv.push(row)); }\n"
+        '    if (d.decision && typeof d.decision === "object") decisionRows(d).forEach((row) => kv.push(row));',
+    ),
+)
+
+#: Review a file: read it in the browser, send it to POST /api/v1/review/inline, show the decision.
+_REVIEW_LOGIC = """
+  // Review a file: a document, an image or a recording is read here and sent, base64 in JSON,
+  // to POST /api/v1/review/inline; the response is the engine's decision about it (is some part
+  // of it unlike the rest?). Never simulated: a review of a real file is the engine's or it is
+  // nothing, so without a live server this says so and stops.
+  reviewFile(file) {
+    const capMib = __CAP__;
+    if (file.size > capMib * 1024 * 1024) { this.say([{ role: "agent", text: file.name + " is " + (file.size / 1048576).toFixed(1) + " MB. The console sends files up to " + capMib + " MB for review (the server's request cap, base64-encoded). For a larger file run: mercury-agent review " + this.q(file.name) }]); this.setState({ panel: true, tab: "chat" }); return; }
+    const simulated = !!(this.A && this.A.cfg && String(this.A.cfg.baseUrl || "").startsWith("sim://"));
+    if (!this.live() || simulated) { this.append([this.row("▸ Review needs a live Mercury server: a file's review is never simulated. Connect one under the connection badge, or run: mercury-agent review " + this.q(file.name), "var(--warning)")]); this.setState({ conn: true }); return; }
+    const rd = new FileReader();
+    rd.onload = async () => {
+      const url = String(rd.result || ""), content = url.slice(url.indexOf(",") + 1);
+      this.append([this.row("$ review " + file.name + " · " + file.size + " bytes → POST /api/v1/review/inline", "var(--fg-2)")]);
+      const r = await this.A.post("/api/v1/review/inline", { filename: file.name, content_base64: content });
+      const ok = r.ok && r.data && r.data.review && typeof r.data.review === "object";
+      const detail = r.data && r.data.detail, why = typeof detail === "string" ? detail : detail && typeof detail === "object" && detail.message ? String(detail.message) : typeof r.error === "string" ? r.error : "";
+      const sum = ok ? window.MercuryCLIMass.summarize(r.data) : { headline: "not reviewed · " + r.status + (why ? " · " + why : ""), kv: [] };
+      this.pushResult({ kind: "REVIEW", label: "Review · " + file.name, route: "POST /api/v1/review/inline", status: ok ? "ok" : "error", http: r.status, ms: r.meta && r.meta.ms, corr: (r.meta && r.meta.correlationId) || null, body: { filename: file.name, content_base64: "(" + file.size + " bytes, base64)" }, data: ok ? r.data : { error: r.error, kind: r.kind, detail: r.data }, sum, ds: null });
+      this.append([ok ? Object.assign(this.row("◈ review · " + sum.headline + " · open RESULTS for the three answers and the decision record", r.data.decision && r.data.decision.abstained ? "var(--warning)" : "var(--normal)"), { act: () => this.setState({ panel: true, tab: "run", ws: "res" }) }) : this.row("✗ not reviewed · " + r.status + (why ? " · " + why : ""), "var(--anomaly-soft)")]);
+      if (ok) this.setState({ panel: true, tab: "run", ws: "res" });
+    };
+    rd.readAsDataURL(file);
+  }
+""".replace("__CAP__", str(REVIEW_MAX_FILE_MIB))
+
+LOGIC_PATCHES = LOGIC_PATCHES + (
+    (
+        "the review method: send a chosen file to the engine and show its decision",
+        "  loadFile(file) {",
+        _REVIEW_LOGIC + "  loadFile(file) {",
+    ),
+    (
+        "the review file picker's handler",
+        "onFile: (e) => { const fl = e.target.files && e.target.files[0]; if (fl) this.loadFile(fl); },",
+        "onFile: (e) => { const fl = e.target.files && e.target.files[0]; if (fl) this.loadFile(fl); },\n"
+        "      onReviewFile: (e) => { const fl = e.target.files && e.target.files[0]; "
+        'if (fl) this.reviewFile(fl); e.target.value = ""; },',
+    ),
+)
+
+TEMPLATE_PATCHES = TEMPLATE_PATCHES + (
+    (
+        "REVIEW A FILE: upload a document, an image or a recording for an engine decision",
+        'CHOOSE FILE<input type="file" accept=".csv,.json,.txt" onChange="{{ onFile }}" '
+        'style="display:none;" /></label>',
+        'CHOOSE FILE<input type="file" accept=".csv,.json,.txt" onChange="{{ onFile }}" '
+        'style="display:none;" /></label>\n'
+        '              <label title="Upload a document, an image or a WAV recording: Mercury reviews it '
+        "(is some part of it unlike the rest?) and answers with a decision record. Needs a live "
+        'server." style="cursor:pointer;font-family:var(--font-mono);white-space:nowrap;'
+        "border-radius:var(--r-sm);font-size:11px;letter-spacing:.1em;padding:7px 12px;"
+        "background:var(--surface-2);color:var(--mercury-100);border:1px solid var(--mercury-600);"
+        '">REVIEW A FILE<input type="file" accept="' + REVIEW_ACCEPT + '" '
+        'onChange="{{ onReviewFile }}" style="display:none;" /></label>',
+    ),
+)
+
 
 def _apply(text: str, patches: tuple[tuple[str, str, str], ...], where: str) -> str:
     for desc, old, new in patches:
@@ -2167,6 +3245,14 @@ def build() -> dict[str, str]:
     source = PROTOTYPE.read_text(encoding="utf-8")
     template, helmet_css, logic = _extract(source)
     template = _apply(template, TEMPLATE_PATCHES, "template")
+    # A scrolling block must be reachable from the keyboard (WCAG 2.1.1): every <pre> that scrolls takes focus.
+    template, focusable = re.subn(
+        r'<pre style="(margin:0;(?:max-height:\d+px;)?overflow:auto;)',
+        r'<pre tabindex="0" style="\1',
+        template,
+    )
+    if focusable < 6:
+        raise SystemExit(f"template: expected at least 6 scrolling <pre> blocks, found {focusable}")
     parser = _TreeBuilder()
     parser.feed(template)
     parser.close()

@@ -23,7 +23,7 @@
 
 ```
               +===============================================================================+
-              |                            Mercury Agent ♱ v3.0.0                             |
+              |                            Mercury Agent ♱ v3.1.0                             |
               | Computational Systems Intelligence - Multi-Domain Anomaly & Hazard Detection  |
               |                                                                               |
               |   Cognitive Orchestrator |   Hybrid Fusion ML      |   Production Security    |
@@ -45,8 +45,8 @@
 **Contact:** steel.sa.llc@mercuryagent.global (operations & security) · contact@mercuryagent.global (general inquiries & support)\
 **License:** GNU Affero General Public License v3.0 or later (SPDX: AGPL-3.0-or-later)\
 **AI Co-Architects:** Eris ✠ | Eden ♱ | Devin ⚛︎ | Claude ⊛\
-**Version:** v3.0.0\
-**Date:** 2026-10-21
+**Version:** v3.1.0\
+**Date:** 2026-11-19
 
 ---
 
@@ -75,7 +75,7 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 > One additional permission is granted under AGPL section 7: Mercury may be combined with NVIDIA's CUDA libraries (needed for GPU acceleration) and the result conveyed. It covers those libraries only and leaves every other term, section 13 included, intact — see [LICENSE-EXCEPTION](LICENSE-EXCEPTION).
 >
 > **Status:** Research-grade | Community-tested | Not externally audited
-> **Last Updated:** 2026-10-21
+> **Last Updated:** 2026-11-19
 >
 
 ---
@@ -91,6 +91,7 @@ Beyond the library and CLI, the repository ships an **opt-in self-service platfo
 - [Current Benchmarks and Visual Proof](#current-benchmarks-and-visual-proof)
 - [3R: Recursion-Resonance-Refactoring](#3r-recursion-resonance-refactoring)
 - [Key Capabilities](#key-capabilities)
+- [The Single Issue Mercury Resolves](#the-single-issue-mercury-resolves)
 - [Use Cases by Sector](#use-cases-by-sector)
 - [Performance Metrics](#performance-metrics)
 - [Quick Start](#quick-start) (installation, usage, Docker, self-service platform, Kubernetes)
@@ -125,19 +126,19 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8610 | 0.8548 | +0.0062 |
-| Median ROC-AUC | 0.9077 | 0.9052 | +0.0025 |
-| Mean Oracle F1 | 0.6476 | 0.6430 | +0.0046 |
+| Mean ROC-AUC | 0.8616 | 0.8616 | +0.0000 |
+| Median ROC-AUC | 0.9038 | 0.9038 | +0.0000 |
+| Mean Oracle F1 | 0.6492 | 0.6492 | +0.0000 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-10-26T23:01:08.701481+00:00 | 2026-10-14T20:27:14.966442+00:00 | — |
-| Commit | `a2d7f99` | `27d2293` | — |
+| Run timestamp (UTC) | 2026-11-20T17:24:43.663147+00:00 | 2026-11-20T05:55:51.492733+00:00 | — |
+| Commit | `18ab64c` | `f733327` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
 
 **Comparability note.** The aggregate ROC-AUC above blends two evaluation regimes. Only externally-labeled datasets — ADBench and the standard labeled sets, where labels come from a source independent of the scored signal — are comparable to published baselines; the comparable headline is **ADBench Mean AUC 0.8571**. Several environmental loaders are self-labeled by thresholding the signal they score, which inflates their AUC toward 1.0 (label leakage) and is reported for pipeline transparency only. See *Label provenance and comparability* in the benchmarks below for the full split.
 
-**Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7745 (+3.48 pts, 13 W / 1 tie / 4 L)** from base `e118e1f` to the detector at `e7341ce` (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`. The re-measurement at `e7341ce` (fit-time conformal operating point, conformal p-values) reproduced 0.7745 on all 18 sets: those changes move the cut, not the ranking.
+**Fusion-hardening (transductive).** The unsupervised fusion changes in `detectors/statistical.py` are measured independently of the headline run by a committed, re-runnable 18-set real-ADBench transductive harness ([`research/omni_equation/harness_adbench.py`](research/omni_equation/harness_adbench.py)): Mean AUROC **0.7397 → 0.7737 (+3.40 pts, 13 W / 1 tie / 4 L)** from base `e118e1f` to the detector at `67cb0ca` (full per-set results in [`research/omni_equation/adbench_results.json`](research/omni_equation/adbench_results.json)). Real data only — the harness fails loudly rather than substituting synthetic. Re-run: `python research/omni_equation/harness_adbench.py`. The harness fits the detector on the rows it scores, so since `15b0eea` it declares that reference unlabelled and the kNN stream is fused at equal weight; the previous ledger (`e7341ce`, 0.7745) gave the stream its dimensional weight. Eight sets rose, nine fell, the mean moved by −0.0008.
 
 > **Both sides were measured on one tree, in one environment.** The earlier
 > ledger (`0.7634`, 14 W / 2 tie / 2 L) was recorded at `bdcdf6a` and left behind by
@@ -147,8 +148,9 @@ Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the co
 > reproduced the committed 0.7397 on all 18 sets byte-for-byte, which rules the
 > environment out as a confound and attributes the whole current-side movement to the
 > detector revisions. The harness is deterministic: two runs on one tree are identical.
-> The refreshed ledger is a larger mean gain and a worse win rate — `cardio` −0.0855 and
-> `optdigits` −0.0624 are the two real regressions, enumerated in
+> The four losses against the base are `optdigits` −0.0424, `cardio` −0.0330,
+> `vertebral` −0.0263 and `Cardiotocography` −0.0193 (`cardio` was −0.0855 and
+> `optdigits` −0.0624 at the dimensional weight), enumerated in
 > [`adbench_base_vs_current.json`](research/omni_equation/adbench_base_vs_current.json).
 
 **Adversarial shapes on the served routes (measured).** The detection routes
@@ -180,16 +182,16 @@ These numbers are produced by `scripts/measure_codebase_scale.py` and gated in C
 
 | Measurement | Value |
 |---|---|
-| Python source files in `src/omni_mercury_engine/` | **884** |
-| Source lines of code (LOC) | **~493,000** |
-| Top-level subpackages (true Python packages with `__init__.py`) | **52** |
+| Python source files in `src/omni_mercury_engine/` | **920** |
+| Source lines of code (LOC) | **~524,000** |
+| Top-level subpackages (true Python packages with `__init__.py`) | **55** |
 | Files importing PyTorch (optional `[ml]` extra) | **176** |
-| Distinct `torch.nn.Module` subclasses | **174** |
+| Distinct `torch.nn.Module` subclasses | **175** |
 | Detector classes (`class *Detector`) in `detectors/` | **110** |
 | Public detector classes package-wide (`class *Detector`, not `Base*` or `_private`) | **170 in 17 subpackages** |
-| Data-loader classes (`class *Loader`) in `loaders/` | **22** |
-| Test modules (`test_*.py`) / total test LOC | **965 modules / ~271,000 LOC** |
-| GitHub Actions workflows | **26** |
+| Data-loader classes (`class *Loader`) in `loaders/` | **23** |
+| Test modules (`test_*.py`) / total test LOC | **1112 modules / ~316,000 LOC** |
+| GitHub Actions workflows | **27** |
 
 _Generated by `python scripts/measure_codebase_scale.py --update README.md` and gated in CI (`scripts/measure_codebase_scale.py --check README.md`); do not hand-edit between the markers._
 
@@ -222,14 +224,15 @@ Mercury Agent implements a 7-phase cognitive architecture that progressively bui
 | **Phase 4** | Enhanced Anomaly Detection | Memory knowledge graph | Bayesian predictor, HMM predictor, external data integration |
 | **Phase 5** | Autonomous Agent | OODA loop implementation | Observe-Orient-Decide-Act-Reflect, user synchronization, Mercury/AMA Disconnect |
 | **Phase 6** | Ethical Bounding | Harm-uplift gate (enforced); benevolence scoring (advisory) | Harm reduction, equity calculation (Gini), empathy module |
-| **Phase 7** | Cognitive Evolution Engine | Curiosity-driven exploration | `CuriosityEngine`: measured novelty scoring (online diagonal-Mahalanobis distance) of detected anomalies, wired into the `CognitiveOrchestrator`. The earlier self-play / genetic-mutation / theory-of-mind internals were measured decorative and removed. |
+| **Phase 7** | Cognitive Evolution Engine | Curiosity-driven exploration | `CuriosityEngine`: measured novelty scoring (online diagonal-Mahalanobis distance) of detected anomalies, wired into the `CognitiveOrchestrator`; the verdict is a conformal rank test (novel when the distance ranks in the top 5% of at least 20 reference distances), and the served flagship keeps one reference per caller. The earlier self-play / genetic-mutation / theory-of-mind internals were measured decorative and removed. |
 
 The seven phases are the historical evolution spine, not the whole cognitive
 layer: `cognitive/` has since grown to 30 modules, integrated at runtime by the
 `CognitiveOrchestrator` (knowledge graph, multi-hop reasoner, and uncertainty
 quantifier always on; plasticity, causal discovery, IPB, case-based reasoning,
 and indicator development on by default; curiosity and enhanced detection
-opt-in — see `cognitive/__init__.py`).
+opt-in on the orchestrator API, and curiosity ON for the served entrypoints
+(API flagship, CLI fusion, MCP) — see `cognitive/__init__.py`).
 
 </details>
 
@@ -268,10 +271,11 @@ detectors:
   detector recovers them almost trivially (0.97–1.00 AUC). That is **label
   leakage**, not accuracy — reported below for pipeline transparency only.
 
-The same provenance discipline extends to the live-API loaders: of 21 concrete
-loaders, only 2 (`network_security`, `sepsis`) produce labels independent of any
-scored feature, and the governed-fusion suite gates self-improvement on those 2
-alone. CI enforces the split (`python -m omni_mercury_engine.loaders.label_provenance --check`);
+The same provenance discipline extends to the live-API loaders: of 22 concrete
+loaders, only 3 (`network_security`, `sepsis`, `fema_activity`) produce labels
+independent of any scored feature, and the governed-fusion suite gates
+self-improvement on the events of those it can reach (`network_security` and
+`fema_activity`) alone. CI enforces the split (`python -m omni_mercury_engine.loaders.label_provenance --check`);
 see [docs/SELF_IMPROVEMENT_LOOP.md](docs/SELF_IMPROVEMENT_LOOP.md) for the
 governed self-improvement rollout.
 
@@ -279,18 +283,20 @@ governed self-improvement rollout.
 
 **Ensemble** — unsupervised, three-component weighted fusion:
 
+<!-- BENCHMARK-HEADLINE:START -->
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7665 | 0.8008 |
-| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6013 | 0.5719 |
-| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8265 | 0.8671 |
-| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8610** | **0.9077** |
+| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7639 | 0.7723 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6009 | 0.5720 |
+| InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8269 | 0.8582 |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8616** | **0.9038** |
 
-| Aggregate (54 genuine-label datasets of 67 successful) | Value |
-|---------------------------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8610 / 0.9077 |
-| Std AUC | 0.1438 |
-| Mean / Median Oracle F1 | 0.6476 / 0.7005 |
+| Aggregate (55 genuine-label datasets of 67 successful) | Value |
+|--------------------------------------------------------|-------|
+| Mean AUC / Median AUC | 0.8616 / 0.9038 |
+| Std AUC | 0.1426 |
+| Mean / Median Oracle F1 | 0.6492 / 0.7168 |
+<!-- BENCHMARK-HEADLINE:END -->
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
 operational performance.*
@@ -303,16 +309,17 @@ against other detectors.
 <!-- BENCHMARK-DOMAINS:START -->
 | Domain | Datasets | Mean AUC | Mean oracle F1 |
 |--------|----------|----------|----------------|
-| ADBench | 47 | 0.8571 | 0.6443 |
+| ADBench | 47 | 0.8571 | 0.6441 |
 | Time series (SMD, NAB) | 2 | 0.7738 | 0.4690 |
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
 | General (ADRepository) | 1 | 0.9116 | 0.6162 |
 | Industrial (BATADAL) | 1 | 0.8976 | 0.5548 |
 | Maritime (DTU_AIS_Abnormal) | 1 | 0.8750 | 0.6250 |
+| Medical (MIT-BIH) | 1 | 0.8982 | 0.7408 |
 | Security (NSL-KDD) | 1 | 0.9741 | 0.9544 |
 
 *Generated from `benchmarks/mercury_benchmark_results.json` by
-`scripts/update_readme_benchmarks.py`: the 54 successful datasets whose
+`scripts/update_readme_benchmarks.py`: the 55 successful datasets whose
 labels are `ground_truth` or `expert_annotated`. Threshold-derived
 (`statistical`) labels are excluded as circular. Domains of one to three
 datasets are easy to separate at that size; the comparable figure is the
@@ -390,11 +397,16 @@ Per-domain AUROC from the committed
 cited `run_all_benchmarks.py`, whose output is not committed, and carried
 several values — including a Flood row — that matched no committed artifact):
 
-> **Eight of these nine rows are self-labelled, and the table never said so.**
-> Only Network Security has labels independent of the scored features
-> (`ground_truth`: NSL-KDD `label`, BATADAL `ATT_FLAG`); the other eight are
-> `statistical` — the label is a threshold on a column the detector was also
-> handed. `Overall` pools both regimes over all 30 events, which is exactly what
+> **Most of these rows are self-labelled, and the table never said so.**
+> Network Security and Sepsis have labels independent of the scored features
+> (`ground_truth`: NSL-KDD `label`, BATADAL `ATT_FLAG`, PhysioNet
+> `SepsisLabel`), FEMA declaration
+> activity is labelled by NOAA's billion-dollar disaster catalogue, Tsunami by
+> catalogued time windows, and the two Energy grid events by the disturbances
+> reported to DOE. The other rows are `statistical` — the label is a
+> threshold on a column the detector was also handed, unless the Labels column
+> says that column is excluded. `Overall` pools every regime over all 54 events,
+> which is exactly what
 > the leakage-flagged section below says is never done. The loaders declared this
 > at source the whole time; this table did not carry it. Measured impact and the
 > limits of that measurement:
@@ -402,40 +414,180 @@ several values — including a Flood row — that matched no committed artifact)
 
 | Domain | AUROC | Labels | Label rule |
 |--------|-------|--------|------------|
-| Network Security | 0.7925 | **independent** | per-row attack flags (NSL-KDD `label`, BATADAL `ATT_FLAG`) |
-| Earthquake | 0.9367 | self-labelled | `magnitude >= mainshock_mag - 1.0`, and `magnitude` is feature[0] |
-| Pandemic | 0.9256 | self-labelled | 7d rolling cases > 2x 30d baseline, on the same smoothed series |
-| Energy | 0.9237 | self-labelled | `kp >= 7` on feature[0]; series also reconstructed — "doubly circular" in the loader |
-| Tsunami | 0.8905 | external labels, reconstructed series | arrival-time windows; BPR series reconstructed |
-| Tornado | 0.8803 | self-labelled | `mag >= 3` (EF3+) on the raw magnitude behind `ef_scale` |
-| Hurricane | 0.7792 | self-labelled | 24h wind delta >= 30 kt, which is also scored |
-| FEMA | 0.7598 | self-labelled | the DR/IA/PA declaration flags themselves |
-| Marine | 0.5412 | self-labelled | richness-decline threshold on scored `richness_loss` |
-| *Overall* | *0.8501* | *mixed* | *pools all nine; not a comparable figure* |
+| Network Security | 0.7186 | **independent** | per-row attack flags (NSL-KDD `label`, BATADAL `ATT_FLAG`) |
+| Sepsis | 0.7193 | **independent** | PhysioNet/CinC Challenge 2019 `SepsisLabel`, per patient-hour; training sets A and B |
+| Earthquake | 0.6321 | self-labelled, magnitude columns excluded | `magnitude >= mainshock_mag - 1.0`; scored on depth, location, time since the previous event and seismicity rate only (`magnitude`, `mag_deviation` and `b_value` excluded); one or two positives per event |
+| Pandemic | 0.8654 | self-labelled, case columns excluded | 7d rolling cases > 2x 30d baseline; scored on deaths, reproduction rate, testing, positivity and stringency only; the three COVID events (the cholera event has no AUROC, see below) |
+| Energy | 0.7808 | mixed, recorded series | storms: `kp >= 7`, scored on the recorded solar wind and flare class only (Kp columns excluded); Texas 2021 and Texas 2023: **independent** — the disturbances reported to DOE on Form OE-417, to the hour (EIA Electric Power Monthly), scored on the EIA-930 grid series |
+| Tsunami | 0.8110 | catalogued windows, recorded series | origin time to a fixed end per event; 15-minute BPR series from the NDBC DART archive, rolling statistics over trailing windows |
+| Tornado | 0.9355 | self-labelled, `ef_scale` excluded | `mag >= 3` (EF3+); scored on path length and width, injuries, fatalities, location and time, which covary with the EF scale |
+| Hurricane | 0.7044 | self-labelled, wind-change columns excluded | 24h wind delta >= 30 kt on the 6-hourly synoptic main track; scored on the 6h and 12h pressure change only |
+| FEMA declaration activity | 0.8583 | **independent** | days inside a NOAA NCEI billion-dollar tropical cyclone's window (event dates plus the 30-day request window); scored on daily counts of FEMA designations, 2017 to 2024 |
+| FEMA declaration flags | 0.4832 | self-labelled, flags excluded | major disaster with individual assistance (IA, or IH since about 2007) and public assistance; scored on state, month, declaration counts and spacing only |
+| Marine | 0.6314 | self-labelled | richness-decline threshold on scored `richness_loss` |
+| Flood | 0.7907 | self-labelled | gauge height >= the NWS flood stage, and `gauge_height_ft` is scored; one event (Helene 2024) |
+| Landslide | 0.6190 | self-labelled, fatality and size columns excluded | fatal, or large and above; one event (Oso 2014: 24 rows, 3 positives) |
+| *Overall* | *0.7324* | *mixed* | *pools all thirteen; not a comparable figure* |
+
+**Re-measured 2026-11-20, after the loader fixes** (`7b422c7`, `5ee1f06`,
+`f024595`) **and the catalogue corrections that followed them the same day**
+(detector as of `f733327`, loader cache empty at the start). Every row above is
+from one run and is scored on the de-leaked matrix
+(`engineer_scored_features`), which is what `build_cache.py` writes;
+`score_events.py` and `measure_cached.py` make the table from that cache, and
+`score_events.py` gives the whole sequence. Six rows
+(Network Security, Earthquake, Pandemic, Tornado, Hurricane, Marine) had been
+carried from a cache older than the exclusion, so they moved for more than one
+reason. A control run of the same pipeline on the same day, with the loaders as
+they were before `7b422c7`, separates the reasons; "before" below is that
+control unless it says "published".
+
+- *Lower because of a fix.* Hurricane 0.7835 → 0.6204 on the events the
+  catalogue could then read: the 24 h deltas had
+  been taken over rows of mixed 3- and 6-hourly spacing and over spur tracks.
+  On the 6-hourly synoptic main track Irma falls 0.8288 → 0.5672, Milton
+  0.7731 → 0.5707, Helene 0.6974 → 0.5938 and Katrina 0.8346 → 0.7807, and
+  Sandy 2012, which held one class before, enters at 0.5898. Tsunami
+  0.8771 → 0.8110: the rolling mean and deviation were centred windows that
+  read later samples; trailing, Chile 2010 is 0.9117 → 0.7352 and Tonga 2022
+  0.7379 → 0.7070 (Tohoku 2011 0.9817 → 0.9908). FEMA declaration flags
+  0.4930 → 0.4832: an unstable re-sort had shifted feature rows against their
+  labels; aligned, all of 2023 is 0.6021 → 0.5532. Pandemic 0.8748 → 0.8654:
+  `mpox_2022` (0.9030) was the COVID file under another name and is no longer
+  an event.
+- *Higher because of a fix.* Earthquake 0.3537 → 0.6321: the historical query
+  had no spatial filter, so each event was every M2.5+ earthquake in the world
+  during its window (Haiti 216 rows, 70 in its region). Haiti 0.0257 → 0.7279,
+  Nepal 0.3333 → 0.8264, Noto 0.0723 → 0.2527, Tohoku 0.9752 → 0.9981,
+  Turkey–Syria 0.3621 → 0.3551. With one or two positives per event that
+  figure is the rank of one or two rows. Tornado 0.9231 → 0.9328 (same-day
+  reports keep their order; the 2011 super outbreak 0.8462 → 0.8656).
+- *Events the catalogue could not read.* Seven of the twelve hurricane events
+  carried storm identifiers IBTrACS does not hold, and returned no track.
+  With the archive's own identifiers, looked up by storm
+  name and season, Hurricane is 0.7044 over twelve events where it was 0.6204
+  over five: Dorian 0.8654, Harvey 0.8213, Ian 0.7585, Ida 0.7538, Michael
+  0.7424, Maria 0.7255 and Matthew 0.6838 enter, and the five already read are
+  unchanged to four places. The tornado loader named SPC's 1950 to 2023 file,
+  which holds nothing for `midwest_2024`. On the 1950 to 2024 file, whose rows
+  for the two older events are the same, that event is 179 tornadoes, 10 of
+  them EF3 or stronger, and scores 0.9408; Tornado is 0.9355 over three events
+  where it was 0.9328 over two.
+- *Not the fixes.* The 0.9367 published for Earthquake was measured with
+  `magnitude` in the scored matrix; excluding it is what took it to 0.3537.
+  Network Security (published 0.7925; NSL-KDD 0.6674 → 0.5155 on its
+  20,000-row sample, BATADAL 0.9176 → 0.9217) and Marine (published 0.5412;
+  the 2023 heatwave is 404 rows from OBIS today where the older cache held 78,
+  and the 2020 bleaching event is a third) moved between the cache those rows
+  were carried from and today's fetch, and read the same with the loaders
+  before and after. Energy and FEMA declaration activity are unchanged to four
+  places.
+- *Not measured.* `ebola_2014` (published 0.9699) was a series the loader
+  constructed: WHO GHO answers HTTP 404 for `EBOLA_CASESDEATHS`, none of the
+  3,092 indicators in its catalogue names Ebola, and the event is now marked
+  not benchmarkable. `cholera_yemen_2017` is fetched, but WHO reports only
+  its case counts, every column left after the exclusion is zero, the score is
+  constant and no AUROC exists; it is written as `null` with its reason and is
+  not counted as 0.5. CICIDS-2017's wired sources answer 404 or redirect to a
+  registration form; wildfire and
+  financial need keys that were not set. Flood `european_2021`, pandemic
+  `mpox_2022` and the four volcanic events are marked not benchmarkable by
+  their loaders. Flood's Vermont 2023 and two landslide events hold one class.
+  Sepsis, Flood and Landslide are new rows: their sources could not be read
+  when the table was last built.
+
+**What a rank does not tell you, measured.** AUROC says how well the detector
+orders the rows of one event. It does not say that a score of 0.8 means four
+times in five, that a "90%" certificate is right nine times in ten on the next
+event, or how often the decision layer declines to decide. Those are measured
+per hazard on these same events, each event judged by a calibration fitted on
+the hazard's others ([`docs/HAZARD_CALIBRATION.md`](docs/HAZARD_CALIBRATION.md),
+measured 2026-11-20):
+the certificate held for ten of the eleven hazards that could be measured and fell
+short for one (network security 72.5% against 90%); the calibrated probability
+says more than the base rate for six; and of the three hazards whose labels are
+independent, the result is poor for network security and sepsis (more than half
+of the true attacks are called normal; 4.7% of the sepsis anomaly calls are
+right) and good for FEMA declaration activity (two thirds of its anomaly calls
+are right). Holding is mostly paid for by abstaining: more than half of the rows
+are abstained on for eight of the ten hazards where the certificate held. The
+record of 2026-11-18 said five of ten, short for two. That document sets out
+what moved it: seven of ten with the loaders as they were and the code as it is
+now, nine of ten on the fixed loaders, and ten of eleven with the hurricane and
+tornado events the catalogue could not read and FEMA declaration activity
+added. A decision record about a measured hazard carries that hazard's record
+with it.
 
 **What the leak was worth, measured.** Every loader now declares its
 label-derived columns and the scored matrix excludes them
 (`BaseDomainLoader.engineer_scored_features`), so this is re-measurable rather
-than argued. Re-measured with the current detector on the five earthquake
-events re-fetched from USGS (`research/engine_calibration/deleak_impact.py`),
+than argued. Re-measured 2026-11-20 with the current detector, every domain
+with and without its label-derived columns on the same fetched rows in one run
+(`research/engine_calibration/deleak_impact.py`),
 Earthquake falls
-**0.8995 → 0.3276 (−0.5718)** — below chance on four of its five events once
-`magnitude`, `mag_deviation` and the magnitude-derived `b_value` are excluded,
-so that figure was almost entirely the leak. Read the rest with the control in
-mind: domains with *no* exclusions moved by up to
-0.119 on the same events between two runs, so only a delta well outside that
-band is attributable to de-leaking. FEMA (−0.055), Pandemic (−0.033) and Hurricane
-(+0.004) sit inside it. Exclusion also removes identity, not correlation:
-Tornado *rose* with `ef_scale` dropped, because path length, injuries and
+**0.9871 → 0.6320 (−0.3551)** — below chance on two of its five events once
+`magnitude`, `mag_deviation` and the magnitude-derived `b_value` are excluded
+(0.6321 in the table: this artifact rounds each event before averaging). The
+control is exact in this run: domains with *no* exclusions moved by up to
+0.000 on the same events, because both views are the same matrix and the
+detector is deterministic. The 0.119 quoted here before compared a figure
+carried over from an older run with a fresh one, and measured the drift
+between two runs. FEMA's declaration flags (−0.243 over five events), Energy
+(−0.115), Pandemic (−0.0545 over its three COVID events) and Tornado (−0.032
+over three) fall with their columns excluded; Hurricane does not fall (+0.0225
+over twelve). The cholera event has both classes and no de-leaked AUROC, its
+remaining columns being all zero: it is recorded as undefined and left out of
+both of Pandemic's means. Until 2026-11-20 this script scored it as 0.5 and
+averaged it in, and Pandemic read −0.1635, which was not a measurement.
+Exclusion also removes
+identity, not correlation: Tornado still ranks at 0.94 with `ef_scale`
+dropped, because path length, injuries and
 fatalities covary with EF scale — distinct measurements, still physically
 downstream of the labelled quantity.
 
-**Energy cannot currently be reproduced at all.** All four of its events
-predate the live SWPC window, so the loader refuses rather than reconstructing;
-the committed 0.9237 was measured on a reconstructed series with circular
-labels. The table above is retained as the record of what was published, not as
-a performance claim, and the numbers are not restated anywhere as domain
-accuracy.
+**Energy and Tsunami were measured on synthetic series until 2026-11-16.**
+The loaders built both series themselves, and the figures then published
+(Energy 0.9237, Tsunami 0.8905) were scores on those constructions. Both
+loaders now read the recorded history: NASA OMNI2 for the three geomagnetic
+storms, EIA-930 for the Texas 2021 grid event, and NDBC's DART archive for the
+tsunami events. The rows above are measured on that data with the same
+detector and procedure (`research/engine_calibration/remeasure_recorded.py`).
+Energy's five events are 0.9722
+(Bastille Day 2000), 0.7709 (Halloween 2003), 0.5916 (Quebec 1989, where no
+spacecraft measured the solar wind for 56% of the window), 0.9012 (Texas
+2021, Winter Storm Uri) and 0.6680 (Texas 2023, a full year). Both grid
+events are labelled by the disturbances utilities reported to DOE, read to the
+hour from EIA's Electric Power Monthly; EIA carried that table through 2023. The storm
+rows include the recorded GOES X-ray flare class (NOAA NCEI's yearly flare
+reports), which was empty before. The two grid
+events are scored on the grid's own series; scored on space weather, as they
+first were, they sat at chance (0.55 and 0.49). Tsunami's three are 0.9908
+(Tohoku 2011), 0.7352 (Chile 2010) and 0.7070 (Tonga 2022) on the buoy's
+15-minute cadence, with rolling statistics that look only backwards; with the
+centred windows used until 2026-11-20 they read 0.9817, 0.9117 and 0.7379. A
+1-minute grid had recorded when the buoy switched to
+event mode, which is the answer rather than a reading.
+
+**FEMA's labels were empty for every modern event.** The rule read
+`iaProgramDeclared`, which FEMA stopped setting around 2007; individual
+assistance has been recorded as `ihProgramDeclared` since. All 1,738
+declarations of the 2023 and 2024 events were labelled normal. With the rule
+reading either flag, and the flags themselves kept out of the scored matrix,
+the five events score 0.7291 (earthquakes, all years), 0.5532 (all of 2023),
+0.5358 (hurricanes 2024), 0.3121 (floods 2024) and 0.2857 (fires 2023, one
+positive in 36): 0.4832, which is chance. The 0.7598 published before was
+measured on a different extract and does not survive the corrected labels.
+
+**Why that row stays at chance, and the row that replaces it as the FEMA
+measurement.** "Major disaster with individual and public assistance" is an
+administrative category: a third of the rows carry it, and no column
+independent of it tracks it in one direction (designated areas rank it at
+0.71 on one event and 0.23 on another). `FEMAActivityLoader` asks what a
+monitor of the declaration stream asks, whether activity is surging, and takes
+its labels from outside FEMA's record: a day is positive when it falls inside
+a NOAA NCEI billion-dollar tropical cyclone's window. The rule was fixed
+before it was measured and was measured once: 0.70 to 0.95 per year, 0.8583
+over 2017 to 2024. `Overall` pools 54 events, 53 of which have an AUROC.
 
 ### Transparency: self-labeled loaders (leakage-flagged, not comparable)
 
@@ -463,7 +615,7 @@ AUC (ensemble inversion on high-dimensional data); no tuning was performed.
 ### Visual proof
 
 The benchmark panels below are generated from the current committed
-`mercury_benchmark_results.json` run (2026-10-26; Mean AUC 0.8610 over the 54
+`mercury_benchmark_results.json` run (2026-11-16; Mean AUC 0.8616 over the 55
 genuinely labelled of 67 successful datasets) by
 `scripts/generate_docs_images.py`; the calibration panels come from
 `scripts/generate_calibration_visuals.py` over the committed
@@ -479,7 +631,8 @@ see the NAB streaming benchmark below:*
 
 **Real-data neuro-symbolic result (NAB, Numenta Anomaly Benchmark — MIT).** On four committed,
 real labeled streaming fixtures with leak-free causal features fitted on a warmup prefix, the
-`MercuryAnomalyDetector` scores per-stream AUROC 0.840 / 0.661 / 0.686 / 0.728 (**mean 0.729**).
+`MercuryAnomalyDetector` scores per-stream AUROC 0.817 / 0.692 / 0.665 / 0.749 (**mean 0.731**).
+Re-measured 2026-11-20 on the trailing-difference Spectral Residual detector.
 Re-runnable: `python benchmarks/nab_streaming_benchmark.py` · results in
 [`artifacts/nab_streaming.eval.json`](artifacts/nab_streaming.eval.json).
 
@@ -759,13 +912,13 @@ Optimized for both accuracy and interpretability:
 ### Decision / Abstention / Response Layer (autonomous loop)
 
 Closes the loop from *interpret* to *deter* on top of the calibrated detection
-certificate, with an explicit, principled **"don't-know" gate**. On the core
-engine it is opt-in via `engine.enable_decision_layer()`; the served deploy
-entrypoints — the `/api/v1/detect/flagship` HTTP route, the MCP
-`mercury_detect_fusion` tool, and `mercury-agent detect -d fusion` — enable it
-by default, so every served flagship detection carries a `decision` section
-(additive key; library consumers constructing `OmniMercuryEngine` directly are
-unchanged).
+certificate, with an explicit, principled **"don't-know" gate**. It is **on by
+default engine-wide**: every `detect_with_fusion` result carries a `decision`
+section, on the served entrypoints (the `/api/v1/detect/flagship` HTTP route,
+the MCP `mercury_detect_fusion` tool, `mercury-agent detect -d fusion`) and for
+library consumers constructing `OmniMercuryEngine` directly (construct with
+`decision_layer=False` to opt out; `enable_decision_layer()` customises the
+policy, ledger or calibrator).
 
 - **Calibration-grounded abstention** — reuses the engine-wide `ThreeState`
   contract: the conformal label set is authoritative (singleton → **GROUNDED**;
@@ -789,7 +942,9 @@ unchanged).
   convert-to-benign / restore-to-pre-harm paths and are recommend-only by
   construction.
 - **Auditable & verifiable** — a deterministic, JSON-safe `DecisionRecord` with
-  the calibrated confidence, reasons, caveats and full evidence provenance, plus
+  the decision confidence and its basis (the conformal coverage when a
+  certificate backs it, a margin heuristic marked uncalibrated otherwise,
+  `None` on abstention), reasons, caveats and full evidence provenance, plus
   a one-paragraph `explain()` (and a `from_dict` inverse for reload). An
   append-only `DecisionLedger` (bounded ring buffer, **O(1)** incremental
   `summary()`, thread-safe, JSON-`save`/`load`) and a `DecisionLoop` add the
@@ -810,7 +965,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Ethical Governance | Fairlearn bias detection, 180+ ethical scalars |
 | Production Security | OWASP validation, PQC support, JWT authentication |
 | Verification Rigor | Rigor over raw count: property-based testing (Hypothesis), full-enumeration mutation testing with kill-rate floors enforced in CI on ten module sets, security scanning, and label-provenance/leakage and drift gates. Structural test-module counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block — the headline is the method, not a test tally |
-| Benchmark Coverage | 67 reproducible datasets (47 ADBench + 20 domain) of 76 attempted (47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8610** / Median **0.9077** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8571** |
+| Benchmark Coverage | 67 reproducible datasets (47 ADBench + 20 domain) of 76 attempted (47 ADBench + 29 domain); canonical Mean ROC-AUC **0.8616** / Median **0.9038** (CI-refreshed "Latest Benchmark Results" block above); externally-comparable subset ADBench Mean AUC **0.8571** |
 | Cross-Platform | Linux (Ubuntu 22.04+ supported in CI), macOS 13+ on Apple silicon (Intel Macs: core package only), Windows 10/11 (via WSL2), Docker, Kubernetes (Helm chart); 8 integrated observability platforms (Prometheus, Elastic/OpenSearch, Splunk, Datadog, Azure Anomaly Detector, Netdata, Grafana, InfluxDB) |
 | Mathematical Rigor | Lyapunov stability (`λ = 0.25`: a design-time proof certified by `tools/lyapunov_validator.py`, *monitored* at runtime and not enforced by default — `LyapunovRuntimeEnforcer` has `halt_on_violation=False`; see [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md)), σ_Immutable configuration-integrity gate (trained-network decision threshold 0.93; GOSNN gating default 0.96), fail-closed harm-uplift gate |
 | Codebase Scale | All structural counts are measured and CI-gated in the [Codebase Scale](#codebase-scale-measured-not-estimated) block above (source files, LOC, packages, detector/loader classes, `nn.Module` subclasses, test modules, workflows) — no hand-typed figures |
@@ -823,7 +978,7 @@ See `examples/decision_abstention_response_demo.py` and
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Hybrid Fusion Network | **Complete** | Multi-head attention, ensemble averaging |
-| Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; enabled by default on the served entrypoints (API `/detect/flagship`, MCP, CLI fusion), opt-in on the core engine via `enable_decision_layer()` |
+| Decision / Abstention / Response | **Complete** | Calibration-grounded `ThreeState` "don't-know" gate; bounded non-destructive response; on by default engine-wide (every `detect_with_fusion` result carries a `decision` record; `decision_layer=False` opts out); the served entrypoints (API `/detect/flagship`, MCP, CLI fusion) also attach the audit ledger |
 | Bias Detection | **Complete** | Fairlearn metrics, built-in fallback |
 | Input Validation | **Complete** | OWASP-compliant, SQL/XSS/injection detection |
 | JWT Authentication | **Complete** | Native stdlib `omni_mercury_engine.security.native_jwt` (HS256/HS384/HS512); all three route through AMA Cryptography v5.0.0's native HMAC (its ACVP-Server known-answer vectors pass bit-for-bit), fail-closed (no stdlib downgrade) |
@@ -839,7 +994,79 @@ See `examples/decision_abstention_response_demo.py` and
 
 </details>
 
+### The Watch: live feeds, delivery proof, and a scored storm forecast (v3.1)
+
+Mercury reads nine live hazard feeds on its own cadence — USGS earthquakes,
+NOAA geomagnetic activity, DART tsunami buoys, NWS river gauges and warnings,
+USGS volcano alert levels, national authorities' alerts via the WMO Severe
+Weather Information Centre, GDACS, and FEMA tropical-cyclone declarations — and
+reports a finding only when the source's own published scale says so. Findings
+carry the responsible agency's instruction, attributed; subscribers are told by
+email, verified-number text or one HTTPS webhook, once per severity, with every
+delivery recorded and never claimed when it could not be sent.
+
+```bash
+mercury-agent watch --once          # read every feed once and say what was seen
+mercury-agent alerts add --email you@example.org --place Home --lat 28.37 --lon -80.87
+mercury-agent alerts canary --wait 300   # prove a message arrives, from the other end
+```
+
+Delivery is **proven, not assumed**: a canary goes through the same mailer,
+text sender and webhook as an alert and counts as arrived only on
+acknowledgement, a carrier delivery receipt, or a mailbox check over IMAP
+(`alerts proof`). The watch also issues one pre-registered forecast — the
+probability that a UT day holds a geomagnetic storm at NOAA G1 or above —
+committed the day before into an append-only, hash-chained ledger and scored
+after against climatology and persistence (walk-forward 1960–2025: Brier
+0.1369 vs 0.1598 climatology; method in `research/forecast_kp/`). Details:
+[`docs/WATCH.md`](docs/WATCH.md).
+
 ---
+
+## The Single Issue Mercury Resolves
+
+**Auditable early warning on high-dimensional or multi-source data, where a
+plain anomaly score is not enough to act.** A score of 1.000 says a row is
+unusual; an operator who must act on it needs three more answers, and every
+flagship decision (`POST /api/v1/detect/flagship`, `mercury-agent detect -d
+fusion`, the MCP `mercury_detect_fusion` tool) carries them:
+
+1. **Why this row** — per-detector contributions
+   (`signals.contributions.detector_importance`), corrected lead-lag factors
+   (`causal_factors`, with partial R² and adjusted p), and the derived
+   hypothesis with its **weakest-link challenge recipe**: the weakest premise,
+   its margin, and the exact condition that withdraws the conclusion
+   (`hypothesis.falsifier`).
+2. **How sure, with coverage** — the **conformal certificate**: the prediction
+   set at a stated coverage target, how many held-out points calibrated it,
+   whether drift against the model's reference undermines it, and the
+   self-critique whose measured/unmeasured flags are derived from attached
+   evidence, never declared.
+3. **A record you can reconstruct and contest** — the deterministic
+   `DecisionRecord` with full provenance (checkpoint and SHA-256), the
+   **ethical-gate outcome** (score against threshold), and replayable
+   discovery artifacts: *Challenge this decision* in the console,
+   `mercury-agent replay record.json`, or `POST /api/v1/detect/flagship/replay`
+   re-run the recorded recipes and report HOLDS / FAILS / CANNOT_REPLAY per
+   artifact — a tampered record fails.
+
+One command walks all three answers on a single decision, end to end, on a
+committed window with known planted structure, then challenges it (see
+[Quick Start](#quick-start) for its output):
+
+```bash
+mercury-agent demo
+```
+
+It prints the three answers from a real decision of the shipped model (the
+four planted anomalies flagged, the planted X0→X1 driver recovered, a
+singleton conformal set at 90% coverage — and an honest *defer*, because the
+window sits in one regime of the four the model was calibrated on and the
+drift test sees it), replays the decision's artifacts against the data
+(HOLDS), shows a tampered copy failing, and leaves `decision.json` +
+`window.csv` for you to re-run the challenge yourself. The console landing
+states the same issue and where each answer lives; measured instrument error
+rates are in [docs/DISCOVERY.md](docs/DISCOVERY.md).
 
 ## Use Cases by Sector
 
@@ -963,6 +1190,192 @@ state):
 
 ## Quick Start
 
+### Ten minutes to three answers on one decision
+
+A score says a row is unusual. Before anyone acts on it they need to know
+**why this row**, **how sure** the system is, and what **record** they can
+reconstruct and contest. One command shows all three on a single real
+decision, then challenges it:
+
+```bash
+git clone https://github.com/Steel-SecAdv-LLC/Mercury-Agent.git && cd Mercury-Agent
+pip install -e ".[pqc,ml]"         # the full agent: native PQC backend + torch
+mercury-agent demo
+```
+
+It scores one committed window with the bundled flagship model, in the posture
+`POST /api/v1/detect/flagship` serves it. The window is built from the model's
+own training data with known structure planted in it (column X0 leads X1 by one
+step; rows 40-43 are labelled anomalies; the ordinary rows are one regime of the
+four the model was calibrated on), so every answer can be checked against what
+was put in. Output of a run on 2026-11-21, abridged (each answer is followed by
+the record fields it was read from, and the complete `DecisionRecord` is printed
+in full):
+
+```text
+1. WHY THIS ROW
+   Row 40 carries the verdict; 4 row(s) are flagged: [40, 41, 42, 43]. The fusion model
+   weighed these feature groups most: neural (0.361), biometric (0.281), dimensional
+   (0.041). Inside the window one column moves before another: X0 → X1 (lag=1, partial
+   R²=0.25, adjusted p=0.00063). The test behind it is corrected for every lag and pair it
+   tried. From the findings that hold, the record derives: Within this window X0 leads X1 at
+   lag 1: a candidate driver of the flagged behaviour. It is a candidate, stated with no
+   confidence number, and it says how it fails: its weakest premise is "The detection
+   flagged this input: P(anomaly) 1.000 at or above the decision threshold 0.500.", and the
+   conclusion is withdrawn if anomaly_flagged: statistic < 0.5.
+
+2. HOW SURE
+   The probability of an anomaly is 1.000 against a threshold of 0.500. The conformal
+   prediction set is {1}: at the 90% coverage the model was calibrated to (251 held-out
+   points, 90% achieved), exactly one label is consistent with this row. But the window's
+   ordinary rows do not look like the data that calibration was done on (drift: CRITICAL),
+   so the 90% coverage is not claimed for this window. Mercury therefore abstains: state
+   'unavailable', no confidence stated.
+
+3. THE RECORD
+   The decision is 'defer' and the response is 'request_input', which needs a human. The
+   record gives its reasons: conformal singleton {1} at 90% coverage (calibrated decision);
+   distribution drift (CRITICAL) detected: the calibration may no longer hold. It names the
+   model that decided (default_fusion.pt, sha256 5a0b97fd25bdd5b2...) and the ethical gate's
+   outcome (passed: score 1.000 against a floor of 0.930). It carries 2 finding(s) that
+   replay from the record alone (causal, hypothesis): anyone holding it can re-run them and
+   contest it.
+
+THE COMPLETE DECISION RECORD (every answer above was read from this)
+{ ... }
+
+CHALLENGE THIS DECISION (its recorded findings, replayed against the data)
+   causal     HOLDS   recomputed from the data: 4 contaminated row(s) set aside, 20 pairs tested, 1 edge(s) at alpha=0.05
+   hypothesis HOLDS   all 2 premise(s) hold and the steps derive candidate_driver
+   -> the decision's findings HOLD
+   and a copy with the lead-lag finding removed:
+   causal     FAILS   the artifact does not match its own digest: it was altered or is incomplete
+   hypothesis FAILS   withdrawn: premise(s) lagged_dependence no longer hold
+   -> the tampered copy FAILS
+
+Re-run the stored challenge recipe yourself:
+  mercury-agent replay mercury-demo/decision.json --data mercury-demo/window.csv
+```
+
+Read the outcome for what it is: the four planted anomalies are flagged, the
+planted driver is recovered, the conformal set is a singleton, and Mercury
+still **defers**, because the window is one regime of four and the drift test
+sees it. A score of 1.000 alone would have hidden all of that. The run itself
+takes seconds (4.4 s measured on a 4-core container; the install dominates);
+the exit status is 0 only when the findings hold on replay *and* the tampered
+copy fails. The same decision is one click in the console (`mercury-agent
+serve`, then MASS RUN → *Flagship · three answers on one decision*, then
+CHALLENGE THIS DECISION), and `tests/test_demo_three_answers.py` fails CI if
+any of the three answers disappears. Instrument error rates:
+[docs/DISCOVERY.md](docs/DISCOVERY.md).
+
+### Review a document, an image or a recording
+
+The same decision path takes a file. Give Mercury a document, an image or a
+recording and it answers one narrow question, **is some part of this unlike
+the rest of it?**, with the same three answers and a complete `DecisionRecord`:
+
+```bash
+mercury-agent review examples/data/review/sample_document.txt      # also: .png, .wav
+mercury-agent serve                                                # then, from another shell:
+curl -F file=@examples/data/review/sample_image.png http://localhost:8000/api/v1/review/upload
+```
+
+In the console (`/console`) it is **REVIEW A FILE**. An upload has no
+population to be compared with, so it is measured against itself: the file is
+decoded within stated bounds, read by the harm-uplift gate, cut into segments
+(48 word-windows, about 96 image tiles, 48 audio blocks), and each segment's
+16 named features are standardized against the file's own median and spread.
+That matrix is scored on the flagship path (fusion network, conformal
+certificate, ethical gates, decision layer) by a checkpoint for its kind. No
+learned embedding and no external detector is involved. Output on the
+committed document sample, which has a sentence repeated over characters
+1705-3621 and a scrambled passage at 5313-6476 (run of 2026-11-21, abridged;
+each answer is followed by the fields it was read from, then the complete
+record):
+
+```text
+1. WHY THIS SEGMENT
+   Segment 11 of 48 carries the verdict: characters 2922-3211 ("after gaining a real
+   downloader. > **v1.7.0 label-polarity. list even after gain..."), with an anomaly
+   probability of 0.995. What sets it apart from the rest of this document, in robust
+   standard deviations from the document's own median: lexical_variety (-7.4),
+   bigram_repetition (+6.8), short_word_share (-2.1). 10 of 48 segments are flagged (most
+   anomalous first: [11, 12, 8, 10, 9, 7, 23, 22, 21, 20]). The comparison is internal: a
+   flagged segment is unlike the rest of this document. That is not a finding that it was
+   altered.
+
+2. HOW SURE
+   The most anomalous segment's probability is 0.995 against a threshold of 0.500. The
+   conformal prediction set is {1}. The certificate is batch-level: it was calibrated on 300
+   whole reference artifacts, each represented by its most anomalous segment, to 90%
+   coverage (90% achieved). So it speaks to whether this document contains an anomalous
+   segment, and exactly one label is consistent with this document. Measured against the
+   artifacts that calibration was done on, this document is not distinguishable from that
+   family (p = 0.890), so the coverage applies. What the certificate has been measured to
+   cover: calibrated on 300 reference documents (...). Mercury therefore decides: state
+   'grounded', confidence 0.90.
+
+3. THE RECORD
+   The decision is 'act' and the response is 'recommend_mitigation'. The record gives its
+   reasons: conformal singleton {1} at 90% coverage (calibrated decision). It names the
+   model that decided (review_document.pt, sha256 eb6d2d42d3ebf33d...) and the upload it
+   decided about (text, 12667 bytes, sha256 ecbbb55a9bc63f93...). Before anything was
+   measured the harm-uplift gate read the document's text and the upload's name (12678
+   characters) and permitted the review; the engine's ethical gate passed (score 1.000
+   against a floor of 0.930). To contest it, review the same bytes again: the SHA-256
+   identifies them, and the same bytes with the same checkpoint give the same record.
+```
+
+Two things keep the certificate honest. It is **batch-level**: the verdict of a
+multi-row detection is its most anomalous row, and a per-row certificate does
+not cover a maximum (measured on the bundled flagship model, 4 of 30 clean
+40-row batches kept the right label in their set; calibrated on one statistic
+per batch, 25 of 30). And before it is claimed, the file is tested for membership of
+the family the certificate was calibrated on; one outside it is deferred, not
+judged.
+
+What it has been measured to do, on 300 held-out reference artifacts per kind
+that neither the fit nor the calibration saw (`artifacts/artifact_review.json`;
+`python -m research.review.harness_artifact_review`, 2026-11-21):
+
+<!-- artifact-review:begin (generated: research/review/harness_artifact_review.py --update-readme) -->
+| Kind | 90% set covered (clean / spliced) | Spliced: found / called clear / abstained | Clean: clear / called anomalous / abstained | Top segment inside the splice | Segment AUROC | Unlike the family: abstained / judged | Bars met |
+|---|---|---|---|---|---|---|---|
+| documents (150 + 150) | 98.0% / 86.0% | 96 / 20 / 34 | 67 / 3 / 80 | 80.5% | 0.868 | 3 / 14 of 17 | missed: wrong decisions (13.3% > 12%) |
+| images (150 + 150) | 89.3% / 92.0% | 119 / 9 / 22 | 133 / 13 / 4 | 96.7% | 0.988 | 7 / 0 of 7 | all three |
+| recordings (150 + 150) | 85.3% / 92.7% | 130 / 1 / 19 | 128 / 4 / 18 | 96.7% | 0.968 | 17 / 7 of 24 | all three |
+<!-- artifact-review:end -->
+
+Read it for what it is. The reference artifacts are procedural (runs of this
+repository's prose, generated textures, generated voiced signals) with
+procedurally inserted material, so these numbers say how well inserted foreign
+material of those kinds is found; they are not a measurement of real-world
+tampering, and a clear result is not evidence that a file is authentic. The
+bars were set before the run (per-class coverage at least 85%, at most 12% of
+either class decided wrongly, segment AUROC at least 0.80) and the table says
+which were missed. Documents are the weak kind: more than half of the clean
+ones get a calibrated don't-know instead of a clear, and 13.3% of the spliced
+ones are called clear (most of those had source code or another document's
+prose inserted). The last column is the family test at work on files unlike
+the reference family (Python source as documents, the repository's charts as
+images, chords as recordings), and it shows the test does not catch everything.
+Each checkpoint carries its own statement of this in its provenance, and every
+record repeats it as a caveat. Those statements quote the checkpoint's own
+held-out draw at training time, a different 300 artifacts: there the image
+checkpoint's clean coverage was 84.7%, just under the floor, and its statement
+says so.
+
+Accepted: text, Markdown, CSV, JSON, HTML, DOCX and PDF with a text layer; PNG,
+JPEG, GIF, BMP, WebP, TIFF; uncompressed WAV. Compressed audio is refused with
+the conversion to run (415); a scanned or encrypted PDF, or a file too short
+to be its own reference, is refused with the reason (422); past a bound (32 MiB
+request, 1,000,000 characters, 25 megapixels, 600 seconds) the upload is
+refused, never reviewed in part (413). Nothing uploaded is kept: the record
+carries the file's SHA-256. Design and security posture:
+[ARCHITECTURE.md](ARCHITECTURE.md#artifact-review-documents-images-recordings),
+[SECURITY.md](SECURITY.md#api-security).
+
 ### Ten minutes to one honest number
 
 Three commands take you from clone to a measured result on the only public,
@@ -1006,7 +1419,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
     Seq-2-Seq with attention   ROC-AUC 0.83   inside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
 
-  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8779 [95% CI 0.809-0.938], AP 0.2746
+  JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8780 [95% CI 0.808-0.938], AP 0.2640
     VRNN (GeoTrackNet arch.)   ROC-AUC 0.87   inside Mercury's interval
     Two-step clustering        ROC-AUC 0.73   outside Mercury's interval
     RVAE                       ROC-AUC 0.72   outside Mercury's interval
@@ -1014,7 +1427,7 @@ unlabelled training file (DOI 10.11583/DTU.21511842; ~1.1 GB streamed once,
 
 Four protocols, all seed-pinned and deterministic:
 
-- **Published protocols (0.8934, 0.8779)** are the numbers to read beside the
+- **Published protocols (0.8934, 0.8780)** are the numbers to read beside the
   published ones. Each fits on the training file that paper's models were
   trained on: 1 June to 30 November 2021 for Figure 6.1 of Kristoffer Vinther
   Olesen's DTU PhD thesis (2023, p. 48), and December 2021 without the 13th
@@ -1072,7 +1485,8 @@ platform, use the explicit path below.
 
 The Mercury **agent** will not start without the AMA Cryptography **native**
 PQC backend. Importing any agent surface — `omni_mercury_engine.engine` (which
-the CLI and API serve), `omni_mercury_engine.crypto`, the engine's lazy root
+the CLI and API serve), `omni_mercury_engine.api.server` (so the API does not
+boot without it), `omni_mercury_engine.crypto`, the engine's lazy root
 export, or an AMA-backed `security` name such as `MercuryCrypto` — runs a
 fail-closed gate that requires ML-DSA-65, Kyber-1024 and SPHINCS+ to be
 loadable from the native C library, and there is no development-mode or
@@ -1211,8 +1625,13 @@ Fit before detecting: the engine refuses to auto-fit on the inference batch.
 Per-row results are in `anomaly_probs` / `is_anomaly_rows`; the scalar
 `is_anomaly` is the batch verdict (`True` when any row crosses the threshold),
 `anomaly_prob` is the most anomalous row's probability, and `top_row` names
-that row. Each served result also carries a `decision` record (the calibrated
-decision or abstention, with its reasons).
+that row. Every result also carries `out_of_support_rows` (rows outside the
+training envelope, floored at the detector consensus), `model_provenance` (the
+checkpoint and its SHA-256), a `decision` record (the calibrated decision or
+abstention, with its reasons, caveats and full evidence signals) and, where
+computed, `conformal` (the certificate), `drift_detection` and
+`cognitive_analysis` (the self-critique with its replayable discovery
+artifacts).
 
 ### Extending the engine with additional detectors
 
@@ -1242,6 +1661,12 @@ Once enabled, a detector contributes its feature group to `fit_fusion` and `dete
 # View available commands
 mercury-agent --help
 
+# Start here: three answers on one real decision, then challenge it
+mercury-agent demo
+
+# Review a document, an image or a recording: is part of it unlike the rest?
+mercury-agent review report.pdf
+
 # Anomaly detection (CSV with or without a header row, .json or .npy).
 # The base detectors fit on the input itself:
 mercury-agent detect --input data.csv --detector dimensional
@@ -1265,6 +1690,15 @@ mercury-agent adjudication --help
 
 # Train the fusion model and install it as the served default
 mercury-agent train --data features.npz --install
+
+# Challenge a decision: replay the discovery artifacts a saved flagship
+# result (or its decision record) carries, and report whether each claim
+# still HOLDS / FAILS / CANNOT_REPLAY. Exit 0 all hold, 1 any fails, 2
+# cannot decide. --data recomputes a lead-lag finding from the window
+# itself (digest-checked); --reference re-ranks the novelty verdict
+# against rows of your own.
+mercury-agent detect -i window.csv -d fusion -o decision.json
+mercury-agent replay decision.json --data window.csv
 ```
 
 </details>
@@ -1816,22 +2250,22 @@ GitHub Actions enforce the following gates on every pull request and push to `ma
 | `ci.yml` | Integration Tests | yes | `tests/integration/` against mocked external services |
 | `ci.yml` | Performance Benchmark | PR-only | TTLCache / synthetic-gradient regression gate |
 | `ci.yml` | Ethics Audit | yes | `benchmarks/run_ethics_audit.py` (EthicalAutonomyGovernor, σ_Immutable, OAE) |
-| `ci.yml` | ML Tests | nightly/PR-to-main | Full suite under `tests/`, ≥ 62 % coverage, real AMA Cryptography build |
+| `ci.yml` | ML Tests | nightly/PR-to-main | Full suite under `tests/`, ≥ 62 % coverage, real AMA Cryptography build. Run as four sessions that append to one coverage file (`scripts/ci_test_partition.py`), because one session under coverage does not fit a 16 GB runner; the floor is enforced once, over all four. The release gate runs the same parts |
 | `ci.yml` | Docker Build + Trivy | yes | Multi-stage runtime image, CRITICAL/HIGH = 0 beyond the enumerated, expiring `.trivyignore` ledger (`ignore-unfixed: false`) |
 | `ci.yml` | Docs Build | yes | Sphinx build of the narrative docs |
 | `iso-hardening.yml` | Docs λ Drift Gate | yes | `scripts/check_readme_lyapunov.py` -- canonical λ = 0.25 across docs |
 | `iso-hardening.yml` | Examples Parity | yes | `examples/*.py` must run end-to-end and emit known markers |
 | `iso-hardening.yml` | Load Tests | yes | k6 smoke + locust headless against the live API with FastAPI lifespan warmup + CI warmup loop, SLO `p(95) < 500 ms` on detection endpoints, `p(99) < 150 ms` on `/health` |
 | `iso-hardening.yml` | ISO Hardening Success | yes | Rollup of the three gates above (single required status check) |
-| `security.yml` | Container/SAST scan | yes | Trivy + Semgrep with deterministic SARIF categories |
+| `security.yml` | Container/SAST scan | yes | Trivy + CodeQL with deterministic SARIF categories (Semgrep runs as a blocking gate in `ci.yml`) |
 | `pqc-production-check.yml` | PQC Production Readiness | yes | KAT vectors, NIST FIPS ACVP-Server vectors, real AMA Cryptography build |
 | `benchmark.yml` | Live Benchmark | scheduled | Refreshes `benchmarks/mercury_benchmark_results.json` + README block |
 | `dataset-reachability.yml` | Loader Reachability | nightly | Offline lane + nightly network lane for the 11 watch-listed loaders |
 | `network-tests.yml` | External Source Probe | nightly | Diagnostic probe of upstream data providers |
-| `docker.yml` | Docker Release | tag-driven | Push runtime image with provenance attestation |
+| `docker.yml` | Docker Build | push/PR | Build the runtime image to a tarball and Trivy-scan it (advisory); the tag-driven push WITH BuildKit SBOM + provenance lives in `release.yml`'s docker job |
 | `format.yml` | Formatting check | yes | Drift guard for `black` / `ruff format` output |
 | `mutation-testing.yml` | Mutation Kill-Rate Floors | path-filtered | Full-enumeration mutation testing of ten module sets (σ hot path, hazard adapters, distillation, humanitarian, crisis monitor, geological, observatory, trust surface, hazard evidence, PPO trainer), plus a cheap sample on every PR |
-| `release.yml` | Tagged Release | tag-driven | sdist + wheel + SBOM + provenance |
+| `release.yml` | Tagged Release | tag-driven | sdist + wheel, Sigstore-signed build provenance (`actions/attest-build-provenance` + PEP 740 attestations on trusted publishing), an artifact-hash SPDX record, and a CycloneDX dependency SBOM of the locked `[api]` closure emitted by Mercury's own `tools.sbom_emitter` |
 | `gate-watchdog.yml` | Gate Watchdog | scheduled | Detects required-gate runs that hang or get cancelled without superseding pushes; files an alert issue and auto-closes it once the gates run clean |
 
 The table above is the curated gate surface; the repository's full workflow
@@ -1915,6 +2349,7 @@ mypy src/
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
 | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | Python API quick reference (detector ensemble, compliance, medical, drone, profiling) |
 | [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | Benchmark methodology and results |
+| [docs/DISCOVERY.md](docs/DISCOVERY.md) | Candidate findings (novelty, lead-lag, hypothesis): what each rests on, measured error rates, and how to replay one |
 | [docs/HARDWARE_HARNESS.md](docs/HARDWARE_HARNESS.md) | Reproducible hardware-benchmark methodology and environment fingerprint schema |
 | [docs/HARM_POLICY.md](docs/HARM_POLICY.md) | Two-axis (hazard domain × operational intent) harm-uplift gate: what is refused, what is permitted, and why |
 | [docs/MATH_SPEC.md](docs/MATH_SPEC.md) | Mathematical foundations specification (including Lyapunov certificate proof) |
@@ -1936,7 +2371,7 @@ mypy src/
 | Document | Description |
 |----------|-------------|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [CHANGELOG.md](CHANGELOG.md) | Version history from 3.0.0; earlier releases are in [docs/changelog/CHANGELOG-pre-3.0.md](docs/changelog/CHANGELOG-pre-3.0.md) |
 | [DEPRECATION.md](DEPRECATION.md) | Deprecation notices |
 | [docs/INSTALLATION.md](docs/INSTALLATION.md) | Installation and setup guide |
 | [docs/DATASOURCES.md](docs/DATASOURCES.md) | Data source catalog and APIs |
@@ -2729,7 +3164,7 @@ PyJWT was retired from the dependency surface in v1.7.0; Mercury now
 ships a pure-stdlib JOSE implementation
 (`omni_mercury_engine.security.native_jwt`) with constant-time
 signature verification and `alg: none` rejected by construction.  The
-full rationale is documented in `CHANGELOG.md` under the 2026-05-20
+full rationale is documented in `docs/changelog/CHANGELOG-pre-3.0.md` under the 2026-05-20
 "Permanent supply-chain remediations" entry.
 
 ### Dependency Graph
@@ -2869,6 +3304,6 @@ THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE AUTHORS AND 
 
 <img width="63" height="65" alt="image" src="https://github.com/user-attachments/assets/ff4770d8-40a9-4d83-b5b7-eb525494a91b" />
 
-*Last updated: 2026-10-21*
+*Last updated: 2026-11-19*
 
 </div>

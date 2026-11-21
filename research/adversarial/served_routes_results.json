@@ -4,12 +4,12 @@
   "inputs": {
    "research/adversarial/served_routes.py": "b108ced1a10d391486f61ba839d921aadd908e0a",
    "src/omni_mercury_engine/api/fusion_weights.py": "411ff9dfab39c5f51e8167b9e32cfe81f8f19c94",
-   "src/omni_mercury_engine/api/routes/detection.py": "6d4b21e097a5d77a5a5b8665b59dd0faf6db2f8f",
-   "src/omni_mercury_engine/api/routes/batch.py": "bb47b72b3a905e60e97e33819d6df08038aabc23",
-   "src/omni_mercury_engine/api/server.py": "cdbf570a517f42d87ce32574a6accaf99d45fb6c",
-   "src/omni_mercury_engine/detectors/detection_tier.py": "90c7c3b42afa8d37bdf0d2aa5cf28f9a37400193"
+   "src/omni_mercury_engine/api/routes/detection.py": "bf66e142dc92c7c0332a09025614de4d7e4c1723",
+   "src/omni_mercury_engine/api/routes/batch.py": "360e62ab8f50d3e0edb2d67669a1e41f25bf7218",
+   "src/omni_mercury_engine/api/server.py": "3c4da7d760d26c61e812bbfa460a38679047fc36",
+   "src/omni_mercury_engine/detectors/detection_tier.py": "6af9e4a84ac707e5ccb6ff4cc0339358e30e0186"
   },
-  "commit": "a6b2420f93c74c4806c4cf6d385bc6845d22e568",
+  "commit": "a31dd4e27398fbf529f995ccd02bcbaa76637ff4",
   "n": 300,
   "seeds": [
    0,
@@ -68,9 +68,9 @@
     "fpr": 0.0889
    },
    "tier_average": {
-    "auroc": 0.7728,
+    "auroc": 0.7764,
     "recall": 0.1167,
-    "fpr": 0.0426
+    "fpr": 0.0407
    },
    "fusion_series_flagged": 2,
    "runs": 2
@@ -97,7 +97,7 @@
     "fpr": 0.0125
    },
    "tier_average": {
-    "auroc": 0.6186,
+    "auroc": 0.6199,
     "recall": 0.085,
     "fpr": 0.0325
    },
@@ -184,7 +184,7 @@
     "fpr": 0.0508
    },
    "tier_average": {
-    "auroc": 0.9437,
+    "auroc": 0.9444,
     "recall": 0.3,
     "fpr": 0.0458
    },
@@ -250,8 +250,8 @@
    },
    "0.05": {
     "flag_rate": 0.05,
-    "recall": 0.8667,
-    "fpr": 0.007,
+    "recall": 0.8,
+    "fpr": 0.0105,
     "conformal_flag_rate": 0.0467,
     "conformal_fpr": 0.007
    },
@@ -273,87 +273,87 @@
   "flag_rate_slope_vs_contamination": 1.0
  },
  "attribution": {
-  "ensemble_auroc": 0.9021,
+  "ensemble_auroc": 0.9029,
   "members": {
    "spectral_residual": {
-    "own_auroc": 0.8476,
+    "own_auroc": 0.8612,
     "ensemble_without": 0.9033,
-    "marginal_gain": -0.0012
+    "marginal_gain": -0.0004
    },
    "bocpd": {
     "own_auroc": 0.7081,
-    "ensemble_without": 0.9149,
-    "marginal_gain": -0.0128
+    "ensemble_without": 0.9155,
+    "marginal_gain": -0.0126
    },
    "hawkes": {
     "own_auroc": 0.8326,
-    "ensemble_without": 0.907,
-    "marginal_gain": -0.005
+    "ensemble_without": 0.9077,
+    "marginal_gain": -0.0048
    },
    "particle_filter": {
     "own_auroc": 0.8163,
-    "ensemble_without": 0.9044,
-    "marginal_gain": -0.0023
+    "ensemble_without": 0.9055,
+    "marginal_gain": -0.0026
    },
    "imm": {
     "own_auroc": 0.8076,
-    "ensemble_without": 0.9074,
-    "marginal_gain": -0.0054
+    "ensemble_without": 0.9081,
+    "marginal_gain": -0.0053
    },
    "digital_twin": {
     "own_auroc": 0.8694,
-    "ensemble_without": 0.9069,
-    "marginal_gain": -0.0048
+    "ensemble_without": 0.9074,
+    "marginal_gain": -0.0045
    },
    "spot_evt": {
     "own_auroc": 0.7895,
-    "ensemble_without": 0.9021,
-    "marginal_gain": -0.0001
+    "ensemble_without": 0.9029,
+    "marginal_gain": 0.0
    },
    "gaussian_process": {
     "own_auroc": 0.8265,
-    "ensemble_without": 0.9098,
-    "marginal_gain": -0.0078
+    "ensemble_without": 0.9105,
+    "marginal_gain": -0.0077
    },
    "survival": {
     "own_auroc": 0.7638,
-    "ensemble_without": 0.9058,
-    "marginal_gain": -0.0038
+    "ensemble_without": 0.9065,
+    "marginal_gain": -0.0036
    },
    "energy_based": {
     "own_auroc": 0.986,
-    "ensemble_without": 0.878,
-    "marginal_gain": 0.0241
+    "ensemble_without": 0.8788,
+    "marginal_gain": 0.024
    },
    "deep_svdd": {
     "own_auroc": 0.9979,
-    "ensemble_without": 0.8786,
+    "ensemble_without": 0.8793,
     "marginal_gain": 0.0235
    },
    "echo_state": {
     "own_auroc": 0.8606,
-    "ensemble_without": 0.9071,
-    "marginal_gain": -0.0051
+    "ensemble_without": 0.9078,
+    "marginal_gain": -0.005
    },
    "spiking": {
     "own_auroc": 0.8194,
-    "ensemble_without": 0.8868,
-    "marginal_gain": 0.0152
+    "ensemble_without": 0.8874,
+    "marginal_gain": 0.0155
    },
    "rca": {
     "own_auroc": 0.5,
-    "ensemble_without": 0.9021,
-    "marginal_gain": -0.0
+    "ensemble_without": 0.9028,
+    "marginal_gain": 0.0
    },
    "deeplog_sequence": {
     "own_auroc": 0.6532,
-    "ensemble_without": 0.9019,
-    "marginal_gain": 0.0002
+    "ensemble_without": 0.9029,
+    "marginal_gain": -0.0
    },
    "frequent_pattern": {
     "own_auroc": 0.5,
-    "ensemble_without": 0.9021,
-    "marginal_gain": -0.0
+    "ensemble_without": 0.9028,
+    "marginal_gain": 0.0
    }
   }
  }

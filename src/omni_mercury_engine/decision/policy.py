@@ -59,6 +59,20 @@ class DecisionPolicy:
         fail_closed_on_ethical_block: When ``True``, an explicit ethical-gate
             failure (``ethical_gate_passed is False``) forces ``HOLD``.
             Default ``True``.
+        defer_on_unreliable_critique: Whether a *measured* self-critique that
+            found the detection unreliable demotes a grounded verdict to
+            ``DEFER`` (needs a human).  "Measured" means at least one of the
+            critique's transparency flags (``epistemic_measured``,
+            ``aleatoric_measured``, ``confidence_calibrated``) is ``True`` —
+            a critique built only from placeholder uncertainties may be
+            surfaced but never changes a verdict.  Default ``True``.
+        critique_support_confidence_floor: Minimum *calibrated* critique
+            confidence for the other direction of the challenge: a reliable,
+            calibrated critique at or above this floor **disputes an
+            abstention on the record** (a stated challenge in ``reasons``).
+            It never overturns the abstention — a critique may challenge but
+            not override a fail-closed gate; promotion would need its own
+            measured evidence.  Default 0.75.
     """
 
     indecision_margin: float = 0.05
@@ -71,6 +85,8 @@ class DecisionPolicy:
     require_calibrated_for_act: bool = False
     fail_closed_on_atypical: bool = True
     fail_closed_on_ethical_block: bool = True
+    defer_on_unreliable_critique: bool = True
+    critique_support_confidence_floor: float = 0.75
 
     def __post_init__(self) -> None:
         """Validate the knobs eagerly so a misconfiguration fails at build."""
@@ -80,6 +96,11 @@ class DecisionPolicy:
             raise ValueError(
                 "symbolic_agreement_floor must be in [0, 1], got "
                 f"{self.symbolic_agreement_floor}"
+            )
+        if not 0.0 <= self.critique_support_confidence_floor <= 1.0:
+            raise ValueError(
+                "critique_support_confidence_floor must be in [0, 1], got "
+                f"{self.critique_support_confidence_floor}"
             )
         # Normalise severities to upper-case for case-insensitive matching.
         object.__setattr__(
@@ -109,6 +130,8 @@ class DecisionPolicy:
             "require_calibrated_for_act": self.require_calibrated_for_act,
             "fail_closed_on_atypical": self.fail_closed_on_atypical,
             "fail_closed_on_ethical_block": self.fail_closed_on_ethical_block,
+            "defer_on_unreliable_critique": self.defer_on_unreliable_critique,
+            "critique_support_confidence_floor": self.critique_support_confidence_floor,
         }
 
 

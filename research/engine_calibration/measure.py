@@ -12,13 +12,13 @@ Writes research/engine_calibration/results.json.
 from __future__ import annotations
 
 import importlib
-import json
 import os
 import warnings
 from pathlib import Path
 
 warnings.filterwarnings("ignore")
 import numpy as np
+from _summary import write_json
 from _workspace import cache_archives, cache_dir
 
 from omni_mercury_engine.ml.mercury_ml import (
@@ -70,7 +70,7 @@ def main():
         if y.min() == y.max():
             continue
         det = MAD()
-        det.fit(X)
+        det.fit(X, unlabeled_reference=True)
         R = det.detect(X)
         s = np.asarray(R["scores"], float).reshape(-1)
         after = np.asarray(R["is_anomaly"]).astype(int).reshape(-1)  # adaptive cut
@@ -164,7 +164,8 @@ def main():
         "events": rows,
     }
     out = os.path.join(os.path.dirname(__file__), "results.json")
-    json.dump(summary, open(out, "w"), indent=2, default=float)
+    # Strict JSON: an AUROC that does not exist is null, never a bare NaN.
+    write_json(out, summary)
     print(f"\nwrote {out}")
 
 

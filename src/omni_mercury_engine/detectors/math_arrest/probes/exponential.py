@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 from scipy.optimize import minimize_scalar
+from scipy.signal import lfilter
 
 from omni_mercury_engine.detectors.math_arrest.base_probe import (
     EPSILON,
@@ -28,10 +29,21 @@ def _ewma(x: npt.NDArray[np.float64], lam: float) -> npt.NDArray[np.float64]:
         EWMA signal of same length.
     """
     n = len(x)
+    if n == 1:
+        return np.asarray(x[:1], dtype=np.float64)
+    # The recursion y[i] = (1 - lam) * y[i-1] + lam * x[i] with y[0] = x[0],
+    # evaluated as the IIR filter it is (bit-identical to the former Python
+    # loop: same multiplies, and IEEE addition commutes exactly). The loop ran
+    # inside ``minimize_scalar``'s objective, so it dominated this probe's fit.
+    tail, _ = lfilter(
+        np.array([lam], dtype=np.float64),
+        np.array([1.0, -(1.0 - lam)], dtype=np.float64),
+        np.asarray(x[1:], dtype=np.float64),
+        zi=np.array([(1.0 - lam) * x[0]], dtype=np.float64),
+    )
     y = np.empty(n, dtype=np.float64)
     y[0] = x[0]
-    for i in range(1, n):
-        y[i] = (1.0 - lam) * y[i - 1] + lam * x[i]
+    y[1:] = tail
     return y
 
 

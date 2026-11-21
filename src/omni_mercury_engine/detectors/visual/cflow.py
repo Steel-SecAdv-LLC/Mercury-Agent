@@ -22,9 +22,8 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import torch
 from scipy.ndimage import gaussian_filter
 from torch import nn, optim
@@ -32,33 +31,75 @@ from torch import nn, optim
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
+    ConfigAliasMixin,
     VisualDetectorConfig,
 )
 
+if TYPE_CHECKING:
+    import numpy as np
+
 logger = logging.getLogger(__name__)
+
+#: The released default flow width; ``CFlowConfig.hidden_ratio`` scales it.
+_DEFAULT_HIDDEN_DIM = 256
 
 
 @dataclass
-class CFlowConfig(VisualDetectorConfig):
+class CFlowConfig(ConfigAliasMixin, VisualDetectorConfig):
     """Configuration for CFlow detector.
 
     Attributes:
         num_flows: Number of flow layers
-        n_flows: Alias for num_flows (for test compatibility)
+        n_flows: Alias for num_flows.  ``None`` means "not given"; either
+            name can be passed, the canonical field wins whenever it is
+            given (at any value, its default included), and after
+            construction the alias reads back the effective value (see
+            :class:`ConfigAliasMixin`)
         hidden_dim: Hidden dimension in flow networks
-        hidden_ratio: Ratio for hidden dimension (for test compatibility)
+        hidden_ratio: Scales the default ``hidden_dim`` (256) when
+            ``hidden_dim`` itself was not given; e.g. 0.5 yields 128.
+            ``None`` means "not given"; after construction it reads back
+            the effective ratio ``hidden_dim / 256`` (1.0 by default), and
+            assigning either name updates the other
         learning_rate: Learning rate for training
         num_epochs: Number of training epochs
     """
 
     num_flows: int = 8
-    n_flows: int = 8  # Alias for test compatibility
-    hidden_dim: int = 256
-    hidden_ratio: float = 1.0  # Alias for test compatibility
+    n_flows: int | None = None  # Alias; None = not given
+    hidden_dim: int = _DEFAULT_HIDDEN_DIM
+    hidden_ratio: float | None = None  # Scales the default hidden_dim; None = not given
     learning_rate: float = 1e-4
     num_epochs: int = 100
     clamp_value: float = 3.0
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
+
+    _FIELD_ALIASES = {"n_flows": "num_flows"}
+
+    def __post_init__(self) -> None:
+        """Resolve the alias fields so setting either name takes effect."""
+        # hidden_ratio scales the default width only; a hidden_dim that was
+        # given wins (whatever its value), which also keeps a saved config
+        # idempotent across reloads.
+        if self.hidden_ratio is not None and not self._was_given("hidden_dim"):
+            object.__setattr__(self, "hidden_dim", self._width_for(self.hidden_ratio))
+        object.__setattr__(self, "hidden_ratio", self.hidden_dim / _DEFAULT_HIDDEN_DIM)
+        self._resolve_aliases()
+
+    @staticmethod
+    def _width_for(hidden_ratio: float) -> int:
+        """The flow width ``hidden_ratio`` selects (at least 2)."""
+        return max(2, round(_DEFAULT_HIDDEN_DIM * hidden_ratio))
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Assign ``name``; keep ``hidden_ratio`` and ``hidden_dim`` in step."""
+        super().__setattr__(name, value)
+        if not self.__dict__.get("_aliases_live", False):
+            return
+        if name == "hidden_ratio" and value is not None:
+            object.__setattr__(self, "hidden_dim", self._width_for(value))
+        if name in ("hidden_ratio", "hidden_dim"):
+            object.__setattr__(self, "hidden_ratio", self.hidden_dim / _DEFAULT_HIDDEN_DIM)
 
 
 class PositionalEncoding2D(nn.Module):
@@ -83,12 +124,15 @@ class PositionalEncoding2D(nn.Module):
 
         div_term = torch.exp(torch.arange(0, channels, 2).float() * (-math.log(10000.0) / channels))
 
-        # Alternate between sin and cos for x and y
+        # Alternate between sin and cos for y and x.  ``y_pos`` is [max, 1]
+        # and broadcasts down rows; ``x_pos`` is [1, max] and broadcasts
+        # across columns (transposing it made the x-terms vary along rows
+        # too, so horizontal position was ignored).
         for i in range(channels // 4):
             pe[:, :, 4 * i] = torch.sin(y_pos * div_term[i])
             pe[:, :, 4 * i + 1] = torch.cos(y_pos * div_term[i])
-            pe[:, :, 4 * i + 2] = torch.sin(x_pos.T * div_term[i])
-            pe[:, :, 4 * i + 3] = torch.cos(x_pos.T * div_term[i])
+            pe[:, :, 4 * i + 2] = torch.sin(x_pos * div_term[i])
+            pe[:, :, 4 * i + 3] = torch.cos(x_pos * div_term[i])
 
         self.register_buffer("pe", pe)
 
@@ -428,8 +472,7 @@ class CFlowDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
@@ -529,10 +572,9 @@ class CFlowDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
-        original_size = data.shape[-2:]
+        original_size = self._input_spatial_size(data)
         data = self.preprocess(data)
 
         all_scores = []
@@ -637,8 +679,7 @@ class CFlowDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data = self.preprocess(data)
 
@@ -654,18 +695,10 @@ class CFlowDetector(BaseVisualDetector):
             feat_list = []
             for layer in self.cflow_config.layers:
                 if layer in features:
-                    feat_list.append(features[layer].mean(dim=[2, 3]))
+                    feat_list.append(self._pool_for_fusion(features[layer], dim=[2, 3]))
 
             fusion_features = torch.cat(feat_list, dim=1)
             all_features.append(fusion_features)
 
         features = torch.cat(all_features, dim=0)
-
-        # Project to 128D
-        if features.shape[1] != 128:
-            if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
-            features = self._fusion_projection(features)
-
-        features = nn.functional.normalize(features, p=2, dim=1)
-        return features
+        return self._project_features_for_fusion(features)

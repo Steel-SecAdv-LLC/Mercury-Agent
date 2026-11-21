@@ -25,7 +25,9 @@ Example:
 from __future__ import annotations
 
 import contextvars
+import json
 import logging
+import math
 import os
 import re
 import time
@@ -37,8 +39,11 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -46,15 +51,30 @@ from starlette.middleware.base import BaseHTTPMiddleware
 RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
 
 if TYPE_CHECKING:
-    from starlette.types import ASGIApp
+    from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 # Context variable for request correlation ID - accessible throughout request lifecycle
 correlation_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
     "correlation_id", default=""
 )
 
+# The API is an agent surface: it serves the engine, seals account secrets and
+# signs with AMA. The engine's own import runs the fail-closed PQC gate, but
+# this module reaches the engine lazily, inside request handlers, so without
+# the gate here a server on an install with no AMA backend started, answered
+# ``/health`` with ``healthy``, dropped the account routes on an ImportError
+# and returned 500 from the first request that touched the engine. Running the
+# gate at import makes the documented contract true: the API does not start
+# without AMA v5.0.0 and all three PQC algorithms. Pinned by
+# ``tests/test_pqc_startup_gate.py::TestScopedGateContract``.
+from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_enforce
+
+_pqc_enforce()
+del _pqc_enforce
+
 from omni_mercury_engine._version import __version__ as _DISTRIBUTION_VERSION
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
     calibrated_max_z,
     chi_norm_z,
@@ -62,6 +82,7 @@ from omni_mercury_engine.api.fusion_weights import (
     deseasonalize,
     null_dof,
 )
+from omni_mercury_engine.api.router_manifest import RouterState, mounting, router_manifest
 from omni_mercury_engine.utils.logging import ensure_logging_configured
 from omni_mercury_engine.validation.api_validators import (
     APIRequestValidator,
@@ -303,9 +324,21 @@ async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
     from omni_mercury_engine.api.maintenance import start_maintenance_task
 
     maintenance_task = start_maintenance_task()
+    # The watch (opt-in, MERCURY_WATCH_ENABLED=true) reads the live feeds on a
+    # daemon thread; a feed that fails is recorded as down and never blocks
+    # serving.
+    from omni_mercury_engine.watch.service import (
+        start_background_watch,
+        stop_background_watch,
+        watch_enabled,
+    )
+
+    if watch_enabled():
+        start_background_watch()
     try:
         yield
     finally:
+        stop_background_watch()
         if maintenance_task is not None:
             maintenance_task.cancel()
         from omni_mercury_engine.api.alert_egress import shutdown_alert_egress
@@ -372,12 +405,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         from omni_mercury_engine.api.rate_limit_store import build_shared_bucket_backend
         from omni_mercury_engine.security.rate_limiting import RateLimiter
+        from omni_mercury_engine.serving_limits import serving_limits
 
         self.enabled = os.getenv("OMNI_RATE_LIMIT_ENABLED", "true").lower() == "true"
-        self.requests_per_minute = requests_per_minute or int(
-            os.getenv("OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE", "100")
-        )
-        self.burst_size = burst_size or int(os.getenv("OMNI_RATE_LIMIT_BURST", "20"))
+        # The env-derived rate is the single source of truth's, so the
+        # OpenAPI x-rate-limit extension (rendered from the same object)
+        # always advertises the rate actually enforced.
+        limits = serving_limits()
+        self.requests_per_minute = requests_per_minute or limits.rate_limit_requests_per_minute
+        self.burst_size = burst_size or limits.rate_limit_burst
 
         # Unified rate limiter over the shared SQLite backend when
         # MERCURY_KEYSTORE_PATH is set (cross-worker, restart-persistent,
@@ -695,7 +731,7 @@ from fastapi.openapi.docs import get_redoc_html
 # Runtime import, not TYPE_CHECKING: FastAPI resolves a route handler's return
 # annotation with ``get_type_hints`` when the route is registered, so the name
 # must exist at import time even under ``from __future__ import annotations``.
-from fastapi.responses import HTMLResponse  # noqa: TC002 - resolved at route registration
+from fastapi.responses import HTMLResponse
 
 
 @app.get("/redoc", include_in_schema=False)
@@ -720,6 +756,161 @@ async def redoc_html() -> HTMLResponse:
 from omni_mercury_engine.api.security_headers import STATIC_PREFIX, SecurityHeadersMiddleware
 
 app.add_middleware(SecurityHeadersMiddleware)  # type: ignore[arg-type, unused-ignore]
+
+
+class _BodyLimitExceeded(Exception):
+    """Raised inside the guarded receive when a body outgrows its cap."""
+
+
+class BodySizeLimitMiddleware:
+    """Refuse request bodies over a byte cap, before parsing spends on them.
+
+    The app had no body bound at any level: FastAPI's JSON decode and
+    pydantic validation ran over an unbounded body before any gate (the
+    harm gate's 1 MiB / 5M-value caps apply only after parsing), and the one
+    existing guard (the assessment surface) trusted the Content-Length
+    header, which a chunked request simply omits.  This middleware is pure
+    ASGI so it can do both halves: a declared Content-Length over the cap is
+    refused with 413 before the body is read at all, and a chunked or
+    lying-length body is counted as it streams and cut off at the cap.
+
+    Caps (bytes):
+    * ``MERCURY_MAX_BODY_BYTES`` — default 10 MiB, every route.
+    * ``MERCURY_MAX_UPLOAD_BODY_BYTES`` — default 600 MiB, for the
+      authenticated model-management surface (``/api/v1/models``), whose
+      upload handler enforces its own 500 MB streaming bound.
+    * ``MERCURY_ASSESSMENT_MAX_BODY_BYTES`` — default 64 MiB, for the
+      assessment surface (``/api/v1/assessment``).  That surface accepts up
+      to two million signal values in one vital-signs request and has always
+      documented this cap; the every-route default above, added later,
+      silently lowered it to 10 MiB until this entry restored it.
+    * ``MERCURY_REVIEW_MAX_BODY_BYTES`` — default 32 MiB, for the artifact
+      review surface (``/api/v1/review``), whose requests are one uploaded
+      document, image or recording.  What the upload decodes to is bounded
+      again by the ``review_max_*`` limits before anything is expanded.
+    """
+
+    _UPLOAD_PREFIX = "/api/v1/models"
+    _ASSESSMENT_PREFIX = "/api/v1/assessment"
+    _REVIEW_PREFIX = "/api/v1/review"
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Read the caps once; the per-request work is a counter."""
+        from omni_mercury_engine.serving_limits import serving_limits
+
+        self.app = app
+        limits = serving_limits()
+        self.default_limit = limits.max_body_bytes
+        self.upload_limit = limits.max_upload_body_bytes
+        self.assessment_limit = limits.assessment_max_body_bytes
+        self.review_limit = limits.review_max_body_bytes
+
+    def _limit_for(self, path: str) -> int:
+        if path.startswith(self._UPLOAD_PREFIX):
+            return self.upload_limit
+        if path.startswith(self._ASSESSMENT_PREFIX):
+            return self.assessment_limit
+        if path.startswith(self._REVIEW_PREFIX):
+            return self.review_limit
+        return self.default_limit
+
+    @staticmethod
+    async def _send_413(send: Send, limit: int) -> None:
+        body = json.dumps({"detail": f"Request body exceeds the {limit}-byte limit."}).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Enforce the cap on HTTP requests; pass everything else through."""
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        limit = self._limit_for(scope.get("path", ""))
+
+        declared: int | None = None
+        for name, value in scope.get("headers") or ():
+            if name == b"content-length":
+                try:
+                    declared = int(value)
+                except ValueError:
+                    declared = None
+                break
+        if declared is not None and declared > limit:
+            await self._send_413(send, limit)
+            return
+
+        received = 0
+        response_started = False
+
+        async def guarded_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body") or b"")
+                if received > limit:
+                    raise _BodyLimitExceeded
+            return message
+
+        async def wrapped_send(message: Message) -> None:
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, guarded_receive, wrapped_send)
+        except _BodyLimitExceeded:
+            if response_started:
+                raise RuntimeError(
+                    "request body exceeded its cap after the response started"
+                ) from None
+            await self._send_413(send, limit)
+
+
+# Registered after (= outermost of) the header middleware: the byte cap is
+# the first thing a request meets, so an oversized body is refused before
+# any other layer spends work on it.
+app.add_middleware(BodySizeLimitMiddleware)
+
+
+def _json_compliant(value: Any) -> Any:
+    """``value`` with each non-finite float replaced by its name (``"nan"``, ``"inf"``)."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_compliant(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_compliant(item) for item in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def _request_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Answer a body that fails validation with 422, whatever number it held.
+
+    A request body may carry ``NaN`` / ``Infinity`` (the JSON decoder accepts
+    them), and a validation error echoes the offending ``input`` back.
+    FastAPI's default handler then hands that non-finite float to a
+    ``JSONResponse``, which refuses it (``allow_nan=False``) and raises: the
+    caller's malformed request became a **500**.  An 18-byte body
+    (``{"data": Infinity}``) did it on every route that validates a body,
+    signed in or not.  The response shape is FastAPI's own; a non-finite
+    value is echoed by name so the caller still sees what was refused.
+    """
+    del request  # the handler signature is fixed; nothing is read from it
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"detail": _json_compliant(jsonable_encoder(exc.errors()))},
+    )
 
 
 # Enums for API parameters
@@ -1202,6 +1393,7 @@ A validation failure (bad input) returns HTTP 400 with structured detail.
         },
     },
 )
+@records_detection("univariate", skip=_WARMUP.get)
 async def detect_univariate(
     request: UnivariateRequest, user: User | None = Depends(_get_optional_user)
 ) -> UnivariateResponse:
@@ -1434,6 +1626,7 @@ not be detectable in individual features.
         },
     },
 )
+@records_detection("multivariate", skip=_WARMUP.get)
 async def detect_multivariate(
     request: MultivariateRequest, user: User | None = Depends(_get_optional_user)
 ) -> MultivariateResponse:
@@ -1618,11 +1811,19 @@ def custom_openapi() -> dict[str, Any]:
         },
     }
 
-    # Add rate limiting information
+    # Rate limiting and every other serving bound, rendered from the single
+    # source of truth the enforcing code reads. ``x-rate-limit`` used to be
+    # the literal {100, 20} whatever OMNI_RATE_LIMIT_* was set to, so a tuned
+    # deployment advertised a limit it did not enforce.
+    from omni_mercury_engine.serving_limits import serving_limits
+
+    limits = serving_limits()
     openapi_schema["info"]["x-rate-limit"] = {
-        "requests_per_minute": 100,
-        "burst_limit": 20,
+        "requests_per_minute": limits.rate_limit_requests_per_minute,
+        "burst_limit": limits.rate_limit_burst,
+        "ipv6_identity_prefix": limits.ipv6_rate_limit_prefix,
     }
+    openapi_schema["info"]["x-serving-limits"] = limits.to_dict()
 
     app.openapi_schema = openapi_schema
     return openapi_schema
@@ -1633,123 +1834,183 @@ app.openapi = custom_openapi  # type: ignore[method-assign, unused-ignore]
 # =============================================================================
 # Include Modular API Routes
 # =============================================================================
+#
+# Each surface is attached inside ``mounting(...)``, which records the outcome
+# in the router manifest (``api/router_manifest.py``): mounted, disabled by
+# configuration, or unavailable because its import failed. An unavailable
+# router used to leave one warning line and a shorter OpenAPI document while
+# ``/health`` went on reporting ``healthy``; its state is now a series on
+# ``/metrics`` (``omni_mercury_api_router_state``). The imports stay written
+# out, one per surface, so the static import graph keeps every route module
+# reachable from the server.
+
+
+def _require_frontend_backend() -> None:
+    """Refuse to start with the browser frontend mounted over a missing account API.
+
+    Every frontend page is a form over ``/api/v1/auth``. Mounted without that
+    router, the pages load and each request they make answers 404, which a
+    visitor reads as a broken sign-in rather than as a server fault.
+
+    The mirror case is refused too: the frontend was asked for and its own
+    import failed. That left a server with ``/health`` healthy and ``/login``
+    answering 404, reported only by a warning-level alert.
+
+    Raises:
+        RuntimeError: If the frontend is mounted and the account router is
+            not, or the frontend is enabled and did not load.
+    """
+    states = {record.name: record for record in router_manifest()}
+    frontend = states.get("frontend")
+    if (
+        frontend is not None
+        and frontend.state is RouterState.UNAVAILABLE
+        and os.getenv("MERCURY_FRONTEND_ENABLED", "false").strip().lower() == "true"
+    ):
+        raise RuntimeError(
+            "MERCURY_FRONTEND_ENABLED=true, but the browser frontend did not load: "
+            f"{frontend.detail}. Fix the import, or unset MERCURY_FRONTEND_ENABLED to "
+            "serve the API without the browser pages."
+        )
+    if frontend is None or frontend.state is not RouterState.MOUNTED:
+        return
+    accounts = states.get("accounts")
+    if accounts is not None and accounts.state is RouterState.MOUNTED:
+        return
+    reason = accounts.detail if accounts is not None else "the account router was never attached"
+    raise RuntimeError(
+        "MERCURY_FRONTEND_ENABLED=true, but the account API the frontend drives "
+        f"(/api/v1/auth) did not load: {reason}. Fix the import, or unset "
+        "MERCURY_FRONTEND_ENABLED to serve the API without the browser pages."
+    )
+
+
+def _require_account_email_base_url() -> None:
+    """Refuse to start when account emails could not carry a usable link.
+
+    ``public_base_url`` raises when ``MERCURY_SMTP_HOST`` is set without
+    ``MERCURY_PUBLIC_BASE_URL`` (or with one that is not a URL). The account
+    service is built on the first account request, so that refusal used to
+    surface there: the server booted, ``/health`` answered healthy, and
+    ``/register`` and ``/login`` returned 500 until someone read the log.
+
+    Raises:
+        RuntimeError: If the account router is mounted and the base URL
+            configuration is unusable.
+    """
+    states = {record.name: record for record in router_manifest()}
+    accounts = states.get("accounts")
+    if accounts is None or accounts.state is not RouterState.MOUNTED:
+        return
+    from omni_mercury_engine.api.auth_service import public_base_url
+
+    public_base_url()
+
 
 # Include Batch Processing Routes
-try:
+with mounting("batch", "Batch processing routes", logger):
     from omni_mercury_engine.api.routes.batch import router as batch_router
 
     app.include_router(batch_router)
-    logger.info("Batch processing routes registered")
-except ImportError as e:
-    logger.warning(f"Batch processing routes not available: {e}")
 
 # Include Model Management Routes
-try:
+with mounting("models", "Model management routes", logger):
     from omni_mercury_engine.api.routes.models import router as models_router
 
     app.include_router(models_router)
-    logger.info("Model management routes registered")
-except ImportError as e:
-    logger.warning(f"Model management routes not available: {e}")
 
 # Include Data Export Routes
-try:
+with mounting("export", "Data export routes", logger):
     from omni_mercury_engine.api.routes.export import router as export_router
 
     app.include_router(export_router)
-    logger.info("Data export routes registered")
-except ImportError as e:
-    logger.warning(f"Data export routes not available: {e}")
 
 # Include Advanced Detection Routes
-try:
+with mounting("detection", "Advanced detection routes", logger):
     from omni_mercury_engine.api.routes.detection import router as detection_router
 
     app.include_router(detection_router)
-    logger.info("Advanced detection routes registered")
-except ImportError as e:
-    logger.warning(f"Advanced detection routes not available: {e}")
 
 # Include Self-Service Account Routes (opt-in: inert unless the flows are used;
 # store/mailer default to in-memory/console without MERCURY_KEYSTORE_PATH/SMTP)
-try:
+with mounting("accounts", "Account routes", logger):
     from omni_mercury_engine.api.routes.accounts import router as accounts_router
 
     app.include_router(accounts_router)
-    logger.info("Account routes registered")
-except ImportError as e:
-    logger.warning(f"Account routes not available: {e}")
 
 # Include Hazard Visualization Routes
-try:
+with mounting("hazard", "Hazard visualization routes", logger):
     from omni_mercury_engine.api.routes.hazard import router as hazard_router
 
     app.include_router(hazard_router)
-    logger.info("Hazard visualization routes registered")
-except ImportError as e:
-    logger.warning(f"Hazard visualization routes not available: {e}")
 
 # Include Evidence-Assessment and Human-Subject Routes (statement verification,
 # CIT, counterintelligence screening and fusion, vital signs, adjudication)
-try:
+with mounting("assessment", "Assessment routes", logger):
     from omni_mercury_engine.api.routes.assessment import router as assessment_router
 
     app.include_router(assessment_router)
-    logger.info("Assessment routes registered")
-except ImportError as e:
-    logger.warning(f"Assessment routes not available: {e}")
 
 # Include the Agent Notice and RFC 9116 security.txt (always on: read-only,
 # unauthenticated public documents that accept no input)
-try:
+with mounting("agent_notice", "Agent notice routes", logger):
     from omni_mercury_engine.api.routes.agent_notice import router as agent_notice_router
 
     app.include_router(agent_notice_router)
-    logger.info("Agent notice routes registered")
-except ImportError as e:
-    logger.warning(f"Agent notice routes not available: {e}")
 
 # Include the corresponding-source offer (AGPL-3.0 section 13; always on:
 # read-only, unauthenticated, accepts no input)
-try:
+with mounting("source", "Source offer route", logger):
     from omni_mercury_engine.api.routes.source import router as source_router
 
     app.include_router(source_router)
-    logger.info("Source offer route registered")
-except ImportError as e:
-    logger.warning(f"Source offer route not available: {e}")
 
 
 # Include the catalog (always on: read-only, unauthenticated declarations of
 # what every domain and detector is and whose knowledge it carries)
-try:
+with mounting("catalog", "Catalog routes", logger):
     from omni_mercury_engine.api.routes.catalog import router as catalog_router
 
     app.include_router(catalog_router)
-    logger.info("Catalog routes registered")
-except ImportError as e:
-    logger.warning(f"Catalog routes not available: {e}")
+
+
+# Include the watch routes (always on: read-only, unauthenticated; they report
+# what the watch has recorded and never read a feed themselves)
+with mounting("watch", "Watch routes", logger):
+    from omni_mercury_engine.api.routes.watch import router as watch_router
+
+    app.include_router(watch_router)
+
+
+# Include the artifact review routes (upload a document, an image or a
+# recording; it is scored on the flagship path and answered with a decision)
+with mounting("review", "Artifact review routes", logger):
+    from omni_mercury_engine.api.routes.review import router as review_router
+
+    app.include_router(review_router)
 
 
 # Serve the Account Frontend (opt-in via MERCURY_FRONTEND_ENABLED=true; left
 # off, every existing route — including the 404 at / — stays byte-identical)
-try:
+with mounting("frontend", "Account frontend", logger) as _frontend_mount:
     from omni_mercury_engine.api.frontend import frontend_enabled, register_frontend
 
     if frontend_enabled():
         register_frontend(app)
-        logger.info("Account frontend registered")
-except ImportError as e:
-    logger.warning(f"Account frontend not available: {e}")
+    else:
+        _frontend_mount.disable("MERCURY_FRONTEND_ENABLED is not true")
+
+# The frontend's pages are forms over the account API. Serving them while that
+# API is missing gives a visitor a sign-in page whose every request answers
+# 404, on a server whose /health says healthy. Refuse to start instead.
+_require_frontend_backend()
+_require_account_email_base_url()
 
 # Include Voice Interface Routes
-try:
+with mounting("voice", "Voice interface routes", logger):
     from omni_mercury_engine.api.voice import router as voice_router
 
     app.include_router(voice_router)
-    logger.info("Voice interface routes registered")
-except ImportError as e:
-    logger.warning(f"Voice interface routes not available: {e}")
 
 
 # Prometheus metrics at the conventional root path (/metrics) — the target scraped
@@ -1757,7 +2018,7 @@ except ImportError as e:
 # annotations, and the Helm chart. The Prometheus exposition handler lives on
 # health_router (api/health.py); register it directly on the app at root so the
 # scrape target resolves instead of returning 404.
-try:
+with mounting("metrics", "Prometheus /metrics endpoint", logger):
     from omni_mercury_engine.api.health import health_metrics as _health_metrics
 
     app.add_api_route(
@@ -1767,21 +2028,16 @@ try:
         tags=["Health"],
         include_in_schema=False,
     )
-    logger.info("Prometheus /metrics endpoint registered at root")
-except ImportError as e:
-    logger.warning(f"/metrics endpoint not available: {e}")
 
 # Include the Decoy Surface (opt-in via MERCURY_DECEPTION_ENABLED=true; left
 # off, nothing is registered and every existing route stays byte-identical).
 # Registered after every real route so each decoy path can be checked against
 # all of them: a decoy the application already serves is refused.
-try:
+with mounting("decoys", "Deception decoy surface", logger) as _decoy_mount:
     from omni_mercury_engine.api.routes.decoys import register_decoys
 
-    if register_decoys(app) is not None:
-        logger.info("Deception decoy surface registered")
-except ImportError as e:
-    logger.warning(f"Deception decoy surface not available: {e}")
+    if register_decoys(app) is None:
+        _decoy_mount.disable("MERCURY_DECEPTION_ENABLED is not true")
 
 
 # =============================================================================

@@ -13,11 +13,15 @@ Includes:
 
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.nn.functional as F
 from torch import nn
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from omni_mercury_engine.core.fusion import AttentionFusion, HybridFusionLayer
 from omni_mercury_engine.ml.encoders import (
@@ -28,6 +32,8 @@ from omni_mercury_engine.ml.encoders import (
     StatisticalEncoder,
     TemporalEncoder,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "AttentionFusion",
@@ -590,8 +596,17 @@ class OmniFusionModel(nn.Module):
         num_heads: int = 4,
         dropout: float = 0.1,
         num_classes: int = 10,
+        masked_mean_pooling: bool = False,
     ):
-        """Initialize the instance."""
+        """Initialize the instance.
+
+        ``masked_mean_pooling`` is forwarded to :class:`HybridFusionLayer`:
+        when ``True``, attention pooling averages over the feature groups
+        actually present in the batch instead of diluting the representation
+        with absent groups' zero tokens. It defaults to ``False`` (the
+        historical behavior) because the shipped ``default_fusion.pt``
+        checkpoint was trained with the plain mean; enable it for new fits.
+        """
         super().__init__()
 
         if feature_dims is None:
@@ -616,6 +631,10 @@ class OmniFusionModel(nn.Module):
         self.num_heads = num_heads
         self.dropout = dropout
         self.num_classes = num_classes
+        self.masked_mean_pooling = bool(masked_mean_pooling)
+        # Unregistered feature groups seen (and dropped) in forward; each is
+        # warned about once. Plain attribute: not part of the state dict.
+        self._ignored_feature_groups: set[str] = set()
 
         self.encoders = nn.ModuleDict(
             {
@@ -685,6 +704,7 @@ class OmniFusionModel(nn.Module):
             hidden_dim=self.hidden_dim,
             num_heads=self.num_heads,
             dropout=self.dropout,
+            masked_mean_pooling=self.masked_mean_pooling,
         )
 
     def register_feature_group(
@@ -816,6 +836,24 @@ class OmniFusionModel(nn.Module):
         encoded_features = {}
 
         for name, features in detector_features.items():
+            # Reject-or-register semantics: a group that is not registered in
+            # feature_dims is not consumed by the fusion layer (it iterates
+            # the registered detector names only), so encoding it would waste
+            # compute and lazily minting a projection for it would write dead,
+            # never-trained parameters into checkpoints. Ignore it, warning
+            # once per group; callers register groups up front via
+            # register_feature_group() (before the optimizer is created).
+            if name not in self.feature_dims:
+                if name not in self._ignored_feature_groups:
+                    self._ignored_feature_groups.add(name)
+                    logger.warning(
+                        "Feature group %r is not registered in feature_dims; dropping it "
+                        "(no projection created). Call register_feature_group() before "
+                        "fitting to fuse this group.",
+                        name,
+                    )
+                continue
+
             # Handle 3D tensors by flattening to 2D [batch, seq*features] -> [batch, flat_dim]
             # This fixes the tensor dimension mismatch error when features have shape
             # [batch, seq_len, feature_dim] (e.g., quantum features with shape [4, 16, 2])
@@ -851,18 +889,26 @@ class OmniFusionModel(nn.Module):
                         name, actual_dim, features.device
                     )(features)
 
-            elif features.dim() == 2 and features.shape[1] == self.hidden_dim:
-                encoded_features[name] = features
-
-            elif features.dim() == 2:
-                # Fix for Issue #6: Use cached projection instead of creating new layer
+            else:
+                # Registered in feature_dims but no encoder exists (e.g. the
+                # registry was mutated directly): project it so the group is
+                # still consumed. This never fires for unregistered groups.
                 encoded_features[name] = self._get_or_create_projection(
                     name, actual_dim, features.device
                 )(features)
 
+        if not encoded_features:
+            raise ValueError(
+                "No registered feature groups in input: got "
+                f"{sorted(detector_features)} but feature_dims registers "
+                f"{sorted(self.feature_dims)}"
+            )
+
         if detector_scores is None:
             detector_scores = {
-                name: torch.zeros(features.shape[0], 1)
+                name: torch.zeros(
+                    features.shape[0], 1, device=features.device, dtype=features.dtype
+                )
                 for name, features in encoded_features.items()
             }
 
@@ -883,10 +929,56 @@ class OmniFusionModel(nn.Module):
 
         return output
 
+    def importance_from_attention(
+        self, attention_weights: Mapping[str, torch.Tensor]
+    ) -> dict[str, float]:
+        """Derive per-detector importance from a forward pass's attention dict.
+
+        Uses the fusion layer's multi-head attention map (``attention_weights``
+        key: ``[batch, num_groups, num_groups]``, already head-averaged),
+        averaging the attention each group's token *receives* over the batch
+        and over the querying tokens. This is input-dependent and reflects the
+        trained attention — unlike the layer's ``late_fusion_weights``
+        (``detector_weights`` key), which never receive gradient (the late
+        output is a detached diagnostic) and therefore stay at their uniform
+        ``softmax(init) = 1/n`` initialisation.
+
+        Args:
+            attention_weights: The attention dict a forward pass with
+                ``return_attention=True`` returns (or the fusion layer's
+                second output).
+
+        Returns:
+            Dict mapping each registered feature-group name to a non-negative
+            importance score; the scores sum to ~1.
+        """
+        attn = attention_weights["attention_weights"]
+        with torch.no_grad():
+            per_token = attn.mean(dim=(0, 1))  # attention received by each group token
+            # A group that supplied no features is a zero placeholder token. The
+            # attention map still assigns it mass (on an untrained model with 3
+            # of 13 groups present the 10 absent ones held 0.77 of the total),
+            # but a detector that was not there has no importance: it gets 0.0
+            # and the present groups are renormalised.
+            present = attention_weights.get("present_groups")
+            if present is not None:
+                per_token = per_token * present.to(per_token)
+                total = per_token.sum()
+                if float(total) > 0.0:
+                    per_token = per_token / total
+        names = getattr(self.fusion_layer, "detector_names", list(self.feature_dims.keys()))
+        return {name: float(per_token[i]) for i, name in enumerate(names)}
+
     def get_detector_importance(
         self, detector_features: dict[str, torch.Tensor]
     ) -> dict[str, float]:
         """Get importance scores for each detector based on attention weights.
+
+        Runs one forward pass and reads the attention each feature group
+        receives (see :meth:`importance_from_attention`). Callers that already
+        ran ``forward(..., return_attention=True)`` should feed its
+        ``attention_weights`` to :meth:`importance_from_attention` instead of
+        calling this, which forwards again.
 
         Args:
             detector_features: Dict of features from each detector
@@ -899,14 +991,7 @@ class OmniFusionModel(nn.Module):
                 detector_features,
                 return_attention=True,
             )
-
-            weights = output["attention_weights"]["detector_weights"]  # type: ignore[index, unused-ignore]
-
-            importance = {
-                name: float(weights[i]) for i, name in enumerate(self.feature_dims.keys())
-            }
-
-        return importance
+        return self.importance_from_attention(output["attention_weights"])  # type: ignore[arg-type, unused-ignore]
 
     def train_with_optimizers(
         self,

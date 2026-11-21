@@ -1,6 +1,76 @@
 # Omni-Equation — Measured Findings (real detector, real data)
 
-Last updated: 2026-07-11.
+Last updated: 2026-11-20.
+
+## Re-measurement of 2026-11-20 (read first)
+
+`harness_multidomain.py` was run again on 2026-11-20 and `real_results.json` is
+that run. Everything below this section is the record of the earlier
+measurement (15 events; dated 2026-07-11, corrected 2026-11-04) and is kept as
+written: **it
+was measured on events the loaders had built wrongly, and its figures no longer
+match `real_results.json`.** The loaders have since been corrected: the
+earthquake query had no spatial filter (each event was every M2.5+ earthquake
+in the world during its window), hurricane 24 h deltas were taken over mixed
+3- and 6-hourly rows, the tsunami series was one the loader constructed and
+then one whose rolling statistics read later samples, seven hurricane events
+carried storm identifiers IBTrACS does not hold, and the tornado archive file
+ended in 2023.
+
+**Scope now: 22 events / 7 domains.** earthquake 5, hurricane 6 (the first six
+the catalogue lists: Katrina, Harvey, Maria, Ian, Helene, Milton), marine 3,
+tornado 3, tsunami 3, flood 1 (Helene 2024), landslide 1 (Oso 2014). Wildfire
+needs a key; the volcanic loader's events are not benchmarkable. The harness is
+unchanged: it scores each loader's full matrix (`engineer_features`), label-
+derived columns included, fitted and scored in place.
+
+| # | Question | Metric | Earlier record (15 events) | 2026-11-20 (22 events) | 2026-11-20, the earlier record's 15 events |
+|---|---|---|---|---|---|
+| 1 | Are the streams independent? | mean \|corr\| | 0.66 | 0.6363 | 0.6125 |
+| 2 | Does fusion beat the best single stream (an oracle, see below)? | ensemble − best-single AUC | −0.074 | −0.0539 (lower on 15 of 22, worst −0.344) | −0.0449 |
+| 3 | Does the outer equation beat the raw ensemble? | eq − ensemble AUC | −0.002 | +0.004 | +0.004 |
+| 4 | Does η^Φ ever change a verdict? | rank-flip / abs-flip / ΔAUC | 0.003 / 0.003 / −0.0002 | 0.0001 / 0.0077 / −0.0001 | 0.0000 / 0.0073 / +0.0001 |
+
+Means: ensemble AUC **0.8122**, best-single (oracle) **0.8661**; on the earlier
+record's 15 events, 0.8311 and 0.8760 where the record had 0.836 and 0.909.
+
+**The four findings stand, with smaller numbers.** The streams are still
+redundant. The ensemble is still below the per-event oracle, and the oracle
+note below applies unchanged: the winning stream is `resonance` on 6 events,
+`info_geometry` on 5, `kinematic` on 5, `isolation_forest` on 4 and
+`z_score_continuous` on 2, so no fixed choice reproduces it. Fixed in advance:
+
+| fixed stream (label-free) | mean AUROC, 22 events |
+|---|--:|
+| `isolation_forest` | **0.8123** |
+| *(the shipped ensemble)* | *0.8122* |
+| `info_geometry` | 0.7912 |
+| `iqr` | 0.7559 |
+| `z_score_continuous` | 0.7430 |
+| `resonance` | 0.7139 |
+| `kinematic` | 0.6810 |
+
+The best label-free fixed stream is now `isolation_forest`, level with the
+ensemble (+0.0001), where the record had `info_geometry` ahead by 0.005. Five
+of the six streams are below the ensemble. The reachable, label-free headroom
+the record put at +0.005 is nil on this measurement. The outer equation and
+the η^Φ gate are still inert for ranking.
+
+**The earthquake figure the record quotes is not current.** "Mean AUC 0.937 /
+F1 ≈ 0.09" was `benchmarks/earthquake_honest_benchmark.py` when it scored
+`magnitude`, the column the label is a threshold on, over worldwide rows. That
+benchmark now scores the de-leaked matrix on each event's own region and reads
+**mean AUC 0.6321, mean F1 0.105** (per event 0.7279, 0.8264, 0.2527, 0.9981,
+0.3551, with one or two positives each). "Ranking is good, thresholding is
+broken" was a statement about the leaked figure; without the leak the ranking
+is the rank of one or two rows per event, and "what it means" item 4 below
+("AUC 0.94 with F1 ~0.09") should be read as withdrawn for earthquake. What a
+score means as a probability, hazard by hazard, is measured separately in
+`docs/HAZARD_CALIBRATION.md`.
+
+---
+
+## The earlier record (15 events; measured before the loader fixes; not current)
 
 **What this is.** A direct measurement to decide whether the "omni-equation"
 direction clears a speed/cost/accuracy bar — run on Mercury's **real**

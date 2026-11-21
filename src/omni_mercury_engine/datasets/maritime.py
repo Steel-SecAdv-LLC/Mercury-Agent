@@ -119,8 +119,17 @@ class _RestrictedUnpickler(pickle.Unpickler):
 
     def find_class(self, module: str, name: str) -> Any:
         if (module, name) in _ALLOWED_PICKLE_GLOBALS:
-            return super().find_class(module, name)
-        raise pickle.UnpicklingError(f"refusing to unpickle forbidden global {module}.{name!s}")
+            # Fail-closed allowlist: only the numpy reconstruction globals
+            # above can ever be resolved, so arbitrary-code deserialization
+            # (the rule's concern) is structurally impossible here.
+            return super().find_class(
+                module, name
+            )  # nosemgrep: python.lang.security.deserialization.pickle.avoid-pickle
+        # The raise itself is what the rule pattern anchors on; this branch is
+        # the refusal, not a deserialization.
+        raise pickle.UnpicklingError(  # nosemgrep: python.lang.security.deserialization.pickle.avoid-pickle
+            f"refusing to unpickle forbidden global {module}.{name!s}"
+        )
 
 
 def restricted_pickle_load(stream: BinaryIO) -> Any:

@@ -44,6 +44,7 @@ from __future__ import annotations
 from omni_mercury_engine.detectors.visual.backbone import FeatureExtractor, get_backbone
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
+    IncompatibleCheckpointError,
     VisualDetectorConfig,
 )
 from omni_mercury_engine.detectors.visual.cflow import CFlowDetector
@@ -57,6 +58,8 @@ __all__ = [
     "BaseVisualDetector",
     "CFlowDetector",
     "FeatureExtractor",
+    # Raised by ``load`` for a checkpoint this build would mis-score
+    "IncompatibleCheckpointError",
     "PaDiMDetector",
     # Detectors
     "PatchCoreDetector",

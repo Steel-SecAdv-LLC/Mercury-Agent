@@ -29,6 +29,17 @@ as an ``ignore`` entry with ``versions`` (and a comment saying why); an ignore
 whose release has become takeable is reported as ``stale-ignore``, so it is
 lifted when upstream catches up.
 
+Each update is replayed under two resolvers: the ``uv`` on ``PATH`` (the
+version CI, the Dockerfile and ``uv.lock`` are pinned to) and the uv release
+Dependabot's updater bundles (:data:`DEPENDABOT_UV_VERSION`, fetched with
+``uv tool run``). They are not the same program. On 2026-11-09 the lock
+resolved under the repository's 0.11.32 and under Dependabot's 0.13.7 had no
+solution on an emscripten fork that 0.11.32 tolerated; the replay, which ran
+only under 0.11.32, passed the day before all seven of that week's updates
+failed. Before the per-package replay each resolver must relock the project
+unchanged (the ``baseline`` row); a resolver that cannot is reported once,
+instead of once per dependency.
+
 The replay reads live PyPI, so a new upstream release can change its answer
 without any change here. CI therefore runs it on pull requests that change
 ``pyproject.toml``, ``uv.lock`` or ``.github/dependabot.yml``, and on a weekly
@@ -39,12 +50,14 @@ Network: PyPI's JSON API and ``uv lock`` (which reads PyPI). Run::
 
     python scripts/simulate_dependabot_uv.py            # all direct deps
     python scripts/simulate_dependabot_uv.py shap h5py  # just these
+    python scripts/simulate_dependabot_uv.py --resolver repo   # PATH uv only
 """
 
 from __future__ import annotations
 
 import argparse
 import fnmatch
+import functools
 import json
 import re
 import shutil
@@ -70,6 +83,36 @@ from check_lock_downgrades import compare, lowest_versions
 REPO = Path(__file__).resolve().parents[1]
 PROJECT = "mercury-agent-global"
 PYPI = "https://pypi.org/pypi/{name}/json"
+
+#: The uv release Dependabot's updater bundles, as its own run log reports it
+#: ("Package manager uv, Info : uv 0.13.7", run of 2026-11-09). Dependabot
+#: moves this without notice; when one of its runs fails where this replay
+#: passed, read the version from that run's log and update it here.
+DEPENDABOT_UV_VERSION = "0.13.7"
+
+
+@dataclass(frozen=True)
+class Resolver:
+    """One ``uv`` program the replay locks with."""
+
+    name: str
+    argv: tuple[str, ...]
+
+
+#: The ``uv`` on ``PATH``: the version that wrote ``uv.lock``.
+REPO_RESOLVER = Resolver("repo", ("uv",))
+
+#: The uv release Dependabot runs, fetched into uv's tool cache on first use.
+DEPENDABOT_RESOLVER = Resolver(
+    f"dependabot-{DEPENDABOT_UV_VERSION}",
+    ("uv", "tool", "run", "--quiet", "--from", f"uv=={DEPENDABOT_UV_VERSION}", "uv"),
+)
+
+RESOLVERS: dict[str, tuple[Resolver, ...]] = {
+    "repo": (REPO_RESOLVER,),
+    "dependabot": (DEPENDABOT_RESOLVER,),
+    "both": (REPO_RESOLVER, DEPENDABOT_RESOLVER),
+}
 
 
 def normalise(name: str) -> str:
@@ -131,8 +174,13 @@ def python_floor(pyproject: dict[str, Any]) -> Version:
     return Version(match.group(1))
 
 
+@functools.cache
 def releases(name: str, floor: Version) -> list[Version]:
-    """Final, non-yanked releases that install on ``floor``, newest first."""
+    """Final, non-yanked releases that install on ``floor``, newest first.
+
+    Cached, so replaying under a second resolver asks PyPI nothing new and both
+    resolvers are judged against the same release list.
+    """
     data: dict[str, Any] = {}
     for attempt in range(3):
         try:
@@ -213,6 +261,7 @@ def simulate(
     ignores: dict[str, Ignore],
     pyproject_text: str,
     lock_text: str,
+    resolver: Resolver = REPO_RESOLVER,
 ) -> Outcome:
     """Replay the update Dependabot would propose for ``name``.
 
@@ -229,14 +278,18 @@ def simulate(
     proposal = next((v for v in newer if not (rule and rule.covers(v, locked))), None)
     newest = newer[0]
     if rule and newest != proposal and any(newest in spec for spec in rule.versions):
-        status, detail, _ = lock_with_pins({name: (strings, newest)}, pyproject_text, lock_text)
+        status, detail, _ = lock_with_pins(
+            {name: (strings, newest)}, pyproject_text, lock_text, resolver=resolver
+        )
         if status == "ok":
             return Outcome(
                 name, locked, newest, "stale-ignore", "the ignored release now updates cleanly"
             )
     if proposal is None:
         return Outcome(name, locked, newest, "ignored", "every newer release is ignored")
-    status, detail, _ = lock_with_pins({name: (strings, proposal)}, pyproject_text, lock_text)
+    status, detail, _ = lock_with_pins(
+        {name: (strings, proposal)}, pyproject_text, lock_text, resolver=resolver
+    )
     if proposal != newest:
         detail = f"newest {newest} is ignored; Dependabot proposes {proposal}" + (
             f"; {detail}" if detail else ""
@@ -245,9 +298,15 @@ def simulate(
 
 
 def lock_with_pins(
-    pins: dict[str, tuple[list[str], Version]], pyproject_text: str, lock_text: str
+    pins: dict[str, tuple[list[str], Version]],
+    pyproject_text: str,
+    lock_text: str,
+    resolver: Resolver = REPO_RESOLVER,
 ) -> tuple[str, str, str | None]:
-    """Pin every package in ``pins`` as Dependabot does and relock.
+    """Pin every package in ``pins`` as Dependabot does and relock with ``resolver``.
+
+    With no pins this relocks the project unchanged, which is the baseline a
+    resolver must pass before any update under it means anything.
 
     Returns ``(status, detail, new_lock)``: ``ok``, ``unsolvable`` (the
     resolver found no solution), ``downgrades`` (another package moved to an
@@ -257,7 +316,7 @@ def lock_with_pins(
     text = pyproject_text
     for name, (strings, version) in pins.items():
         text = pin(text, strings, name, version)
-    argv = ["uv", "lock", "--no-progress"]
+    argv = [*resolver.argv, "lock", "--no-progress"]
     for name in pins:
         argv += ["--upgrade-package", name]
     stderr = ""
@@ -337,23 +396,31 @@ def group_members(outcomes: list[Outcome], groups: list[Group]) -> dict[str, lis
     return members
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("packages", nargs="*", help="limit to these direct dependencies")
-    parser.add_argument("--jobs", type=int, default=6)
-    args = parser.parse_args(argv)
+def replay(
+    resolver: Resolver,
+    names: list[str],
+    requirements: dict[str, list[str]],
+    locked: dict[str, str],
+    floor: Version,
+    ignores: dict[str, Ignore],
+    groups: list[Group],
+    pyproject_text: str,
+    lock_text: str,
+    jobs: int,
+) -> list[Outcome]:
+    """Replay every update under one resolver, after its baseline relock.
 
-    pyproject_text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
-    pyproject = tomllib.loads(pyproject_text)
-    lock_text = (REPO / "uv.lock").read_text(encoding="utf-8")
-    locked = lowest_versions(lock_text)
-    floor = python_floor(pyproject)
-    ignores = load_ignores(REPO / ".github" / "dependabot.yml")
-    requirements = direct_requirements(pyproject)
-    wanted = {normalise(p) for p in args.packages} or set(requirements)
-    names = sorted(n for n in wanted if n in requirements and n in locked)
+    A resolver that cannot relock the unchanged project cannot solve any
+    update either, so its failure is reported as the single ``baseline`` row
+    and the per-package replay is skipped. The baseline also runs alone, which
+    lets ``uv tool run`` fetch Dependabot's uv once before the pool starts.
+    """
+    status, detail, _ = lock_with_pins({}, pyproject_text, lock_text, resolver=resolver)
+    baseline = Outcome("baseline", Version("0"), None, status, detail)
+    if status in FAILING:
+        return [baseline]
 
-    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
         outcomes = list(
             pool.map(
                 lambda n: simulate(
@@ -364,23 +431,28 @@ def main(argv: list[str] | None = None) -> int:
                     ignores,
                     pyproject_text,
                     lock_text,
+                    resolver,
                 ),
                 names,
             )
         )
 
-    groups = load_groups(REPO / ".github" / "dependabot.yml")
     for group, members in sorted(group_members(outcomes, groups).items()):
         if len(members) < 2 or any(m.status in FAILING for m in members):
             continue  # a lone member is its own update; a failing one is already reported
         pins = {m.name: (requirements[m.name], m.candidate) for m in members if m.candidate}
-        status, detail, _ = lock_with_pins(pins, pyproject_text, lock_text)
+        status, detail, _ = lock_with_pins(pins, pyproject_text, lock_text, resolver=resolver)
         label = "+".join(sorted(pins))
         outcomes.append(Outcome(f"group:{group}[{label}]", Version("0"), None, status, detail))
+    return [baseline, *outcomes]
 
+
+def report(resolver: Resolver, outcomes: list[Outcome]) -> int:
+    """Print one resolver's outcomes; return how many fail or regress."""
+    print(f"== resolver {resolver.name}: {' '.join(resolver.argv)} ==")
     failures = 0
     for o in outcomes:
-        if o.name.startswith("group:"):
+        if o.name == "baseline" or o.name.startswith("group:"):
             line = f"{o.status:<13} {o.name}"
         else:
             line = f"{o.status:<13} {o.name} {o.locked}" + (
@@ -388,13 +460,57 @@ def main(argv: list[str] | None = None) -> int:
             )
         if o.status in FAILING:
             failures += 1
-            print(f"::error title=Dependabot uv replay ({o.status})::{line}: {o.detail}")
+            title = f"Dependabot uv replay ({o.status}, {resolver.name})"
+            print(f"::error title={title}::{line}: {o.detail}")
         else:
             print(line + (f"  [{o.detail}]" if o.detail else ""))
-    singles = sum(1 for o in outcomes if not o.name.startswith("group:"))
+    return failures
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("packages", nargs="*", help="limit to these direct dependencies")
+    parser.add_argument("--jobs", type=int, default=6)
+    parser.add_argument(
+        "--resolver",
+        choices=sorted(RESOLVERS),
+        default="both",
+        help="which uv to lock with: the one on PATH, the one Dependabot bundles "
+        f"({DEPENDABOT_UV_VERSION}), or both (default)",
+    )
+    args = parser.parse_args(argv)
+
+    pyproject_text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    pyproject = tomllib.loads(pyproject_text)
+    lock_text = (REPO / "uv.lock").read_text(encoding="utf-8")
+    locked = lowest_versions(lock_text)
+    floor = python_floor(pyproject)
+    ignores = load_ignores(REPO / ".github" / "dependabot.yml")
+    groups = load_groups(REPO / ".github" / "dependabot.yml")
+    requirements = direct_requirements(pyproject)
+    wanted = {normalise(p) for p in args.packages} or set(requirements)
+    names = sorted(n for n in wanted if n in requirements and n in locked)
+
+    failures = replayed = 0
+    for resolver in RESOLVERS[args.resolver]:
+        outcomes = replay(
+            resolver,
+            names,
+            requirements,
+            locked,
+            floor,
+            ignores,
+            groups,
+            pyproject_text,
+            lock_text,
+            args.jobs,
+        )
+        failures += report(resolver, outcomes)
+        replayed += len(outcomes) - 1  # the baseline row is not an update
     print(
-        f"Python floor {floor}; {singles} direct dependencies and "
-        f"{len(outcomes) - singles} group(s) replayed; {failures} would fail or regress"
+        f"Python floor {floor}; {len(names)} direct dependencies under "
+        f"{len(RESOLVERS[args.resolver])} resolver(s), {replayed} update(s) and group(s) "
+        f"replayed; {failures} would fail or regress"
     )
     return 1 if failures else 0
 

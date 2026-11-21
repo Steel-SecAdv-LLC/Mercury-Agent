@@ -1418,6 +1418,94 @@ class NASAEONETSource(DataSourceBase):
 
         return base_level
 
+    @staticmethod
+    def _representative_lon_lat(coordinates: Any) -> tuple[float, float]:
+        """Reduce an EONET geometry's ``coordinates`` to one ``(lon, lat)`` position.
+
+        EONET v3 geometries are GeoJSON: a ``Point`` carries a single
+        position ``[lon, lat]``, while a ``Polygon`` carries a list of rings,
+        each a list of positions (GDACS flood extents arrive this way: 7 of
+        the 100 events in a 2026-11-14 ``status=all`` response). Reading
+        ``coordinates[1]`` as the latitude regardless of type raised
+        ``TypeError`` on the first Polygon and failed the whole fetch.
+
+        A Polygon is represented by the mean of its outer ring's distinct
+        vertices -- a point guaranteed to sit within the ring's bounding box,
+        not an area-weighted centroid. Holes (later rings) are ignored, and
+        a ring whose longitudes span more than 180 degrees is treated as
+        crossing the antimeridian so its vertices do not average to the far
+        side of the globe. RFC 7946 would read such a ring as genuinely that
+        wide; no natural event's extent is, and none is in the feed: of
+        3,000 events fetched on 2026-11-16 (``status=all``), 144 had Polygon
+        geometry (all GDACS flood extents) and the widest spanned well under
+        180 degrees, with none within 10 degrees of the antimeridian.
+
+        Args:
+            coordinates: The ``coordinates`` member of one EONET geometry.
+
+        Returns:
+            ``(longitude, latitude)`` in degrees.
+
+        Raises:
+            ValueError: If no numeric position can be read from
+                ``coordinates``; there is then no location to report, and
+                defaulting to ``(0, 0)`` would invent one.
+        """
+
+        def _is_position(node: Any) -> bool:
+            return (
+                isinstance(node, (list, tuple))
+                and len(node) >= 2
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in node[:2])
+            )
+
+        # Descend through the outermost-first nesting (MultiPolygon -> Polygon
+        # -> ring) until reaching a position or a list of positions.
+        node = coordinates
+        while (
+            isinstance(node, (list, tuple))
+            and node
+            and not _is_position(node)
+            and not _is_position(node[0])
+        ):
+            node = node[0]
+
+        if _is_position(node):
+            positions = [node]
+        elif isinstance(node, (list, tuple)) and node and all(_is_position(p) for p in node):
+            positions = list(node)
+        else:
+            raise ValueError(
+                "EONET geometry coordinates hold no readable [lon, lat] position "
+                f"(got {type(coordinates).__name__})"
+            )
+
+        # A closed GeoJSON ring repeats its first vertex last; counting it
+        # twice would pull the mean toward that vertex.
+        if len(positions) > 1 and list(positions[0][:2]) == list(positions[-1][:2]):
+            positions = positions[:-1]
+
+        lons = [float(p[0]) for p in positions]
+        lats = [float(p[1]) for p in positions]
+        # RFC 7946 bounds a position to [-180, 180] x [-90, 90]. A NaN or an
+        # out-of-range value is not a place: it produced a DataPoint at
+        # latitude 95, or at ``nan``, that every downstream distance and map
+        # treated as real.
+        if not all(math.isfinite(v) for v in (*lons, *lats)) or not (
+            all(-180.0 <= lon <= 180.0 for lon in lons)
+            and all(-90.0 <= lat <= 90.0 for lat in lats)
+        ):
+            raise ValueError(
+                "EONET geometry coordinates are outside longitude [-180, 180] / "
+                "latitude [-90, 90] or not finite"
+            )
+        if max(lons) - min(lons) > 180.0:
+            lons = [lon + 360.0 if lon < 0.0 else lon for lon in lons]
+        lon = sum(lons) / len(lons)
+        if lon > 180.0:
+            lon -= 360.0
+        return lon, sum(lats) / len(lats)
+
     async def _fetch_impl(
         self,
         start_time: datetime | None = None,
@@ -1444,10 +1532,21 @@ class NASAEONETSource(DataSourceBase):
 
         response = await self._http_get("events", params=params)
         data = response.json()
+        events = data.get("events") if isinstance(data, dict) else None
+        if not isinstance(events, list):
+            # No ``events`` array is not "no events": an envelope without it
+            # ({}, ``"events": null``, an error document) read as a
+            # successful, quiet day.
+            raise DataSourceError(
+                "NASA EONET response has no 'events' array; schema drift or an error document",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
         data_points: list[DataPoint] = []
+        parse_failures = 0
 
-        for event in data.get("events", []):
+        for event in events:
             try:
                 event_id = event.get("id", "")
                 title = event.get("title", "")
@@ -1457,23 +1556,26 @@ class NASAEONETSource(DataSourceBase):
 
                 if not geometry:
                     continue
+                if not isinstance(geometry, list):
+                    raise TypeError(f"geometry is {type(geometry).__name__}, expected a list")
 
                 # Get the most recent geometry point
                 latest_geo = geometry[-1]
                 geo_date = latest_geo.get("date", "")
-                coords = latest_geo.get("coordinates", [0, 0])
+                lon, lat = self._representative_lon_lat(latest_geo.get("coordinates"))
 
                 timestamp = datetime.fromisoformat(geo_date.replace("Z", "+00:00"))
+                if timestamp.tzinfo is None:
+                    # EONET dates are UTC; one written without the "Z" must
+                    # not become a naive datetime that cannot be compared
+                    # with every other point's aware one.
+                    timestamp = timestamp.replace(tzinfo=UTC)
 
                 category_name = (
                     categories_list[0].get("id", "unknown") if categories_list else "unknown"
                 )
 
-                location = (
-                    float(coords[1]) if len(coords) > 1 else 0.0,  # lat
-                    float(coords[0]) if len(coords) > 0 else 0.0,  # lon
-                    0.0,
-                )
+                location = (lat, lon, 0.0)
 
                 data_points.append(
                     DataPoint(
@@ -1485,7 +1587,10 @@ class NASAEONETSource(DataSourceBase):
                             "title": title,
                             "category": category_name,
                             "geometry_count": len(geometry),
-                            "sources": [s.get("url") for s in sources],
+                            # A Polygon's location is a representative vertex
+                            # mean, not a reported point; say which it is.
+                            "geometry_type": latest_geo.get("type", "Point"),
+                            "sources": [s.get("url") for s in sources or []],
                             "closed": event.get("closed"),
                         },
                         location=location,
@@ -1495,9 +1600,24 @@ class NASAEONETSource(DataSourceBase):
                     )
                 )
 
-            except (ValueError, KeyError, IndexError) as e:
-                logger.debug(f"Failed to parse EONET event: {e}")
+            except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
+                # One malformed event (``"sources": null``, a null date, a
+                # category that is not an object) is skipped, not allowed to
+                # fail the fetch for the well-formed events beside it.
+                parse_failures += 1
+                logger.warning(f"Failed to parse EONET event: {e}")
                 continue
+
+        if parse_failures and not data_points:
+            # Events arrived and none could be read: schema drift, not a
+            # quiet day. Refuse to return a fabricated empty success (the
+            # USGS earthquake source guards the same way).
+            raise DataSourceError(
+                f"NASA EONET returned {len(events)} events but none parsed "
+                f"({parse_failures} parse failures); schema drift",
+                source_id=self.source_id,
+                retryable=False,
+            )
 
         logger.info(f"EONET: Fetched {len(data_points)} natural events")
         return data_points

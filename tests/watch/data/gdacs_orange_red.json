@@ -1,0 +1,128 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "bbox": [
+    87.3,
+    12.2,
+    87.3,
+    12.2
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     87.3,
+     12.2
+    ]
+   },
+   "properties": {
+    "eventtype": "TC",
+    "eventid": 1001351,
+    "episodeid": 4,
+    "eventname": "AKVAN-26",
+    "glide": "",
+    "name": "Tropical Cyclone AKVAN-26",
+    "description": "Tropical Cyclone AKVAN-26",
+    "htmldescription": "Orange Tropical Cyclone AKVAN-26 in India from: 16 Nov 2026  to: 17 Nov 2026 .",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/TC.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Orange/TC.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001351&episodeid=4",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1001351&episodeid=4&eventtype=TC",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001351"
+    },
+    "alertlevel": "Orange",
+    "alertscore": 2,
+    "episodealertlevel": "Orange",
+    "episodealertscore": 2.0,
+    "istemporary": "false",
+    "iscurrent": "true",
+    "country": "India",
+    "fromdate": "2026-11-16T18:00:00",
+    "todate": "2026-11-17T12:00:00",
+    "datemodified": "2026-11-17T18:20:34",
+    "iso3": "IND",
+    "source": "JTWC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "countryonland": "",
+    "affectedcountries": [
+     {
+      "iso2": "IN",
+      "iso3": "IND",
+      "countryname": "India"
+     }
+    ],
+    "severitydata": {
+     "severity": 83.3328,
+     "severitytext": "Tropical Storm (maximum wind speed of 83 km/h)",
+     "severityunit": "km/h"
+    }
+   }
+  },
+  {
+   "type": "Feature",
+   "bbox": [
+    80.2,
+    15.8,
+    80.2,
+    15.8
+   ],
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     80.2,
+     15.8
+    ]
+   },
+   "properties": {
+    "eventtype": "TC",
+    "eventid": 1001346,
+    "episodeid": 10,
+    "eventname": "MURASU-26",
+    "glide": "TC-2026-000199-IND",
+    "name": "Tropical Cyclone MURASU-26",
+    "description": "Tropical Cyclone MURASU-26",
+    "htmldescription": "Red Tropical Cyclone MURASU-26 in India from: 01 Nov 2026  to: 03 Nov 2026 .",
+    "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Red/TC.png",
+    "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Red/TC.png",
+    "url": {
+     "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001346&episodeid=10",
+     "report": "https://www.gdacs.org/report.aspx?eventid=1001346&episodeid=10&eventtype=TC",
+     "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001346"
+    },
+    "alertlevel": "Red",
+    "alertscore": 3,
+    "episodealertlevel": "Red",
+    "episodealertscore": 3.0,
+    "istemporary": "false",
+    "iscurrent": "false",
+    "country": "India",
+    "fromdate": "2026-11-01T00:00:00",
+    "todate": "2026-11-03T06:00:00",
+    "datemodified": "2026-11-04T06:01:20",
+    "iso3": "IND",
+    "source": "JTWC",
+    "sourceid": "",
+    "polygonlabel": "Centroid",
+    "Class": "Point_Centroid",
+    "countryonland": "",
+    "affectedcountries": [
+     {
+      "iso2": "IN",
+      "iso3": "IND",
+      "countryname": "India"
+     }
+    ],
+    "severitydata": {
+     "severity": 157.4064,
+     "severitytext": "Hurricane/Typhoon > 74 mph (maximum wind speed of 157 km/h)",
+     "severityunit": "km/h"
+    }
+   }
+  }
+ ],
+ "bbox": null
+}

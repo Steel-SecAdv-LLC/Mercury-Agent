@@ -620,15 +620,19 @@ class SymbolicConstraintModule(nn.Module):
     of per-detector anomaly scores, this layer grounds the predicates of a
     :class:`RuleGraph`, evaluates each fuzzy implication, aggregates rule
     satisfaction over the batch with a smooth universal quantifier, and
-    combines the rules with learnable confidence weights into a single
+    combines the rules with fixed (uniform) confidence weights into a single
     satisfaction scalar in ``[0, 1]``.
 
     The constraint loss is ``1 - satisfaction``.  Because ``satisfaction``
     depends on the fusion network's ``anomaly_prob`` (an input to
     :meth:`forward`), adding this loss to the supervised objective makes the
     constraint co-train the fusion network.  The layer's own parameters --
-    learned detector reliabilities and rule confidences -- are optimised
-    jointly.
+    learned detector reliabilities, consensus sharpness and (with a salience
+    graph) salience thresholds -- are optimised jointly.  The per-rule
+    confidence logits (``rule_weights``) are a fixed, non-trainable buffer:
+    were they free parameters of the same loss, gradient descent would shift
+    weight onto whichever rule is easiest to satisfy instead of satisfying
+    every rule.
 
     Args:
         num_detectors: Number of base-detector score channels ``D``.  May be
@@ -665,9 +669,17 @@ class SymbolicConstraintModule(nn.Module):
         self.learn_detector_reliability = bool(learn_detector_reliability)
         self.p_aggregator = float(p_aggregator)
 
-        # Learnable per-rule confidence (softmax-normalised at use time): a
-        # proper LTN weights its axioms rather than treating them as equal.
-        self.rule_weights = nn.Parameter(torch.zeros(len(self.rule_graph)))
+        # Fixed per-rule confidence logits (softmax-normalised at use time).
+        # These are deliberately NOT trainable parameters: the satisfaction
+        # loss is ``1 - sum(rule_satisfaction * softmax(rule_weights))``, so a
+        # free ``rule_weights`` lets the optimizer dodge hard rules by piling
+        # weight onto whichever rule is easiest to satisfy (measured: a
+        # 0.50/0.50 split drifting to 0.13/0.87 with the recall rule fading).
+        # A buffer keeps the public ``.rule_weights`` attribute and the
+        # state-dict key, so checkpoints saved when this was an nn.Parameter
+        # still load (their trained logits are restored as fixed confidences).
+        self.rule_weights: torch.Tensor
+        self.register_buffer("rule_weights", torch.zeros(len(self.rule_graph)))
 
         # Learnable detector reliabilities for the weighted-consensus predicate.
         if self.num_detectors > 0 and self.learn_detector_reliability:

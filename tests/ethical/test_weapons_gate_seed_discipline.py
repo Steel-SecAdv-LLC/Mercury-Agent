@@ -86,8 +86,17 @@ ADDED_AFTER_HELD_OUT_MEASUREMENT: dict[str, int] = {
 #: matching behaviour well outside this control.
 #:
 #: Pinned so the cost of the floor stays visible and cannot grow unnoticed.
+#:
+#: 386 since the ``targeting_planning`` pattern stopped matching the bare
+#: preposition "against people" and began to require a verb of use before it
+#: ("use", "deploy", "unleash", "turn", "weaponize ... against people"). The
+#: three new fragments are ``dep``, ``loy`` and ``unl``, pieces of "deploy"
+#: and "unleash"; none occurs in the slice (the 23 below did not move), and
+#: neither whole word does. The change narrows what the pattern matches, so
+#: it cannot lift a row: recall and false positives on the slice are as they
+#: were, row for row.
 SHORT_LITERAL_FLOOR = 4
-MEASURED_SHORT_GATE_LITERALS = 383
+MEASURED_SHORT_GATE_LITERALS = 386
 MEASURED_SHORT_LITERALS_IN_SLICE = 23
 
 #: Hazard vocabulary pre-dating the slice, which unavoidably occurs in a

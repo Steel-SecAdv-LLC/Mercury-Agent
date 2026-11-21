@@ -434,11 +434,14 @@ jobs:
             -color
 
       - name: Run zizmor high-signal audits
-        # Advisory for now: this surfaces unpinned-action and permission
-        # findings without blocking every PR before the repository-wide SHA
-        # pinning migration lands. Blocking workflow invariants are enforced
-        # by scripts/check_workflow_hardening.py in the next step.
-        run: zizmor --no-progress --format=plain --min-severity high --no-exit-codes .github/workflows
+        # BLOCKING at high severity: the four standing high findings
+        # (benchmark.yml workflow-level write scopes; the spoofable actor
+        # clause in dependabot-auto-merge) were fixed on 2026-11-20, so a
+        # new high is a regression. Medium/low remain advisory (126 standing
+        # template-expansion/pin findings tracked, not silenced); blocking
+        # workflow invariants are also enforced by
+        # scripts/check_workflow_hardening.py in the next step.
+        run: zizmor --no-progress --format=plain --min-severity high .github/workflows
 
       - name: Check uv.lock matches pyproject.toml
         # The Dockerfile and the test lanes install with ``uv sync --locked``,
@@ -546,6 +549,30 @@ jobs:
         # this fails, run `python scripts/measure_codebase_scale.py
         # --update README.md` and commit the regenerated block.
         run: python scripts/measure_codebase_scale.py --check README.md
+
+      - name: Run skip-ledger gate (no test parked, none guarded out of every lane)
+        # A skipped test reports as a pass. This reads tests/ with ast and
+        # uv.lock for what the full test lane installs, and fails on a test
+        # behind importorskip() of a dependency no extra provides (it skips in
+        # every lane and has never run), on an unconditional skip, and on an
+        # expected failure, unless the script declares it with a reason. Pure
+        # stdlib. If the block is stale, run `python
+        # scripts/measure_skip_ledger.py --update docs/SKIP_LEDGER.md`.
+        run: python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
+
+      - name: Validate Prometheus rules (promtool check + unit tests)
+        # `check rules` parses every expression; `test rules` feeds series to
+        # the rule file and asserts which alerts fire
+        # (monitoring/prometheus/rules.test.yml). A rule that parses but can
+        # never fire passes the first and fails the second. promtool comes
+        # from the runner's own package repository.
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends prometheus
+          python scripts/render_prometheus_rules.py --check
+          promtool check rules monitoring/prometheus/rules.yml
+          promtool check config monitoring/prometheus/prometheus.yml
+          cd monitoring/prometheus && promtool test rules rules.test.yml
 
       - name: Run benchmark-integrity gate (ROADMAP row 17 offline fallback)
         # Dependency-free, no-network structural + recomputation gate over
@@ -818,6 +845,10 @@ jobs:
             scripts/record_gdacs_fixtures.py \
             scripts/check_lock_downgrades.py \
             scripts/simulate_dependabot_uv.py \
+            scripts/measure_skip_ledger.py \
+            scripts/api_boot_smoke.py \
+            scripts/verify_release.py \
+            scripts/ci_test_partition.py \
             --show-error-codes \
             --pretty
 
@@ -959,7 +990,10 @@ jobs:
         run: |
           python -m venv /tmp/semgrep-env
           /tmp/semgrep-env/bin/pip install --upgrade "pip>=26.1"
-          /tmp/semgrep-env/bin/pip install semgrep
+          # Pinned: the ruleset behaviour this gate was verified against
+          # (0 true findings over src/ at this version); an unpinned semgrep
+          # can change what "blocking" means between runs.
+          /tmp/semgrep-env/bin/pip install "semgrep==1.186.0"
           # Expose semgrep on PATH for the scan step below without
           # contaminating the runner's site-packages.
           ln -sf /tmp/semgrep-env/bin/semgrep /usr/local/bin/semgrep
@@ -1070,9 +1104,22 @@ jobs:
             echo "Semgrep is not installed — failing rather than silently skipping."
             exit 1
           fi
+          # --error makes findings fail the job: without it, ``semgrep scan``
+          # exits 0 on findings and nothing read the JSON afterwards, so the
+          # step's BLOCKING claim was false. Every current match was triaged
+          # (2026-11-20) and each site already carries the mitigation its
+          # rule asks for; those sites carry an inline ``nosemgrep`` with the
+          # justification beside the code, so the rules stay enabled and a
+          # NEW finding fails the job. The generated console bundle is
+          # excluded as a path: it is built by scripts/build_console_port.py
+          # (hand-edits fail its gate) and its XSS escaping is enforced by
+          # the console's own in-page self-tests (diag.js asserts every
+          # server/user string is escaped).
           semgrep scan \
             --config "p/python" \
             --config "p/security-audit" \
+            --error \
+            --exclude 'src/omni_mercury_engine/api/frontend_assets/static/console/*' \
             --json \
             --output semgrep-report.json \
             src/
@@ -1168,12 +1215,30 @@ jobs:
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
 
+      - name: API refuses to boot before AMA is provisioned
+        # This is the one moment in CI that looks like a bare
+        # ``pip install "mercury-agent-global[api]"``: the API extra is
+        # installed and AMA is not. On that install the server used to start,
+        # report /health "healthy" and serve sign-in pages with no account API
+        # behind them, and no lane ever ran it because every lane builds AMA
+        # before its first import. The script exits 2 if AMA is already
+        # importable, so moving the build earlier fails here instead of
+        # turning the check into a no-op.
+        run: python scripts/api_boot_smoke.py --expect refuse
+
       - name: Build + install AMA Cryptography (native PQC backend)
         # AMA takes a backseat to none: every test lane now runs against the
         # real native AMA backend; non-native PQC execution is not a CI mode.
         uses: ./.github/actions/build-ama-cryptography
         with:
           ama-ref: v5.0.0
+
+      - name: API boots with every router mounted
+        # The same install, now with AMA: start uvicorn with the frontend on
+        # and require /health, the account API in the OpenAPI document, the
+        # frontend pages, no router reported unavailable on /metrics and no
+        # traceback in the startup log.
+        run: python scripts/api_boot_smoke.py --expect serve
 
       - name: Run core tests with coverage
         env:
@@ -1412,15 +1477,16 @@ jobs:
 
       - name: Pillar mutation gate (tests/pillars/ must not be vacuous)
         # The step above proves the pillar suite passes; this one proves it
-        # can fail. Each of the 7 mutations disables or inverts exactly one
-        # enforced control (harm gate -> always ALLOW, grave-harm axis off,
-        # immutable ledger -> mutable, governor tripwire -> reversible, ...)
+        # can fail. Each of the 9 mutations disables or inverts exactly one
+        # enforced control (harm gate -> always ALLOW, harm gate reads only
+        # its first passage, grave-harm axis off, immutable ledger -> mutable,
+        # governor tripwire undone by resume, ...)
         # and requires the pillar module that claims to observe it to go red.
         # A survivor, or a mutation whose suite errors instead of failing,
         # fails the job. CAPABILITY_MATRIX.md marks this row **enforced**
         # ("deleting the control fails CI"); before this step nothing in CI
         # ran the script, so a pillar test could have been weakened into a
-        # vacuous pass unnoticed. Measured 2026-09-27: 7/7 killed, ~80 s.
+        # vacuous pass unnoticed. Measured 2026-11-18: 9/9 killed, ~45 s.
         env:
           MERCURY_REQUIRES_ML: "1"
           AMA_REQUIRE_REAL_PQC: "true"
@@ -1541,9 +1607,30 @@ jobs:
         # below can declare them must-run instead of silently skipped.
         run: python scripts/prefetch_pinned_models.py
 
+      - name: Install the headless-browser driver (console browser test)
+        # tests/api/test_console_watch_alert_browser.py opens the served
+        # console in headless Chromium and watches a finding arrive. No lane
+        # installed a browser, so the test skipped everywhere and the
+        # console's alert path was never exercised in CI.
+        #
+        # ``npm ci`` installs exactly tests/api/browser/package-lock.json and
+        # verifies each package against its integrity hash; ``--ignore-scripts``
+        # runs no package install script. The browser is then fetched by the
+        # pinned Playwright itself, with the system libraries it needs.
+        # Node is the runner image's own; nothing here writes to /tmp.
+        run: |
+          set -euo pipefail
+          node --version
+          npm ci --prefix tests/api/browser --ignore-scripts --no-audit --no-fund
+          tests/api/browser/node_modules/.bin/playwright install --with-deps chromium
+
       - name: Run full test suite with parallelization
         env:
           TORCH_HOME: ~/.cache/torch
+          # The step above installed the driver, so the browser tier must
+          # run; a missing browser is a red, not a skip (tests/conftest.py
+          # session gate).
+          MERCURY_REQUIRES_BROWSER: "1"
           # AMA takes a backseat to none: require the real native AMA backend
           # at package import. The build step above provisions it, so this
           # fails the lane closed if AMA ever fails to load.
@@ -1565,18 +1652,68 @@ jobs:
           # (tests/research/test_served_routes_ledger.py); the other lanes
           # check the ledger's input hashes and floors without recomputing.
           MERCURY_FULL_LEDGER_CHECK: "1"
+          # Sessions the suite is run as (see the step's comment).
+          SUITE_PARTS: "4"
         run: |
-          # Run tests in parallel with 4 workers, 300s timeout per test
-          # Coverage threshold enforced to ensure production readiness
-          pytest tests/ \
-            -v \
-            -n 4 \
-            --timeout=300 \
-            --cov=src/omni_mercury_engine \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }} \
-            --dist=loadgroup
+          # The whole suite, 4 workers, 300s timeout per test, as SUITE_PARTS
+          # pytest sessions that append to ONE coverage file; the coverage
+          # floor is enforced on the last session, over all of them.
+          #
+          # Why not one session: under coverage the four xdist workers do not
+          # fit this runner's 16 GB. Measured 2026-11-21 on a 16 GB, 4-core
+          # machine: 5.9 GB as soon as collection ends (every worker has
+          # imported the package under the tracer), then steady growth as
+          # tests run (7.1 GB at 12%, 11.8 GB at 42%, 13.6 GB peak). Here the
+          # pinned HuggingFace models are loaded as well, and the runner was
+          # killed at 36% ("The runner has received a shutdown signal"). A new
+          # session starts new workers, so what one part accumulated is
+          # returned before the next begins: the same tests, the same four
+          # workers, the same coverage data (78.73% in parts, 78.72% as one
+          # session), a lower peak. Each part's peak is printed as a notice,
+          # so the margin on this runner is measured, not assumed.
+          #
+          # scripts/ci_test_partition.py assigns every top-level entry of
+          # tests/ to exactly one part; tests/scripts/test_ci_test_partition.py
+          # holds that the parts are disjoint and together are every test file
+          # pytest collects, so no test is dropped by the split. Every part
+          # runs even after an earlier one fails, so one red part does not
+          # hide another; the step fails if any part did.
+          set -uo pipefail
+          status=0
+          last=$((SUITE_PARTS - 1))
+          for part in $(seq 0 "$last"); do
+            mapfile -t paths < <(python scripts/ci_test_partition.py "$SUITE_PARTS" "$part")
+            if [ "${#paths[@]}" -eq 0 ]; then
+              echo "::error::part ${part} of ${SUITE_PARTS} holds no tests"
+              exit 1
+            fi
+            # Later parts append to the first part's coverage data; the last
+            # part reports on all of it and enforces the floor.
+            append=()
+            report=(--cov-report=)
+            if [ "$part" -gt 0 ]; then
+              append=(--cov-append)
+            fi
+            if [ "$part" -eq "$last" ]; then
+              report=(--cov-report=xml --cov-report=term-missing --cov-fail-under=${{ env.COVERAGE_THRESHOLD_FULL }})
+            fi
+            echo "::group::suite part $((part + 1)) of ${SUITE_PARTS}: ${#paths[@]} entries"
+            : > suite-memory.log
+            ( while true; do free -m | awk 'NR==2 {print $3}' >> suite-memory.log; sleep 5; done ) &
+            sampler=$!
+            pytest "${paths[@]}" \
+              -v \
+              -n 4 \
+              --timeout=300 \
+              --dist=loadgroup \
+              --cov=src/omni_mercury_engine \
+              "${append[@]}" "${report[@]}" || status=1
+            kill "$sampler" 2>/dev/null || true
+            echo "::endgroup::"
+            echo "::notice::suite part $((part + 1)) of ${SUITE_PARTS}: peak memory in use $(sort -n suite-memory.log | tail -1) MB of $(free -m | awk 'NR==2 {print $2}') MB"
+          done
+          rm -f suite-memory.log
+          exit "$status"
 
       - name: Upload coverage
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7

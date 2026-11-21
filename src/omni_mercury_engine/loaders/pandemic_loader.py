@@ -14,12 +14,17 @@ from __future__ import annotations
 
 import io
 import logging
+import os
+import time
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.datasets.exceptions import check_synthetic_allowed
+from omni_mercury_engine.datasets.exceptions import (
+    DataSourceUnavailableError,
+    check_synthetic_allowed,
+)
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -116,9 +121,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "name": "2014 West Africa Ebola Outbreak",
         "date": "2014-03-23",
         "description": (
-            "2014 West Africa Ebola outbreak (limited data via WHO GHO). "
-            "The largest Ebola epidemic in history, primarily affecting "
-            "Guinea, Liberia, and Sierra Leone."
+            "2014 West Africa Ebola outbreak. The largest Ebola epidemic in "
+            "history, primarily affecting Guinea, Liberia, and Sierra Leone. "
+            "Marked not-benchmarkable: the WHO Global Health Observatory "
+            "serves no Ebola series, so there is no recorded data to score."
         ),
         "location": "West Africa",
         "start": "2014-03-01",
@@ -126,20 +132,47 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "source": "who_gho",
         "pathogen_class": "virus",
         "pathogen": "Ebolavirus",
+        # Honest exclusion. The loader asked WHO GHO for the indicator
+        # ``EBOLA_CASESDEATHS``, which the OData API answers with HTTP 404,
+        # and the indicator catalogue (3,092 entries, read 2026-11-20) holds
+        # none whose code or name mentions Ebola. What the event served was a
+        # series built from monthly situation-report totals
+        # (``_synthetic_ebola_2014``); that stand-in stays available behind
+        # the synthetic opt-in, marked as such, and is never a benchmark.
+        "not_benchmarkable": True,
+        "_not_benchmarkable_reason": (
+            "WHO GHO serves no Ebola indicator (EBOLA_CASESDEATHS answers "
+            "HTTP 404 and no indicator in its catalogue names Ebola); the "
+            "only series this loader can produce for the event is one it "
+            "constructs from situation-report totals, which is not data."
+        ),
     },
     "mpox_2022": {
         "name": "2022 Mpox Outbreak",
         "date": "2022-05-06",
         "description": (
             "2022 global Mpox (monkeypox) outbreak. Multi-country outbreak "
-            "outside endemic regions with sustained community transmission."
+            "outside endemic regions with sustained community transmission. "
+            "Marked as a stub: the only OWID source wired into this loader "
+            "(_OWID_CSV_URL) is the COVID-19 dataset, so scoring this event "
+            "from it would be serving COVID data labelled as mpox. No "
+            "offline-testable mpox-specific source is available here."
         ),
         "location": "World",
         "start": "2022-05-01",
         "end": "2022-12-31",
-        "source": "owid",
+        # Deliberately NOT "owid": the wired OWID CSV is COVID-19 data, and
+        # serving COVID as mpox would be a fabricated benchmark.  Until a real
+        # mpox/monkeypox feed is integrated, this event is not benchmarkable.
+        "source": "stub",
         "pathogen_class": "virus",
         "pathogen": "Monkeypox virus (MPXV)",
+        "_stub_reason": (
+            "Only the OWID COVID-19 CSV is wired into this loader; there is "
+            "no mpox-specific data source. Serving COVID data as mpox would "
+            "be dishonest, so this event is excluded from benchmarking "
+            "pending a real monkeypox feed."
+        ),
     },
     # --- BACTERIA (pathogen_class=bacteria) ---
     "cholera_yemen_2017": {
@@ -242,6 +275,14 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
 # Number of days used as the reference baseline for anomaly labeling
 _BASELINE_WINDOW_DAYS = 30
 
+#: Set on an empty frame returned by a WHO helper when the emptiness is caused
+#: by a *fetch failure* (outage / unparseable response), as opposed to the API
+#: genuinely reporting no records. ``fetch_historical`` reads it to tell an
+#: outage apart from true "no data" and raise instead of returning the empty
+#: frame as if it were data. The low-level helpers still return an empty frame
+#: (their sanctioned graceful contract); this attribute only annotates it.
+_FETCH_FAILED_ATTR = "mercury_fetch_failed"
+
 
 class PandemicLoader(BaseDomainLoader):
     """Loader for pandemic and outbreak data from OWID and WHO.
@@ -255,7 +296,9 @@ class PandemicLoader(BaseDomainLoader):
       datasets updated daily, providing case counts, death counts,
       testing rates, positivity rates, and policy stringency indices.
     * **WHO Global Health Observatory (GHO)** -- OData API for non-COVID
-      disease data including cholera, Ebola, and malaria surveillance.
+      disease data (cholera). It serves no Ebola series, and its malaria
+      indicator returns nothing for the catalogue's country: ``ebola_2014``
+      is marked not-benchmarkable and the malaria event is a stub.
     * **WHO Emergencies Hub** -- API for health emergency alerts,
       used for biosurveillance alert frequency analysis.
 
@@ -367,16 +410,13 @@ class PandemicLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"pandemic_historical_{event_id}"
-        cached_frame = self._read_frame_cache(cache_key)
-
-        if cached_frame is not None:
-            logger.debug("Returning cached historical data for '%s'.", event_id)
-            return cached_frame
-
         event = _EVENT_CATALOG[event_id]
         source = event["source"]
 
+        # Events with no data source are answered before the cache is read:
+        # a frame cached for one of them while it was still wired to a source
+        # (the constructed Ebola series, COVID rows filed as mpox) must not
+        # come back as that event's data.
         if source == "stub":
             logger.warning(
                 "Data source for '%s' is a stub — no live API available. " "Reason: %s",
@@ -384,6 +424,20 @@ class PandemicLoader(BaseDomainLoader):
                 event.get("_stub_reason", "unknown"),
             )
             return pd.DataFrame()
+
+        if event.get("not_benchmarkable", False):
+            return self._not_benchmarkable_frame(event_id, event)
+
+        # Cache schema v2: Ebola now parses TimeDim years into real in-window
+        # rows (was empty), the OWID "World" aggregate is filtered to a single
+        # series, and missing NumericValue years are dropped — so cached
+        # payloads differ from pre-fix entries.
+        cache_key = f"pandemic_historical_v2_{event_id}"
+        cached_frame = self._read_frame_cache(cache_key)
+
+        if cached_frame is not None:
+            logger.debug("Returning cached historical data for '%s'.", event_id)
+            return cached_frame
 
         if source == "owid":
             df = self._fetch_owid_event(event)
@@ -406,6 +460,22 @@ class PandemicLoader(BaseDomainLoader):
             raise ValueError(f"Unknown data source '{source}' for event '{event_id}'.")
 
         if df.empty:
+            if df.attrs.get(_FETCH_FAILED_ATTR):
+                # The WHO helper returned empty because the fetch FAILED
+                # (outage / unparseable response), not because the API
+                # reported no records. Returning it here would make an outage
+                # indistinguishable from genuine "no data": get_ground_truth
+                # would hand back an empty label array and the event would be
+                # scored (or silently skipped) as if real but empty. Raise so
+                # the caller records the event as unavailable.
+                raise DataSourceUnavailableError(
+                    "PandemicLoader",
+                    source_url=_WHO_GHO_BASE_URL if source == "who_gho" else _WHO_EMERGENCIES_URL,
+                    reason=(
+                        f"WHO fetch for event '{event_id}' failed; no data "
+                        f"could be retrieved (an outage, not an empty result)."
+                    ),
+                )
             logger.warning("No data returned for event '%s'.", event_id)
             return df
 
@@ -418,23 +488,57 @@ class PandemicLoader(BaseDomainLoader):
         logger.info("Fetched %d historical records for event '%s'.", len(df), event_id)
         return df
 
+    def _not_benchmarkable_frame(self, event_id: str, event: dict[str, Any]) -> pd.DataFrame:
+        """Answer for an event the catalogue marks not-benchmarkable.
+
+        No request is made: the source the event named does not exist. The
+        answer is an empty frame, so the event is skipped rather than scored.
+        For ``ebola_2014`` the constructed series is still returned when the
+        synthetic opt-in (``MERCURY_ALLOW_SYNTHETIC=1``) is set, carrying the
+        synthetic mark, which ``engineer_scored_features`` refuses.
+
+        Args:
+            event_id: Key into the event catalogue.
+            event: The catalogue entry.
+
+        Returns:
+            An empty frame, or the marked stand-in under the synthetic opt-in.
+        """
+        reason = str(event.get("_not_benchmarkable_reason", "no recorded data source"))
+        if event_id == "ebola_2014":
+            try:
+                check_synthetic_allowed("PandemicLoader", reason)
+            except DataSourceUnavailableError:
+                pass
+            else:
+                return self.mark_synthetic(self._synthetic_ebola_2014())
+        logger.warning("Event '%s' is not benchmarkable: %s", event_id, reason)
+        return pd.DataFrame()
+
     def list_events(self) -> list[dict[str, Any]]:
         """Return the catalog of ground truth pandemic events.
 
         Returns:
             List of dicts each containing *event_id*, *name*, *date*,
-            and *description* keys.
+            and *description* keys. An event with no recorded data source
+            (a stub, or one marked not-benchmarkable) also carries
+            ``not_benchmarkable: True`` and the catalogue's ``reason``, so a
+            caller can tell it from a measurable event without fetching it.
         """
         events: list[dict[str, Any]] = []
         for event_id, meta in _EVENT_CATALOG.items():
-            events.append(
-                {
-                    "event_id": event_id,
-                    "name": meta["name"],
-                    "date": meta["date"],
-                    "description": meta["description"],
-                }
-            )
+            entry: dict[str, Any] = {
+                "event_id": event_id,
+                "name": meta["name"],
+                "date": meta["date"],
+                "description": meta["description"],
+            }
+            if meta.get("source") == "stub" or meta.get("not_benchmarkable", False):
+                entry["not_benchmarkable"] = True
+                entry["reason"] = meta.get("_not_benchmarkable_reason") or meta.get(
+                    "_stub_reason", "no recorded data source"
+                )
+            events.append(entry)
         return events
 
     def list_pathogen_classes(self) -> list[str]:
@@ -571,10 +675,18 @@ class PandemicLoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
-        # Ensure chronological order
+        # Ensure chronological order.  ``kind="stable"`` matters because
+        # ``get_ground_truth`` labels the frame in the cached order and this
+        # method re-sorts that same frame: a multi-location ("World")
+        # aggregate interleaves countries on identical dates, so the
+        # ``datetime64`` key carries ties.  The default introsort is not
+        # idempotent on tied ``datetime64`` keys, so an unstable re-sort
+        # permutes the tied rows and misaligns feature row *i* against label
+        # row *i*.  A stable sort of already-ordered data preserves the label
+        # order.
         if "date" in df.columns:
             df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            df = df.sort_values("date").reset_index(drop=True)
+            df = df.sort_values("date", kind="stable").reset_index(drop=True)
 
         # ---- base columns (fill missing with 0) ----
         new_cases = df["new_cases"].fillna(0).values.astype(np.float64)
@@ -726,12 +838,22 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(url, params=params)
         except (ConnectionError, ValueError) as exc:
+            # The helper keeps its sanctioned graceful-empty contract (pinned
+            # by the WHO GHO graceful-failure test in
+            # ``tests/test_pandemic_expansion.py``): callers that want
+            # best-effort data still get an empty
+            # frame on an outage. But emptiness here means "fetch failed", not
+            # "no records" -- flag it so ``fetch_historical`` can raise a
+            # data-source-unavailable error instead of serving the empty frame
+            # as if the API had reported no cases.
             logger.warning(
                 "Failed to fetch WHO GHO indicator %s: %s",
                 indicator,
                 exc,
             )
-            return pd.DataFrame()
+            failed = pd.DataFrame()
+            failed.attrs[_FETCH_FAILED_ATTR] = True
+            return failed
 
         records = data.get("value", [])
         if not records:
@@ -757,7 +879,18 @@ class PandemicLoader(BaseDomainLoader):
             if year < start_year or year > end_year:
                 continue
 
-            annual_value = float(rec.get("NumericValue", 0) or 0)
+            # A missing/blank NumericValue means the API reported no figure
+            # for that year, NOT zero cases.  Coercing it to 0 (the previous
+            # behaviour) fabricated a zero-case year, which the wave-detection
+            # label then read as a trough-then-surge artefact.  Skip the year
+            # instead of inventing a data point.
+            raw_value = rec.get("NumericValue")
+            if raw_value is None or (isinstance(raw_value, str) and not raw_value.strip()):
+                continue
+            try:
+                annual_value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
             monthly_value = annual_value / 12.0
 
             for month in range(1, 13):
@@ -826,8 +959,13 @@ class PandemicLoader(BaseDomainLoader):
         try:
             data = self._fetch_json(_WHO_EMERGENCIES_URL)
         except (ConnectionError, ValueError) as exc:
+            # Same sanctioned graceful-empty contract as _fetch_who_gho, with
+            # the same failure flag so fetch_historical can distinguish an
+            # outage from a genuine absence of alerts.
             logger.warning("Failed to fetch WHO Emergencies: %s", exc)
-            return pd.DataFrame()
+            failed = pd.DataFrame()
+            failed.attrs[_FETCH_FAILED_ATTR] = True
+            return failed
 
         emergencies = data.get("value", [])
         if not emergencies:
@@ -846,9 +984,14 @@ class PandemicLoader(BaseDomainLoader):
                 continue
             try:
                 ts = pd.Timestamp(date_str)
-                # Normalize to tz-naive for comparison
+                # Normalize to tz-naive UTC for comparison.  ``tz_localize
+                # (None)`` alone just strips the offset and keeps the local
+                # wall-clock time, so "2020-06-01T23:00+05:00" would have been
+                # compared as 23:00 instead of its true 18:00 UTC -- shifting
+                # alerts near a month boundary into the wrong month.  Convert
+                # to UTC first, then drop the tz.
                 if ts.tzinfo is not None:
-                    ts = ts.tz_localize(None)
+                    ts = ts.tz_convert("UTC").tz_localize(None)
             except (ValueError, TypeError):
                 continue
             if start_ts <= ts <= end_ts:
@@ -906,9 +1049,14 @@ class PandemicLoader(BaseDomainLoader):
     def _load_owid_data(self) -> pd.DataFrame:
         """Load the full OWID COVID-19 dataset, using cache when available.
 
-        The OWID CSV is ~60MB.  This method caches the raw CSV as a
-        Parquet file in the loader's cache directory to avoid repeated
-        large downloads.
+        The OWID CSV is ~60MB. The downloaded file itself is kept in the
+        loader's cache directory for ``CACHE_TTL`` seconds, so a second call
+        reads it from disk instead of downloading it again.
+
+        It used to be kept as Parquet, which needs ``pyarrow`` or
+        ``fastparquet``. Neither is a dependency of this package in any
+        install, so the write failed on every call (logged at DEBUG) and the
+        whole file was downloaded again each time.
 
         Returns:
             DataFrame with all OWID COVID-19 columns.
@@ -916,27 +1064,30 @@ class PandemicLoader(BaseDomainLoader):
         Raises:
             ConnectionError: If the OWID CSV cannot be downloaded.
         """
-        parquet_path = self.cache_dir / "owid_covid_data.parquet"
+        csv_path = self.cache_dir / "owid_covid_data.csv"
 
-        # Check if a fresh cached parquet exists
-        if parquet_path.exists():
-            import time as _time
-
-            age_seconds = _time.time() - parquet_path.stat().st_mtime
-            if age_seconds < self.CACHE_TTL:
-                logger.debug("Loading cached OWID data from %s.", parquet_path)
-                return pd.read_parquet(parquet_path)
+        if csv_path.exists() and time.time() - csv_path.stat().st_mtime < self.CACHE_TTL:
+            try:
+                logger.debug("Loading cached OWID data from %s.", csv_path)
+                return pd.read_csv(csv_path, low_memory=False)
+            except (OSError, ValueError) as exc:
+                # An unreadable copy is not a reason to fail: fetch it again.
+                logger.warning("Cached OWID data at %s is unreadable (%s).", csv_path, exc)
 
         logger.info("Downloading OWID COVID-19 CSV (~60MB). This may take a moment.")
         raw_bytes = self._fetch_url(_OWID_CSV_URL)
         df = pd.read_csv(io.BytesIO(raw_bytes), low_memory=False)
 
-        # Cache as parquet for faster subsequent loads
+        # Kept only once it has parsed, and moved into place whole, so a
+        # reader never finds a half-written file under the cached name.
+        partial = csv_path.with_name(f"{csv_path.name}.{os.getpid()}.part")
         try:
-            df.to_parquet(parquet_path, index=False)
-            logger.debug("Cached OWID data to %s.", parquet_path)
-        except Exception as exc:
-            logger.debug("Failed to cache OWID parquet: %s", exc)
+            partial.write_bytes(raw_bytes)
+            partial.replace(csv_path)
+            logger.debug("Cached OWID data to %s.", csv_path)
+        except OSError as exc:
+            logger.warning("OWID data could not be cached at %s: %s", csv_path, exc)
+            partial.unlink(missing_ok=True)
 
         return df
 
@@ -951,10 +1102,15 @@ class PandemicLoader(BaseDomainLoader):
         """
         df = self._load_owid_data()
 
-        # Filter by location
+        # Filter by location.  "World" is NOT a "no filter" sentinel: OWID
+        # ships an explicit ``location == "World"`` aggregate row per date.
+        # Skipping the filter for "World" (the previous behaviour) returned
+        # every country's rows interleaved on shared dates -- a single-series
+        # detector then saw many countries' values stacked per day.  Filter
+        # to the named location in every case, "World" included, so the
+        # result is one aggregate series.
         location = event["location"]
-        if location != "World":
-            df = df[df["location"] == location].copy()
+        df = df[df["location"] == location].copy()
 
         # Filter by date range
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -997,30 +1153,47 @@ class PandemicLoader(BaseDomainLoader):
                 )
                 return self.mark_synthetic(self._synthetic_ebola_2014())
 
-            # Parse WHO GHO records into a DataFrame
-            rows: list[dict[str, Any]] = []
-            for rec in records:
-                rows.append(
-                    {
-                        "date": rec.get("TimeDim", rec.get("YEAR", "")),
-                        "location": rec.get(
-                            "SpatialDim",
-                            rec.get("COUNTRY", ""),
-                        ),
-                        "new_cases": rec.get("NumericValue", 0),
-                        "new_deaths": 0,
-                        "total_cases": 0,
-                        "total_deaths": 0,
-                    }
-                )
-
-            df = pd.DataFrame(rows)
-
-            # Filter to relevant time period
-            df["date"] = pd.to_datetime(df["date"], errors="coerce")
             start = pd.Timestamp(event["start"])
             end = pd.Timestamp(event["end"])
-            df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
+
+            # ``TimeDim`` is an integer *year* (WHO GHO reports Ebola
+            # case/death counts annually), NOT a date.  Passing it straight
+            # to ``pd.to_datetime`` read it as nanoseconds-since-1970 (2014
+            # -> 1970-01-01 00:00:00.000002014), so every row fell outside the
+            # event window and the frame came back empty -- the real data path
+            # never produced a single row.  Parse the year explicitly and,
+            # like ``_fetch_who_gho``, spread each annual value across the
+            # in-window months so there is enough temporal density to score.
+            rows: list[dict[str, Any]] = []
+            for rec in records:
+                raw_year = rec.get("TimeDim", rec.get("YEAR"))
+                if raw_year is None:
+                    continue
+                try:
+                    year = int(raw_year)
+                except (TypeError, ValueError):
+                    continue
+
+                annual_cases = float(rec.get("NumericValue", 0) or 0)
+                monthly_cases = annual_cases / 12.0
+                location = rec.get("SpatialDim", rec.get("COUNTRY", ""))
+
+                for month in range(1, 13):
+                    row_date = pd.Timestamp(year=year, month=month, day=15)
+                    if row_date < start or row_date > end:
+                        continue
+                    rows.append(
+                        {
+                            "date": row_date,
+                            "location": location,
+                            "new_cases": monthly_cases,
+                            "new_deaths": 0.0,
+                            "total_cases": 0.0,
+                            "total_deaths": 0.0,
+                        }
+                    )
+
+            df = pd.DataFrame(rows)
 
             if df.empty:
                 check_synthetic_allowed(
@@ -1029,7 +1202,8 @@ class PandemicLoader(BaseDomainLoader):
                 )
                 return self.mark_synthetic(self._synthetic_ebola_2014())
 
-            df = df.sort_values("date").reset_index(drop=True)
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            df = df.sort_values("date", kind="stable").reset_index(drop=True)
             return df
 
         except (ConnectionError, KeyError, TypeError) as exc:

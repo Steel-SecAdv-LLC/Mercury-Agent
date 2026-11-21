@@ -9,13 +9,14 @@ tornadoes are labeled as anomalies against a background of weaker (EF0-EF2) even
 
 from __future__ import annotations
 
+import csv
 import logging
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from omni_mercury_engine.loaders.base import BaseDomainLoader
+from omni_mercury_engine.loaders.base import BaseDomainLoader, spc_convective_day_timestamps
 from omni_mercury_engine.utils.geo import haversine_km_to_point, neighbor_counts_within_km
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # SPC data endpoints
 # ---------------------------------------------------------------------------
-_ARCHIVE_URL = "https://www.spc.noaa.gov/wcm/data/1950-2023_actual_tornadoes.csv"
+# SPC names the archive by its last year. The 1950-2023 file this loader named
+# holds nothing for the ``midwest_2024`` event; 1950-2024 does, and its rows
+# for the two older events are the same as the 2023 file's (compared
+# 2026-11-20). 1950-2025, which SPC links now, re-keys ``om`` and revises
+# earlier rows (the 2011 outbreak window holds 355 rows, not 349): moving to
+# it is a re-measurement of every event, not a rename.
+_ARCHIVE_URL = "https://www.spc.noaa.gov/wcm/data/1950-2024_actual_tornadoes.csv"
+#: The archive's code for a rating that was not assigned ("EFU").
+_ARCHIVE_UNKNOWN_MAG = -9
 _DAILY_REPORTS_URL = "https://www.spc.noaa.gov/climo/reports/today.csv"
+
+#: An (enhanced) Fujita rating as a daily report spells it: ``3``, ``F3`` or
+#: ``EF3``. The group is the number.
+_F_SCALE_RATING = r"(?i)^E?F?(\d(?:\.\d+)?)$"
 
 # ---------------------------------------------------------------------------
 # SPC CSV column names (canonical ordering)
@@ -116,7 +129,7 @@ class TornadoLoader(BaseDomainLoader):
     Uses two SPC data sources:
 
     * **Tornado archive CSV** -- comprehensive record of all US tornadoes
-      from 1950 to 2023 with EF-scale ratings, path geometry, and
+      from 1950 to 2024 with EF-scale ratings, path geometry, and
       casualty data.
     * **Daily storm reports** -- today's preliminary severe weather
       reports including tornado sightings.
@@ -163,12 +176,18 @@ class TornadoLoader(BaseDomainLoader):
     def fetch_realtime(self) -> pd.DataFrame:
         """Fetch today's tornado reports from the SPC daily storm reports.
 
+        The daily CSV concatenates tornado / wind / hail sections, each
+        introduced by its own header row; only the tornado section
+        (``Time,F_Scale,...``) is parsed.
+
         Returns:
-            DataFrame with tornado report columns parsed from the SPC
-            daily CSV feed.
+            DataFrame with columns ``time``, ``mag``, ``location``,
+            ``county``, ``state``, ``slat``, ``slon``, ``comments``.  Empty
+            (0 rows) when no tornado has been reported yet today.
 
         Raises:
             ConnectionError: If the SPC feed is unreachable after retries.
+            ValueError: If the feed has no recognizable tornado section.
         """
         cache_key = "tornado_realtime"
         cached = self._read_cache(cache_key)
@@ -177,10 +196,8 @@ class TornadoLoader(BaseDomainLoader):
             logger.debug("Returning cached real-time tornado data.")
             return pd.DataFrame(cached)
 
-        df = self._fetch_csv(_DAILY_REPORTS_URL)
-
-        # SPC daily reports may have different column layouts; normalise
-        df = self._normalise_daily_report(df)
+        raw = self._fetch_url(_DAILY_REPORTS_URL)
+        df = self._parse_daily_tornado_section(raw)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Fetched %d real-time tornado reports from SPC.", len(df))
@@ -209,7 +226,9 @@ class TornadoLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"tornado_historical_{event_id}"
+        # Cache schema v2: now deduplicated to whole-track (sg==1) rows before
+        # caching; pre-fix entries double-counted multi-state segment rows.
+        cache_key = f"tornado_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -230,8 +249,24 @@ class TornadoLoader(BaseDomainLoader):
             logger.warning("SPC archive returned no records for event '%s'.", event_id)
             return df
 
+        # Keep only whole-track rows (``sg == 1``).  The SPC archive records a
+        # multi-state tornado as one whole-track row (``sg == 1``) PLUS one
+        # per-state segment row (``sg == 2, 3, ...``; ``-9`` = unknown) that
+        # repeats the same event.  Counting all of them double-counts exactly
+        # the long-track, violent tornadoes that cross state lines -- the EF3+
+        # events the ``mag >= 3`` label targets -- inflating both the labels
+        # and the per-row features.  ``ml/hazard_training/tornado_radar.py``
+        # applies the same ``sg == 1`` whole-track filter.
+        df = self._filter_full_track(df)
+        if df.empty:
+            logger.warning(
+                "No whole-track (sg==1) rows for event '%s' after dedup.",
+                event_id,
+            )
+            return df
+
         # Sort chronologically
-        df = df.sort_values("date").reset_index(drop=True)
+        df = df.sort_values("date", kind="stable").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -338,16 +373,28 @@ class TornadoLoader(BaseDomainLoader):
 
         df = raw_data.copy()
 
+        # Preliminary daily reports carry only time, rating, place and
+        # coordinates: indexing ``len`` / ``wid`` / ``fat`` / ``inj`` directly
+        # raised ``KeyError: 'len'`` on every ``fetch_realtime`` frame. A
+        # column the source does not publish contributes zeros, as in
+        # ``HailLoader.engineer_features``.
+        def _col(name: str) -> np.ndarray[Any, Any]:
+            if name in df.columns:
+                return np.asarray(
+                    pd.to_numeric(df[name], errors="coerce").fillna(0).values, dtype=np.float64
+                )
+            return np.zeros(len(df), dtype=np.float64)
+
         # ---- base observables ----
-        ef_scale = pd.to_numeric(df["mag"], errors="coerce").fillna(0).values.astype(np.float64)
-        path_length = pd.to_numeric(df["len"], errors="coerce").fillna(0).values.astype(np.float64)
-        path_width = pd.to_numeric(df["wid"], errors="coerce").fillna(0).values.astype(np.float64)
-        fatalities = pd.to_numeric(df["fat"], errors="coerce").fillna(0).values.astype(np.float64)
-        injuries = pd.to_numeric(df["inj"], errors="coerce").fillna(0).values.astype(np.float64)
+        ef_scale = _col("mag")
+        path_length = _col("len")
+        path_width = _col("wid")
+        fatalities = _col("fat")
+        injuries = _col("inj")
 
         # ---- geographic coordinates ----
-        slat = pd.to_numeric(df["slat"], errors="coerce").fillna(0).values.astype(np.float64)
-        slon = pd.to_numeric(df["slon"], errors="coerce").fillna(0).values.astype(np.float64)
+        slat = _col("slat")
+        slon = _col("slon")
 
         # ---- temporal features ----
         timestamps = self._parse_timestamps(df)
@@ -400,12 +447,14 @@ class TornadoLoader(BaseDomainLoader):
         """Load the full SPC tornado archive CSV with caching.
 
         Returns:
-            DataFrame containing the complete 1950-2023 tornado archive.
+            DataFrame containing the complete SPC tornado archive.
 
         Raises:
             ConnectionError: If the SPC archive URL is unreachable.
         """
-        cache_key = "tornado_archive_full"
+        # Keyed by the file: an archive cached from the 1950-2023 file must
+        # not be read back as the 1950-2024 one.
+        cache_key = f"tornado_archive_full_{_ARCHIVE_URL.rsplit('/', 1)[-1]}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -436,9 +485,41 @@ class TornadoLoader(BaseDomainLoader):
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
+        # An unassigned rating is coded -9 (37 of the 179 rows of the 2024
+        # event). It is not a magnitude: left as a number it became an
+        # ``ef_scale`` of -9. It is missing, as "UNK" is in a daily report.
+        if "mag" in df.columns:
+            df["mag"] = df["mag"].where(df["mag"] != _ARCHIVE_UNKNOWN_MAG)
+
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info("Loaded %d records from SPC tornado archive.", len(df))
         return df
+
+    @staticmethod
+    def _filter_full_track(df: pd.DataFrame) -> pd.DataFrame:
+        """Keep only whole-track rows, dropping per-state segment duplicates.
+
+        In the SPC archive the ``sg`` (segment) field is ``1`` for the single
+        whole-track record of a tornado and ``2, 3, ...`` for the per-state
+        segments of a track that crossed state lines (``-9`` marks unknown).
+        A multi-state tornado therefore appears once as ``sg == 1`` and again
+        once per segment, double-counting the long-track violent tornadoes.
+        Keeping only ``sg == 1`` yields one row per tornado, matching the
+        whole-track selection in ``ml/hazard_training/tornado_radar.py``.
+
+        If the archive carries no ``sg`` column the frame is returned
+        unchanged (nothing to dedup against).
+
+        Args:
+            df: Archive DataFrame already filtered to the event window.
+
+        Returns:
+            DataFrame containing only whole-track rows.
+        """
+        if "sg" not in df.columns:
+            return df
+        sg = pd.to_numeric(df["sg"], errors="coerce")
+        return df[sg == 1].copy()
 
     @staticmethod
     def _filter_by_date_range(
@@ -491,9 +572,12 @@ class TornadoLoader(BaseDomainLoader):
         df.columns = [c.strip().lower() for c in df.columns]
 
         # Common SPC daily report columns: Time, F_Scale, Location, County,
-        # State, Lat, Lon, Comments
+        # State, Lat, Lon, Comments. The dated ``YYMMDD_rpts_filtered.csv``
+        # files spell the rating column ``F-Scale`` (recorded 2012-06-29
+        # fixture); the live ``today.csv`` spells it ``F_Scale``.
         rename_map: dict[str, str] = {
             "f_scale": "mag",
+            "f-scale": "mag",
             "lat": "slat",
             "lon": "slon",
         }
@@ -503,13 +587,87 @@ class TornadoLoader(BaseDomainLoader):
 
         return df
 
+    @classmethod
+    def _parse_daily_tornado_section(cls, raw: bytes) -> pd.DataFrame:
+        """Parse the tornado section out of the SPC daily storm reports CSV.
+
+        The daily file concatenates three sections, each with its own
+        header (``Time,F_Scale,...`` tornado, ``Time,Speed,...`` wind,
+        ``Time,Size,...`` hail).  Reading the whole body as one table
+        returned the wind and hail header lines -- and every wind and hail
+        report -- as tornado reports; on a day without tornadoes the feed
+        yielded exactly two "reports", the two foreign headers.
+
+        Args:
+            raw: Raw CSV bytes from the SPC daily feed.
+
+        Returns:
+            DataFrame with normalised columns (``mag``, ``slat``, ``slon``,
+            ...).  ``mag`` is numeric with ``NaN`` for the unrated ``UNK``
+            that preliminary reports carry.  Empty (0 rows) when the
+            tornado section exists but has no reports yet today.
+
+        Raises:
+            ValueError: If no tornado section header is present (format drift).
+        """
+        # splitlines(), not split("\n"): a CRLF body would otherwise leave a
+        # carriage return on every header name and Comments value.
+        lines = raw.decode("utf-8", errors="replace").strip().splitlines()
+
+        tornado_header_idx: int | None = None
+        section_bounds: list[int] = []
+        for i, line in enumerate(lines):
+            if line.startswith("Time,"):
+                section_bounds.append(i)
+                if tornado_header_idx is None and ",f_scale," in line.lower().replace("-", "_"):
+                    tornado_header_idx = i
+        if tornado_header_idx is None:
+            raise ValueError(
+                "SPC daily reports feed has no tornado section header "
+                "('Time,F_Scale,...'); the feed format may have changed."
+            )
+
+        next_bounds = [b for b in section_bounds if b > tornado_header_idx]
+        section_end = next_bounds[0] if next_bounds else len(lines)
+        section_lines = lines[tornado_header_idx:section_end]
+
+        # SPC daily rows occasionally carry unquoted commas inside the
+        # trailing Comments field; fold any surplus fields back into it so a
+        # real report is never dropped or misaligned.
+        header = next(csv.reader([section_lines[0]]))
+        n_cols = len(header)
+        rows: list[list[str]] = []
+        for line in section_lines[1:]:
+            if not line.strip():
+                continue
+            fields = next(csv.reader([line]))
+            if len(fields) > n_cols:
+                fields = fields[: n_cols - 1] + [",".join(fields[n_cols - 1 :])]
+            elif len(fields) < n_cols:
+                fields = fields + [""] * (n_cols - len(fields))
+            rows.append(fields)
+
+        df = cls._normalise_daily_report(pd.DataFrame(rows, columns=header))
+        if "mag" in df.columns:
+            # "EF3" and "F2" are ratings, not text to discard: coerced
+            # straight to a number they became NaN, and a rated EF3 report
+            # was featurised as ef_scale 0 and labelled normal. "UNK" (and
+            # anything else that is not a rating) stays NaN.
+            rating = df["mag"].astype(str).str.strip().str.extract(_F_SCALE_RATING, expand=False)
+            df["mag"] = pd.to_numeric(rating, errors="coerce")
+        for col in ("slat", "slon"):
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+        return df
+
     @staticmethod
     def _parse_timestamps(df: pd.DataFrame) -> list[pd.Timestamp]:
         """Parse date and time information from the tornado DataFrame.
 
         Attempts to construct timestamps from the ``date`` and ``time``
         columns, falling back to ``yr``, ``mo``, ``dy`` columns if
-        ``date`` is not available.
+        ``date`` is not available.  Daily-report rows (``time`` only, HHMM
+        UTC) get today's date with the report hour.
 
         Args:
             df: Tornado DataFrame with date/time columns.
@@ -546,6 +704,12 @@ class TornadoLoader(BaseDomainLoader):
                     timestamps.append(pd.Timestamp(year=yr, month=mo, day=dy))
                 except (ValueError, TypeError):
                     timestamps.append(pd.Timestamp("1970-01-01"))
+        elif "time" in df.columns:
+            # The daily feed has no date column, so every report used to land
+            # on the epoch: hour 0, and one shared "hour" for the clustering
+            # feature. Dated on the SPC convective day (1200 UTC to 1159 UTC),
+            # as ``HailLoader._parse_timestamps`` does.
+            timestamps = spc_convective_day_timestamps(df["time"])
         else:
             timestamps = [pd.Timestamp("1970-01-01")] * n
 

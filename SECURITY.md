@@ -13,9 +13,9 @@ immediately previous line at the maintainers' discretion.
 
 | Version | Status               | Security updates |
 | ------- | -------------------- | ---------------- |
-| 3.0.x   | **Current**          | :white_check_mark: |
-| 2.0.x   | Previous (EOL on next minor) | Critical CVEs only |
-| < 2.0   | End-of-life          | :x:              |
+| 3.1.x   | **Current**          | :white_check_mark: |
+| 3.0.x   | Previous (EOL on next minor) | Critical CVEs only |
+| < 3.0   | End-of-life          | :x:              |
 
 ## Reporting a Vulnerability
 
@@ -60,7 +60,7 @@ Mercury Agent implements multiple layers of security:
 - **Static Analysis**: Bandit security scanning in CI/CD pipeline
 - **Dependency Scanning**: Regular audits with Safety and pip-audit
 - **Type Safety**: Strict MyPy type checking enabled
-- **Code Review**: All changes require security review
+- **Code Review**: Human-authored changes go through pull-request review; Dependabot patch/minor dependency updates auto-merge once every CI gate passes (`.github/workflows/dependabot-auto-merge.yml`), and major updates are held for human review
 
 ### Cryptographic Security
 
@@ -138,9 +138,10 @@ SlhDsaKeyPair` declarations).
 5. **Constant-Time Operation**: AMA Cryptography v5.0.0 enforces native-only operation unconditionally (INVARIANT-7 revised), so its constant-time C primitives are always in use — no configuration is needed or possible. `AMA_REQUIRE_CONSTANT_TIME` is a superseded compatibility flag: setting it changes no cryptographic behavior on a healthy install (AMA logs a deprecation warning), it redundantly fails closed on an install without the native backend (which Mercury's import-time PQC gate already refuses), and Mercury reads it only for diagnostics (`security.pqc_backends.require_constant_time()`, surfaced by `get_pqc_capabilities()` / `validate_pqc_environment()`). Leave it unset.
 
 6. **HMAC routing (v1.7.x)**: AMA Cryptography v5.0.0 also surfaces
-   ACVP-validated HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
+   HMAC-SHA-256 / HMAC-SHA-384 / HMAC-SHA-512 bindings
    (`native_hmac_sha256`, `native_hmac_sha256_2`, `native_hmac_sha384`,
-   `native_hmac_sha512`). Mercury's `native_jwt` module routes HS256,
+   `native_hmac_sha512`), checked here against the RFC 4231 known answers;
+   no CAVP/ACVP validation is claimed (`CAPABILITY_MATRIX.md` §3). Mercury's `native_jwt` module routes HS256,
    HS384, and HS512 through these bindings with no stdlib fallback
    (fail-closed). See
    `tests/security/test_native_jwt_ama_routing.py` for the RFC 4231 KAT
@@ -153,8 +154,11 @@ SlhDsaKeyPair` declarations).
   SPHINCS+ round-trip, and ML-DSA deterministic-signing reproducibility.
 - `tests/security/test_nist_fips_kat.py` verifies bit-for-bit
   reproducibility against curated NIST ACVP-Server test vectors
-  (FIPS 203, 204, 205): ML-DSA-65 deterministic sigGen, ML-KEM-1024
-  decapsulation, SLH-DSA-SHAKE-128s sigGen. Source:
+  (FIPS 203, 204, 205): key generation for ML-DSA-65, ML-KEM-1024 and
+  SLH-DSA-SHAKE-128s, ML-DSA-65 deterministic sigGen, ML-KEM-1024
+  decapsulation and SLH-DSA-SHAKE-128s sigGen: eighteen vectors. It does not
+  reproduce the curated ML-KEM encapsulation vectors (AMA exposes no
+  derandomised encapsulation) and has none for SLH-DSA-SHA2-256f. Source:
   [usnistgov/ACVP-Server](https://github.com/usnistgov/ACVP-Server).
 
 **References:**
@@ -207,7 +211,14 @@ probabilities.
 ### API Security
 
 - **Authentication**: JWT-based authentication with secure token handling
-- **Rate Limiting**: Built-in rate limiting to prevent abuse (100 req/min, burst of 20). A 429 carries the bucket's real refill time in `Retry-After`. Static assets under `/static` are exempt, so one console load does not spend the burst.
+- **Rate Limiting**: Built-in rate limiting to prevent abuse (defaults: 100 req/min, burst of 20; `OMNI_RATE_LIMIT_REQUESTS_PER_MINUTE` / `OMNI_RATE_LIMIT_BURST`). A 429 carries the bucket's real refill time in `Retry-After`. Static assets under `/static` are exempt, so one console load does not spend the burst. IPv6 clients sharing a /64 share one rate-limit identity (`MERCURY_IPV6_RATE_LIMIT_PREFIX`), so a single allocation cannot mint fresh identities per address.
+- **Serving bounds, single-sourced** (`omni_mercury_engine.serving_limits`; every value validated at startup, served to operators at `GET /api/v1/detect/flagship/limits` and in OpenAPI `info.x-serving-limits`): a 10 MiB request-body cap on every route enforced before parsing (declared length refused up front, chunked bodies counted as they stream; 600 MiB on the authenticated `/api/v1/models` upload surface, 64 MiB on `/api/v1/assessment`, 32 MiB on `/api/v1/review`), the flagship admission bound (default 8 concurrent calls — replays that recompute from supplied data and artifact reviews included — then 429 with `Retry-After`), per-request flagship caps (65,536 rows; 128-char `domain`; 256-char `subject_id`), bounded served replay (a causal finding is recomputed only up to the shipped instrument's own size: 5 columns, lags to 5), and the SSE alert-stream subscriber cap (64, then 503). Anonymous flagship callers share one novelty reference and it is never disclosed to them; per-caller references are keyed by account.
+- **Artifact review uploads** (`POST /api/v1/review/upload`, `POST /api/v1/review/inline`; anonymous like the detection routes, metered by the same rate limiter). An upload is whatever a caller sends, so the path is built as a parser attack surface:
+  - *Bounded before it expands.* The 32 MiB body cap (`MERCURY_REVIEW_MAX_BODY_BYTES`) applies before parsing; what the file decodes to is bounded again (`MERCURY_REVIEW_MAX_TEXT_CHARS` 1,000,000, `MERCURY_REVIEW_MAX_PIXELS` 25,000,000, `MERCURY_REVIEW_MAX_AUDIO_SECONDS` 600), each checked on a header or through a read limit before anything is inflated: a DOCX member is read through a byte limit whatever size the archive declares, a PDF stream is inflated within a budget, an image's pixel count is read from its header before a pixel is decoded, a recording's duration is computed from its header before a sample is converted. Past a bound the upload is refused with 413; it is never reviewed in part.
+  - *Small original readers, one linear pass each.* DOCX is read without an XML parser (no entity expansion, no external references), PDF text by its text operators only (no interpreter, no fonts, no JavaScript, no embedded files), HTML by the standard library's tokenizer (scripts and styles dropped, nothing fetched), WAV by a RIFF reader written here. Images are decoded by Pillow. No reader uses a pattern that an input can make rescan itself (`tests/review/test_decode.py` holds the inputs that did, on the first draft). Compressed audio, encrypted archives and scanned PDFs are refused (415 / 422) with the reason, not approximated.
+  - *The harm-uplift gate reads the upload first.* The step that measures a decoded upload carries the `GATED_BOUNDARY` capability contract: the gate reads a document's whole text and every upload's name before a feature is computed, a refusal is a 403 with a blocked `DecisionRecord`, and the engine's own two gates then run as on every detection. **What the gate cannot read:** words inside an image and speech in a recording are pixels and samples, not text; there is no OCR or speech recognition here, and each result says what was read (`review.harm_gate.read`).
+  - *Heavy work is bounded, on its own and with everything else.* At most `MERCURY_REVIEW_MAX_CONCURRENT` (default 2) reviews are decoded and measured at once, and each also holds a slot of the flagship admission bound from decode to decision (429 when either is full); scoring runs under the flagship engine lock. Measured worst cases for one upload at the default bounds: a 25-megapixel image about 2 s and 0.5 GB (it is reduced to 720 pixels on its longer side as it is decoded), a 600-second recording about 2.5 s and 0.6 GB, a 1,000,000-character document about 2.6 s including the harm gate's reading of all of it.
+  - *Nothing uploaded is kept.* The file is held in memory for the request. The result and the detection history carry its SHA-256, size and name (reduced to a base name, 255 characters); a document's flagged segments are quoted in the response to the caller (120 characters each) and are not stored.
 - **Provider administration** (`PUT`/`DELETE /api/v1/voice/backends/{provider}`, `POST /api/v1/voice/backends/{provider}/test`, `POST`/`DELETE /api/v1/voice/backends/select`): administrator only (401 without credentials, 403 without the `admin` permission). A stored key is never returned by any route. A stored or tested endpoint passes the same egress gate the adapters use, so a private address or plain-http cloud endpoint is a 422. A key given to the connection test is used for that call and not stored. Every change is logged under the administrator's id, with the verdict and HTTP status only, never text derived from a request that carried the key.
 - **Read-only discovery routes**: `GET /api/v1/voice/backends` (anonymous) reports whether each provider's key is set, never its value; the catalog routes (`/api/v1/catalog/...`) publish declarations the package already ships in source and change no state.
 - **Voice routes are scoped to the caller**: conversation history, follow-up context, agent memory and the proactive alert stream (`GET /api/v1/voice/alerts`) are bounded to the authenticated principal (and session where it matters); the stream authenticates from the same headers as every other voice route and carries nothing for other accounts.
@@ -268,6 +279,30 @@ security:
 - **Security Advisories**: Watch the GitHub repository and its Security Advisories page
 - **Vulnerability Monitoring**: Use tools like Dependabot or Snyk
 
+### Verifying a Release
+
+A release's provenance and SBOMs can be checked locally, by anyone, without
+trusting the release workflow:
+
+```bash
+python scripts/verify_release.py v3.2.0 --download --image ghcr.io/steel-secadv-llc/mercury-agent
+```
+
+It checks that the wheel and sdist name the tag's version; that
+`provenance.json` and `SBOM.spdx.json` list exactly those files with their
+on-disk sha256; that the CycloneDX dependency SBOM's root component is
+`mercury-agent-global` at that version; that `gh attestation verify` accepts
+every artifact against this repository, the tag's ref and `release.yml` as the
+signing workflow; and (with `--image`) that the tagged image resolves to a
+digest carrying a provenance attestation. Each check reports PASS, FAIL or
+UNVERIFIED (a missing `gh`/`docker` is never reported as a pass); exit 0 means
+everything requested verified.
+
+**Releases that can pass:** only those built after the Sigstore attestation
+and dependency-SBOM steps were added to `release.yml`. v3.0.0 and earlier
+were never signed and carry no CycloneDX SBOM, so the tool reports them as
+FAIL on those checks — that is the accurate answer, not a tool defect.
+
 ## Ethical Security Considerations
 
 Mercury Agent includes security intelligence capabilities. Users must:
@@ -292,6 +327,7 @@ Mercury Agent includes security intelligence capabilities. Users must:
 - **Model Integrity**: Verify model checksums before loading
 - **Adversarial Inputs**: Be aware of potential adversarial attacks on ML models
 - **Distribution drift**: the drift ensemble (per-feature KS and PSI, covariance, and a principal-axis KS test) flags a batch that differs from the reference, and the decision layer defers at MEDIUM severity or above. It is a statistical test, not an adversarial-robustness guarantee: a crafted input drawn from the reference distribution is not drift, and a batch whose width differs from the reference is reported `incomparable` and not deferred. See [`CAPABILITY_MATRIX.md`](CAPABILITY_MATRIX.md) and [`docs/runbooks/data-drift.md`](docs/runbooks/data-drift.md).
+- **Artifact review is a consistency check, not forensics**: it flags a part of an upload that is unlike the rest of the same upload. Its three checkpoints were fitted and calibrated on procedural reference artifacts (repository prose, generated textures, generated voiced signals) with procedurally inserted material; `artifacts/artifact_review.json` records what that measures, and each checkpoint states its certificate's scope in every record. An upload unlike that family is tested for and deferred where the test sees it, and the test does not see everything (measured: most Python source files uploaded as documents are judged, not deferred). A clear result is not evidence that a file is authentic, and an artifact altered throughout has no unaltered bulk to be measured against.
 - **Training Data**: Ensure training data is from trusted sources
 
 ### Autonomous Self-Modification (Governed, Fail-Closed)
@@ -447,7 +483,7 @@ Both gates must be GREEN for any PR to merge. The Python-package gate
 runs with **zero risk acceptance**: `.safety-policy.yml` accepts nothing
 (`tests/security/test_safety_policy.py` pins that) and no `--ignore` /
 `--ignore-vuln` flags are wired into either CI workflow. Findings are remediated by upgrade, isolation, or native
-re-implementation — see the CHANGELOG entries dated 2026-05-20
+re-implementation — see the entries dated 2026-05-20 in `docs/changelog/CHANGELOG-pre-3.0.md`
 ("Permanent supply-chain remediations") for the current
 remediation ledger. The deployment-image gate blocks every fixable
 CRITICAL/HIGH finding and every unfixed finding not enumerated in
@@ -460,9 +496,9 @@ exact fixed versions the image installs.
 
 Mercury Agent's security analysis is automated and self-assessed:
 
-- **Automated Scanning**: Security scans run on every pull request and push (bandit, safety, pip-audit, semgrep, Trivy, CodeQL) plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC)
+- **Automated Scanning**: Security scans run on every pull request and push — bandit, safety, pip-audit and the blocking Semgrep gate in `ci.yml`; Trivy and CodeQL in `security.yml` — plus a weekly scheduled run (`.github/workflows/security.yml`, Sundays 00:00 UTC) and the weekly OpenSSF Scorecard run (`.github/workflows/scorecard.yml`)
 - **Dependency Audits**: Dependabot weekly update checks plus the two-tier CVE gates described below
-- **Code Reviews**: All changes require human review before merge
+- **Code Reviews**: Human-authored changes require pull-request review before merge; Dependabot patch/minor updates auto-merge behind the full CI gate set, majors are held for a human
 
 Mercury Agent has **not** been externally audited or penetration-tested. Production deployments requiring assurance beyond self-assessment must commission an independent security review (see "Important Security Considerations" above and the README status line: Research-grade | Community-tested | Not externally audited).
 
@@ -494,18 +530,50 @@ Mercury Agent is designed with compliance in mind:
   under-reported at low humidity — both directions removed in the
   port).
 
-### v1.7 hard-gate boundary contract
+### Hard-gate boundary contract
 
-As of the v1.7 development cycle every public boundary surface
+Every public boundary surface
 (`OmniMercuryEngine.detect_with_fusion[_calibrated]`,
 `CognitiveOrchestrator.analyze`, `NeuroSymbolicHub.predict`) runs **two
-independent mandatory hard ethical gates** — Benevolence (>= 0.99) and
-σ_Immutable (256-D scalar network) — and raises
-`EthicalConstraintViolationError(check=…)` on failure. There is no
-advisory mode. The reserved `check=` codes are `"benevolence"`,
-`"sigma_immutable"`, and `"gosnn_unavailable"`. See
-[`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
-Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2.
+independent mandatory hard gates**: the harm-uplift gate
+(`cognitive/decision_gate.py`), which reads the caller's whole request and
+payload, and σ_Immutable (configuration integrity). Each raises
+`EthicalConstraintViolationError(check=…)` on failure. The `check=` codes
+these two raise are `"harm_uplift"`, `"sigma_immutable"` and
+`"gosnn_unavailable"`.
+
+What can turn a gate off, in full. The harm-uplift gate: nothing. It reads no
+flag, environment variable or argument that skips it. σ_Immutable: one
+module-level flag, `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS`, which is
+`False` unless a unit test sets it and which leaves the harm-uplift gate
+running; a deployment must check that it is `False`
+([`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)). Outside these three surfaces, a
+reasoning backend constructed with `ethics_enabled=False` runs neither gate on
+what it generates; the default is `True`.
+
+How the harm-uplift gate reads a long input: the bounded description of the
+decision when that holds everything the caller said, otherwise all of the
+text in overlapping passages of 4,096 characters, each opening with the
+request when the request is short. A hazard and an intent are paired when one
+passage holds both; in a single text they are not paired across more than a
+passage. Past 1,048,576 characters of text the decision is refused unread
+(`details["reason"] == "unassessable"`, HTTP 413 on the detection and
+assessment routes).
+
+An uploaded artifact passes the harm-uplift gate twice. Artifact review
+(`omni_mercury_engine.review`) runs it over the upload itself — a document's
+text and the upload's name — before measuring anything (`check="harm_uplift"`;
+the review's text bound, 1,000,000 characters, sits under what the gate reads,
+so a document is read whole or refused), and then scores through
+`detect_with_fusion`, where both gates run again over the numeric matrix.
+
+The benevolence score is **advisory**: it is computed, logged and attached to
+the verdict, and it decides nothing. This section said until 2026-11-18 that a
+`Benevolence (>= 0.99)` gate was one of the two. That bar was removed
+(`CAPABILITY_MATRIX.md` §6 gives the reason) and these boundaries no longer
+raise `check="benevolence"`; its one remaining enforcing use is the assessment
+purpose screen (`assessment/policy.py`). See [`ARCHITECTURE.md`](ARCHITECTURE.md) §"Dual-Gate Hard Ethical
+Enforcement" and [`docs/MIGRATION-1.6-to-1.7.md`](docs/MIGRATION-1.6-to-1.7.md) §2 for the history.
 
 **σ_Immutable artifact dependency (fail-closed).** The σ_Immutable gate
 depends on three artifacts shipped inside the package
@@ -548,5 +616,5 @@ We thank the security researchers who have helped improve Mercury Agent's securi
 
 ---
 
-*Last Updated: 2026-10-21*
-*Version: 3.0.0*
+*Last Updated: 2026-11-19*
+*Version: 3.1.0*

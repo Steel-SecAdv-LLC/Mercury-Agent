@@ -10,6 +10,11 @@ without re-running detect() on the 148k-row NSL-KDD event.
 
   BEFORE = fixed 0.5 cut   AFTER = MercuryAnomalyDetector._adaptive_operating_point
 AUROC/AUPRC are rank metrics (unchanged by the cut). Writes results.json.
+
+``scores.pkl`` is written by ``score_events.py`` (its docstring gives the whole
+sequence from an empty workspace). An event whose AUROC does not exist (a
+constant score, one class) is written with ``"auroc": null`` and an
+``auroc_status`` saying why, and is left out of the means (``_summary.py``).
 """
 
 from __future__ import annotations
@@ -19,10 +24,12 @@ import json
 import os
 import pickle
 import warnings
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 import numpy as np
-from _workspace import workspace_file
+from _summary import MEASURED, auroc_status, summarise, write_json
+from _workspace import cache_dir, workspace_file
 
 from omni_mercury_engine.ml.mercury_ml import (
     average_precision_score,
@@ -51,6 +58,7 @@ for (dom, eid), r in S.items():
     s = np.asarray(r["scores"], float)
     y = np.asarray(r["y"], int)
     thr, _ = DET._adaptive_operating_point(s)  # real detector logic
+    status = auroc_status(y, s)
     bf = _prf(y, (s > 0.5).astype(int))
     af = _prf(y, (s > thr).astype(int))
     rows.append(
@@ -58,14 +66,12 @@ for (dom, eid), r in S.items():
             "dom": dom,
             "event": eid,
             "n": int(y.size),
+            "n_total": int(r.get("rows", y.size)),
             "pos": int(y.sum()),
             "subsampled": bool(r.get("subsampled", False)),
-            "auroc": (
-                float(roc_auc_score(y, s))
-                if y.min() != y.max() and len(np.unique(s)) > 1
-                else float("nan")
-            ),
-            "auprc": float(average_precision_score(y, s)) if y.sum() else float("nan"),
+            "auroc": float(roc_auc_score(y, s)) if status == MEASURED else None,
+            "auroc_status": status,
+            "auprc": float(average_precision_score(y, s)) if y.sum() else None,
             "f1_before": bf[0],
             "prec_before": bf[1],
             "rec_before": bf[2],
@@ -76,15 +82,20 @@ for (dom, eid), r in S.items():
     )
 
 
-def m(key, dom=None):
-    xs = [
-        r[key]
-        for r in rows
-        if (dom is None or r["dom"] == dom)
-        and isinstance(r.get(key), (int, float))
-        and r[key] == r[key]
-    ]
-    return float(np.mean(xs)) if xs else float("nan")
+SUMMARY = summarise(rows)
+
+
+def _cell(value):
+    return "  n/a" if value is None else f"{value:5.3f}"
+
+
+def _not_measured():
+    """Domains the cache build fetched nothing for, from its manifest."""
+    manifest = Path(cache_dir()) / "manifest.json"
+    if not manifest.exists():
+        return []
+    held = json.loads(manifest.read_text(encoding="utf-8"))
+    return sorted(dom for dom in held if dom not in SUMMARY["per_domain"])
 
 
 hdr = (
@@ -92,59 +103,30 @@ hdr = (
     f"{'F1.b':>5s} {'F1.a':>5s} | {'pr.b':>5s} {'pr.a':>5s} | {'rc.b':>5s} {'rc.a':>5s}"
 )
 print(
-    f"events={len(rows)}  domains={len(doms)}  (unreachable excluded: wildfire/flood/volcanic/landslide/financial/sepsis)"
+    f"events={SUMMARY['events']} ({SUMMARY['events_auroc_defined']} with an AUROC)  "
+    f"domains={len(doms)}  (no event cached: {', '.join(_not_measured()) or 'none'})"
 )
 print(hdr)
 for d in doms:
-    nev = sum(1 for r in rows if r["dom"] == d)
+    row = SUMMARY["per_domain"][d]
     print(
-        f"{d:16s} {nev:3d} {m('auroc', d):6.3f} {m('auprc', d):6.3f} | "
-        f"{m('f1_before', d):5.3f} {m('f1_after', d):5.3f} | "
-        f"{m('prec_before', d):5.3f} {m('prec_after', d):5.3f} | "
-        f"{m('rec_before', d):5.3f} {m('rec_after', d):5.3f}"
+        f"{d:16s} {row['n_events']:3d} {_cell(row['auroc']):>6s} {_cell(row['auprc']):>6s} | "
+        f"{_cell(row['f1_before'])} {_cell(row['f1_after'])} | "
+        f"{_cell(row['prec_before'])} {_cell(row['prec_after'])} | "
+        f"{_cell(row['rec_before'])} {_cell(row['rec_after'])}"
     )
 print("-" * len(hdr))
+overall = SUMMARY["overall"]
 print(
-    f"{'OVERALL':16s} {len(rows):3d} {m('auroc'):6.3f} {m('auprc'):6.3f} | "
-    f"{m('f1_before'):5.3f} {m('f1_after'):5.3f} | "
-    f"{m('prec_before'):5.3f} {m('prec_after'):5.3f} | "
-    f"{m('rec_before'):5.3f} {m('rec_after'):5.3f}"
+    f"{'OVERALL':16s} {SUMMARY['events']:3d} {_cell(overall['auroc']):>6s} "
+    f"{_cell(overall['auprc']):>6s} | "
+    f"{_cell(overall['f1_before'])} {_cell(overall['f1_after'])} | "
+    f"{_cell(overall['prec_before'])} {_cell(overall['prec_after'])} | "
+    f"{_cell(overall['rec_before'])} {_cell(overall['rec_after'])}"
 )
+for undefined in SUMMARY["auroc_undefined"]:
+    print(f"no AUROC: {undefined['dom']}/{undefined['event']} ({undefined['reason']})")
 
-summary = {
-    "events": len(rows),
-    "domains": doms,
-    "overall": {
-        k: round(m(k), 4)
-        for k in [
-            "auroc",
-            "auprc",
-            "f1_before",
-            "f1_after",
-            "prec_before",
-            "prec_after",
-            "rec_before",
-            "rec_after",
-        ]
-    },
-    "per_domain": {
-        d: {
-            k: round(m(k, d), 4)
-            for k in [
-                "auroc",
-                "auprc",
-                "f1_before",
-                "f1_after",
-                "prec_before",
-                "prec_after",
-                "rec_before",
-                "rec_after",
-            ]
-        }
-        for d in doms
-    },
-    "per_event": rows,
-}
 out = os.path.join(os.path.dirname(__file__), "results.json")
-json.dump(summary, open(out, "w"), indent=2, default=float)
+write_json(out, SUMMARY)
 print(f"\nwrote {out}")

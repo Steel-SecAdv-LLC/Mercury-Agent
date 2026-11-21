@@ -17,8 +17,8 @@ ported from Omni-AXA-Engine and hardened during the port:
 > organisations are required to do (controls, citations, dissemination
 > rules) rather than how Mercury itself implements primitives. This
 > split was enforced when `tlp_handler` was relocated out of
-> `security/` into `compliance/` (recorded in the `[1.7.0]` CHANGELOG
-> entry and `DEPRECATION.md`). New governance modules belong here.
+> `security/` into `compliance/` (recorded in the `[1.7.0]` entry of
+> `docs/changelog/CHANGELOG-pre-3.0.md` and in `DEPRECATION.md`). New governance modules belong here.
 
 ---
 
@@ -312,6 +312,6 @@ permission), and every response is marked:
 - [`docs/API_REFERENCE.md`](API_REFERENCE.md) — quick-import index.
 - [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md) — how Mercury Agent positions
   itself against NIST / OWASP / CWE.
-- `CHANGELOG.md` `[1.7.0]` section — the full port narrative, including
+- `docs/changelog/CHANGELOG-pre-3.0.md` `[1.7.0]` section — the full port narrative, including
   the `security/` → `compliance/` relocation of `tlp_handler` and the
   addition of the NIST CSF, OSHA / eCFR, and TLP 2.0 modules.

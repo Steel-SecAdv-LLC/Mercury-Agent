@@ -28,27 +28,30 @@ order:
    threshold side grounds the label, but the record is flagged
    ``calibrated=False`` (a decision without a coverage guarantee).
 4. **Demotion overlays.** A grounded verdict is demoted to ``UNAVAILABLE`` when
-   the neuro-symbolic paths disagree, sufficiently severe drift means the
+   a detector the fusion network was trained on did not report (the
+   probability rests on partial evidence), the neuro-symbolic paths disagree,
+   sufficiently severe drift means the
    calibration may no longer hold, or the GOSNN fused-state detection head
    (when its merit-gated checkpoint shipped one) strongly disagrees with the
    grounded label at its validation-selected thresholds.  Overlays only ever
-   weaken a verdict toward abstention, never the reverse.
+   weaken a verdict toward abstention, never the reverse.  Every applicable
+   overlay leaves its reason on the record (the state is demoted once), and
+   the deferral is resolvable by re-input only when all of them are.
 """
 
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any
+from collections.abc import Mapping
+from typing import Any
 
+from omni_mercury_engine.decision import hazard_evidence
 from omni_mercury_engine.decision.evidence import Evidence
 from omni_mercury_engine.decision.policy import DecisionPolicy
 from omni_mercury_engine.decision.record import DecisionRecord
 from omni_mercury_engine.decision.response import ResponsePlan, ResponsePolicy
 from omni_mercury_engine.decision.states import Disposition
 from omni_mercury_engine.verifiers.three_state import ThreeState
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 
 class _Verdict:
@@ -142,6 +145,11 @@ class DecisionAbstentionResponder:
             disposition=verdict.disposition,
             decision_label=verdict.label,
             abstained=abstained,
+            # ``None`` when no probability existed.  The record used to carry
+            # a 0.0 placeholder here, which ``explain()`` printed as
+            # ``p=0.000`` and the CAP bridge sent out as "Score 0.00" -- a
+            # fabricated all-clear number on a decision that abstained
+            # precisely because there was no number.
             anomaly_prob=evidence.anomaly_prob,
             threshold=evidence.threshold,
             decision_confidence=verdict.confidence,
@@ -171,15 +179,88 @@ class DecisionAbstentionResponder:
             )
             return
 
+        # Stage 2 -- no usable probability: abstain, fail-closed.  ``None``
+        # means the result carried no finite ``anomaly_prob`` (missing, NaN,
+        # inf, unparseable).  That is "decidable in principle, but the input
+        # was not produced this run" -- exactly ``UNAVAILABLE`` in the
+        # three-state taxonomy -- so it defers for a scored re-run rather than
+        # grounding anything.  This outranks even a conformal label set: a
+        # certificate is derived from the calibrated probability upstream, so
+        # a result carrying one without the probability is malformed, and a
+        # malformed result may only ever abstain.
+        #
+        # Which abstention depends on the certificate.  A NaN score and an
+        # EMPTY conformal set arrive together in normal operation: the
+        # classifier's ``nan <= q`` is false for both labels, so a fitted
+        # certificate answers a NaN score with the empty set.  That is the
+        # atypical-point case -- no class explains the point -- and it holds
+        # fail-closed exactly as an empty set does when the probability is
+        # present; deferring it as a resolvable "please re-run" would be the
+        # more permissive answer to the less trustworthy input.
+        prob = ev.anomaly_prob
+        if prob is None:
+            if ev.conformal_set_size == 0 and self.policy.fail_closed_on_atypical:
+                v.state = ThreeState.UNDECIDABLE
+                v.disposition = Disposition.HOLD
+                v.label = None
+                v.confidence = None
+                v.reasons.append(
+                    "anomaly probability is absent or non-finite and the "
+                    "conformal set is empty: the point is atypical and no "
+                    "class explains it at the target coverage -- fail-closed"
+                )
+                return
+            v.state = ThreeState.UNAVAILABLE
+            v.disposition = Disposition.DEFER
+            v.label = None
+            v.confidence = None
+            v.resolvable_by_input = True
+            v.reasons.append(
+                "anomaly probability is absent or non-finite: no usable "
+                "evidence to ground a verdict -- abstaining fail-closed; "
+                "re-run with a scored result"
+            )
+            return
+
         # Stage 2/3 -- ground the base verdict from the certificate or the band.
         if ev.conformal_set_size is not None:
             self._from_conformal(ev, v)
         else:
-            self._from_threshold_band(ev, v)
+            self._from_threshold_band(ev, v, prob)
 
         # Stage 4 -- demotion overlays (only weaken a grounded verdict).
         if v.state is ThreeState.GROUNDED:
             self._apply_demotions(ev, v)
+
+        # Stage 5 -- the critique's other direction: a reliable, *calibrated*
+        # critique at or above the policy floor may dispute a resolvable
+        # abstention, on the record.  The challenge is stated in ``reasons``
+        # and changes nothing: a critique can challenge but not overturn a
+        # fail-closed gate (an UNDECIDABLE hold — ethical block, atypical
+        # point — is never challenged), and promotion would need measured
+        # evidence of its own.  This closes the "one-way demotions only"
+        # asymmetry without trading away fail-closed semantics.
+        if (
+            v.state is ThreeState.UNAVAILABLE
+            and v.disposition is Disposition.DEFER
+            and isinstance(ev.cognitive, Mapping)
+        ):
+            cog = ev.cognitive
+            conf = cog.get("confidence")
+            if (
+                cog.get("is_reliable") is True
+                and cog.get("confidence_calibrated") is True
+                and isinstance(conf, (int, float))
+                and not isinstance(conf, bool)
+                and float(conf) >= self.policy.critique_support_confidence_floor
+            ):
+                v.reasons.append(
+                    f"challenge on the record: the self-critique disputes this "
+                    f"abstention (reliable, calibrated confidence {float(conf):.2f} "
+                    f">= floor {self.policy.critique_support_confidence_floor:g}); "
+                    "the abstention stands — a critique may challenge but not "
+                    "overturn a fail-closed gate"
+                )
 
     def _from_conformal(self, ev: Evidence, v: _Verdict) -> None:
         """Ground (or abstain) from the conformal label set -- authoritative."""
@@ -231,10 +312,14 @@ class DecisionAbstentionResponder:
         v.label = None
         v.confidence = None
 
-    def _from_threshold_band(self, ev: Evidence, v: _Verdict) -> None:
-        """Uncalibrated fallback: ground by the threshold, abstain in the band."""
+    def _from_threshold_band(self, ev: Evidence, v: _Verdict, prob: float) -> None:
+        """Uncalibrated fallback: ground by the threshold, abstain in the band.
+
+        ``prob`` is the evidence's ``anomaly_prob`` already proven present by
+        ``_classify`` (an absent probability abstains before this stage runs).
+        """
         margin = self.policy.indecision_margin
-        distance = ev.anomaly_prob - ev.threshold
+        distance = prob - ev.threshold
 
         # Inclusive band (``threshold +/- margin``): a probability sitting exactly
         # on the boundary is an uncalibrated don't-know, so it abstains too --
@@ -246,7 +331,7 @@ class DecisionAbstentionResponder:
             v.confidence = None
             v.resolvable_by_input = True
             v.reasons.append(
-                f"probability {ev.anomaly_prob:.3f} within +/-{margin:g} of "
+                f"probability {prob:.3f} within +/-{margin:g} of "
                 f"threshold {ev.threshold:.3f} and no coverage certificate -- "
                 "an uncalibrated don't-know"
             )
@@ -289,14 +374,14 @@ class DecisionAbstentionResponder:
             # heuristic and record the fallback, rather than fabricating a
             # calibrated number.
             try:
-                p_raw = float(cal.transform_one(ev.anomaly_prob))
+                p_raw = float(cal.transform_one(prob))
             except Exception:  # any misbehaving calibrator -> margin fallback
                 p_raw = float("nan")
             if math.isfinite(p_raw):
                 p_anomaly = min(1.0, max(0.0, p_raw))
                 v.confidence = p_anomaly if label == 1 else 1.0 - p_anomaly
                 v.reasons.append(
-                    f"probability {ev.anomaly_prob:.3f} past threshold "
+                    f"probability {prob:.3f} past threshold "
                     f"{ev.threshold:.3f}; confidence {v.confidence:.3f} from the fitted "
                     "score calibrator (calibrated, but no distribution-free coverage "
                     "certificate)"
@@ -312,36 +397,62 @@ class DecisionAbstentionResponder:
             # Reached when no calibrator is fitted, or a fitted one misbehaved.
             v.confidence = min(1.0, 0.5 + abs(distance))
             v.reasons.append(
-                f"probability {ev.anomaly_prob:.3f} is {abs(distance):.3f} past "
+                f"probability {prob:.3f} is {abs(distance):.3f} past "
                 f"threshold {ev.threshold:.3f} (uncalibrated margin heuristic: no "
                 "calibrator fitted and no coverage guarantee)"
             )
 
     def _apply_demotions(self, ev: Evidence, v: _Verdict) -> None:
-        """Weaken a grounded verdict to a deferral on disagreement / drift."""
+        """Weaken a grounded verdict to a deferral on partial evidence / disagreement / drift.
+
+        Every applicable overlay is collected before the verdict is touched,
+        so a record demoted for several reasons at once names all of them --
+        the gate used to stop at the first match, and a simultaneous symbolic
+        conflict or drift silently vanished from the audit trail.  The state
+        is demoted exactly once, and the deferral is resolvable by re-input
+        only when *every* matched overlay is (a single human-adjudication
+        reason among them routes the whole deferral to a human).
+        """
+        demotions: list[tuple[str, bool]] = []
+
+        if ev.skipped_detectors:
+            # A detector the fusion network was trained on did not report
+            # (timed out, refused by a saturated executor, declined, failed):
+            # the probability -- and any certificate derived from it -- was
+            # computed from part of the evidence the calibration assumed.
+            # A re-run with every detector reporting resolves it.
+            demotions.append(
+                (
+                    "partial evidence: trained detector(s) did not report this run "
+                    f"({', '.join(ev.skipped_detectors)}); a verdict on part of the "
+                    "evidence is not grounded",
+                    True,
+                )
+            )
+
         if (
             ev.symbolic_satisfaction is not None
             and ev.symbolic_satisfaction < self.policy.symbolic_agreement_floor
         ):
             # Neural-vs-symbolic conflict needs human adjudication, not more data.
-            self._demote(
-                v,
-                f"neuro-symbolic satisfaction {ev.symbolic_satisfaction:.2f} below "
-                f"floor {self.policy.symbolic_agreement_floor:g}: the neural verdict "
-                "and the symbolic rules disagree",
-                resolvable_by_input=False,
+            demotions.append(
+                (
+                    f"neuro-symbolic satisfaction {ev.symbolic_satisfaction:.2f} below "
+                    f"floor {self.policy.symbolic_agreement_floor:g}: the neural verdict "
+                    "and the symbolic rules disagree",
+                    False,
+                )
             )
-            return
 
         if ev.drift_detected and self.policy.drift_is_deferring(ev.drift_severity):
             # Drift is resolved by recalibrating on fresh data -- a data request.
-            self._demote(
-                v,
-                f"distribution drift ({ev.drift_severity}) detected: the "
-                "calibration may no longer hold",
-                resolvable_by_input=True,
+            demotions.append(
+                (
+                    f"distribution drift ({ev.drift_severity}) detected: the "
+                    "calibration may no longer hold",
+                    True,
+                )
             )
-            return
 
         # GOSNN disagreement overlay: the merit-gated fused-state detection
         # head corroborates (or contests) the grounded label.  Strong
@@ -352,44 +463,90 @@ class DecisionAbstentionResponder:
         # detection-metric-gated head produced it, so the overlay is inert on
         # observability-only builds.  Inclusive comparisons: a probability
         # exactly at a demotion threshold defers (fail-closed reading).
-        if not self.policy.defer_on_gosnn_disagreement or ev.gosnn_anomaly_prob is None:
-            return
+        # ``v.label`` is still the grounded label here: no demotion has been
+        # applied yet, so the head is compared against the verdict it contests.
+        if self.policy.defer_on_gosnn_disagreement and ev.gosnn_anomaly_prob is not None:
+            if (
+                v.label == 1
+                and ev.gosnn_demote_act_below is not None
+                and ev.gosnn_anomaly_prob <= ev.gosnn_demote_act_below
+            ):
+                demotions.append(
+                    (
+                        f"GOSNN fused-state detection head estimates P(anomaly)="
+                        f"{ev.gosnn_anomaly_prob:.3f} <= {ev.gosnn_demote_act_below:g} "
+                        "against a grounded positive: the cross-detector fusion and "
+                        "the serving verdict disagree",
+                        False,
+                    )
+                )
+            elif (
+                v.label == 0
+                and ev.gosnn_demote_clear_above is not None
+                and ev.gosnn_anomaly_prob >= ev.gosnn_demote_clear_above
+            ):
+                demotions.append(
+                    (
+                        f"GOSNN fused-state detection head estimates P(anomaly)="
+                        f"{ev.gosnn_anomaly_prob:.3f} >= {ev.gosnn_demote_clear_above:g} "
+                        "against a grounded negative: the cross-detector fusion and "
+                        "the serving verdict disagree",
+                        False,
+                    )
+                )
+
+        # Cognitive self-critique overlay (dispute direction): the engine's
+        # own critic found this detection unreliable.  It counts only when
+        # the critique is *measured* — at least one transparency flag says a
+        # real quantity (ensemble/MC variance, heteroscedastic residuals, a
+        # fitted confidence calibrator) stood behind the reliability verdict.
+        # A critique of placeholder uncertainties is surfaced in the record's
+        # signals but may not move a verdict.  Model-vs-critic contradiction
+        # is for a human, not a data request.
+        cog = ev.cognitive
         if (
-            v.label == 1
-            and ev.gosnn_demote_act_below is not None
-            and ev.gosnn_anomaly_prob <= ev.gosnn_demote_act_below
+            self.policy.defer_on_unreliable_critique
+            and isinstance(cog, Mapping)
+            and cog.get("is_reliable") is False
+            and self._critique_measured(cog)
         ):
-            self._demote(
-                v,
-                f"GOSNN fused-state detection head estimates P(anomaly)="
-                f"{ev.gosnn_anomaly_prob:.3f} <= {ev.gosnn_demote_act_below:g} "
-                "against a grounded positive: the cross-detector fusion and "
-                "the serving verdict disagree",
-                resolvable_by_input=False,
+            demotions.append(
+                (
+                    "the engine's own self-critique found this detection "
+                    "unreliable on measured grounds: a verdict its critic "
+                    "disputes needs a human",
+                    False,
+                )
             )
-        elif (
-            v.label == 0
-            and ev.gosnn_demote_clear_above is not None
-            and ev.gosnn_anomaly_prob >= ev.gosnn_demote_clear_above
-        ):
+
+        if demotions:
             self._demote(
                 v,
-                f"GOSNN fused-state detection head estimates P(anomaly)="
-                f"{ev.gosnn_anomaly_prob:.3f} >= {ev.gosnn_demote_clear_above:g} "
-                "against a grounded negative: the cross-detector fusion and "
-                "the serving verdict disagree",
-                resolvable_by_input=False,
+                [reason for reason, _ in demotions],
+                resolvable_by_input=all(resolvable for _, resolvable in demotions),
             )
 
     @staticmethod
-    def _demote(v: _Verdict, reason: str, *, resolvable_by_input: bool) -> None:
-        """Demote a grounded verdict to a deferral (toward abstention only)."""
+    def _critique_measured(cog: Mapping[str, Any]) -> bool:
+        """Whether the cognitive critique rests on at least one measured quantity."""
+        return any(
+            cog.get(key) is True
+            for key in ("epistemic_measured", "aleatoric_measured", "confidence_calibrated")
+        )
+
+    @staticmethod
+    def _demote(v: _Verdict, reasons: list[str], *, resolvable_by_input: bool) -> None:
+        """Demote a grounded verdict to a deferral (toward abstention only).
+
+        Applied once per verdict with every matched overlay's reason, so the
+        state transition happens a single time however many overlays fired.
+        """
         v.state = ThreeState.UNAVAILABLE
         v.disposition = Disposition.DEFER
         v.label = None
         v.confidence = None
         v.resolvable_by_input = resolvable_by_input
-        v.reasons.append(reason)
+        v.reasons.extend(reasons)
 
     @staticmethod
     def _caveats(ev: Evidence) -> tuple[str, ...]:
@@ -405,6 +562,39 @@ class DecisionAbstentionResponder:
                 "no conformal coverage certificate was attached; confidence is "
                 "a margin heuristic, not a distribution-free guarantee"
             )
+        elif (
+            ev.conformal_regime == "per_sample"
+            and ev.conformal_rows is not None
+            and ev.conformal_rows > 1
+        ):
+            caveats.append(
+                f"the conformal certificate is per-sample and this verdict is the "
+                f"batch-max row of {ev.conformal_rows}; selecting the max is not "
+                f"exchangeable with the per-sample fit, so the stated coverage is "
+                f"not a batch-level guarantee"
+            )
+        elif (
+            ev.conformal_regime == "batch_max"
+            and ev.conformal_rows is not None
+            and ev.conformal_rows > 1
+        ):
+            caveats.append(
+                f"the conformal certificate is batch-level: it covers whether this "
+                f"batch of {ev.conformal_rows} rows contains an anomaly (through its "
+                f"most anomalous row), not which other rows are anomalous"
+            )
+        # What the certificate was calibrated on and measured to cover, when
+        # the model's own provenance says: a "90%" is a statement about that
+        # calibration family, and the record should not let it read wider.
+        scope = (ev.model_provenance or {}).get("certificate_scope")
+        if ev.calibrated and isinstance(scope, str) and scope:
+            caveats.append(f"certificate scope: {scope}")
+        # What decisions about this hazard have been worth on real events
+        # held out, where that has been measured: a "90%" reads the same for
+        # every hazard, and has not held the same for every hazard.
+        measured = hazard_evidence.caveat(ev.domain)
+        if measured is not None:
+            caveats.append(measured)
         return tuple(caveats)
 
 

@@ -1,10 +1,277 @@
 # Governed Fusion Substrate — Phase 2 correction pass (PR #278)
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-11.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-20.
 
-All numbers below were reproduced **in this branch from committed code** on the
-real reachable suite (cold cache; `measure_*.py` + `build_manifest.py`). Nothing
-here is borrowed from FINDOYOU or any paper.
+## Re-measurement of 2026-11-20 (read first; supersedes the 2026-11-16 figures)
+
+Every file under `results/` and `manifest.json` was regenerated on 2026-11-20,
+and a record was appended to `ablation_ledger.json`, after the hazard loaders
+were corrected (`7b422c7`, `5ee1f06`, `f024595`, and the catalogue corrections
+of the same day). `input_pin.py --check` against the manifest of 2026-11-16 had
+reported 19 of 38 events drifted and one gone; the manifest is re-pinned and
+all 38 match. The section after this one is the record of 2026-11-16 and is
+kept as written; **its figures no longer match `results/`**.
+
+**What changed in the inputs.**
+
+- `earthquake` (5): the historical query had no spatial filter, so each event
+  was every M2.5+ earthquake in the world during its window. Each is now its
+  own region (Haiti 216 rows to 70).
+- `hurricane` (4): 24 h deltas are taken on the 6-hourly synoptic main track,
+  not over mixed 3- and 6-hourly rows and spur tracks. Seven of the twelve
+  catalogue events carried storm identifiers IBTrACS does not hold; with the
+  archive's own, the suite's four (the first four the catalogue lists that
+  load) are Katrina, Harvey, Maria and Ian. They were Katrina, Helene, Milton
+  and Irma, because Harvey, Maria and Ian returned no track.
+- `tsunami` (3): the rolling mean and deviation are trailing windows; they
+  were centred and read later samples.
+- `fema` (3) and `pandemic`: feature rows are aligned with their labels (an
+  unstable re-sort had shifted tied rows).
+- `pandemic` (4, was 5): `mpox_2022` was the COVID file under another name and
+  is no longer an event. `cholera_yemen_2017` is 132 rows where it was 168
+  (years WHO reports no value for are no longer rows). `ebola_2014` is marked
+  not benchmarkable (WHO GHO serves no Ebola series); the reconstructed class
+  stays empty.
+- `tornado` (2): same-day reports keep their order. The suite takes the first
+  two events, so `midwest_2024`, readable now that the loader names SPC's
+  1950 to 2024 file, is not in it.
+- The suite is **38 live events / 10 domains**: fema_activity 8, earthquake 5,
+  energy 5, hurricane 4, pandemic 4, fema 3, tsunami 3, marine 2,
+  network_security 2, tornado 2. Ten carry externally audited labels, 28 are
+  self-labelled. `energy`, `fema_activity`, `marine`, `batadal` and the three
+  COVID events are the rows they were on 2026-11-16 (their hashes match that
+  manifest's). `nsl_kdd`'s does not (the same 148,517 rows and 71,463
+  positives, a different hash), with the loaders before the fixes as well as
+  after; why was not established here.
+
+**Two things moved the figures, and a control separates them.** The loaders
+changed, and so did the code under `core/` and the detector since 2026-11-16.
+The middle column is the whole suite run on 2026-11-20 with the loaders as they
+were before `7b422c7` and everything else as it is now; its inputs match the
+2026-11-16 manifest for 38 of 39 events (`nsl_kdd` is the one that does not),
+so where it differs from the first column the cause is the code, and where the
+third differs from it the cause is the loaders.
+
+| Measurement | 2026-11-16 (39 events) | Control: loaders before the fixes, code as of 2026-11-20 (39) | 2026-11-20, corrected loaders (38) |
+|---|---|---|---|
+| Baseline AUROC, all live | 0.8457 | 0.8458 | 0.8436 |
+| Baseline AUROC, external-label (n=10) | 0.8627 | 0.8627 | 0.8627 |
+| Baseline AUPRC, external-label (n=10) | 0.8138 | 0.7705 | 0.7705 |
+| Baseline AUROC, self-label | 0.8399 (n=29) | 0.8399 (n=29) | 0.8368 (n=28) |
+| Conformal F1 vs Youden F1 | −0.0557 (35 usable) | −0.0544 (35) | −0.0165 (34) |
+| Reliability fusion, gap to best single | −0.0216 | −0.0216 | −0.0266 |
+| Survivability, clean → worst case at k/2 | 0.850 → 0.701 | 0.850 → 0.702 | 0.886 → 0.682 |
+| Beta-MCA Brier / ECE | 0.0851 / 0.0510 | 0.0853 / 0.0512 | 0.1068 / 0.0753 |
+| Isotonic Brier / ECE | 0.1114 / 0.0840 | 0.0840 / 0.0385 | 0.1006 / 0.0545 |
+| Beta-MCA − isotonic, Brier | −0.0263 [−0.055, −0.003] | +0.0013 [−0.004, +0.007] | +0.0062 [−0.001, +0.014] |
+| Beta-MCA − isotonic, ECE | −0.033 [−0.081, +0.007] | +0.0127 [−0.001, +0.028] | +0.0208 [+0.006, +0.038] |
+| Decorrelation, stack4_temporal − best single | +0.0024 [−0.033, +0.043] | +0.0024 [−0.033, +0.043] | +0.0040 [−0.030, +0.042] |
+
+Per domain, baseline AUROC (2026-11-16 → 2026-11-20): earthquake 0.9146 →
+0.9871, hurricane 0.7844 → 0.7335, tsunami 0.8771 → 0.8110, pandemic 0.9311 →
+0.9375 (five events → four), tornado 0.9582 → 0.9631, fema 0.6852 → 0.6884;
+energy 0.8959, fema_activity 0.8464, marine 0.4537 and network_security 0.9280
+are unchanged. This suite scores each loader's full matrix
+(`engineer_features`), label-derived columns included, which is why its
+earthquake figure rises where the README's de-leaked one is 0.6321
+(`research/engine_calibration/deleak_impact.json` has the same 0.9871 for the
+full matrix and 0.6320 without the magnitude columns).
+
+**Conclusions that hold.**
+
+- The conformal operating point still loses F1 to the Youden point it would
+  displace, by less (−0.0165 over 34 events, −0.0557 before). The control
+  reads −0.0544, so the narrowing came with the corrected events.
+- Reliability-weighted fusion still cannot reach the best single component
+  (−0.0266; regressions in fema −0.125, hurricane −0.093, marine −0.140 and
+  tornado −0.046). "Best single" is the per-event oracle described below; over
+  the 34 decorrelation events the winner is `info_geometry` on 13, `kinematic`
+  on 13 and `resonance` on 8.
+- The calibration lever probe is still a conclusive negative: no lever's
+  paired intervals lie below zero on both Brier and ECE.
+- Decorrelation is still INCONCLUSIVE and fusion stays unpromoted.
+- The external-label headline, which the promotion gate reads, is 0.8627 over
+  the same ten events in all three columns. Its AUPRC is 0.7705 where the
+  2026-11-16 record had 0.8138, and so is the ledger's (full fusion AUROC
+  0.8563 and F1 0.7770 unchanged, AUPRC 0.8042 → 0.7556): that is `nsl_kdd`,
+  and it is not the loader fixes, since the control shows it too.
+
+**A conclusion that does not hold: Beta-MCA no longer beats isotonic.** The
+2026-11-16 record had Beta-MCA with the lower Brier (interval below zero) and
+"Stage 2" below is headed "MCA lands". On the same inputs with the code as it
+is now (the control), isotonic's Brier is 0.0840 where it was 0.1114 and its
+ECE 0.0385 where it was 0.0840, Beta-MCA's are where they were, and the paired
+Brier difference is +0.0013 with an interval that contains zero. The largest
+single movement is `fema_activity`, where isotonic's Brier is 0.1271 and was
+0.2469. So what changed is `IsotonicCalibration`, not the data. On the
+corrected loaders Beta-MCA's Brier is higher by 0.0062 (interval [−0.001,
++0.014], contains zero), its ECE is higher by 0.0208 with an interval above
+zero ([+0.006, +0.038]), its AUROC is not distinguishable (+0.0053, [−0.014,
++0.026]) and neither is its net benefit (−0.0063, [−0.015, +0.001]). The
+statement that stands on this measurement is that isotonic has the lower ECE
+and nothing separates the two on Brier. Beta-MCA remains the shipped default;
+whether it should is a decision this measurement reopens and does not make.
+The gated variant's `beta_gated_domain_regressions` now lists three domains
+(hurricane dBrier +0.0017; pandemic dAUROC −0.0008; tsunami dAUROC −0.0020),
+where the record and the control list none.
+
+**Survivability is not one number across the two dates.** The representative
+event per domain is chosen by the suite, and it changed for hurricane (Milton →
+Maria) and pandemic (`mpox_2022` → `covid_india_delta`). Earthquake's event is
+the same (`turkey_syria_2023`) and its worst case at k/2 fell from 0.503 to
+0.113 while its clean AUROC rose from 0.975 to 0.994: cut to its region the
+event has 316 rows and two positives. fema's `hurricane_2024` reads 0.971 → 0.868 where it
+read 0.724 → 0.745, with its rows aligned to their labels.
+
+## Re-measurement of 2026-11-16 (superseded by the section above where they differ)
+
+Every file under `results/` and `manifest.json` was regenerated on 2026-11-16
+from live sources with `MERCURY_ALLOW_SYNTHETIC=0`. The sections after this one
+are the record of the measurement of 2026-07-11 on 23 live events and are kept
+as written; **their figures no longer match `results/`**. Where a conclusion
+changed, it is stated here.
+
+**What changed in the inputs.**
+
+- `tsunami` (3) and `energy` (5) are live. Their loaders read recorded archives
+  (NDBC DART; NASA OMNI2, NOAA GOES XRS flare reports, EIA-930, DOE OE-417) and
+  no longer synthesise, so `RECONSTRUCTED_DOMAINS` is empty and both take the
+  synthetic-fallback guard. The two grid events (`texas_2021`, `texas_2023`)
+  are scored on the grid's own series, not on space weather.
+- `pandemic/ebola_2014` is refused without the synthetic opt-in, so the
+  reconstructed class is empty (0 events).
+- `fema` labels were empty for every declaration since about 2007 (the rule read
+  `iaProgramDeclared`; FEMA records individual assistance as
+  `ihProgramDeclared` since). Corrected; three FEMA events are scorable.
+- `fema_activity` (8) is new: daily FEMA declaration activity labelled by NOAA
+  NCEI's billion-dollar tropical cyclone catalogue, an external label.
+- The suite is **39 live events / 10 domains**: fema_activity 8, earthquake 5,
+  energy 5, pandemic 5, hurricane 4, fema 3, tsunami 3, marine 2,
+  network_security 2, tornado 2. **Ten events carry externally audited labels**
+  (`network_security`, `fema_activity`), 29 are self-labelled. Inputs are
+  pinned in `manifest.json` (`input_pin.py --check`: 39 match).
+- Two scoring protocols, by what the labels allow (`score_cache.scored_rows`).
+  A self-labelled event is fitted on and scored in place, and the detector is
+  told that reference is unlabelled. An externally labelled event has a
+  reference known to be normal, so the detector is fitted on every other
+  normal row and scores the rest, as `benchmarks/mercury_benchmark.py` does.
+
+**Figures (macro mean over events, cap 6000).**
+
+| Measurement | 2026-07-11 (23 events) | 2026-11-16 (39 events) |
+|---|---|---|
+| Baseline AUROC, all live | 0.823 | 0.8457 |
+| Baseline AUROC, external-label | 0.7704 (n=2, fitted in place) | 0.8627 (n=10, normal reference) |
+| Baseline AUROC, self-label | 0.8282 (n=21) | 0.8399 (n=29) |
+| Conformal F1 vs Youden F1 | −0.0714 | −0.0557 (35 of 39 events usable) |
+| Reliability fusion, gap to best single | −0.0350 | −0.0216 |
+| Survivability, clean → worst case at k/2 | 0.924 → 0.707 | 0.850 → 0.701 |
+| Beta-MCA Brier / ECE | 0.0893 / 0.0387 | 0.0851 / 0.0510 |
+| Isotonic Brier / ECE | 0.0920 / 0.0484 | 0.1114 / 0.0840 |
+| Decorrelation, stack4_temporal − best single | −0.0055 | +0.0024, 95% CI [−0.033, +0.043] |
+
+**Conclusions that hold.** The conformal operating point still loses F1 to the
+Youden point it would displace. Reliability-weighted fusion still cannot reach
+the best single component (regressions in fema, hurricane and marine).
+
+**What "best single" is, stated 2026-11-18.** In `measure_reliability_fusion.py`
+and `measure_decorrelation.py` it is, for each event, the highest of the three
+streams' AUROCs on the evaluation split, chosen with that split's labels. It is
+an oracle: nothing that runs before the labels exist can pick it, and the
+maximum of three noisy AUROCs is biased upward. Over the 35 decorrelation events
+the winner is `info_geometry` on 15, `kinematic` on 12 and `resonance` on 8, so
+no one stream is "the best single". Every "fusion loses to best single" in this
+file is therefore fusion measured against an upper bound, which is the
+conservative direction for a KILL of fusion and is not evidence that a
+deployable single stream beats it. The comparison that would settle it (each
+stream held fixed across events, or chosen on the calibration split) cannot be
+made from the committed results: they keep each event's winning AUROC and not
+the other two. It needs the score cache or the live sources, and is open.
+`research/omni_equation/FINDINGS.md` made the same correction for its own
+table ("about 93% of the advertised gap is the oracle selection").
+
+**The calibration lever probe is a conclusive negative, now with an interval.**
+On the first re-measurement one lever (`l_nb=0.5`) had a lower mean Brier than
+the shipped default by 0.0001 and the probe named it a candidate. A difference
+of means cannot tell a lever from noise, so the probe now reports a paired
+bootstrap interval over events for each lever against the default, and a
+lever lands only when both intervals lie below zero. None does.
+
+**Beta-MCA against isotonic, with an interval.** Over 35 events Beta-MCA has
+the lower Brier (0.0851 against 0.1114; paired difference −0.0263, interval
+[−0.055, −0.003]), the higher AUROC (+0.039, interval [+0.013, +0.071]) and the
+higher net benefit (+0.016, interval [+0.003, +0.032]). Its ECE is lower by
+0.033 with an interval that contains zero ([−0.081, +0.007]). So the statement
+under R1 below stands on Brier and is not established on ECE.
+
+**Decorrelation: INCONCLUSIVE, and fusion stays unpromoted.** The earlier KILL
+rested on pooling 20 live and 7 reconstructed events. There are no
+reconstructed events now; over 35 events the paired difference is +0.0024 and
+its interval spans both zero and the ship line. By the protocol's own rule
+that is neither SHIP nor KILL. Nothing is promoted and the stream stays
+default-off; the claim that the lever is closed is withdrawn. The standard
+deviation of the paired difference is about 0.115, so an interval narrow
+enough to separate +0.01 from zero needs on the order of 500 events; this
+question will not be settled by adding a few.
+
+`measure_decorrelation.py` wrote NaN (not valid JSON) and a verdict for the
+empty reconstructed class; it now writes `{"n_events": 0}`.
+
+### The external-label figure, the kNN stream, and an unlabelled reference
+
+On the first re-measurement the two externally labelled events scored 0.6378
+against the 0.7704 committed on 2026-06-18, with byte-identical inputs
+(`sha256_xy` match): `nsl_kdd` 0.6788 → 0.3973, `batadal` 0.8621 → 0.8783.
+Fifteen events had identical inputs across the two manifests and all fifteen
+scored differently, so the committed figures were stale against the detector,
+not against the data. Scoring the same capped inputs with the detector at each
+commit that touched it reproduces both ends exactly and places the change:
+
+| Detector at | `nsl_kdd` | `batadal` | `turkey_syria_2023` | `mpox_2022` |
+|---|---|---|---|---|
+| `be604c1e` (2026-06-18) | 0.6788 | 0.8621 | 0.9806 | 0.7627 |
+| `f7590a6c` (2026-07-02) | 0.7280 | 0.8893 | 0.9806 | 0.8048 |
+| `8c54010f` (2026-10-21) | 0.5427 | 0.8890 | 0.7996 | 0.8974 |
+| `8ce85ec9` (2026-10-28) to `v3.0.0` | 0.3973 | 0.8783 | 0.7672 | 0.9038 |
+
+**Cause.** The kNN density stream is fused at a weight set from the feature
+width, up to 0.85. That weight was measured the way the benchmark measures:
+the detector fitted on rows known to be normal. This suite fits the detector
+on the event it scores. On `nsl_kdd` 48% of those rows are attacks, the dense
+attack clusters are the tightest neighbourhoods in the file, and density ranks
+them as the most normal rows (stream alone: AUROC 0.346). At a weight of 0.84
+the fused score followed it.
+
+**It is the reference, not the stream.** Fitted on normal rows and scored on
+the rest, as the benchmark does it, `nsl_kdd` scores 0.9699 with the stream and
+0.9482 without; `batadal` 0.9003 and 0.9177.
+
+**Fix.** A fit can now say its reference is unlabelled
+(`fit(..., unlabeled_reference=True)`), which caps the stream's weight at
+0.5: neither stream's premise is verified, so neither is given priority. The
+cap was chosen on data this suite does not contain: the 47 ADBench sets,
+fitted on and scored in place (`benchmarks/knn_unlabeled_reference.py`).
+
+| kNN weight | 0 | 0.25 | 0.5 | dimensional |
+|---|---|---|---|---|
+| ADBench mean AUROC (47 sets) | 0.7614 | 0.7716 | **0.7751** | 0.7590 |
+| ADBench worst loss against the best of the four | 0.259 | 0.135 | **0.076** | 0.793 |
+| This suite as it then stood, fitted in place (31 events; not used to choose) | 0.8383 | 0.8368 | 0.8306 | 0.8239 |
+
+The suite, the calibration scripts, the engine's auto-fit on an inference
+batch and the MCP detection tool declare the unlabelled reference. A plain
+`fit` is unchanged, and the 76-dataset benchmark re-run on the changed tree
+matches the run before it on every dataset.
+
+
+**The suite's own protocol was the other half.** An externally labelled event
+has audited ground truth, so a normal reference exists for it, and the suite
+fitted the detector on the whole event regardless. With the cap alone the two
+network events scored 0.7158 (`nsl_kdd` 0.5427, `batadal` 0.8890) fitted in
+place. Scored against a normal reference, as authorised on 2026-11-16, they
+score 0.9280 (`nsl_kdd` 0.9664, `batadal` 0.8896), and the ten externally
+labelled events together 0.8627. The 0.7704 of June was the in-place figure
+of a detector without a density stream; it is not comparable to either.
 
 ## Transparent correction this pass made (read first)
 

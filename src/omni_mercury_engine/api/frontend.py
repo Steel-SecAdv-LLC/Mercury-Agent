@@ -61,6 +61,7 @@ _PAGE_ROUTES: dict[str, str] = {
     "/confirm-email-change": "confirm-email-change.html",
     "/dashboard": "dashboard.html",
     "/console": "console.html",
+    "/watch": "watch.html",
 }
 
 router = APIRouter(tags=["Frontend"], include_in_schema=False)

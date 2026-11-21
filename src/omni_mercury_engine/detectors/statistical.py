@@ -99,6 +99,25 @@ _TIKHONOV_LAMBDA: float = 1e-6
 # tests assert.
 _WEIGHT_MARGIN_POWER: float = 4.0
 
+# Image gate (see ``_looks_like_raster``): the smallest raster side considered,
+# the neighbour coherence a raster must show in BOTH directions, and the size
+# of the feature-pair / row samples the coherence is measured on.
+_IMAGE_MIN_SIDE: int = 8
+_IMAGE_NEIGHBOUR_COHERENCE: float = 0.5
+# How much more a pixel must cohere with the pixel one raster row down than
+# with the pixel half a row away (the signature a 1-D waveform cannot show).
+_IMAGE_ROW_STRIDE_MARGIN: float = 0.1
+_IMAGE_COHERENCE_PAIRS: int = 96
+_IMAGE_MIN_PAIRS: int = 8
+_IMAGE_COHERENCE_ROWS: int = 512
+
+# Data types whose ROW ORDER carries no information: a batch of flattened images
+# is as unordered as a table, so the row-difference (kinematic) component is
+# zeroed on both.
+_UNORDERED_ROW_TYPES: frozenset[DataCharacteristics] = frozenset(
+    {DataCharacteristics.TABULAR, DataCharacteristics.IMAGE}
+)
+
 # Data-type gate thresholds (see ``_detect_data_characteristics``). Two
 # complementary temporal signals are measured: the per-feature lag-1
 # autocorrelation (does each channel evolve smoothly?) and the correlation
@@ -418,6 +437,9 @@ class MercuryAnomalyDetector(BaseDetector):
         # Oracle detector (set during fit if data is temporal)
         self._oracle_detector: Any = None
         self._oracle_metadata: dict[str, Any] = {"active": False}
+        #: Length of the reference segments the Oracle was fitted on (``None``
+        #: for an Oracle restored from statistics that predate segmenting).
+        self._oracle_segment_len: int | None = None
 
         # kNN density stream (default-on; ``knn_stream=False`` restores the
         # three-component ensemble exactly). Fused after the weighted sum,
@@ -455,6 +477,8 @@ class MercuryAnomalyDetector(BaseDetector):
         # ``knn_stream_weight`` config key. None means the stream is off.
         self._knn_fusion_weight: float | None = None
         self._knn_consec_nn_ratio: float | None = None
+        # Whether the last fit was on unlabelled data (see ``fit``).
+        self._unlabeled_reference: bool = False
         # (state key, median, scale) of the ensemble part on the reference
         # sample; recomputed whenever the key (weights, fitted components)
         # changes, so the fusion always aligns the current ensemble.
@@ -481,6 +505,8 @@ class MercuryAnomalyDetector(BaseDetector):
         self,
         data: np.ndarray[Any, Any] | torch.Tensor,
         calibration_labels: np.ndarray[Any, Any] | None = None,
+        *,
+        unlabeled_reference: bool | None = None,
     ) -> MercuryAnomalyDetector:
         """Fit detector on training data.
 
@@ -500,6 +526,13 @@ class MercuryAnomalyDetector(BaseDetector):
                 with the same length as *data*.  When provided, the
                 supervised adaptive weighting and threshold calibration
                 pipeline are automatically invoked.
+            unlabeled_reference: Whether *data* is unlabelled data that may
+                hold the anomalies themselves (a batch fitted on because
+                nothing else exists, an event scored in place) rather than a
+                reference known to be normal. ``True`` caps the kNN density
+                stream's fusion weight at :attr:`_KNN_WEIGHT_UNLABELED_CAP`.
+                ``None`` (default) reads the ``unlabeled_reference`` config
+                key, which defaults to ``False``.
 
         Returns:
             Self for method chaining.
@@ -553,8 +586,24 @@ class MercuryAnomalyDetector(BaseDetector):
         self.q3 = np.percentile(arr, 75, axis=0)
 
         # --- Data type detection (Task 2) ---
-        self._data_type = self._detect_data_characteristics(arr)
-        logger.info("fit: detected data type=%s", self._data_type.value)
+        # ``data_type`` lets the caller DECLARE what row order means. It exists
+        # because that is not always inferable: a table sorted by class has
+        # real block autocorrelation and is statistically a piecewise-stationary
+        # series, so no test on the data alone separates it from a noisy
+        # stream (see ``_detect_data_characteristics``).
+        declared = str(self.config.get("data_type") or "auto").lower()
+        if declared == "auto":
+            self._data_type = self._detect_data_characteristics(arr)
+            logger.info("fit: detected data type=%s", self._data_type.value)
+        else:
+            try:
+                self._data_type = DataCharacteristics(declared)
+            except ValueError:
+                valid = sorted(["auto", *(m.value for m in DataCharacteristics)])
+                raise DetectorException(
+                    f"Unknown data_type {declared!r}; expected one of {valid}"
+                ) from None
+            logger.info("fit: declared data type=%s", self._data_type.value)
 
         # --- InfoGeometry: fit Gaussian manifold ---
         self._fit_info_geometry(arr)
@@ -568,6 +617,11 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # --- kNN density stream: reference tree over the training rows ---
         self._fit_generation = next(_FIT_EVENTS)
+        self._unlabeled_reference = (
+            bool(self.config.get("unlabeled_reference", False))
+            if unlabeled_reference is None
+            else bool(unlabeled_reference)
+        )
         self._fit_knn_stream(arr)
 
         self._is_fitted = True
@@ -576,6 +630,7 @@ class MercuryAnomalyDetector(BaseDetector):
         self._oracle_detector = None
         self._oracle_metadata = {"active": False}
 
+        self._oracle_segment_len = None
         if self._data_type == DataCharacteristics.TEMPORAL:
             try:
                 from omni_mercury_engine.core.config import (
@@ -595,10 +650,36 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
 
                 if should_init:
-                    oracle_cfg = {"domain": oracle_domain}
-                    self._oracle_detector = SpectralDomainFrequency(oracle_cfg)
-                    self._oracle_detector.fit(arr)
-                    logger.info("Oracle fitted: domain=%s", oracle_domain)
+                    oracle = SpectralDomainFrequency({"domain": oracle_domain})
+                    segment_len = self._oracle_segment_length(
+                        arr.shape[0], int(oracle._oracle_config.inner_window)
+                    )
+                    if segment_len is not None:
+                        # Axis 0 is time on TEMPORAL data, so a signal is a
+                        # stretch of one COLUMN. (The former ``fit(arr)`` handed
+                        # the Oracle rows -- one time step across features.)
+                        # The reference is this data's own history: every
+                        # column cut into consecutive segments of one length,
+                        # so the per-band spread is "how much does a segment of
+                        # this series vary", which is what a later segment is
+                        # judged against. Fitting whole columns instead made
+                        # the spread a spread across FEATURES -- zero for a
+                        # univariate series, where every band then read as
+                        # significant on clean data.
+                        segments = [
+                            arr[start : start + segment_len, col]
+                            for col in range(arr.shape[1])
+                            for start in range(0, arr.shape[0] - segment_len + 1, segment_len)
+                        ]
+                        oracle.fit(np.ascontiguousarray(np.stack(segments)))
+                        self._oracle_detector = oracle
+                        self._oracle_segment_len = segment_len
+                        logger.info(
+                            "Oracle fitted: domain=%s segments=%d of %d samples",
+                            oracle_domain,
+                            len(segments),
+                            segment_len,
+                        )
             except Exception as exc:
                 logger.debug("Oracle init skipped: %s", exc)
                 self._oracle_detector = None
@@ -615,6 +696,7 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # --- Ensemble diversity metrics (Task 6) ---
         self._ensemble_diversity = self._compute_ensemble_diversity(arr)
+        self._apply_diversity_penalty(self._ensemble_diversity)
         if self._ensemble_diversity["mean_correlation"] > 0.9:
             logger.warning(
                 "fit: high mean component correlation (%.3f) — ensemble diversity is low",
@@ -711,7 +793,18 @@ class MercuryAnomalyDetector(BaseDetector):
                 )
 
         # --- Operating-point reference distribution (last: weights final) ---
-        self._fit_reference_distribution(arr)
+        # The reference answers "what does NORMAL data score like", so when
+        # calibration labels are available the labelled anomalies are excluded:
+        # leaving them in inflates the upper quantile and lifts the conformal
+        # cut above its nominal level.
+        reference_rows = arr
+        if calibration_labels is not None:
+            ref_labels = np.asarray(calibration_labels).ravel()
+            if len(ref_labels) == len(arr):
+                normal_rows = arr[ref_labels == 0]
+                if len(normal_rows) >= 8:
+                    reference_rows = normal_rows
+        self._fit_reference_distribution(reference_rows)
 
         return self
 
@@ -773,6 +866,16 @@ class MercuryAnomalyDetector(BaseDetector):
 
         labels = np.asarray(labels, dtype=np.int32).ravel()
 
+        # ``self.fit`` dropped the non-finite rows; everything below (weights,
+        # reference, threshold calibration) must see the same rows, or one NaN
+        # cell reaches the supervised weights and the conformal reference that
+        # ``fit`` kept it out of.
+        finite = np.isfinite(arr).all(axis=1)
+        if not finite.all() and len(labels) == len(arr):
+            arr, labels = arr[finite], labels[finite]
+            if group_ids is not None:
+                group_ids = np.asarray(group_ids).ravel()[finite]
+
         # Compute data-driven component weights before generating scores
         self._adaptive_weights = self._supervised_weights(arr, labels)
 
@@ -791,6 +894,16 @@ class MercuryAnomalyDetector(BaseDetector):
                 self._adaptive_weights[_i],
                 _direction,
             )
+
+        # Re-anchor the operating-point reference under the SERVED weights.
+        # ``self.fit(data)`` above stored the reference under the unsupervised
+        # weights; the supervised weights replace them just before this point,
+        # so conformal p-values, FDR flags and ``batch_anomaly`` would
+        # otherwise be computed against a stale score function (measured up to
+        # 0.287 score-units apart). Normal rows only: the reference describes
+        # what normal data scores like.
+        normal_rows = arr[labels == 0]
+        self._fit_reference_distribution(normal_rows if len(normal_rows) >= 8 else arr)
 
         # Generate ensemble scores for the training data
         detection = self.detect(arr)
@@ -902,6 +1015,7 @@ class MercuryAnomalyDetector(BaseDetector):
                 "domain": getattr(oc, "domain", "environmental"),
                 "threshold": getattr(oracle, "threshold", 0.5),
                 "is_fitted": getattr(oracle, "_is_fitted", False),
+                "segment_len": self._oracle_segment_len,
             }
             # Export per-band reference statistics
             if hasattr(oracle, "_ref_band_means") and oracle._ref_band_means:
@@ -1033,6 +1147,7 @@ class MercuryAnomalyDetector(BaseDetector):
         """
         self._oracle_detector = None
         self._oracle_metadata = {"active": False}
+        self._oracle_segment_len = None
         if oracle_ref_stats is None:
             return
         try:
@@ -1072,6 +1187,8 @@ class MercuryAnomalyDetector(BaseDetector):
                 oracle._noise_fit_r2 = float(oracle_ref_stats["noise_fit_r2"])
             oracle._is_fitted = True
             self._oracle_detector = oracle
+            segment_len = oracle_ref_stats.get("segment_len")
+            self._oracle_segment_len = int(segment_len) if segment_len else None
             self._oracle_metadata = {"active": True, "domain": domain}
             logger.info("Oracle restored from federation stats: domain=%s", domain)
         except Exception as exc:
@@ -1569,9 +1686,20 @@ class MercuryAnomalyDetector(BaseDetector):
         temporal residual-frequency filter on rows whose order is arbitrary.
 
         A very low adjacency (< 0.1) is an explicit shuffled-``TABULAR`` signal.
-        High dimensionality (``n_features > 100`` and ``~sqrt(n_samples)``)
-        classifies as ``IMAGE``. Falls back to ``TABULAR`` (the ADBench-common
-        case) for moderate dimensionality, else ``UNKNOWN``.
+        Wide data (``n_features > 100``) whose columns form a square 1- or
+        3-channel raster with neighbour coherence in both directions classifies
+        as ``IMAGE`` (:meth:`_looks_like_raster`). Falls back to ``TABULAR``
+        (the ADBench-common case), else ``UNKNOWN`` when no temporal signal
+        could be measured at all.
+
+        Known limit, measured: a table SORTED BY CLASS is read as ``TEMPORAL``.
+        Its block structure is real autocorrelation, so the Ljung-Box test
+        confirms it rather than rejecting it, and it is statistically a
+        piecewise-stationary series. A first-difference criterion that would
+        catch it (lag-1 autocorrelation of differences near -0.5) also flips
+        genuine noisy streams and cost a recorded NAB stream 0.017 AUROC, so it
+        is not applied. Callers who know their rows are unordered declare it:
+        ``MercuryAnomalyDetector({"data_type": "tabular"})``.
 
         Args:
             X: Training data of shape ``(n_samples, n_features)``.
@@ -1632,12 +1760,13 @@ class MercuryAnomalyDetector(BaseDetector):
 
         # Real temporal-structure test: the magnitude thresholds are a fast
         # pre-filter; a white-noise-null (Ljung-Box) significance test then
-        # confirms genuine autocorrelation so class-/collection-ordered tabular
-        # data (high raw magnitude but white-noise under the chi-square null) is
-        # not mistaken for a time series. This only TIGHTENS the TEMPORAL
-        # decision (genuine AR/sine data rejects the null and stays TEMPORAL),
-        # so tabular results are unchanged. Opt-out via config for byte-identical
-        # legacy behaviour.
+        # confirms genuine autocorrelation, so data whose high raw magnitude is
+        # white noise under the chi-square null is not mistaken for a time
+        # series. It does NOT catch a table sorted by class: block order is
+        # real autocorrelation and rejects the null like any series (see the
+        # docstring). This only TIGHTENS the TEMPORAL decision (genuine AR/sine
+        # data rejects the null and stays TEMPORAL), so tabular results are
+        # unchanged. Opt-out via config for byte-identical legacy behaviour.
         gate_enabled = bool(self.config.get("kinematic_temporal_gate", True))
         sig = self._temporal_structure_test(X) if gate_enabled else {"is_temporal": None}
         self._temporal_diagnostics = {
@@ -1664,18 +1793,103 @@ class MercuryAnomalyDetector(BaseDetector):
         if adj_row_corr is not None and adj_row_corr < 0.1:
             return DataCharacteristics.TABULAR
 
-        # --- Image dimensionality ---
-        if n_features > 100:
-            sqrt_n = np.sqrt(n_samples)
-            if 0.3 * sqrt_n <= n_features <= 3.0 * sqrt_n:
-                return DataCharacteristics.IMAGE
+        # --- Image signature ---
+        # A flattened image is a raster: a square 1- or 3-channel layout whose
+        # neighbouring pixels move together both along a row and down a
+        # column. The former rule compared the feature count with
+        # sqrt(n_samples) -- a property of how many rows were collected, not of
+        # what a row is -- and its only hit across the 76 recorded benchmark
+        # sets was a 196-feature network-flow table (14 x 14 by coincidence).
+        if n_features > 100 and self._looks_like_raster(X):
+            return DataCharacteristics.IMAGE
 
         # Default: tabular is the most common case in ADBench-style datasets,
         # and KinematicScore underperforms on it.
         if n_features <= 100:
             return DataCharacteristics.TABULAR
 
+        # Wide (> 100 features), not image-shaped, and measured non-temporal:
+        # this used to fall through to UNKNOWN, whose compatibility row is
+        # neutral — so KinematicScore kept full weight on exactly the rows its
+        # own documentation calls meaningless (np.diff over unordered rows; the
+        # high-dimensional mis-gating inversion in docs/BENCHMARKS.md). The
+        # temporal checks above already ran and said no, so the data is a wide
+        # table and is classified as one, which caps and then zeroes the
+        # kinematic weight through the existing TABULAR handling. UNKNOWN
+        # remains the verdict only when no temporal signal could be measured
+        # at all (degenerate variance, too few rows): there the non-temporal
+        # claim would rest on nothing.
+        if autocorr is not None or adj_row_corr is not None:
+            return DataCharacteristics.TABULAR
+
         return DataCharacteristics.UNKNOWN
+
+    @staticmethod
+    def _raster_layout(n_features: int) -> tuple[int, int] | None:
+        """Return ``(side, channels)`` for a square 1- or 3-channel raster, else ``None``."""
+        for channels in (1, 3):
+            if n_features % channels:
+                continue
+            side = math.isqrt(n_features // channels)
+            if side >= _IMAGE_MIN_SIDE and side * side * channels == n_features:
+                return side, channels
+        return None
+
+    @staticmethod
+    def _neighbour_coherence(sample: np.ndarray[Any, Any], offset: int) -> float | None:
+        """Median correlation (signed) between feature ``j`` and feature ``j + offset``.
+
+        Constant features (image borders) carry no correlation and are skipped;
+        ``None`` when too few informative pairs remain to say anything.
+        """
+        n_features = sample.shape[1]
+        if offset < 1 or offset >= n_features:
+            return None
+        starts = np.unique(
+            np.linspace(0, n_features - offset - 1, _IMAGE_COHERENCE_PAIRS).astype(int)
+        )
+        left, right = sample[:, starts], sample[:, starts + offset]
+        left = left - left.mean(axis=0)
+        right = right - right.mean(axis=0)
+        norm = np.sqrt((left**2).sum(axis=0) * (right**2).sum(axis=0))
+        informative = norm > _MIN_VARIANCE
+        if int(informative.sum()) < _IMAGE_MIN_PAIRS:
+            return None
+        corr = (left * right).sum(axis=0)[informative] / norm[informative]
+        return float(np.median(corr))
+
+    def _looks_like_raster(self, X: np.ndarray[Any, Any]) -> bool:
+        """Whether the rows are flattened images: a raster layout that coheres in 2-D.
+
+        Three measurements, all on the data: a pixel moves with its horizontal
+        neighbour, with its vertical neighbour (one raster row down), and --
+        what separates an image from a smooth 1-D waveform stored one window
+        per row -- it moves with the pixel one row down MORE than with the
+        pixel half a row away. A waveform's correlation only decays with lag,
+        so it is at least as coherent at half the stride as at the full
+        stride; in a raster the full stride lands back on an adjacent pixel.
+        """
+        layout = self._raster_layout(X.shape[1])
+        if layout is None:
+            return False
+        side, channels = layout
+        rows = np.linspace(0, len(X) - 1, min(len(X), _IMAGE_COHERENCE_ROWS)).astype(int)
+        sample = np.asarray(X[rows], dtype=np.float64)
+        # Channel-first puts the horizontal neighbour at +1 and the vertical one
+        # at +side; channel-last puts them at +channels and +side*channels.
+        candidates = {(1, side), (channels, side * channels)}
+        for horizontal, vertical in sorted(candidates):
+            along = self._neighbour_coherence(sample, horizontal)
+            down = self._neighbour_coherence(sample, vertical)
+            half_stride = self._neighbour_coherence(sample, (side // 2) * horizontal)
+            if along is None or down is None or half_stride is None:
+                continue
+            if (
+                min(along, down) >= _IMAGE_NEIGHBOUR_COHERENCE
+                and down - half_stride >= _IMAGE_ROW_STRIDE_MARGIN
+            ):
+                return True
+        return False
 
     # =====================================================================
     # Oracle domain auto-selection (Phase 11)
@@ -1882,7 +2096,7 @@ class MercuryAnomalyDetector(BaseDetector):
             )
             compat_vec = np.array([compat["resonance"], compat["kinematic"], compat["infogeo"]])
             # If TABULAR, force kinematic weight to near-zero
-            if self._data_type == DataCharacteristics.TABULAR:
+            if self._data_type in _UNORDERED_ROW_TYPES:
                 mean_aucs[1] = min(mean_aucs[1], 0.50)  # Cap at random
 
             # Zero out inverted components (AUC < 0.5). Gate the no-signal
@@ -1912,7 +2126,7 @@ class MercuryAnomalyDetector(BaseDetector):
             has_signal = mean_aucs > 0.5
             weights = np.where(has_signal & (weights < 0.05), 0.05, weights)
             # Zero out kinematic on tabular data explicitly
-            if self._data_type == DataCharacteristics.TABULAR:
+            if self._data_type in _UNORDERED_ROW_TYPES:
                 weights[1] = 0.0
 
             wsum = weights.sum()
@@ -1952,7 +2166,7 @@ class MercuryAnomalyDetector(BaseDetector):
             ]
         )
         # Force kinematic to zero for tabular
-        if self._data_type == DataCharacteristics.TABULAR:
+        if self._data_type in _UNORDERED_ROW_TYPES:
             raw[1] = 0.0
         total = raw.sum()
         if total < 1e-6:
@@ -2005,7 +2219,27 @@ class MercuryAnomalyDetector(BaseDetector):
                 "kinematic_infogeo": ki,
                 "mean_correlation": mean_corr,
             }
+            return diversity
 
+        except Exception as exc:
+            logger.debug("Ensemble diversity computation failed: %s", exc)
+            return {
+                "resonance_kinematic": 0.0,
+                "resonance_infogeo": 0.0,
+                "kinematic_infogeo": 0.0,
+                "mean_correlation": 0.0,
+            }
+
+    def _apply_diversity_penalty(self, diversity: dict[str, float]) -> None:
+        """Halve the lower-AUC component's weight for each redundant pair.
+
+        Explicit fit step, split out of :meth:`_compute_ensemble_diversity`
+        so measuring diversity has no side effect on the served weights.
+        """
+        try:
+            rk = diversity["resonance_kinematic"]
+            ri = diversity["resonance_infogeo"]
+            ki = diversity["kinematic_infogeo"]
             # Apply redundancy penalty to adaptive weights if they exist
             if hasattr(self, "_adaptive_weights") and hasattr(self, "_component_aucs"):
                 aucs = self._component_aucs
@@ -2035,16 +2269,8 @@ class MercuryAnomalyDetector(BaseDetector):
                     if wsum > 0:
                         self._adaptive_weights = self._adaptive_weights / wsum
 
-            return diversity
-
         except Exception as exc:
-            logger.debug("Ensemble diversity computation failed: %s", exc)
-            return {
-                "resonance_kinematic": 0.0,
-                "resonance_infogeo": 0.0,
-                "kinematic_infogeo": 0.0,
-                "mean_correlation": 0.0,
-            }
+            logger.debug("Diversity penalty skipped: %s", exc)
 
     # =====================================================================
     # Per-component validation and diagnostics (Task 4)
@@ -2679,8 +2905,20 @@ class MercuryAnomalyDetector(BaseDetector):
         # below) is the sound mechanism and remains.
 
         # --- Oracle spectral influence ---
+        # --- Oracle spectral metadata (severity context, not a score factor) ---
+        # The Oracle analyses each FEATURE's time series (axis 0 is time on
+        # TEMPORAL data), so it is handed columns, not rows. Its influence
+        # multiplier is reported as metadata only: multiplying the decision
+        # scores by a batch-level factor shifts the operating point per batch
+        # (the same unsoundness as the withdrawn batch-median flip above), and
+        # with the [0, 1] clip below it saturated the top-ranked scores into
+        # ties on exactly the batches that looked anomalous. Consumers that
+        # want spectral severity read ``oracle_metadata``.
         oracle_meta: dict[str, Any] = {"active": False}
-        if self._oracle_detector is not None:
+        segment_len = self._oracle_segment_len or data.shape[0]
+        if self._oracle_detector is not None and data.shape[0] >= max(
+            self._ORACLE_MIN_ROWS, segment_len
+        ):
             try:
                 # Dynamic Oracle sensitivity (F1 Precision Directive, Phase 9):
                 # High initial severity → look harder for spectral confirmation
@@ -2689,16 +2927,32 @@ class MercuryAnomalyDetector(BaseDetector):
                 severity_factor = float(np.clip(severity_factor, 0.5, 3.0))
                 self._oracle_detector._dynamic_alpha_factor = severity_factor
 
-                oracle_result = self._oracle_detector.detect(data)
-                # Extract influence multiplier from the influence_vector object
-                # (Oracle returns per-signal analysis, not per-sample)
-                iv = oracle_result.get("influence_vector")
-                if iv is not None and hasattr(iv, "influence_multiplier"):
-                    scalar = float(iv.influence_multiplier)
-                    multiplier = np.full(len(data), scalar)
+                # The newest segment of each column, the same length the
+                # reference segments had.
+                oracle_result = self._oracle_detector.detect(
+                    np.ascontiguousarray(data[-segment_len:].T)
+                )
+                per_signal = oracle_result.get("per_sample_results") or [oracle_result]
+                multipliers = [
+                    float(r["influence_vector"].influence_multiplier)
+                    for r in per_signal
+                    if r.get("influence_vector") is not None
+                    and hasattr(r["influence_vector"], "influence_multiplier")
+                ]
+                # Geometric mean: the per-signal factors are multiplicative.
+                if multipliers:
+                    arr_m = np.asarray(multipliers, dtype=np.float64)
+                    arr_m = arr_m[arr_m > 0.0]
+                    scalar = float(np.exp(np.mean(np.log(arr_m)))) if arr_m.size else 1.0
                 else:
-                    multiplier = np.ones(len(data))
-                combined_scores = combined_scores * multiplier
+                    scalar = 1.0
+                significant: list[str] = []
+                for r in per_signal:
+                    significant.extend(
+                        b.band_label
+                        for b in r.get("band_results", [])
+                        if getattr(b, "is_significant", False)
+                    )
                 oracle_meta = {
                     "active": True,
                     "domain": getattr(
@@ -2706,13 +2960,9 @@ class MercuryAnomalyDetector(BaseDetector):
                         "domain",
                         "unknown",
                     ),
-                    "mean_multiplier": float(np.mean(multiplier)),
-                    "significant_bands": [
-                        b.band_label
-                        for b in oracle_result.get("band_results", [])
-                        if getattr(b, "is_significant", False)
-                    ],
-                    "change_points": oracle_result.get("n_change_points", 0),
+                    "mean_multiplier": scalar,
+                    "significant_bands": sorted(set(significant)),
+                    "change_points": sum(int(r.get("n_change_points", 0) or 0) for r in per_signal),
                 }
             except Exception as exc:
                 logger.debug("Oracle detect failed: %s", exc)
@@ -3015,9 +3265,19 @@ class MercuryAnomalyDetector(BaseDetector):
     #: Fused scores at or below this value are reported unchanged; above it
     #: they are compressed smoothly into (knee, 1). See _saturate_upper.
     _KNN_SATURATION_KNEE: float = 0.8
+    #: Knee of the residual frequency filter's own saturation. The filter
+    #: blends scores that are already below 1 with a smoothed copy of
+    #: themselves, and the blend can lift a run of high scores over 1. A hard
+    #: clip tied that run at exactly 1.0: on a batch whose top 5% saturated,
+    #: the conformal cut became 1.0 and ``score > cut`` flagged nothing. The
+    #: knee sits just under the ceiling, so every score below it is what the
+    #: clip returned and only the former tie is resolved, in the blend's order.
+    _FILTER_SATURATION_KNEE: float = 0.999
 
     @classmethod
-    def _saturate_upper(cls, values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    def _saturate_upper(
+        cls, values: np.ndarray[Any, Any], knee: float | None = None
+    ) -> np.ndarray[Any, Any]:
         """Map scores into [0, 1) without tying the upper tail.
 
         Identity on ``[0, knee]``; above the knee ``knee + (1 - knee) *
@@ -3025,8 +3285,13 @@ class MercuryAnomalyDetector(BaseDetector):
         the knee and strictly increasing. A hard clip at 1.0 would tie every
         strong anomaly (and the top of the fit-time reference) at 1.0, so the
         conformal cut could itself become 1.0 and flag nothing.
+
+        Args:
+            values: Scores, any real values (negatives are floored at 0).
+            knee: Where compression starts; the kNN stream's knee by default.
         """
-        knee = cls._KNN_SATURATION_KNEE
+        if knee is None:
+            knee = cls._KNN_SATURATION_KNEE
         v = np.maximum(np.asarray(values, dtype=np.float64), 0.0)
         u = np.maximum(v - knee, 0.0) / (1.0 - knee)
         return np.where(v <= knee, v, knee + (1.0 - knee) * u / (1.0 + u))
@@ -3256,6 +3521,22 @@ class MercuryAnomalyDetector(BaseDetector):
     # cached ADBench sets verified), so none of this moves those records.
     _KNN_WEIGHT_TEMPORAL_CAP: float = 0.25
     _KNN_SERIES_CONTINUITY_MAX: float = 3.5
+    # The dimensional weight was measured with the reference the density
+    # stream presumes: rows known to be normal (the benchmark fits on normal
+    # rows only). Fitted instead on unlabelled data that contains the
+    # anomalies, density can rank them as the most normal rows: a dense
+    # attack cluster is the tightest neighbourhood in the file. At the 0.85
+    # cap the fused score then follows the inverted stream. Measured by
+    # fitting on, and scoring, the same unlabelled rows of the 47 ADBench
+    # sets at weights 0, 0.25, 0.5 and the dimensional weight: mean AUROC
+    # 0.7614 / 0.7716 / 0.7751 / 0.7590, worst loss against the best of the
+    # four 0.259 / 0.135 / 0.076 / 0.793 (one set scores 0.2021 at the
+    # dimensional weight and 0.9956 without the stream). Equal weight is best
+    # on both counts, so an unlabelled reference caps the weight there:
+    # neither stream's premise is verified, neither is given priority. Not
+    # used to choose it, the 31 governed-fusion events agree (0.8306 at 0.5
+    # against 0.8239 at the dimensional weight).
+    _KNN_WEIGHT_UNLABELED_CAP: float = 0.5
 
     def _knn_dimension_weight(self, n_features: int) -> float:
         """Fit-time fusion weight of the kNN z-stream, gated on feature width.
@@ -3275,7 +3556,9 @@ class MercuryAnomalyDetector(BaseDetector):
         unknown) the result is additionally capped at
         :attr:`_KNN_WEIGHT_TEMPORAL_CAP`; time-ordered independent
         instances keep the dimensional weight (measurements at the
-        constants).
+        constants). A fit on unlabelled data (``fit(...,
+        unlabeled_reference=True)``) is capped at
+        :attr:`_KNN_WEIGHT_UNLABELED_CAP` first.
         """
         explicit = self.config.get("knn_stream_weight")
         if explicit is not None:
@@ -3284,6 +3567,8 @@ class MercuryAnomalyDetector(BaseDetector):
         position = (midpoint - math.log2(max(n_features, 1))) / self._KNN_WEIGHT_LOG_SCALE
         gate = 1.0 / (1.0 + math.exp(-position))
         weight = self._KNN_WEIGHT_MIN + (self._KNN_WEIGHT_MAX - self._KNN_WEIGHT_MIN) * gate
+        if getattr(self, "_unlabeled_reference", False):
+            weight = min(weight, self._KNN_WEIGHT_UNLABELED_CAP)
         if self._data_type == DataCharacteristics.TEMPORAL and (
             self._knn_consec_nn_ratio is None
             or self._knn_consec_nn_ratio < self._KNN_SERIES_CONTINUITY_MAX
@@ -3330,6 +3615,24 @@ class MercuryAnomalyDetector(BaseDetector):
     #: (16 KiB) bound the detector state while keeping the conformal quantile
     #: resolution far finer than any alpha this detector is configured with.
     _REFERENCE_MAX_SCORES: int = 2048
+
+    #: Minimum rows for the spectral Oracle: below this a column is too short
+    #: a signal for band statistics to mean anything, and the Oracle stays off.
+    _ORACLE_MIN_ROWS: int = 32
+
+    #: Fewest reference segments per column the Oracle needs to estimate how
+    #: much one segment's band powers vary.
+    _ORACLE_MIN_SEGMENTS: int = 4
+
+    @classmethod
+    def _oracle_segment_length(cls, n_rows: int, inner_window: int) -> int | None:
+        """Length of the Oracle's reference segments, or ``None`` if the data is too short.
+
+        One analysis window where the data allows it, otherwise the longest
+        segment that still leaves :data:`_ORACLE_MIN_SEGMENTS` per column.
+        """
+        segment_len = min(inner_window, n_rows // cls._ORACLE_MIN_SEGMENTS)
+        return segment_len if segment_len >= cls._ORACLE_MIN_ROWS else None
 
     def _fit_reference_distribution(self, arr: np.ndarray[Any, Any]) -> None:
         """Score the training data with the serving pipeline and keep the sorted scores.
@@ -3934,7 +4237,11 @@ class MercuryAnomalyDetector(BaseDetector):
 
         filtered_residual = np.fft.irfft(filtered_fft, n=len(residual))
 
-        blended = np.clip(0.7 * scores + 0.3 * (baseline + filtered_residual), 0.0, 1.0)
+        # Saturated, not clipped: see ``_FILTER_SATURATION_KNEE``.
+        blended = MercuryAnomalyDetector._saturate_upper(
+            0.7 * scores + 0.3 * (baseline + filtered_residual),
+            knee=MercuryAnomalyDetector._FILTER_SATURATION_KNEE,
+        )
         if cache is not None and key is not None:
             cache[key] = blended
             # Bound the memo (insertion-ordered dict): keep the most recent 8.

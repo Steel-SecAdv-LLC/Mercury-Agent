@@ -1,0 +1,289 @@
+{
+  "schema": "mercury.research.artifact_review/v1",
+  "generated_at": "2026-11-21T07:33:25.618860+00:00",
+  "protocol": {
+    "target_coverage": 0.9,
+    "held_out_artifacts_per_kind": 300,
+    "seeds": {
+      "train": 1101,
+      "calibration": 2202,
+      "trainer_held_out": 3303,
+      "harness": 4404
+    },
+    "document_sources": {
+      "train": [
+        "ARCHITECTURE.md",
+        "ARCHITECTURE.md",
+        "DEPLOYMENT.md",
+        "DETECTORS.md",
+        "DORMANCY_LEDGER.md",
+        "FUSION_CAPACITY_STRATEGY.md",
+        "HAZARD_CHECKPOINT_TRAINING.md",
+        "INTERCONNECT.md",
+        "NEUROSYMBOLIC.md",
+        "PROVENANCE_MIGRATION_PLAN.md",
+        "SCHUMANN_PREREGISTRATION.md",
+        "VISION.md"
+      ],
+      "calibration": [
+        "README.md",
+        "ANOMALY_REGRESSION_WS_A.md",
+        "BENCHMARKS.md",
+        "COMPLIANCE.md",
+        "DETECTION_MECHANISMS.md",
+        "DETECTION_MECHANISMS_RUNBOOK.md",
+        "DISCOVERY.md",
+        "DOMAIN_EMAIL_HOSTING_SETUP.md",
+        "ENGINEERING_PASS_REMEDIATION.md",
+        "ENVIRONMENTAL_MECHANISM_PREREGISTRATION.md",
+        "GCN_KAFKA_MCP.md",
+        "GENERAL_CAPABILITIES.md",
+        "HAZARD_REGRESSION.md",
+        "INSTALLATION.md",
+        "MAINT1_2_COVERAGE_REMEDIATION.md",
+        "MATH_SPEC.md",
+        "OFFLINE_OPERATION.md",
+        "PHASE3_GOVERNANCE.md",
+        "RETRAIN_RUNBOOK.md",
+        "ROADMAP.md",
+        "SELF_IMPROVEMENT_LOOP.md",
+        "SUBAGENT_PANTHEON.md",
+        "WATCH.md",
+        "capability_vs_vision_matrix.md"
+      ],
+      "evaluation": [
+        "API_REFERENCE.md",
+        "DATASOURCES.md",
+        "DETECTION_TIER_HARDENING.md",
+        "DOMAIN_ENCODERS.md",
+        "ESCALATION_AUDIT_RUNBOOK.md",
+        "HAZARD_CALIBRATION.md",
+        "INTEL_VALUE_METRICS.md",
+        "MIGRATION-1.6-to-1.7.md",
+        "PLATFORM_HARDENING.md",
+        "ROUTING_GUIDE.md",
+        "TOOLS.md",
+        "index.md"
+      ]
+    },
+    "note": "Reference artifacts are procedural (see research/review/reference_artifacts.py): these numbers say how well inserted foreign material of those kinds is found, not how well real-world tampering is. The document feature set was chosen after three variants were compared on the held-out sources, so the document figures are, if anything, optimistic."
+  },
+  "bars": {
+    "coverage_per_class_min": 0.85,
+    "grounded_wrong_max": 0.12,
+    "row_auroc_min": 0.8
+  },
+  "kinds": {
+    "document": {
+      "checkpoint": "review_document.pt",
+      "checkpoint_sha256": "eb6d2d42d3ebf33d5ef0f4b39cd8a9c3f24e960899b747ae3dc53ea826aa30b4",
+      "certificate": {
+        "coverage_target": 0.9,
+        "coverage_achieved": 0.9,
+        "n_calibration": 300
+      },
+      "certificate_regime": "batch_max",
+      "certificate_scope": "calibrated on 300 reference documents (runs of prose from this repository's documentation), half with procedurally inserted foreign material. On 300 held-out reference documents from sources the calibration never saw, the 90% set covered 98.0% of clean and 87.3% of spliced ones. Real-world documents are more varied than this family: of 18 unlike it (Python source files of this repository, uploaded as documents), 4 were abstained on, 2 called anomalous and 12 called clear.",
+      "held_out": {
+        "artifacts": {
+          "clean": 150,
+          "spliced": 150
+        },
+        "segments_per_artifact_median": 48,
+        "coverage": {
+          "clean": 0.98,
+          "spliced": 0.86,
+          "target": 0.9
+        },
+        "decisions": {
+          "clean": {
+            "grounded_clear": 67,
+            "grounded_anomalous": 3,
+            "abstained": 80
+          },
+          "spliced": {
+            "grounded_anomalous": 96,
+            "grounded_clear": 20,
+            "abstained": 34
+          }
+        },
+        "rates": {
+          "clean_grounded_clear": 0.44666666666666666,
+          "clean_grounded_wrong": 0.02,
+          "spliced_found": 0.64,
+          "spliced_grounded_wrong": 0.13333333333333333,
+          "abstained": 0.38
+        },
+        "family_test_deferrals": 23,
+        "localisation": {
+          "top_segment_in_splice": 0.8053691275167785,
+          "n": 149
+        },
+        "row_auroc": 0.867571995334094,
+        "missed_by_recipe": {
+          "code": 17,
+          "other_document": 9,
+          "shouting": 2,
+          "table": 1
+        },
+        "seconds_per_artifact_median": 0.10529785549988446
+      },
+      "outside_the_family": {
+        "what": "Python source files of this repository, uploaded as documents",
+        "artifacts": 17,
+        "outcomes": {
+          "abstained": 3,
+          "grounded_clear": 13,
+          "grounded_anomalous": 1,
+          "not_reviewable": 0
+        },
+        "family_test_deferrals": 1
+      },
+      "bars_met": {
+        "coverage_per_class": true,
+        "grounded_wrong": false,
+        "row_auroc": true
+      },
+      "all_bars_met": false
+    },
+    "image": {
+      "checkpoint": "review_image.pt",
+      "checkpoint_sha256": "d9a8c1df915b7266f05335cd640f5f1499eb13c5609265bbce074eecaed28be4",
+      "certificate": {
+        "coverage_target": 0.9,
+        "coverage_achieved": 0.9,
+        "n_calibration": 300
+      },
+      "certificate_regime": "batch_max",
+      "certificate_scope": "calibrated on 300 reference images (procedurally generated textures), half with procedurally inserted foreign material. On 300 held-out reference images, the 90% set covered 84.7% of clean and 94.7% of spliced ones -- BELOW the 85% per-class floor set for it, so treat a flag as a pointer to read, not a finding. Real-world images are more varied than this family: of 7 unlike it (this repository's real figures (charts and diagrams), not textures), 7 were abstained on, 0 called anomalous and 0 called clear.",
+      "held_out": {
+        "artifacts": {
+          "clean": 150,
+          "spliced": 150
+        },
+        "segments_per_artifact_median": 121,
+        "coverage": {
+          "clean": 0.8933333333333333,
+          "spliced": 0.92,
+          "target": 0.9
+        },
+        "decisions": {
+          "clean": {
+            "grounded_clear": 133,
+            "grounded_anomalous": 13,
+            "abstained": 4
+          },
+          "spliced": {
+            "grounded_anomalous": 119,
+            "grounded_clear": 9,
+            "abstained": 22
+          }
+        },
+        "rates": {
+          "clean_grounded_clear": 0.8866666666666667,
+          "clean_grounded_wrong": 0.08666666666666667,
+          "spliced_found": 0.7933333333333333,
+          "spliced_grounded_wrong": 0.06,
+          "abstained": 0.08666666666666667
+        },
+        "family_test_deferrals": 20,
+        "localisation": {
+          "top_segment_in_splice": 0.9666666666666667,
+          "n": 150
+        },
+        "row_auroc": 0.9878909192778533,
+        "missed_by_recipe": {
+          "other_texture": 8,
+          "regrain": 3
+        },
+        "seconds_per_artifact_median": 0.5946169605012983
+      },
+      "outside_the_family": {
+        "what": "this repository's real figures (charts and diagrams), not textures",
+        "artifacts": 7,
+        "outcomes": {
+          "abstained": 7,
+          "grounded_clear": 0,
+          "grounded_anomalous": 0,
+          "not_reviewable": 0
+        },
+        "family_test_deferrals": 7
+      },
+      "bars_met": {
+        "coverage_per_class": true,
+        "grounded_wrong": true,
+        "row_auroc": true
+      },
+      "all_bars_met": true
+    },
+    "audio": {
+      "checkpoint": "review_audio.pt",
+      "checkpoint_sha256": "ea35651c9fec39c9f568549d3f1dad034305ac70456908386d06f5e3d21382eb",
+      "certificate": {
+        "coverage_target": 0.9,
+        "coverage_achieved": 0.9,
+        "n_calibration": 300
+      },
+      "certificate_regime": "batch_max",
+      "certificate_scope": "calibrated on 300 reference recordings (procedurally generated voiced signals), half with procedurally inserted foreign material. On 300 held-out reference recordings, the 90% set covered 87.3% of clean and 94.0% of spliced ones. Real-world recordings are more varied than this family: of 24 unlike it (generated chords with sharp onsets, not a voice), 20 were abstained on, 3 called anomalous and 1 called clear.",
+      "held_out": {
+        "artifacts": {
+          "clean": 150,
+          "spliced": 150
+        },
+        "segments_per_artifact_median": 47,
+        "coverage": {
+          "clean": 0.8533333333333334,
+          "spliced": 0.9266666666666666,
+          "target": 0.9
+        },
+        "decisions": {
+          "clean": {
+            "grounded_clear": 128,
+            "grounded_anomalous": 4,
+            "abstained": 18
+          },
+          "spliced": {
+            "grounded_anomalous": 130,
+            "grounded_clear": 1,
+            "abstained": 19
+          }
+        },
+        "rates": {
+          "clean_grounded_clear": 0.8533333333333334,
+          "clean_grounded_wrong": 0.02666666666666667,
+          "spliced_found": 0.8666666666666667,
+          "spliced_grounded_wrong": 0.006666666666666667,
+          "abstained": 0.12333333333333334
+        },
+        "family_test_deferrals": 9,
+        "localisation": {
+          "top_segment_in_splice": 0.9666666666666667,
+          "n": 150
+        },
+        "row_auroc": 0.967884217546783,
+        "missed_by_recipe": {
+          "noise": 1
+        },
+        "seconds_per_artifact_median": 0.10699116450086876
+      },
+      "outside_the_family": {
+        "what": "generated chords with sharp onsets, not a voice",
+        "artifacts": 24,
+        "outcomes": {
+          "abstained": 17,
+          "grounded_clear": 1,
+          "grounded_anomalous": 6,
+          "not_reviewable": 0
+        },
+        "family_test_deferrals": 13
+      },
+      "bars_met": {
+        "coverage_per_class": true,
+        "grounded_wrong": true,
+        "row_auroc": true
+      },
+      "all_bars_met": true
+    }
+  }
+}

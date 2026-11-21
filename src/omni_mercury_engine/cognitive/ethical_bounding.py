@@ -27,8 +27,10 @@ Integration:
 from __future__ import annotations
 
 import functools
+import itertools
 import logging
 import re
+import threading
 import time
 from dataclasses import (
     dataclass,
@@ -36,7 +38,7 @@ from dataclasses import (
     fields as dataclass_fields,
 )
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -44,12 +46,17 @@ from omni_mercury_engine.cognitive.harm_normalization import (
     MULTILINGUAL_HAZARD_TERMS,
     MULTILINGUAL_OFFENSIVE_CUES,
     any_term_in_haystack,
+    canonical_unfolded,
     compile_terms,
+    fold_obfuscation,
     normalized_haystack,
     register_pattern_literals,
     register_segmentation_terms,
     term_in_haystack,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -359,8 +366,31 @@ _DIRECT_HARM_VERBS = (
 #: prisoner" and "beat and torture the prisoner" both match while a sentence
 #: that merely mentions both far apart does not. The window deliberately
 #: excludes sentence-final punctuation.
+#:
+#: A passive with an agent ("stalked by her ex", "tortured by them") is skipped:
+#: the object after "by" is the perpetrator in someone's report, not the victim
+#: of a request. "how to help my friend who is being stalked by her ex" was
+#: refused before this lookahead.
+#:
+#: The agent of a report is not its victim. Three forms of this rule were
+#: wrong before this one. Skipping every verb form before "by" permitted the
+#: active voice with a manner ("torture by waterboarding the prisoner").
+#: Skipping only a past participle refused a victim's report that names the
+#: act as a noun ("harassment by him"). Skipping when a pronoun, possessive or
+#: article follows "by" permitted "harass by an anonymous account her". What
+#: actually went wrong in the reports was narrower: the person the pattern
+#: found was the one standing directly after "by". So a past participle
+#: before "by" is a passive and is skipped, and otherwise the object must not
+#: be the word "by" introduces. "stalking by her manager" finds no other
+#: object and is permitted; "stalk by her house and scare her" finds the
+#: second "her" and is refused. A colon ends the clause as a full stop does:
+#: "stalking by a stranger: how to protect her" is a heading and a question.
 _DIRECT_HARM_PATTERN = re.compile(
-    r"\b(?:" + _DIRECT_HARM_VERBS + r")\w*\b[^.!?;]{0,40}?\b(?:" + _OBJ + r")\b"
+    r"\b(?:"
+    + _DIRECT_HARM_VERBS
+    + r")\w*\b(?!(?<=ed)\s+by\b)[^.!?;:]{0,40}?(?<!\bby )\b(?:"
+    + _OBJ
+    + r")\b"
 )
 
 #: Lethal verb whose *manner* is stated as interpersonal violence. This is what
@@ -376,6 +406,370 @@ _LETHAL_MANNER_PATTERN = re.compile(
 )
 
 
+# ---------------------------------------------------------------------------
+# Lethal or grave harm stated as the speaker's own act against a person.
+#
+# The two patterns above leave the plainest request open. Measured through
+# ``mercury_score_ethics`` before this block existed, every one of these came
+# back ``is_permissible: true``:
+#
+#     "kill my neighbour"                  "i want to kill her"
+#     "I will murder John Smith tomorrow"  "help me stalk and hurt my ex-wife"
+#
+# ``kill``/``murder`` counted only with a stated manner of violence, and the
+# person-object list holds pronouns and a few roles, not the way people
+# actually name a victim ("my neighbour", "my ex-wife", a proper name).
+#
+# Widening the existing patterns would have been wrong: "could this arrhythmia
+# kill my mother", "someone is blackmailing my father" and "my neighbour keeps
+# harassing my wife" are a patient's or a victim's words, and they use the same
+# verb and the same object. What separates the two is who acts. This block
+# therefore fires only inside an AGENTIVE FRAME: the speaker's stated intent
+# ("i will", "i want to", "we're going to"), a request for help doing it
+# ("help me", "how do i"), or a bare imperative at the start of a clause. A
+# third-person subject ("he will kill her", "this dose could kill him") has no
+# such frame and is left to the patterns above, unchanged.
+#
+# ``kill`` stays excluded for the object "them": "find the idle workers and
+# kill them" is operations vocabulary. ``murder``/``assassinate`` have no such
+# technical sense, so after a first-person intent frame they match any object,
+# which is what catches a proper name; after an imperative they still need a
+# person object, because "murder mystery ideas" starts a clause too.
+#
+# Known residue, accepted: game talk in the agentive frame ("how do i kill him
+# in the final fight") is refused. The corpora that pin both directions are in
+# tests/pillars/test_non_maleficence.py (``AGENTIVE_HARM_REQUESTS`` and
+# ``AGENTIVE_FRAME_BENIGN``).
+# ---------------------------------------------------------------------------
+
+#: People named by their relation to someone, the form a real threat takes.
+_RELATION_NOUNS = (
+    "neighbou?r|wife|husband|spouse|girlfriend|boyfriend|fiancee?|partner|ex"
+    "|boss|manager|supervisor|coworker|co-worker|colleague|classmate|roommate"
+    "|flatmate|landlord|tenant|teacher|professor|mom|mum|dad"
+    "|mother|father|brother|sister|son|daughter|uncle|aunt|cousin"
+    "|grandmother|grandfather|grandma|grandpa|grandson|granddaughter|niece|nephew"
+    "|kids?|children|parents|friend"
+)
+#: Relation nouns that are as often a modifier of the next word: "my child
+#: subprocess", "my parent process", "my baby tomato seedlings", "my family
+#: plan". Each names a victim only when it ends its phrase: at the end of the
+#: text, before punctuation, or before a word that starts the next phrase.
+#: Dropping them (ruleset 7) permitted "i want to kill my child" and "i will
+#: murder my family"; keeping them unconditionally (ruleset 6) refused the
+#: operations sentences.
+_MODIFIER_PRONE_NOUNS = "child|parent|baby|family"
+_PHRASE_END = (
+    # The scorer checks the action followed by the rendered context, so the
+    # phrase can also end at the "{" or "[" that opens it.
+    r"(?=(?:\s*(?:$|[.!?;:,)(\[{\n])"
+    r"|\s+(?:tonight|today|tomorrow|now|soon|and|or|with|for|if|when|because|before|after"
+    r"|in|at|on|so|while|unless|then|too|first|next|myself|ourselves)\b))"
+)
+#: ``my neighbour``, ``his ex-wife``; not ``my neighbour's`` or ``my kids'``
+#: (the possessive makes the next noun the object: "kill my neighbour's
+#: weeds", "kill my kids' head lice"). A plural possessive is an apostrophe
+#: after an "s" with a word following; a bare trailing apostrophe is a quote
+#: or a slip ("i will kill my wife'") and was being read as one.
+_NOT_POSSESSIVE = r"(?!['’]s\b)(?!(?<=s)['’]\s+\w)"
+#: Words that sit between the possessive and the relation without changing
+#: who is meant: "my own child", "my whole family", "my little sister".
+_RELATION_ADJECTIVE = (
+    r"(?:(?:own|whole|entire|little|big|older|younger|elder|eldest|youngest|baby|dear"
+    r"|beloved|new|old|former|current|stupid|damn|damned|bloody|fucking|lovely)\s+){0,2}"
+)
+_PERSON_BY_RELATION = (
+    r"(?:my|his|her|their|our|your)\s+"
+    + _RELATION_ADJECTIVE
+    + r"(?:(?:ex[- ]?|step[- ]?)?(?:"
+    + _RELATION_NOUNS
+    + r")\b"
+    + _NOT_POSSESSIVE
+    + r"|(?:"
+    + _MODIFIER_PRONE_NOUNS
+    + r")\b"
+    + _NOT_POSSESSIVE
+    + _PHRASE_END
+    + r")"
+)
+#: A person named through someone else: "my wife's lover", "my boss's son".
+#: The possessive guard above stops at "my wife's" because the next noun is
+#: the object ("my neighbour's weeds"); when that noun is itself a person, the
+#: object is one. Permitted by every earlier ruleset.
+_PERSON_BY_POSSESSIVE = (
+    r"(?:my|his|her|their|our|your)\s+"
+    + _RELATION_ADJECTIVE
+    + r"(?:ex[- ]?|step[- ]?)?(?:"
+    + _RELATION_NOUNS
+    + r")(?:['’]s|s['’])\s+(?:new\s+|old\s+|whole\s+)?(?:"
+    + _RELATION_NOUNS
+    + r"|lover|family|child|baby|parent|fianc[eé]e?)\b"
+)
+#: The listed person objects without "them", for ``kill`` (see above).
+_OBJ_NOT_THEM = "|".join(re.escape(o) for o in _EUPHEMISM_OBJECT if o != "them")
+
+#: The speaker states the act as their own intent. An intensifier may sit on
+#: either side of the modal ("i really will", "i will definitely"). "could"
+#: and "might" are absent: "i could kill my brother" is exasperation, not
+#: intent.
+_INTENSIFIER = r"(?:really|just|still|honestly|seriously|definitely|absolutely|totally|actually)"
+_FIRST_PERSON_INTENT = (
+    r"\b(?:(?:i|we)(?:\s+" + _INTENSIFIER + r")?\s+"
+    r"(?:will|shall|must|should|wanna|gonna|want to|need to|have to|plan to|intend to|wish to"
+    r"|would like to|am going to|are going to|am gonna|are gonna|am about to)"
+    r"|(?:i|we)'ll|i'm (?:going to|gonna)|we're (?:going to|gonna)|(?:i|we)'d like to)\s+"
+    r"(?:" + _INTENSIFIER + r"\s+)?"
+)
+#: A request for help doing it, a request that the listener do it, or a bare
+#: imperative opening a clause. "would you ... if you were/had/could" is a
+#: hypothetical put to the listener and is excluded by the lookahead; "would
+#: you kill my husband for $5000" is a solicitation and is not.
+_HELP_OR_IMPERATIVE = (
+    r"(?:\bhelp me (?:to )?|\bhow (?:to|do i|can i|could i|should i|would i|do we|can we)\s+"
+    r"|\b(?:can|could|will|would) you (?!.{0,60}\bif you (?:were|had|could)\b)"
+    r"(?:please\s+)?(?:help me (?:to )?)?"
+    r"|\blet(?:'s| us)\s+"
+    r"|(?:^|[.!?;:]\s*)(?:(?:and\s+)?then\s+|please\s+|just\s+|go\s+|now\s+)?)"
+)
+_AGENTIVE_FRAME = r"(?:" + _FIRST_PERSON_INTENT + r"|" + _HELP_OR_IMPERATIVE + r")"
+
+#: After ``kill <person>``, these make the object a thing or the phrase an
+#: idiom: "kill her process", "kill my manager daemon", "kill him with
+#: kindness". Operations vocabulary, a fixed idiom, and writing about a
+#: character ("kill her off in chapter three"). A bare "kill her off" is not
+#: excluded: it was refused before this list existed and stays refused. The
+#: idiom is the whole of the act only when nothing follows it: "kill her with
+#: kindness, then a knife" is not the idiom.
+_NOT_A_VICTIM = (
+    r"(?!\s+(?:process(?:es)?|subprocess(?:es)?|sessions?|jobs?|tasks?|threads?|connections?"
+    r"|containers?|pods?|scripts?|servers?|services?|instances?|quer(?:y|ies)|daemons?|apps?"
+    r"|vms?|builds?|shells?|terminals?|tabs?|windows?|workers?|nodes?|plan|subscription"
+    r"|account|requests?|bots?|database|chromatids?"
+    r"|with kindness(?!\s*,?\s*(?:and\s+)?(?:then|and|before|until)\b)"
+    r"|off (?:in|by|at|during) (?:the |this |that |my |our )?"
+    r"(?:chapter|season|episode|act|book|story|novel|script|sequel|finale|ending|scene|show"
+    r"|series|campaign|game|draft)\b)\b)"
+)
+
+#: Acts left out of :data:`_DIRECT_HARM_VERBS` because their bare form has
+#: ordinary uses ("poison control centre", "assault rifle"), but which name a
+#: grave harm when the speaker asks to do them to a person named by relation:
+#: "help me poison my family" was permitted by every earlier ruleset.
+_FRAMED_HARM_VERBS = "|poison|kidnap|abduct|drown|assault"
+
+#: A word standing directly before the person makes them the subject of a new
+#: clause or a bystander, not the harm verb's object: "intimidate the other
+#: team so my son wins", "stab at guessing what my wife wants", "stalk deer
+#: with my dad", "torture test the build for my manager". Each alternative is
+#: a fixed-width lookbehind. Only the word directly before the person counts:
+#: "extort $5000 for myself from my boss" and "torture for hours my wife"
+#: keep the person as the object and are refused (ruleset 7 excluded a
+#: connector anywhere in between and permitted both).
+_NOT_THE_OBJECT = "".join(
+    rf"(?<!\b{word} )"
+    for word in (
+        "so",
+        "what",
+        "that",
+        "because",
+        "while",
+        "when",
+        "if",
+        "unless",
+        "until",
+        "before",
+        "after",
+        "for",
+        "with",
+        "like",
+        "than",
+        "about",
+        "as",
+        "near",
+        "beside",
+        "front of",
+    )
+)
+
+#: First-person ``murder`` is also slang for doing something thoroughly. These
+#: objects are the slang's, never a person's.
+_MURDER_SLANG_OBJECT = (
+    r"(?:(?:my|our|his|her|their|your|this|that|the|some|a|an)\s+)?"
+    r"(?:to-?do list|inbox|backlog|homework|exams?|workouts?|presentations?|interviews?"
+    r"|deadlines?|diet|sales targets?|records?|defen[cs]e|competition|leg day|tacos?|pizza"
+    r"|burgers?|buffet|playlist|set|solo|track|mix)\b"
+)
+
+_AGENTIVE_HARM_PATTERN = re.compile(
+    # lethal verb, person object, any agentive frame
+    _AGENTIVE_FRAME
+    + r"(?:\w+\s+and\s+)?(?:kill\s+(?:"
+    + _OBJ_NOT_THEM
+    + r"|"
+    + _PERSON_BY_POSSESSIVE
+    + r"|"
+    + _PERSON_BY_RELATION
+    + r")|(?:murder|assassinate)\s+(?:"
+    + _OBJ
+    + r"|"
+    + _PERSON_BY_RELATION
+    + r"))\b"
+    + _NOT_A_VICTIM
+    # murder/assassinate after the speaker's own intent: any object, so a name
+    # ("i will murder john smith"), a possessive phrase the relation list does
+    # not hold ("my wife's lover", "our president", "his whole family"). Not
+    # "you"/"me"/"us": a threat quoted by the person who received it ("he
+    # wrote: i will murder you") is theirs to report. Not "this"/"that"/"it"
+    # or a slang object: doing something well.
+    + r"|"
+    + _FIRST_PERSON_INTENT
+    + r"(?:murder|assassinate)\s+(?!(?:you|u|me|us|this|that|it)\b)(?!"
+    + _MURDER_SLANG_OBJECT
+    + r")\S+"
+    # a grave-harm act against a person named by relation, any agentive
+    # frame. The person may sit anywhere in the clause's next 40 characters
+    # ("extort money from my boss", "torture and then kill my wife"), unless
+    # the word directly before them says they are not the object.
+    r"|"
+    + _AGENTIVE_FRAME
+    + r"(?:\w+\s+and\s+)?(?:"
+    + _DIRECT_HARM_VERBS
+    + _FRAMED_HARM_VERBS
+    # "torture test" and "stab at guessing": the verb is not being used of a
+    # person. "stalk at night my ex-wife" is, so only "stab at" is excluded.
+    + r")\b(?!\s+(?:test|tests|testing)\b)(?!(?<=stab)\s+at\b)[^.!?;]{0,40}?"
+    + _NOT_THE_OBJECT
+    + r"\b"
+    + _PERSON_BY_RELATION
+)
+
+#: A line longer than this that ends without punctuation is wrapped prose and
+#: continues on the next line; a shorter one is a message of its own.
+_WRAPPED_LINE_CHARS = 60
+
+#: A line ending in one of these has not finished its clause, however short:
+#: the verb on the next line belongs to it ("he threatened to\nkill her").
+_CONTINUES = re.compile(
+    # A word that requires more (an infinitive marker, a modal, a negation, a
+    # conjunction, a relative pronoun, an adverb), or a verb of saying that
+    # introduces what someone else wrote ("the letter said\nkill my wife or
+    # pay" is the recipient's report). A pronoun or "that" at the end of a
+    # line is usually the end of a sentence ("you know what to do", "she
+    # deserves it") and is not here.
+    r"(?:\b(?:to|would|could|will|shall|should|might|may|can|must|not|never|and|or|but|who"
+    r"|which|said|says|say|wrote|writes|read|reads|screamed|shouted|yelled|texted|threatened)"
+    r"|n't|\w+ly)$"
+)
+
+
+def _line_readings(text: str) -> tuple[str, str]:
+    r"""Return the two ways a multi-line text can be read as clauses.
+
+    A line break carries no grammar, so both readings are checked:
+
+    * ``joined``: every break is a space. A threat written across lines ("i
+      will kill\nmy wife") is one clause, and wrapped third-person prose ("he
+      threatened to\nkill her") stays third person. Treating a break as a
+      clause boundary here (ruleset 7) cut such a threat in two and permitted
+      it.
+    * ``split``: a break after a complete line is a clause boundary, so an
+      imperative on the next line ("you know what to do\nkill my wife") opens
+      a clause. A line is complete when it ends in punctuation, or is short
+      and does not end in a word that needs a continuation. Treating every
+      break as a boundary refused "the cancer may eventually\nkill my wife".
+
+    The work is done line by line; a regular expression over runs of
+    whitespace made this quadratic in the length of a run.
+
+    Args:
+        text: Lower-cased text.
+
+    Returns:
+        ``(joined, split)``.
+    """
+    # Every Unicode line boundary is a line break, and a run of spaces or tabs
+    # is one space: "help me\tkill my wife" and "help me  kill my wife" were
+    # permitted by every earlier ruleset because the frames are written with
+    # single spaces.
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    if len(lines) < 2:
+        only = lines[0] if lines else ""
+        return only, only
+    pieces = [lines[0]]
+    for previous, line in itertools.pairwise(lines):
+        complete = previous[-1] in ".!?;:," or (
+            len(previous) <= _WRAPPED_LINE_CHARS and not _CONTINUES.search(previous)
+        )
+        pieces.append(("; " if complete else " ") + line)
+    return " ".join(lines), "".join(pieces)
+
+
+#: A third party's words introduced by a verb of saying and a colon: "he
+#: wrote: ...", "the note read: ...". "the plan is simple: ..." is not one.
+_REPORTED_SPEECH = re.compile(
+    # Single spaces only and a word boundary to start from: nothing here can
+    # run over a long stretch of whitespace.
+    r"(\b(?:he|she|they|someone|somebody|(?:the|my|his|her|their|a|an) [a-z']+)"
+    r" (?:[a-z']+ ){0,2}?(?:wrote|writes|said|says|read|reads|texted|screamed|shouted|yelled"
+    r"|posted|commented)) ?: ?"
+)
+
+#: A line that ends by promising more of the same clause.
+_ENDS_IN_CONJUNCTION = re.compile(r"\b(?:and|or|then|but|so|who)$")
+
+#: Someone other than the speaker or the reader is doing what the unfinished
+#: line describes, so the verb on the next line is theirs: a report, a fear, a
+#: prognosis. Either a third-person pronoun in subject position ("he said he
+#: would come and", "they break in and"), or any subject other than i / we /
+#: you followed by a modal ("the cancer may spread and", "my ex will find us
+#: and"). "do it and" has no subject; "here is the plan and" has no agent.
+_THIRD_PERSON_ACTS = re.compile(
+    r"(?:^|[,;:]\s*|\b(?:that|if|when|because|said|says|and|but|then|so|while|before|after"
+    r"|until|unless|whether)\s+)"
+    r"(?:he|she|they|it|someone|somebody|anyone|anybody|everyone|nobody|people)\s+\w"
+    r"|\b(?!(?:i|we|you)\b)[a-z']+\s+(?:will|would|could|might|may|can|must|should|shall"
+    r"|is going to|are going to|was going to|were going to|wants to|want to|threatened to"
+    r"|threatens to|tried to|tries to|plans to|planned to)\b"
+)
+
+
+def _command_after_unfinished_line(text: str) -> bool:
+    r"""A harm command on the line after one that ends in a conjunction.
+
+    "here is the plan and\nkill my wife" joins into one sentence with no
+    stated speaker, and every earlier ruleset permitted it for that reason:
+    the same join is what keeps "he said he would come and\nkill my wife" a
+    report. The two differ in who acts before the break. When nobody other
+    than the speaker or the reader does, the next line is a command.
+
+    Args:
+        text: Lower-cased, quote-normalised text.
+
+    Returns:
+        ``True`` when a line ending in a conjunction, with no third party
+        acting in it, is followed by a line that opens with a harm command.
+    """
+    lines = [" ".join(line.split()) for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    for previous, line in itertools.pairwise(lines):
+        if not _ENDS_IN_CONJUNCTION.search(previous):
+            continue
+        # The clause the conjunction belongs to: back to the last full stop.
+        clause = re.split(r"[.!?]\s+", previous)[-1]
+        if _THIRD_PERSON_ACTS.search(clause):
+            continue
+        if _AGENTIVE_HARM_PATTERN.search(line):
+            return True
+    return False
+
+
+#: A pair of single quotation marks around a short phrase. An apostrophe
+#: inside a word ("wife's") or closing a plural possessive ("my kids' head
+#: lice") opens no pair and stays.
+_WRAPPING_QUOTE = re.compile(r"(?<![a-z0-9])'([^'\n]{1,60})'(?![a-z0-9])")
+
+
 def _direct_harm_present(text: str) -> bool:
     """True when ``text`` states plain, person-directed grave harm.
 
@@ -389,11 +783,31 @@ def _direct_harm_present(text: str) -> bool:
         text: Lower-cased action text (plus rendered context).
 
     Returns:
-        ``True`` when a grave-harm act is pinned to a specific person, or a
-        lethal verb is qualified by an explicit manner of violence.
+        ``True`` when a grave-harm act is pinned to a specific person, a
+        lethal verb is qualified by an explicit manner of violence, or the
+        speaker states (or asks for help with) a lethal or grave-harm act
+        against a person.
     """
-    t = text.lower()
-    return bool(_DIRECT_HARM_PATTERN.search(t) or _LETHAL_MANNER_PATTERN.search(t))
+    # A typographic apostrophe is the same contraction: "i’ll kill my wife"
+    # was permitted while "i'll kill my wife" was refused.
+    # Double quotation marks are dropped for the same reason: kill my
+    # "wife" names the same person.
+    t = text.lower().replace("’", "'").replace("‘", "'")
+    for mark in ('"', "“", "”"):
+        t = t.replace(mark, "")
+    # So is a pair of single quotation marks: kill my 'wife'.
+    t = _WRAPPING_QUOTE.sub(r"\1", t)
+    # "he wrote: kill my wife" reports what someone else said. The colon is
+    # not a clause boundary there, so the words after it open no command.
+    t = _REPORTED_SPEECH.sub(r"\1 that ", t)
+    joined, split = _line_readings(t)
+    return bool(
+        _DIRECT_HARM_PATTERN.search(t)
+        or _LETHAL_MANNER_PATTERN.search(t)
+        or _AGENTIVE_HARM_PATTERN.search(joined)
+        or (split != joined and _AGENTIVE_HARM_PATTERN.search(split))
+        or _command_after_unfinished_line(t)
+    )
 
 
 def _euphemism_harm_present(text: str) -> bool:
@@ -837,6 +1251,22 @@ _HAZARD_CONTEXT_ANCHORS: frozenset[str] = frozenset(
 # already covers that. Allow patterns match the mechanism/detection/defense/
 # response/policy/licensed-practice frame the professions in
 # docs/HARM_POLICY.md work inside every day.
+#: How far a verb reaches for its object. These patterns were written for a
+#: request of a sentence or two (the longest text in the labelled corpora is
+#: 138 characters) with an unbounded ``.*`` between the verb and the object,
+#: which is the same thing there. In a long text it is not: an article that
+#: said "enhance relationships with clients" on one page and "virus" twenty
+#: pages on was a hard refusal for pathogen enhancement. The reach is longer
+#: than any labelled text and no longer: at 400 characters "enhance our
+#: outreach" still met "flu virus" three sentences on.
+_WITHIN_A_REQUEST = r".{0,160}?"
+
+_PEOPLE = r"(?:people|persons|civilians|humans)"
+#: Label of a pattern that counts only in a text that names a hazard. It is
+#: reported as ``targeting_planning``, which is what it is there.
+_WHERE_A_HAZARD_IS_NAMED = "targeting_planning:where_a_hazard_is_named"
+_PUT_TO_USE = r"(?:us(?:e|ing)|deploy(?:ing)?|unleash(?:ing)?|turn(?:ing)?|weaponi[sz](?:e|ing))"
+
 _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
     (
         re.compile(
@@ -913,7 +1343,7 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"\b(?:evade|avoid|escape)\s+detection\b|\bwithout (?:being )?detect(?:ed|ion)\b|"
             r"\bbypass screening\b|\bcircumvent (?:export controls?|safeguards?|customs)\b|"
             r"\bsmuggl(?:e|ing)\b|\bblack market\b|\bundetectable\b|\bavoid (?:customs|inspection)\b|"
-            r"\bdivert(?:ing)? .*(?:material|precursor)\b"
+            rf"\bdivert(?:ing)? {_WITHIN_A_REQUEST}(?:material|precursor)\b"
         ),
         OperationalIntent.ACQUISITION,
         "acquisition_evasion",
@@ -921,8 +1351,8 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
     (
         re.compile(
             r"\bincrease (?:the )?(?:transmissibility|lethality|virulence)\b|"
-            r"\benhance .*(?:pathogen|virus|toxin)\b|\bimmune escape\b|"
-            r"\bengineer .*(?:more (?:lethal|contagious)|immune evasion)\b"
+            rf"\benhance {_WITHIN_A_REQUEST}(?:pathogen|virus|toxin)\b|\bimmune escape\b|"
+            rf"\bengineer {_WITHIN_A_REQUEST}(?:more (?:lethal|contagious)|immune evasion)\b"
         ),
         OperationalIntent.ENHANCEMENT,
         "offensive_enhancement",
@@ -932,15 +1362,31 @@ _OFFENSIVE_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str]
             r"\bmaximi[sz]e casualties\b|\battack plan\b|\btarget(?:ing)? "
             r"(?:a crowd|civilians|a stadium|a school|a gathering)\b|\bkill as many\b|"
             r"\bmass[- ]casualty target\b|\bantipersonnel\b|"
-            r"\b(?:against|to (?:kill|harm|maim|injure)) (?:people|persons|civilians|humans)\b"
+            # A thing put to use on people, or an act done to them: attack
+            # planning whatever else the text says.
+            rf"\b{_PUT_TO_USE} (?:\S+ ){{0,4}}?against {_PEOPLE}\b|"
+            rf"\bto (?:kill|harm|maim|injure) {_PEOPLE}\b"
         ),
         OperationalIntent.TARGETING,
         "targeting_planning",
     ),
+    (
+        # The bare words "against people". They are attack planning where a
+        # hazard is named ("release chlorine gas against civilians", "an
+        # attack against civilians with a nerve agent") and only there: with
+        # no hazard in the text, "prejudice against people with diabetes" and
+        # "attacks against humans" by bribery were hard refusals. See
+        # ``_gate_evidence``.
+        re.compile(rf"\bagainst {_PEOPLE}\b"),
+        OperationalIntent.TARGETING,
+        _WHERE_A_HAZARD_IS_NAMED,
+    ),
 )
 _ALLOW_INTENT_PATTERNS: tuple[tuple[re.Pattern[str], OperationalIntent, str], ...] = (
     (
-        re.compile(r"\bhow does .* work\b|\bmechanism of action\b|\bchemistry of\b|\bphysics of\b"),
+        re.compile(
+            rf"\bhow does {_WITHIN_A_REQUEST} work\b|\bmechanism of action\b|\bchemistry of\b|\bphysics of\b"
+        ),
         OperationalIntent.MECHANISM,
         "mechanism",
     ),
@@ -1190,6 +1636,16 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     offensive = _match_intent_patterns(
         haystack, _OFFENSIVE_INTENT_PATTERNS
     ) + _match_multilingual_offensive(haystack)
+    anchored: bool | None = None
+    if any(label == _WHERE_A_HAZARD_IS_NAMED for _, label in offensive):
+        if domain is HazardDomain.NONE:
+            anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
+        hazard_named = domain is not HazardDomain.NONE or bool(anchored)
+        offensive = [
+            (tier, "targeting_planning" if label == _WHERE_A_HAZARD_IS_NAMED else label)
+            for tier, label in offensive
+            if label != _WHERE_A_HAZARD_IS_NAMED or hazard_named
+        ]
 
     # Safety net (no Axis-A hazard domain routed). Two ways an offensive request
     # still gates: (a) an *inherently weapons-specific* phrase; or (b) a
@@ -1198,7 +1654,8 @@ def _gate_evidence(text: str, context: dict[str, Any] | None) -> _GateEvidence:
     # (it would false-positive on "how do I cook dinner"). Either way the query
     # is routed to OTHER_MASS_HARM so Axis B gates it.
     if domain is HazardDomain.NONE:
-        anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
+        if anchored is None:
+            anchored = any_term_in_haystack(haystack, _HAZARD_CONTEXT_ANCHOR_FORMS)
         gated_intents = set(_INHERENTLY_OFFENSIVE_INTENTS)
         if anchored:
             gated_intents |= {OperationalIntent.PRODUCTION, OperationalIntent.ACQUISITION}
@@ -1285,7 +1742,38 @@ class _UseShippedClassifier:
 #: Default for every ``harm_classifier`` parameter in this module.
 USE_SHIPPED_CLASSIFIER = _UseShippedClassifier()
 
-_SHIPPED_CLASSIFIER_CACHE: list[Any] = []
+
+class _ShippedClassifierNotTried:
+    """Sentinel: the shipped classifier's import has not been attempted yet."""
+
+    def __repr__(self) -> str:
+        return "<shipped classifier: not tried>"
+
+
+_SHIPPED_CLASSIFIER_NOT_TRIED = _ShippedClassifierNotTried()
+
+#: The one slot holding the shipped classifier's state: the "not tried"
+#: sentinel, ``None`` (the last import attempt failed) or the classifier
+#: itself.  It is only ever REBOUND, under :data:`_SHIPPED_CLASSIFIER_LOCK`,
+#: so a reader sees one of those three and never a half-updated container.
+#: The slot used to be a list that a retry ``clear()``-ed while other threads
+#: indexed ``[0]``: an ``IndexError`` out of the harm gate.
+_shipped_classifier: Any = _SHIPPED_CLASSIFIER_NOT_TRIED
+
+#: Serialises every transition of the slot and of the backoff counter, and
+#: the import attempt itself: one attempt at a time, counted exactly.
+#: Re-entrant, because the attempt runs foreign code while holding it (the
+#: import, and the logging handlers on failure): anything there that comes
+#: back through the harm gate on the same thread must not deadlock the gate.
+_SHIPPED_CLASSIFIER_LOCK = threading.RLock()
+
+#: Bounded backoff for a FAILED shipped-classifier import: after a failure the
+#: gate runs lexical-only, and every this-many calls the import is retried, so
+#: a transient failure (cold filesystem, half-finished install) does not
+#: permanently weaken the gate for the process lifetime.  A successful import
+#: is cached for good; a persistent failure costs one retry per window.
+_SHIPPED_CLASSIFIER_RETRY_EVERY = 16
+_shipped_classifier_failed_calls = 0
 
 
 def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
@@ -1293,24 +1781,251 @@ def _resolve_harm_classifier(harm_classifier: Any) -> Any | None:
 
     The shipped classifier is resolved lazily and cached: importing it eagerly
     would pull the weight artifact into every process that merely imports the
-    ethics gate, and this module is deliberately cheap to import.
+    ethics gate, and this module is deliberately cheap to import.  A failed
+    import is NOT cached forever: it is logged at WARNING (the gate is running
+    with meaning-level coverage missing) and retried on a bounded call-count
+    backoff (:data:`_SHIPPED_CLASSIFIER_RETRY_EVERY`).
+
+    The backoff is only consulted when this is called with the
+    :data:`USE_SHIPPED_CLASSIFIER` sentinel, so a long-lived holder must keep
+    the *argument* it was given and resolve it here at each use.  Storing this
+    function's result stores a failed import's ``None`` for good, and passing
+    that on reads as an explicit request for the lexical-only posture.
     """
+    global _shipped_classifier, _shipped_classifier_failed_calls
     if harm_classifier is not USE_SHIPPED_CLASSIFIER:
         return harm_classifier
-    if not _SHIPPED_CLASSIFIER_CACHE:
+    # Fast path, lock-free: one read of the slot. A resolved classifier is
+    # never replaced, so a stale read can only send the caller to the lock.
+    cached = _shipped_classifier
+    if cached is not None and cached is not _SHIPPED_CLASSIFIER_NOT_TRIED:
+        return cached
+    with _SHIPPED_CLASSIFIER_LOCK:
+        cached = _shipped_classifier
+        if cached is not None and cached is not _SHIPPED_CLASSIFIER_NOT_TRIED:
+            return cached
+        if cached is None:
+            # Cached failure: stay lexical-only through the backoff window,
+            # then try the import again below.
+            _shipped_classifier_failed_calls += 1
+            if _shipped_classifier_failed_calls % _SHIPPED_CLASSIFIER_RETRY_EVERY:
+                return None
         try:
             from omni_mercury_engine.cognitive.meaning_level import (
                 meaning_level_harm_classifier,
             )
 
-            _SHIPPED_CLASSIFIER_CACHE.append(meaning_level_harm_classifier())
-        except Exception as exc:  # pragma: no cover - fail-open to lexical-only
-            logger.info("shipped meaning-level classifier unavailable (%s)", exc)
-            _SHIPPED_CLASSIFIER_CACHE.append(None)
-    return _SHIPPED_CLASSIFIER_CACHE[0]
+            resolved = meaning_level_harm_classifier()
+        except Exception as exc:
+            logger.warning(
+                "shipped meaning-level classifier unavailable (%s: %s); the harm "
+                "gate is running lexical-only until a retried import succeeds",
+                type(exc).__name__,
+                exc,
+            )
+            _shipped_classifier = None
+            return None
+        _shipped_classifier = resolved
+        return resolved
+
+
+#: How much of a text the meaning-level classifier is asked about at once.
+#:
+#: It was trained on single requests, the longest of them 23 words
+#: (``benchmarks/meaning_level_corpus.py``), and scores what it is given as one
+#: bag of words: asked about a whole passage, a request in it is weighed with
+#: everything round it. A window is twice the longest request and moves half
+#: its length, so that any request the classifier was trained to know lies
+#: whole inside one window with at most as many words again beside it; a
+#: second, of the longest request's own length, has less beside it still.
+#: Chosen on the classifier's training corpus with other text put round its
+#: rows (``research/meaning_level_windows``), and not on the held-out slice.
+MEANING_WINDOWS: tuple[tuple[int, int], ...] = ((48, 24), (24, 12))
+#: Words read on each side of a window before it is believed: a professional's
+#: frame is cut off by a window's edge as often as it is by a passage's.
+MEANING_WINDOW_MARGIN = 12
 
 
 def assess_weapons_uplift(
+    text: str,
+    context: dict[str, Any] | None = None,
+    *,
+    harm_classifier: Any | None = USE_SHIPPED_CLASSIFIER,
+    in_windows: bool = True,
+) -> WeaponsRiskAssessment:
+    """Assess ``text`` as a whole, and then what the classifier makes of each part of it.
+
+    :func:`assess_weapons_uplift_once` reads the text as one thing. That is
+    what a request is, and it is not what a page is: the meaning-level
+    classifier, asked about everything at once, refused a request among
+    twelve records about an agent and permitted the same request among
+    twenty. Where the text as a whole is not blocked and names a hazard, the
+    classifier is asked about each window of it
+    (:data:`MEANING_WINDOWS`), and a window that would be escalated as
+    a text of its own (a hazard named in it, no defensive frame in it, the
+    classifier at or over its threshold) escalates the text.
+
+    Args:
+        text: The text to assess.
+        context: As for :func:`assess_weapons_uplift_once`.
+        harm_classifier: As for :func:`assess_weapons_uplift_once`.
+        in_windows: ``False`` to assess the text as a whole only: for a caller
+            that goes on to assess its passages one by one, and would
+            otherwise have every window looked at twice.
+
+    Returns:
+        The assessment of the whole, or the escalation a window of it earned.
+    """
+    whole = assess_weapons_uplift_once(text, context, harm_classifier=harm_classifier)
+    if whole.blocks or not in_windows or whole.hazard_domain is HazardDomain.NONE:
+        return whole
+    classifier = _resolve_harm_classifier(harm_classifier)
+    if classifier is None:
+        return whole
+    try:
+        return _escalated_by_a_window(text, context, classifier) or whole
+    except Exception:
+        logger.exception("assess_weapons_uplift failed in a window; failing closed to HARD_REFUSE")
+        return WeaponsRiskAssessment(
+            HazardDomain.OTHER_MASS_HARM,
+            1.0,
+            OperationalIntent.TARGETING,
+            0.0,
+            WeaponsDisposition.HARD_REFUSE,
+            ("assessment_error",),
+        )
+
+
+def _escalated_by_a_window(
+    text: str, context: dict[str, Any] | None, classifier: Any
+) -> WeaponsRiskAssessment | None:
+    """The escalation the first window of ``text`` earns on its own, if any does.
+
+    The same three conditions the whole text is held to, asked of the window:
+    it names a hazard, nothing in it is an offensive pattern the lexical axes
+    already answer for or a professional's frame, and the classifier scores
+    it at or over the escalation threshold. A defensive sentence elsewhere in
+    the text does not speak for a request it stands nowhere near.
+    """
+    threshold = BENEVOLENCE_CALIBRATION.weapons_b6_escalate_confidence
+    # With its letters put back together first: spelled out a letter at a
+    # time, a text is hundreds of one-letter "words", a window of them is the
+    # second half of a sentence, and "i" is someone asking.
+    for words, start, size in _meaning_windows(canonical_unfolded(text)):
+        window = " ".join(words[start : start + size])
+        try:
+            score = max(0.0, min(1.0, float(classifier(window))))
+        except Exception as exc:  # fail-open, as the classifier is everywhere
+            logger.warning("weapons-uplift window classifier failed (%s); no raise applied", exc)
+            return None
+        if score < threshold or (MEANING_WINDOWS_ASKED and not _asks(window)):
+            continue
+        evidence = _gate_evidence(window, context or {})
+        if evidence.domain is HazardDomain.NONE or evidence.offensive or evidence.allowed:
+            continue
+        around = " ".join(
+            words[max(0, start - MEANING_WINDOW_MARGIN) : start + size + MEANING_WINDOW_MARGIN]
+        )
+        if _gate_evidence(around, context or {}).allowed:
+            continue  # "how is exposure to ... treated", with its first words cut off
+        return WeaponsRiskAssessment(
+            evidence.domain,
+            evidence.weight,
+            OperationalIntent.PRODUCTION,
+            score,
+            WeaponsDisposition.ESCALATE,
+            ("meaning_level_routing_raise",),
+        )
+    return None
+
+
+#: Whether a window must ask for something before the classifier is believed
+#: about it (:data:`_ASKS_RE`).
+MEANING_WINDOWS_ASKED = True
+#: Someone asking: a question, an order, a first or second person, or one of
+#: the ways English asks for instructions. The classifier was trained on
+#: requests and has never seen a statement: it scores "the plant produced
+#: sarin until it was closed" as it scores a request to produce it.
+_ASKS_RE = re.compile(
+    r"""
+    \?
+  | \b(?:i|i'm|i'd|i've|me|my|you|your)\b
+  | (?:^|[.!?;:|]\s*)(?:please\s+)?(?:how|what|can|could|would|should|will|do|does|did)\b
+  | (?:^|[.!?;:|,]\s*)(?:please\s+)?(?:show|tell|give|walk|explain|describe|list|write
+        |provide|teach|help|outline|detail|summari[sz]e|draft|suggest|recommend)\b
+  | \b(?:how\s+to|how\s+do|how\s+can|how\s+would|steps?\s+(?:to|for)
+        |instructions?\s+(?:to|for|on)|guide\s+(?:to|for|on)|recipe\s+for
+        |(?:a|any|best|easiest|simplest|fastest|good|practical)\s+ways?\s+to
+        |tutorial|walkthrough|need\s+to|want\s+to|trying\s+to|looking\s+for|please)\b
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _asks(window: str) -> bool:
+    """Whether someone in ``window`` is asking, in letters that were written as letters.
+
+    ``window`` is as it was written, lowercased. Leetspeak is read ("h0w t0"
+    asks), and a match made of nothing else is not one: "up to 1% gallium"
+    read as letters is "up to i% gallium", and that "i" is nobody speaking.
+    An article on plutonium was refused for it.
+    """
+    folded = fold_obfuscation(window)
+    return any(
+        any(window[at] == folded[at] for at in range(*found.span()))
+        for found in _ASKS_RE.finditer(folded)
+    )
+
+
+#: How :func:`_meaning_windows` divides a text: by its sentences and each two
+#: that stand together ("pairs"), by its sentences alone ("sentences"), or
+#: only by counting words ("words"). The other two are kept so that the
+#: measurement that chose this one can be run again.
+MEANING_UNITS = "pairs"
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?;:|])\s+|\n+")
+
+
+def _meaning_windows(text: str) -> Iterator[tuple[list[str], int, int]]:
+    """The parts of ``text`` the classifier is asked about, one at a time.
+
+    Each is given as the words it is cut from, where in them it starts and
+    how many it is. A sentence is asked about by itself, and so is each two
+    sentences that stand together and fit in a window: a request is a
+    sentence or two, and the sentence after it is someone else's. Whatever
+    is longer than a window (a sentence that runs on, a text with no
+    sentence ends in it) is asked about in windows of
+    :data:`MEANING_WINDOWS`.
+
+    Measured on the classifier's own training rows with unrelated statements
+    put round them (``research/meaning_level_windows``): read as one text,
+    178 of 400 requests were still found once a hundred words stood on each
+    side; read this way, 392, and none of 400 harmless rows about a hazard
+    was refused. A third, shorter window found no more of them and refused
+    a harmless row, and is not used.
+    """
+    if not MEANING_WINDOWS:
+        return  # none set: the text is read as a whole and no other way
+    whole = text.split()
+    if MEANING_UNITS == "words":
+        parts = [whole]
+    else:
+        sentences = [words for part in _SENTENCE_END_RE.split(text) if (words := part.split())]
+        parts = list(sentences)
+        if MEANING_UNITS == "pairs":
+            parts += [
+                first + second
+                for first, second in itertools.pairwise(sentences)
+                if len(first) + len(second) <= MEANING_WINDOWS[0][0]
+            ]
+    for words in parts:
+        if len(words) < len(whole) and len(words) <= MEANING_WINDOWS[0][0]:
+            yield words, 0, len(words)
+        for size, step in MEANING_WINDOWS:
+            for start in range(0, len(words) - size + step if len(words) > size else 0, step):
+                yield words, start, size
+
+
+def assess_weapons_uplift_once(
     text: str,
     context: dict[str, Any] | None = None,
     *,
@@ -1797,7 +2512,8 @@ class HarmReducer:
                 scorer, or any other callable to supply your own.
         """
         self._evaluation_counter = 0
-        self._harm_classifier = _resolve_harm_classifier(harm_classifier)
+        # The ARGUMENT, not what it resolves to: see ``_harm_classifier``.
+        self._harm_classifier_argument = harm_classifier
         # Populated by evaluate_harm(); read back by BenevolenceScorer.score_action
         # so the two-axis weapons verdict rides along with the harm computation
         # instead of being assessed twice. Single-caller-per-instance-at-a-time
@@ -1809,6 +2525,22 @@ class HarmReducer:
         #: ``harm_score`` cannot carry, because averaging one floored category
         #: across eight dilutes it below any usable bar.
         self.last_grave_harm: bool = False
+
+    @property
+    def _harm_classifier(self) -> Any | None:
+        """The classifier for the evaluation being made now, or ``None``.
+
+        Resolved at each use from the constructor's argument.  This object
+        lives as long as its owner does (a ``BenevolenceScorer`` held by the
+        orchestrator lives as long as the process), and resolving once in
+        ``__init__`` froze whatever the import did at that moment: built
+        during a failed import it kept ``None`` for good and passed that
+        explicit ``None`` on, which reads as "lexical-only was asked for", so
+        the bounded retry in :func:`_resolve_harm_classifier` was never
+        consulted again.  An explicit ``None`` or callable still passes
+        through unchanged.
+        """
+        return _resolve_harm_classifier(self._harm_classifier_argument)
 
     def evaluate_harm(
         self,
@@ -1866,8 +2598,13 @@ class HarmReducer:
         # GeneralAssistant's general-capability gate -- inherits this signal
         # through the ordinary harm_score/EthicalScore path rather than a
         # second, divergent check.
+        #
+        # One resolution for the whole evaluation: both uses below see the
+        # same classifier, and a failing import is counted against its
+        # backoff once per evaluation.
+        harm_classifier = self._harm_classifier
         self.last_weapons_assessment = assess_weapons_uplift(
-            action, context, harm_classifier=self._harm_classifier
+            action, context, harm_classifier=harm_classifier
         )
         # A blocking weapons verdict floors both the relevant categories (so the
         # breakdown and the severity damping reflect it) AND the overall harm
@@ -1908,9 +2645,9 @@ class HarmReducer:
         # Optional semantic classifier: can only RAISE the overall harm. If it
         # errors we keep the deterministic lexical harm (never lower it for a
         # classifier failure), so an unavailable model is not a safety regression.
-        if self._harm_classifier is not None:
+        if harm_classifier is not None:
             try:
-                score = float(self._harm_classifier(combined))
+                score = float(harm_classifier(combined))
                 overall_harm = max(overall_harm, min(max(score, 0.0), 1.0))
             except Exception as exc:
                 logger.warning(

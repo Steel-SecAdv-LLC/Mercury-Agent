@@ -7,7 +7,12 @@ Enhanced neuro-symbolic fusion integrating:
 - Stacking/BMA fusion for ensemble calibration
 - Real-time rule inference with explanation generation
 - GOSNN bidirectional synaptic integration
-- Calibration and conformal prediction
+- Probability calibration (Platt over the served fused score) and a
+  conformal certificate: the calibration split is drawn BEFORE the encoder
+  fit, Platt is fitted on the first half of the held-out rows scored
+  through the served path, and the certificate on the second half through
+  the fitted Platt — so its coverage guarantee is exchangeable with unseen
+  rows (it used to be unsound to certify here, and the docstring said so)
 - Benevolence ≥0.99 enforcement
 
 This module serves as the keystone for cross-domain gains, providing
@@ -135,6 +140,10 @@ class ExplainableOutput:
     # Calibration
     calibrated_score: float | None = None
     confidence_interval: tuple[float, float] | None = None
+    # Conformal label set over the Platt-calibrated fused score (the same
+    # block shape the engine's anomaly path and the storm forecast serve);
+    # None on a hub fitted without labels or with too few calibration rows.
+    conformal: dict[str, Any] | None = None
 
     # Ethical compliance
     benevolence_score: float = 1.0
@@ -156,6 +165,7 @@ class ExplainableOutput:
             "rules_fired": self.rules_fired,
             "explanations": self.explanations,
             "calibrated_score": self.calibrated_score,
+            "conformal": self.conformal,
             "benevolence_score": self.benevolence_score,
             "ethical_compliant": self.ethical_compliant,
         }
@@ -626,7 +636,8 @@ class NeuroSymbolicHub:
     - Neural encoding (LTN-style)
     - Symbolic reasoning (knowledge graph)
     - Stacking/BMA fusion
-    - Calibration and conformal prediction
+    - Probability calibration and a conformal certificate (sound split
+      ordering; see :meth:`fit`)
     - Ethical constraint enforcement
     - GOSNN bidirectional integration
 
@@ -663,7 +674,11 @@ class NeuroSymbolicHub:
             domain: Domain for specialized processing ('medical', 'financial', 'infrastructure')
             enable_domain_features: Enable domain-specific feature extraction
             enable_adaptive_thresholding: Enable adaptive per-domain thresholding
-            enable_gosnn_3r: Enable GOSNN-3R bidirectional integration
+            enable_gosnn_3r: Construct the GOSNN-3R integration and the
+                sliding-window input normaliser that comes with it. The
+                integration takes no part in the fused score: its score
+                refinement is off and its stability is reported as not
+                evaluated (see ``_gosnn_3r_step``).
             enable_symbolic_veto: Allow an agreeing high-confidence hard rule to
                 override a low neural score (monotone "must-alert"; never bypasses
                 the gates)
@@ -740,6 +755,9 @@ class NeuroSymbolicHub:
 
         # Calibrator
         self._calibrator: Any = None
+        # Conformal certificate over the Platt-calibrated fused score, fitted
+        # on the calibration sub-split no fitted component touched (see fit).
+        self._conformal: Any = None
 
         # Meta-learner for stacking
         self._meta_learner: Any = None
@@ -1011,38 +1029,86 @@ class NeuroSymbolicHub:
     ) -> NeuroSymbolicHub:
         """Fit the neuro-symbolic hub.
 
+        The calibration split is drawn BEFORE anything is fitted, and every
+        fitted component (the neural encoder, the stacking/BMA fusion
+        weights) sees only the non-calibration rows.  The calibration rows
+        are then scored through the hub's own served scoring path
+        (:meth:`predict`), so the Platt calibrator is fitted on the exact
+        score function serving applies — it used to be fitted on *neural*
+        scores of rows the encoder had already seen, then applied to *fused*
+        scores at serve, a double mismatch.  The held-out calibration rows
+        are sub-split in half: the first half fits Platt, the second —
+        scored through the fitted Platt — fits a
+        :class:`~omni_mercury_engine.core.conformal_prediction.BinaryConformalClassifier`,
+        so the certificate's calibration rows were touched by no fitted
+        component, which is what its coverage guarantee requires.
+
         Args:
             X: Training features
             y: Optional labels
-            validation_split: Fraction for calibration validation
+            validation_split: Fraction held out for calibration (drawn before
+                the encoder fit; needs at least 4 rows to calibrate, and the
+                conformal certificate is fitted only when its sub-split holds
+                at least 2 rows).
 
         Returns:
             Self for method chaining
         """
         rng = np.random.default_rng(self.seed)
 
-        # Fit neural encoder
-        self.neural_encoder.fit(X, y)
-
-        # If labels provided, set up calibration and learn fusion weights
         if y is not None and self.use_calibration:
             n = len(X)
-            n_val = int(n * validation_split)
+            n_cal = int(n * validation_split)
             idx = rng.permutation(n)
-            val_idx = idx[:n_val]
+            cal_idx = idx[:n_cal]
+            fit_idx = idx[n_cal:]
 
-            X_val = X[val_idx]
-            y_val = y[val_idx]
-
-            # Get neural scores
-            neural_scores = self.neural_encoder.encode(X_val)
-
-            # Set up calibration
-            self._setup_calibration(neural_scores, y_val)
-
-            # Learn fusion weights if using stacking/BMA
+            # Every fitted component sees only the fit rows.
+            self.neural_encoder.fit(X[fit_idx], y[fit_idx])
             if self.fusion_mode in [FusionMode.STACKING, FusionMode.BMA, FusionMode.ADAPTIVE]:
-                self._learn_fusion_weights(X_val, y_val)
+                self._learn_fusion_weights(X[fit_idx], y[fit_idx])
+
+            if n_cal >= 4:
+                # Score the untouched calibration rows through the served
+                # path itself (no calibrator is attached yet, so
+                # ``anomaly_score`` is the raw fused score serving computes).
+                outputs = self.predict(X[cal_idx], return_explanations=False)
+                fused_cal = np.array([float(o.anomaly_score) for o in outputs])
+                y_cal = np.asarray(y[cal_idx]).astype(int)
+                # Stratified halving: alternate each class between the Platt
+                # half and the conformal half, so a scarce positive class
+                # reaches both (an unstratified cut often starves one half of
+                # positives entirely on small tables).
+                order: list[int] = []
+                for label in (1, 0):
+                    order.extend(int(i) for i in np.flatnonzero(y_cal == label))
+                platt_rows = np.array(order[0::2], dtype=int)
+                conformal_rows = np.array(order[1::2], dtype=int)
+                half = len(platt_rows)
+                self._setup_calibration(fused_cal[platt_rows], y_cal[platt_rows])
+                if self._calibrator is not None and n_cal - half >= 2:
+                    from omni_mercury_engine.core.conformal_prediction import (
+                        BinaryConformalClassifier,
+                    )
+
+                    conformal_probs = np.clip(
+                        np.asarray(
+                            self._calibrator.calibrate(fused_cal[conformal_rows]), dtype=float
+                        ),
+                        0.0,
+                        1.0,
+                    )
+                    self._conformal = BinaryConformalClassifier(coverage=0.9).fit(
+                        conformal_probs, y_cal[conformal_rows]
+                    )
+            else:
+                logger.warning(
+                    "NeuroSymbolicHub: %d calibration rows are too few to "
+                    "calibrate (need >= 4); serving uncalibrated scores",
+                    n_cal,
+                )
+        else:
+            self.neural_encoder.fit(X, y)
 
         self._fitted = True
         logger.info("NeuroSymbolicHub fitted successfully")
@@ -1336,15 +1402,6 @@ class NeuroSymbolicHub:
                 symbolic_weight = self._symbolic_weight
                 fused_score = neural_weight * neural_score + symbolic_weight * symbolic_score
 
-            # Apply calibration
-            calibrated_score = None
-            if self._calibrator is not None:
-                try:
-                    calibrated_score = float(self._calibrator.calibrate(np.array([fused_score]))[0])
-                except Exception:
-                    # Calibration failed; use uncalibrated score
-                    calibrated_score = fused_score
-
             # Compute confidence
             # Higher agreement between neural and symbolic = higher confidence
             agreement = 1 - abs(neural_score - symbolic_score)
@@ -1356,6 +1413,45 @@ class NeuroSymbolicHub:
                 * 4
             )
             confidence = min(max(confidence, 0.0), 1.0)
+
+            # P2 Integration: GOSNN-3R step. It changes no score (see
+            # ``_gosnn_3r_step``). It is placed here, ahead of calibration and
+            # of the verdict, because that is the only place a score-changing
+            # step may ever go: the block it replaces ran after ``is_anomaly``
+            # had been derived, so a score it rewrote would have been reported
+            # beside a verdict taken from the score it replaced.
+            gosnn_3r_info = self._gosnn_3r_step()
+
+            # Apply calibration
+            calibrated_score = None
+            conformal_block: dict[str, Any] | None = None
+            if self._calibrator is not None:
+                try:
+                    calibrated_score = float(self._calibrator.calibrate(np.array([fused_score]))[0])
+                except Exception:
+                    # Calibration failed; use uncalibrated score
+                    calibrated_score = fused_score
+            # Conformal label set, evaluated on the exact function it was
+            # fitted on (Platt over the served fused score), BEFORE the
+            # threshold manager or the symbolic veto may overwrite the
+            # calibrated score — those overrides sit outside the certificate
+            # and the block says which regime it was issued under.
+            if self._conformal is not None and calibrated_score is not None:
+                try:
+                    pred_set = self._conformal.predict(
+                        np.array([float(np.clip(calibrated_score, 0.0, 1.0))])
+                    )
+                    size = int(pred_set.set_size[0])
+                    conformal_block = {
+                        "prediction_set": pred_set.label_sets()[0],
+                        "set_size": size,
+                        "abstain": bool(size == 2),
+                        "coverage": float(pred_set.coverage_level),
+                        "regime": "per_sample_pre_veto",
+                        "n_calibration": self._conformal.n_calibration,
+                    }
+                except Exception:  # pragma: no cover - the verdict must serve
+                    logger.exception("hub conformal prediction failed; block omitted")
 
             # P2 Integration: Use adaptive domain thresholding if available
             if self._threshold_manager is not None:
@@ -1381,35 +1477,6 @@ class NeuroSymbolicHub:
             else:
                 # Fallback to centralized threshold
                 is_anomaly = fused_score > self._thresholds.anomaly_default
-
-            # P2 Integration: GOSNN-3R feedback loop
-            gosnn_3r_info: dict[str, Any] = {}
-            if self._gosnn_3r is not None:
-                try:
-                    # Get 3R-adjusted fusion weights based on confidence
-                    adjusted_weights = self._gosnn_3r.adjust_weights(
-                        neural_score=neural_score,
-                        symbolic_score=symbolic_score,
-                        confidence=confidence,
-                        domain=self.domain,
-                    )
-
-                    # Apply adjusted weights for potential score refinement
-                    if adjusted_weights:
-                        gosnn_3r_info = {
-                            "gosnn_3r_active": True,
-                            "adjusted_neural_weight": adjusted_weights.get("neural_weight"),
-                            "adjusted_symbolic_weight": adjusted_weights.get("symbolic_weight"),
-                            "lyapunov_stability": adjusted_weights.get("lyapunov_stability", 0.0),
-                        }
-
-                        # Optionally refine fused score with GOSNN-3R adjusted weights
-                        if adjusted_weights.get("refine_score", False):
-                            w_n = adjusted_weights["neural_weight"]
-                            w_s = adjusted_weights["symbolic_weight"]
-                            fused_score = w_n * neural_score + w_s * symbolic_score
-                except Exception as e:
-                    logger.warning(f"GOSNN-3R integration failed: {e}")
 
             # Hard gate at the decision boundary — the shared, fail-closed
             # harm-uplift choke point every public decision surface uses.
@@ -1574,6 +1641,7 @@ class NeuroSymbolicHub:
                     explanations=explanations if return_explanations else [],
                     reasoning_chain=reasoning_chain if return_explanations else [],
                     calibrated_score=calibrated_score,
+                    conformal=conformal_block,
                     benevolence_score=benevolence_score,
                     # The sample reached this line, so the harm-uplift gate
                     # permitted it — a blocking disposition raises out of
@@ -1592,6 +1660,57 @@ class NeuroSymbolicHub:
         self._total_processing_time += total_time
 
         return results
+
+    def _gosnn_3r_step(self) -> dict[str, Any]:
+        """Report the GOSNN-3R integration's part in a sample's score: none.
+
+        The hub used to ask ``GOSNN3RIntegration.adjust_weights`` for
+        "3R-adjusted" fusion weights on every sample, replace the fused score
+        with a blend under those weights when the integration set
+        ``refine_score``, and report ``lyapunov_stability`` beside it. Measured,
+        none of that could happen:
+
+        * ``adjust_weights`` holds the integration's non-reentrant lock while
+          calling ``verify_stability``, which takes the same lock: the call
+          never returns, so ``predict`` on a hub built with the default
+          ``enable_gosnn_3r=True`` hung on its first sample.
+        * With the lock made re-entrant, ``refine_score`` is still never
+          true. It requires the adjusted neural weight to sit more than 0.05
+          from ``PHI / (1 + PHI)``; over the whole input domain (41^3 grid of
+          neural, symbolic, confidence) the largest distance is 0.0468,
+          because ``adjust_weights`` never stores the weights it adjusts.
+          0 of 1,800 predicted rows asked for refinement.
+        * ``lyapunov_stability`` was the integration's verdict on a
+          trajectory the hub never fed (``convergence_history`` is filled by
+          ``OmniAvaEquation.compute`` only): a constant 0.0, reported as if
+          measured. Fed the fused scores, it measures the variance of ten
+          independent samples against the first ten, which says nothing about
+          the model and depends on the order of the batch.
+        * Forcing the blend wherever that check happened to pass changed 15
+          of 1,800 rows and no verdict, at a ROC AUC of 0.8435 against 0.8437
+          (conjunctive) and 0.8402 against 0.8403 (phi-weighted).
+
+        So the refinement stays off and the report says what is true: the
+        integration is enabled, it took no part in the score, and stability
+        was not evaluated (``None``, never a 0.0 that reads as a measurement).
+        ``adjust_weights`` is not called.
+
+        Returns:
+            The ``gosnn_3r_integration`` reasoning-chain entry, empty when the
+            integration is disabled or failed to initialise.
+        """
+        if self._gosnn_3r is None:
+            return {}
+
+        return {
+            "gosnn_3r_enabled": True,
+            "gosnn_3r_active": False,
+            "refinement_applied": False,
+            "adjusted_neural_weight": None,
+            "adjusted_symbolic_weight": None,
+            "lyapunov_stability": None,
+            "lyapunov_status": "not_evaluated",
+        }
 
     def predict_proba(self, X: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Get anomaly probabilities (for sklearn compatibility)."""

@@ -105,7 +105,7 @@ def run_one(name: str, data_dir: str) -> dict[str, Any]:
 
     X_std = StandardScaler().fit_transform(X)
     det = MercuryAnomalyDetector()
-    det.fit(X_std)
+    det.fit(X_std, unlabeled_reference=True)  # fitted on the rows it scores
     scores = np.asarray(det.detect(X_std)["scores"], dtype=float).reshape(-1)
 
     return {

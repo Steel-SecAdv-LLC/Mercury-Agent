@@ -1,0 +1,41 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": "postgis_geojsons.fid--62d15a65_1a1eabeb25a_-7cc6",
+   "geometry": null,
+   "properties": {
+    "capurl": "ch-meteoswiss-de/2026/11/17/05/51/55-b6da6800ffd46ee8cd4062cda506296e.xml",
+    "sent": "2026-11-16T21:51:55Z",
+    "description": "- Possible impacts: Breaking off of branches, toppling of individual trees.",
+    "event": "Strong gale",
+    "s": 3,
+    "u": 2,
+    "c": 3,
+    "sn": "",
+    "effective": "2026-11-16T21:51:00Z",
+    "onset": "2026-11-16T23:00:00Z",
+    "mem": "087",
+    "marine": "0",
+    "areadesc": "Thalwil-Wetzikon",
+    "expires": "2026-11-18T00:00:00Z",
+    "gc": "",
+    "cn": null,
+    "headline": "",
+    "row_type": "POLYGON"
+   },
+   "bbox": [
+    8.49669743,
+    47.22539902,
+    8.89495945,
+    47.38812256
+   ]
+  }
+ ],
+ "totalFeatures": 1,
+ "numberMatched": 1,
+ "numberReturned": 1,
+ "timeStamp": "2026-11-17T18:22:13.208Z",
+ "crs": null
+}

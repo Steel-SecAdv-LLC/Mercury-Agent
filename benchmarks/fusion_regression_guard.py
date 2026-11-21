@@ -1,6 +1,6 @@
 # Copyright (C) 2025 Steel Security Advisors LLC
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Deterministic fusion + conformal regression guard (WS5/WS6 CI gate).
+"""Seeded fusion + conformal regression guard (WS5/WS6 CI gate).
 
 Why this exists
 ---------------
@@ -8,22 +8,31 @@ PR #269 shipped the fusion train→eval pipeline and committed AUC/ECE sweep
 artifacts, but **no CI gate pinned the fusion model's AUC/F1 or the conformal
 coverage floor** — so a regression in the fusion stack (a broken detector
 feature, a calibration bug, a coverage collapse) could land silently. This guard
-closes that: it deterministically trains-and-evaluates the real fusion path on a
-fixed seeded synthetic corpus and fails non-zero if AUC/F1 fall below a pinned
-floor or empirical conformal coverage drops below ``target − margin``.
+closes that: it trains-and-evaluates the real fusion path on a fixed seeded
+synthetic corpus and fails non-zero if AUC/F1 fall below a pinned floor or
+empirical conformal coverage drops below ``target − margin``.
+
+What is gated is the **median over several seeded fits**, at one torch thread.
+One fit is one draw: at the gate's eight epochs, the same data and code give
+F1 from 0.835 to 1.000 across fit seeds (two of the first seven below 0.87),
+and one seed read 0.985, 0.943 and 0.868 at four, two and one threads. A
+single-realization pin therefore passed or failed on the runner's core count.
+The median of ``GATE_FIT_SEEDS`` fits moves only when most of them do, which
+is what a regression in the stack looks like; every realization is recorded
+beside it.
 
 Why train rather than load the shipped checkpoint
 -------------------------------------------------
-Training in-process with a fixed seed and ``symbolic_weight=0.0`` gives a
-bit-stable measurement of the fusion stack's *achievable* performance — what a
-regression gate must pin — independent of any shipped artifact. (Historically
+Training in-process with fixed seeds and ``symbolic_weight=0.0`` measures the
+fusion stack's *achievable* performance — what a regression gate must pin —
+independent of any shipped artifact. (Historically
 this also sidestepped a checkpoint round-trip defect: per-sample probabilities
 drifted by up to ≈0.76 on load because base-detector state was not persisted.
 That defect is **closed** — checkpoints persist base-detector/model fitted
 state and the conformal serving surface (measured save→load max|ΔProb| ≈ 6e-8),
 locked by ``tests/test_fusion_checkpoint_roundtrip.py`` — but the in-process
 design remains correct: the gate measures the stack, not one artifact.) The synthetic
-path is fully offline (no network / ADBench), so the lane is deterministic and
+path is fully offline (no network / ADBench), so the lane is seeded and
 CI-safe; the strong real-data fusion numbers remain in
 ``benchmarks/fusion_capacity/sweep_real_v5.json`` (network-gated).
 
@@ -55,16 +64,22 @@ from scripts.train_default_fusion import SEED, _stratified_split, build_dataset
 BASELINE_PATH = _HERE / "fusion_capacity" / "fusion_gate_baseline.json"
 ARTIFACT_DIR = _ROOT / "artifacts" / "fusion"
 
-# Deterministic gate config. Few epochs keep the lane fast; early stopping +
-# symbolic_weight=0.0 make the metrics bit-stable (the co-trained "adaptive"
-# path adds ~0.002 AUC noise, which the margins below absorb).
+# Gate config. Few epochs keep the lane fast, which is also why one fit is a
+# noisy draw; ``symbolic_weight=0.0`` keeps the co-trained path out of it.
 GATE_EPOCHS = 8
 GATE_COVERAGE_TARGET = 0.9
+# Fit seeds whose median is gated (an odd count, so the median is a
+# realization). The data and its splits are the same for all of them.
+GATE_FIT_SEEDS: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)
+# One torch thread: summation order, and so the fitted model, does not then
+# depend on how many cores the runner has.
+GATE_TORCH_THREADS = 1
 
 # Floors are measured-minus-margin. Margins absorb cross-environment numerical
-# drift (BLAS/seed/epoch jitter) while still catching real regressions, which
-# are typically >> these margins.
-AUC_MARGIN = 0.05
+# drift (BLAS, CPU) while still catching real regressions, which are typically
+# >> these margins. The AUC margin was 0.05 on a single fit; on the steadier
+# median 0.04 keeps the floor above the one it replaces.
+AUC_MARGIN = 0.04
 F1_MARGIN = 0.07
 COVERAGE_MARGIN = 0.05
 
@@ -90,12 +105,13 @@ def _f1_at(probs: np.ndarray[Any, Any], y: np.ndarray[Any, Any], threshold: floa
     return 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
 
-def evaluate(epochs: int = GATE_EPOCHS, seed: int = SEED) -> dict[str, Any]:
-    """Deterministically train + evaluate the fusion path; return metrics.
+def _evaluate_one(fit_seed: int, epochs: int, seed: int) -> dict[str, Any]:
+    """One seeded fit of the fusion path on the gate corpus, and its metrics.
 
     Trains on a 60% split, evaluates AUC/F1 on a disjoint 20% test split, and
     measures empirical conformal coverage from a 20% calibration split — all from
     the same seeded synthetic distribution the shipped checkpoint trains on.
+    ``seed`` fixes the data and its splits; ``fit_seed`` is the fit's own.
     """
     import torch
 
@@ -117,7 +133,8 @@ def evaluate(epochs: int = GATE_EPOCHS, seed: int = SEED) -> dict[str, Any]:
         epochs=epochs,
         batch_size=64,
         early_stopping_patience=15,
-        symbolic_weight=0.0,  # bit-stable path (no adaptive co-training noise)
+        symbolic_weight=0.0,  # no adaptive co-training in the gate
+        seed=fit_seed,
     )
 
     probs = np.asarray(engine.score_fusion(x[test_idx]))
@@ -134,27 +151,10 @@ def evaluate(epochs: int = GATE_EPOCHS, seed: int = SEED) -> dict[str, Any]:
     )
 
     return {
-        "metadata": {
-            "purpose": (
-                "Deterministic regression guard for the fusion AUC/F1 + conformal "
-                "coverage floor on a fixed seeded synthetic corpus. Offline / "
-                "network-free; the real-data fusion numbers live in "
-                "benchmarks/fusion_capacity/sweep_real_v5.json."
-            ),
-            "seed": seed,
-            "epochs": epochs,
-            "symbolic_weight": 0.0,
-            "n_train": len(train_idx),
-            "n_cal": len(cal_idx),
-            "n_test": len(test_idx),
-            "commit": _git_commit(),
-            "python": sys.version.split()[0],
-            "margins": {
-                "auc": AUC_MARGIN,
-                "f1": F1_MARGIN,
-                "coverage": COVERAGE_MARGIN,
-            },
-        },
+        "fit_seed": fit_seed,
+        "n_train": len(train_idx),
+        "n_cal": len(cal_idx),
+        "n_test": len(test_idx),
         "auc": auc,
         "f1": f1,
         "conformal": {
@@ -163,6 +163,84 @@ def evaluate(epochs: int = GATE_EPOCHS, seed: int = SEED) -> dict[str, Any]:
             "average_set_size": float(report["average_set_size"]),
         },
     }
+
+
+def summarize(realizations: list[dict[str, Any]], epochs: int, seed: int) -> dict[str, Any]:
+    """The gated metrics: each one's median over the seeded fits.
+
+    Each metric's median is taken on its own, so the gated AUC, F1 and
+    coverage need not come from the same fit; the fits are all listed under
+    ``realizations``.
+    """
+    if not realizations:
+        raise ValueError("the guard needs at least one fit to summarize")
+
+    def median(pick: Any) -> float:
+        return float(np.median([pick(one) for one in realizations]))
+
+    first = realizations[0]
+    return {
+        "metadata": {
+            "purpose": (
+                "Regression guard for the fusion AUC/F1 + conformal coverage "
+                "floor on a fixed seeded synthetic corpus: the median over "
+                "seeded fits at one torch thread. Offline / network-free; the "
+                "real-data fusion numbers live in "
+                "benchmarks/fusion_capacity/sweep_real_v5.json."
+            ),
+            "seed": seed,
+            "fit_seeds": [one["fit_seed"] for one in realizations],
+            "torch_threads": GATE_TORCH_THREADS,
+            "epochs": epochs,
+            "symbolic_weight": 0.0,
+            "n_train": first["n_train"],
+            "n_cal": first["n_cal"],
+            "n_test": first["n_test"],
+            "commit": _git_commit(),
+            "python": sys.version.split()[0],
+            "margins": {
+                "auc": AUC_MARGIN,
+                "f1": F1_MARGIN,
+                "coverage": COVERAGE_MARGIN,
+            },
+        },
+        "auc": median(lambda one: one["auc"]),
+        "f1": median(lambda one: one["f1"]),
+        "conformal": {
+            "target_coverage": float(first["conformal"]["target_coverage"]),
+            "empirical_coverage": median(lambda one: one["conformal"]["empirical_coverage"]),
+            "average_set_size": median(lambda one: one["conformal"]["average_set_size"]),
+        },
+        "realizations": [
+            {
+                "fit_seed": one["fit_seed"],
+                "auc": one["auc"],
+                "f1": one["f1"],
+                "empirical_coverage": one["conformal"]["empirical_coverage"],
+            }
+            for one in realizations
+        ],
+    }
+
+
+def evaluate(
+    epochs: int = GATE_EPOCHS,
+    seed: int = SEED,
+    fit_seeds: tuple[int, ...] = GATE_FIT_SEEDS,
+) -> dict[str, Any]:
+    """Train + evaluate the fusion path once per fit seed; return the medians.
+
+    Runs at ``GATE_TORCH_THREADS`` and restores the caller's thread count.
+    """
+    import torch
+
+    threads = torch.get_num_threads()
+    torch.set_num_threads(GATE_TORCH_THREADS)
+    try:
+        realizations = [_evaluate_one(fit_seed, epochs, seed) for fit_seed in fit_seeds]
+    finally:
+        torch.set_num_threads(threads)
+    return summarize(realizations, epochs, seed)
 
 
 def _floors_from(baseline: dict[str, Any]) -> dict[str, float]:
@@ -221,7 +299,8 @@ def main() -> int:
         print(f"baseline written: {BASELINE_PATH}")
         print(f"artifact written: {artifact}")
         print(
-            f"  AUC={metrics['auc']:.4f}  F1={metrics['f1']:.4f}  "
+            f"  median of {len(metrics['realizations'])} fits: "
+            f"AUC={metrics['auc']:.4f}  F1={metrics['f1']:.4f}  "
             f"coverage={metrics['conformal']['empirical_coverage']:.4f} "
             f"(target {metrics['conformal']['target_coverage']:.2f})"
         )

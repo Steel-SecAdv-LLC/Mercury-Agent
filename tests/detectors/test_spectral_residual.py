@@ -82,3 +82,44 @@ class TestSignal:
         scores = np.asarray(det.detect(test)["scores"])
         # ~2% budget; allow generous headroom for finite-sample variation.
         assert (scores > 0.5).mean() < 0.08
+
+    def test_spike_at_latest_index_scores_as_high_as_mid_series(self) -> None:
+        """The newest sample (index -1) -- the one streaming reports -- must
+        not be suppressed relative to the same spike mid-series.
+
+        With an edge-padded local baseline that included the point, most of
+        the window at the final index was the point's own saliency, which
+        suppressed its deviation. The baseline is the trailing mean of the
+        points preceding it, so a spike at the final index is compared with
+        its history and scores on par with one mid-series.
+        """
+        rng = np.random.default_rng(7)
+        base = rng.normal(0.0, 1.0, 600)
+        det = SpectralResidualDetector().fit(rng.normal(size=800))
+
+        mid = base.copy()
+        mid[300] += 8.0
+        score_mid = float(np.asarray(det.detect(mid)["scores"])[300])
+
+        end = base.copy()
+        end[-1] += 8.0
+        score_end = float(np.asarray(det.detect(end)["scores"])[-1])
+
+        assert score_mid > 0.5, f"mid-series spike should score high: {score_mid:.3f}"
+        # Failed with the point inside its own baseline: the newest spike
+        # scored far below the mid-series one (0.758 against 0.985).
+        assert score_end > 0.5, f"final-index spike not flagged: {score_end:.3f}"
+        assert (
+            score_end >= 0.9 * score_mid
+        ), f"final-index spike suppressed: end={score_end:.3f} vs mid={score_mid:.3f}"
+
+
+def test_a_point_is_not_part_of_its_own_baseline() -> None:
+    """The trailing mean reads only the points strictly before each index."""
+    values = np.array([1.0, 2.0, 3.0, 40.0, 5.0])
+    baseline = SpectralResidualDetector._trailing_average(values, 3)
+
+    np.testing.assert_allclose(baseline, [1.0, 1.0, 1.5, 2.0, 15.0])
+    # The first sample has no history: its baseline is itself, a zero deviation.
+    np.testing.assert_allclose(SpectralResidualDetector._trailing_average(values[:1], 3), [1.0])
+    np.testing.assert_allclose(SpectralResidualDetector._trailing_average(values, 0), values)

@@ -2,8 +2,8 @@
   "summary": {
     "n_scored": 18,
     "mean_baseline": 0.7397,
-    "mean_current": 0.7745,
-    "mean_delta": 0.0348,
+    "mean_current": 0.7737,
+    "mean_delta": 0.034,
     "wins": 13,
     "ties": 1,
     "losses": 4,
@@ -14,8 +14,8 @@
     {
       "dataset": "glass",
       "baseline_auroc": 0.6461,
-      "auroc": 0.8618,
-      "delta": 0.2157,
+      "auroc": 0.806,
+      "delta": 0.1599,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -23,8 +23,8 @@
     {
       "dataset": "Waveform",
       "baseline_auroc": 0.587,
-      "auroc": 0.7159,
-      "delta": 0.1289,
+      "auroc": 0.6768,
+      "delta": 0.0898,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -32,8 +32,8 @@
     {
       "dataset": "PageBlocks",
       "baseline_auroc": 0.8604,
-      "auroc": 0.9466,
-      "delta": 0.0862,
+      "auroc": 0.9439,
+      "delta": 0.0835,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -41,8 +41,8 @@
     {
       "dataset": "wine",
       "baseline_auroc": 0.6429,
-      "auroc": 0.7193,
-      "delta": 0.0764,
+      "auroc": 0.7185,
+      "delta": 0.0756,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -50,17 +50,8 @@
     {
       "dataset": "thyroid",
       "baseline_auroc": 0.9079,
-      "auroc": 0.9841,
-      "delta": 0.0762,
-      "verdict": "win",
-      "baseline_data_type": "temporal",
-      "data_type": "tabular"
-    },
-    {
-      "dataset": "Pima",
-      "baseline_auroc": 0.6441,
-      "auroc": 0.7107,
-      "delta": 0.0666,
+      "auroc": 0.9792,
+      "delta": 0.0713,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -68,8 +59,17 @@
     {
       "dataset": "Stamps",
       "baseline_auroc": 0.7952,
-      "auroc": 0.8567,
-      "delta": 0.0615,
+      "auroc": 0.8654,
+      "delta": 0.0702,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "Pima",
+      "baseline_auroc": 0.6441,
+      "auroc": 0.699,
+      "delta": 0.0549,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -77,26 +77,8 @@
     {
       "dataset": "Ionosphere",
       "baseline_auroc": 0.8753,
-      "auroc": 0.9195,
-      "delta": 0.0442,
-      "verdict": "win",
-      "baseline_data_type": "temporal",
-      "data_type": "tabular"
-    },
-    {
-      "dataset": "WPBC",
-      "baseline_auroc": 0.477,
-      "auroc": 0.516,
-      "delta": 0.039,
-      "verdict": "win",
-      "baseline_data_type": "tabular",
-      "data_type": "tabular"
-    },
-    {
-      "dataset": "breastw",
-      "baseline_auroc": 0.9551,
-      "auroc": 0.9799,
-      "delta": 0.0248,
+      "auroc": 0.9179,
+      "delta": 0.0426,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
@@ -104,17 +86,35 @@
     {
       "dataset": "mammography",
       "baseline_auroc": 0.8354,
-      "auroc": 0.8588,
-      "delta": 0.0234,
+      "auroc": 0.865,
+      "delta": 0.0296,
       "verdict": "win",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
     },
     {
+      "dataset": "breastw",
+      "baseline_auroc": 0.9551,
+      "auroc": 0.9801,
+      "delta": 0.025,
+      "verdict": "win",
+      "baseline_data_type": "temporal",
+      "data_type": "tabular"
+    },
+    {
+      "dataset": "WPBC",
+      "baseline_auroc": 0.477,
+      "auroc": 0.502,
+      "delta": 0.025,
+      "verdict": "win",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
       "dataset": "WBC",
       "baseline_auroc": 0.9869,
-      "auroc": 0.993,
-      "delta": 0.0061,
+      "auroc": 0.9911,
+      "delta": 0.0042,
       "verdict": "win",
       "baseline_data_type": "tabular",
       "data_type": "tabular"
@@ -138,19 +138,28 @@
       "data_type": "tabular"
     },
     {
+      "dataset": "Cardiotocography",
+      "baseline_auroc": 0.6248,
+      "auroc": 0.6055,
+      "delta": -0.0193,
+      "verdict": "loss",
+      "baseline_data_type": "tabular",
+      "data_type": "tabular"
+    },
+    {
       "dataset": "vertebral",
       "baseline_auroc": 0.3998,
-      "auroc": 0.3651,
-      "delta": -0.0347,
+      "auroc": 0.3735,
+      "delta": -0.0263,
       "verdict": "loss",
       "baseline_data_type": "temporal",
       "data_type": "tabular"
     },
     {
-      "dataset": "Cardiotocography",
-      "baseline_auroc": 0.6248,
-      "auroc": 0.5829,
-      "delta": -0.0419,
+      "dataset": "cardio",
+      "baseline_auroc": 0.906,
+      "auroc": 0.873,
+      "delta": -0.033,
       "verdict": "loss",
       "baseline_data_type": "tabular",
       "data_type": "tabular"
@@ -158,17 +167,8 @@
     {
       "dataset": "optdigits",
       "baseline_auroc": 0.4972,
-      "auroc": 0.4348,
-      "delta": -0.0624,
-      "verdict": "loss",
-      "baseline_data_type": "tabular",
-      "data_type": "tabular"
-    },
-    {
-      "dataset": "cardio",
-      "baseline_auroc": 0.906,
-      "auroc": 0.8205,
-      "delta": -0.0855,
+      "auroc": 0.4548,
+      "delta": -0.0424,
       "verdict": "loss",
       "baseline_data_type": "tabular",
       "data_type": "tabular"

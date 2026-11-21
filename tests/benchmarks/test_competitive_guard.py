@@ -221,6 +221,56 @@ def test_check_fails_when_competitive_gap_widens() -> None:
     assert any("competitive gap" in v for v in violations), violations
 
 
+def test_mean_rank_uses_average_rank_on_ties() -> None:
+    """The rank convention is competitive_benchmark.summarize's exactly."""
+    mod = _load_guard()
+    payload = {
+        "datasets": {
+            # Mercury strictly best: rank 1.
+            "a": {"mercury_tier_auc": 0.9, "pyod_auc": {"knn": 0.8, "hbos": 0.7}},
+            # Mercury tied with knn for first: ranks 1 and 2 average to 1.5.
+            "b": {"mercury_tier_auc": 0.8, "pyod_auc": {"knn": 0.8, "hbos": 0.7}},
+            # Mercury strictly last: rank 3.
+            "c": {"mercury_tier_auc": 0.6, "pyod_auc": {"knn": 0.8, "hbos": 0.7}},
+        }
+    }
+    assert mod.mercury_mean_rank(payload) == pytest.approx((1.0 + 1.5 + 3.0) / 3.0)
+
+
+def test_check_fails_when_mean_rank_worsens_beyond_margin() -> None:
+    """Every baseline overtaking Mercury must trip the rank gate.
+
+    The PyOD AUCs are raised above Mercury's everywhere while Mercury's own
+    absolute numbers and the stored aggregate stay untouched, so the rank
+    gate is the only one that can see this regression — which is the reason
+    it exists: the mean-AUC floor and the best-of gap are blind to the field
+    densifying around Mercury.
+    """
+    mod = _load_guard()
+    measured = copy.deepcopy(_baseline())
+    for d in measured["datasets"].values():
+        for algo in d["pyod_auc"]:
+            d["pyod_auc"][algo] = min(1.0, d["mercury_tier_auc"] + 0.001)
+    violations = mod.check(measured)
+    assert any("mean rank" in v for v in violations), violations
+    # And nothing else fired: the regression is purely positional.
+    assert all("mean rank" in v for v in violations), violations
+
+
+def test_rank_ceiling_is_derived_from_stored_aucs_not_stored() -> None:
+    """The ceiling is baseline rank + RANK_MARGIN, computed on demand."""
+    mod = _load_guard()
+    baseline = _baseline()
+    floors = mod._floors_from(baseline)
+    assert floors["mercury_mean_rank_ceiling"] == pytest.approx(
+        mod.mercury_mean_rank(baseline) + mod.RANK_MARGIN, abs=1e-4
+    )
+    assert "rank" not in json.dumps(baseline).lower(), (
+        "the baseline must store measurements only; the rank and its ceiling "
+        "are derived from the per-method AUCs it already carries"
+    )
+
+
 def test_check_reports_dataset_missing_from_measurement() -> None:
     mod = _load_guard()
     measured = copy.deepcopy(_baseline())

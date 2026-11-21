@@ -1,0 +1,86 @@
+{
+  "schema": "mercury.research.oae_adaptive_depth/v1",
+  "generated_at": "2026-11-19T08:20:00.514372+00:00",
+  "commit": "ecdf0a80b65378ae682a7cdc635a07ccd6527036",
+  "rule": "depth = 3 + round(4 * (1 - spectral_entropy)), clipped to [3, 7]",
+  "lambda_verdict": "no adaptation: the fused score is exactly flat in lambda (artifacts/oae_sensitivity.json), so adapting it cannot improve any detection metric",
+  "results": {
+    "depth_3": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8632,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8598,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8347
+      },
+      "mean_auc": 0.7992,
+      "mean_rank": 2.875,
+      "latency_s": 0.043
+    },
+    "depth_4": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8632,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.856,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8347
+      },
+      "mean_auc": 0.7982,
+      "mean_rank": 3.375,
+      "latency_s": 0.1
+    },
+    "depth_5": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8579,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8554,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8327
+      },
+      "mean_auc": 0.7962,
+      "mean_rank": 4.875,
+      "latency_s": 0.235
+    },
+    "depth_6": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8536,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.8615,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8377
+      },
+      "mean_auc": 0.7979,
+      "mean_rank": 2.875,
+      "latency_s": 0.391
+    },
+    "depth_7": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.8568,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.856,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8367
+      },
+      "mean_auc": 0.7971,
+      "mean_rank": 3.75,
+      "latency_s": 0.713
+    },
+    "adaptive": {
+      "per_file_auc": {
+        "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv": 0.86,
+        "realAdExchange/exchange-3_cpc_results.csv": 0.856,
+        "realKnownCause/rogue_agent_key_hold.csv": 0.6389,
+        "realTraffic/speed_7578.csv": 0.8367
+      },
+      "mean_auc": 0.7979,
+      "mean_rank": 3.25,
+      "latency_s": 0.102
+    }
+  },
+  "adaptive_depth_usage": {
+    "mean_depth": 3.864,
+    "depth_histogram": {
+      "3": 111,
+      "4": 162,
+      "5": 52,
+      "6": 7
+    }
+  },
+  "noise_margin": 0.005,
+  "adopted": false
+}

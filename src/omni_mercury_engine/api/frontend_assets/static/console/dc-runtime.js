@@ -182,6 +182,7 @@
     }
     return prop.slice(2).toLowerCase();
   }
+  const ARIA_STATE = new Set(["aria-checked", "aria-selected", "aria-pressed", "aria-expanded", "aria-disabled", "aria-busy", "aria-hidden", "aria-invalid", "aria-modal", "aria-multiselectable", "aria-readonly", "aria-required"]);
   function setStyle(el, prev, next) {
     const p = prev || {}, n = next || {};
     for (const k of Object.keys(p)) if (!(k in n)) el.style.setProperty(k.startsWith("--") ? k : k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()), "");
@@ -226,6 +227,9 @@
       const attr = k === "className" ? "class" : k === "htmlFor" ? "for" : k;
       if (k === "className" && el.namespaceURI !== SVG_NS) { el.className = nv == null || nv === false ? "" : String(nv); continue; }
       if (BOOL.has(k)) { if (nv) el.setAttribute(attr.toLowerCase(), ""); else el.removeAttribute(attr.toLowerCase()); continue; }
+      // A false ARIA state is a state: a radio, checkbox, switch or tab that is not chosen must say so
+      // (aria-checked / aria-selected are required on those roles), not lose the attribute.
+      if (nv === false && ARIA_STATE.has(attr)) { el.setAttribute(attr, "false"); continue; }
       if (nv == null || nv === false) { el.removeAttribute(attr); continue; }
       if (nv === true) { el.setAttribute(attr, attr.startsWith("aria-") ? "true" : ""); continue; }
       if (typeof nv === "function" || typeof nv === "object") continue;

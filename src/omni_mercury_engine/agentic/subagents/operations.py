@@ -822,9 +822,12 @@ def _op_kronos(agent: CoordinatorSubAgent, task: SubAgentTask) -> OperationResul
         return None
 
     X = _as_2d_float(data, what="Kronos_XXII.data")
-    train = _as_2d_float(task.payload.get("train", X), what="Kronos_XXII.train")
+    supplied_train = task.payload.get("train")
+    train = _as_2d_float(X if supplied_train is None else supplied_train, what="Kronos_XXII.train")
     detector = MercuryAnomalyDetector()
-    detector.fit(train)
+    # Without a training set the batch is its own reference, and it is
+    # unlabelled: it may hold the anomalies it is being searched for.
+    detector.fit(train, unlabeled_reference=supplied_train is None)
     result = detector.detect(X)
     flags = np.asarray(result.get("is_anomaly", []), dtype=bool).ravel()
     scores = np.asarray(result.get("scores", []), dtype=np.float64).ravel()

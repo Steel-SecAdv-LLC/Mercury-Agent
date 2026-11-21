@@ -48,7 +48,17 @@ _IBTRACS_COLUMNS = [
     "USA_WIND",
     "USA_PRES",
     "NATURE",
+    # TRACK_TYPE distinguishes the main best-track line ("main") from spur
+    # lines; needed to drop the duplicate/off-hour rows before computing
+    # time-based deltas and the rapid-intensification label.
+    "TRACK_TYPE",
 ]
+
+#: Synoptic best-track reporting hours (UTC).  IBTrACS v04 interleaves
+#: 3-hourly, off-hour and spur observations with the 6-hourly synoptic
+#: fixes; only the synoptic main-track rows are evenly 6 h apart, which is
+#: the spacing the RI label and the 24 h / 12 h / 6 h deltas assume.
+_SYNOPTIC_HOURS = (0, 6, 12, 18)
 
 # Number of header/comment rows to skip in IBTrACS CSV.
 # Row 0 is the header, row 1 is the units row.
@@ -63,6 +73,18 @@ _STEPS_24H = 4
 # ---------------------------------------------------------------------------
 # Ground truth event catalog
 # ---------------------------------------------------------------------------
+# ``sid`` is the IBTrACS storm identifier (``SID`` column of
+# ``ibtracs.NA.list.v04r01.csv``): year, day of year, and the hemisphere,
+# latitude and longitude of the first fix. Seven of these (Harvey, Maria, Ian,
+# Michael, Dorian, Ida, Matthew) were identifiers IBTrACS does not hold, so
+# the events returned no track and were never measured. Every identifier here
+# was read from the archive by storm name and season on 2026-11-20 and is
+# pinned by ``tests/fixtures/ibtracs/catalogue_storm_ids.csv``; a storm is
+# looked up by its identifier and the name the archive gives it is checked
+# against the catalogue's (:meth:`HurricaneLoader._fetch_storm_track`).
+# Helene and Milton (2024) were matched by name in the last-3-years file,
+# which stops holding a season once it is three years old; they are read from
+# the basin archive by identifier like the rest (the same rows, measured).
 _EVENT_CATALOG: dict[str, dict[str, Any]] = {
     "katrina_2005": {
         "name": "Hurricane Katrina (2005)",
@@ -82,7 +104,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "description": (
             "Category 4 hurricane that caused catastrophic flooding in " "southeastern Texas."
         ),
-        "sid": "2017232N14283",
+        "sid": "2017228N14314",
         "basin": "NA",
         "source": "historical",
     },
@@ -93,7 +115,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane that devastated Dominica and Puerto Rico "
             "with rapid intensification in the Caribbean Sea."
         ),
-        "sid": "2017253N12318",
+        "sid": "2017260N12310",
         "basin": "NA",
         "source": "historical",
     },
@@ -104,7 +126,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 4 hurricane that caused extreme damage in Florida "
             "after rapid intensification in the Caribbean."
         ),
-        "sid": "2022266N14279",
+        "sid": "2022266N12294",
         "basin": "NA",
         "source": "historical",
     },
@@ -115,9 +137,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Major hurricane that impacted the southeastern United States "
             "causing significant inland flooding."
         ),
-        "sid": None,
+        "sid": "2024268N17278",
         "basin": "NA",
-        "source": "last3years",
+        "source": "historical",
     },
     "milton_2024": {
         "name": "Hurricane Milton (2024)",
@@ -126,9 +148,9 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Rapidly intensifying hurricane in the Gulf of Mexico that "
             "made landfall on Florida's west coast."
         ),
-        "sid": None,
+        "sid": "2024279N21265",
         "basin": "NA",
-        "source": "last3years",
+        "source": "historical",
     },
     # --- Additional storms for larger sample size ---
     "irma_2017": {
@@ -149,7 +171,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane that rapidly intensified before making "
             "landfall on the Florida Panhandle."
         ),
-        "sid": "2018280N18082",
+        "sid": "2018280N18273",
         "basin": "NA",
         "source": "historical",
     },
@@ -160,7 +182,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane that devastated the Bahamas after "
             "extreme rapid intensification."
         ),
-        "sid": "2019236N10340",
+        "sid": "2019236N10314",
         "basin": "NA",
         "source": "historical",
     },
@@ -171,7 +193,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 4 hurricane that rapidly intensified in the "
             "Gulf of Mexico before striking Louisiana."
         ),
-        "sid": "2021238N17279",
+        "sid": "2021239N17281",
         "basin": "NA",
         "source": "historical",
     },
@@ -192,7 +214,7 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
             "Category 5 hurricane in the Caribbean that caused "
             "devastating impacts in Haiti and the southeastern US."
         ),
-        "sid": "2016272N13318",
+        "sid": "2016273N13300",
         "basin": "NA",
         "source": "historical",
     },
@@ -271,7 +293,12 @@ class HurricaneLoader(BaseDomainLoader):
             ConnectionError: If the IBTrACS server is unreachable
                 after retries.
         """
-        cache_key = "hurricane_realtime_last3years"
+        # Cache schema v3. v2 frames were filtered to rows whose track type
+        # was exactly ``main``, which dropped every PROVISIONAL /
+        # US-PROVISIONAL (current-season) storm; the filter now drops only
+        # spur rows, and a v2 entry written before that would keep serving
+        # the main-only frame. (v1 was unfiltered.)
+        cache_key = "hurricane_realtime_last3years_v3"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -279,6 +306,10 @@ class HurricaneLoader(BaseDomainLoader):
             return pd.DataFrame(cached)
 
         df = self._download_ibtracs_csv(_LAST3YEARS_URL)
+
+        # Same synoptic main-track filter as the historical path: the
+        # fixed-step deltas and RI label assume evenly spaced 6-hourly rows.
+        df = self._filter_synoptic_main_track(df)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -312,7 +343,10 @@ class HurricaneLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"hurricane_historical_{event_id}"
+        # Cache schema v3. v1 entries held every (mixed-spacing, spur) row;
+        # v2 entries were filtered to rows whose track type was exactly
+        # ``main``, which dropped provisional tracks. Neither is read back.
+        cache_key = f"hurricane_historical_v3_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -326,8 +360,21 @@ class HurricaneLoader(BaseDomainLoader):
             logger.warning("IBTrACS returned no track data for event '%s'.", event_id)
             return df
 
+        # Drop spur and off-hour rows so the fixed-step deltas and the RI
+        # label measure true 6-hourly spacing (see
+        # :meth:`_filter_synoptic_main_track`).  Done here, before caching,
+        # so ``get_ground_truth`` and ``engineer_features`` both see the same
+        # filtered, aligned rows.
+        df = self._filter_synoptic_main_track(df)
+        if df.empty:
+            logger.warning(
+                "No synoptic main-track rows for event '%s' after filtering.",
+                event_id,
+            )
+            return df
+
         # Sort chronologically so time-series features are meaningful
-        df = df.sort_values("iso_time").reset_index(drop=True)
+        df = df.sort_values("iso_time", kind="stable").reset_index(drop=True)
 
         self._write_cache(cache_key, df.to_dict(orient="list"))
         logger.info(
@@ -551,7 +598,11 @@ class HurricaneLoader(BaseDomainLoader):
             basin = event.get("basin", "NA")
             url = f"{_BASE_CSV_URL}ibtracs.{basin}.list.v04r01.csv"
 
-        cache_key = f"hurricane_basin_csv_{url}"
+        # ``_v2``: the cached basin frame now carries ``track_type``. A frame
+        # cached before that has no such column, so the spur filter would be
+        # skipped silently and a spur-contaminated frame written under the
+        # versioned event key.
+        cache_key = f"hurricane_basin_csv_v2_{url}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -562,25 +613,42 @@ class HurricaneLoader(BaseDomainLoader):
 
         # Filter by SID if available
         sid = event.get("sid")
+        storm_name = self._catalogue_storm_name(event)
         if sid is not None:
             storm_df = basin_df[basin_df["sid"] == sid].copy()
+            # An identifier that resolves to a different storm is a catalogue
+            # defect, not data: refuse it rather than score another storm's
+            # track under this event's name.
+            if not storm_df.empty and "name" in storm_df.columns:
+                found = sorted(set(storm_df["name"].astype(str).str.strip().str.upper()))
+                if found != [storm_name]:
+                    raise ValueError(
+                        f"hurricane catalogue: storm identifier {sid!r} is "
+                        f"{', '.join(found)} in IBTrACS, not {storm_name}."
+                    )
         else:
-            # Match by name and approximate date for storms without SID
-            name = event["name"]
-            # Extract the short storm name from "Hurricane Katrina (2005)"
-            storm_name = name.split("(")[0].strip()
-            if storm_name.startswith("Hurricane "):
-                storm_name = storm_name[len("Hurricane ") :]
-            storm_name = storm_name.strip().upper()
-
-            date_str = event["date"]
-            year = int(date_str[:4])
-
+            # Match by name and season for storms without an identifier
+            year = int(event["date"][:4])
             storm_df = basin_df[
                 (basin_df["name"].str.upper() == storm_name) & (basin_df["season"] == year)
             ].copy()
 
         return storm_df.reset_index(drop=True)
+
+    @staticmethod
+    def _catalogue_storm_name(event: dict[str, Any]) -> str:
+        """The storm's IBTrACS name from a catalogue entry's display name.
+
+        Args:
+            event: Event metadata dict from ``_EVENT_CATALOG``.
+
+        Returns:
+            ``"KATRINA"`` for ``"Hurricane Katrina (2005)"``.
+        """
+        storm_name = str(event["name"]).split("(")[0].strip()
+        if storm_name.startswith("Hurricane "):
+            storm_name = storm_name[len("Hurricane ") :]
+        return storm_name.strip().upper()
 
     @staticmethod
     def _standardize_ibtracs(df: pd.DataFrame) -> pd.DataFrame:
@@ -644,7 +712,58 @@ class HurricaneLoader(BaseDomainLoader):
         if "NATURE" in df.columns:
             result["nature"] = df["NATURE"].astype(str).str.strip()
 
+        # Track line: "main" is the primary best track; spur lines repeat
+        # segments and must be dropped before time-series feature/label work.
+        if "TRACK_TYPE" in df.columns:
+            result["track_type"] = df["TRACK_TYPE"].astype(str).str.strip()
+
         return result
+
+    @staticmethod
+    def _filter_synoptic_main_track(df: pd.DataFrame) -> pd.DataFrame:
+        """Keep only synoptic (00/06/12/18Z) main-track observations.
+
+        IBTrACS v04 mixes 3-hourly, off-hour and spur rows in with the
+        6-hourly synoptic best-track fixes.  The rapid-intensification label
+        and the delta features step by a fixed *number of rows* (``steps=4``
+        for "24 h"), which only equals 24 hours when the rows are the evenly
+        spaced synoptic main-track fixes.  Left unfiltered, four mixed-spacing
+        rows can span as little as ~12 h, so a "30 kt / 24 h" RI call is
+        really measured over far less time.  This mirrors the synoptic
+        main-track selection used by ``ml/hazard_training/hurricane_wind.py``.
+
+        Rows are kept when ``track_type`` is not a ``spur`` (when that column
+        is present; ``main`` and the provisional types are the storm's own
+        track) and ``iso_time`` lands exactly on a synoptic hour.  Rows with
+        an unparseable ``iso_time`` are dropped: a time-series feature cannot
+        be placed without a timestamp.
+
+        Args:
+            df: Standardized IBTrACS DataFrame.
+
+        Returns:
+            Filtered DataFrame (row order preserved).
+        """
+        if df.empty:
+            return df
+
+        mask = pd.Series(True, index=df.index)
+
+        if "track_type" in df.columns:
+            # IBTrACS marks secondary tracks with a ``spur`` suffix. Everything
+            # else is the storm's own track: ``main``, and for storms not yet
+            # post-analysed ``PROVISIONAL`` / ``US-PROVISIONAL``. Keeping only
+            # ``main`` dropped every current-season storm (measured on the live
+            # last-3-years file: 413 storms became 237, and the newest record
+            # went from this week to seven months back).
+            track_type = df["track_type"].astype(str).str.strip().str.lower()
+            mask &= ~track_type.str.endswith("spur")
+
+        if "iso_time" in df.columns:
+            times = pd.to_datetime(df["iso_time"], errors="coerce")
+            mask &= times.notna() & times.dt.hour.isin(_SYNOPTIC_HOURS) & (times.dt.minute == 0)
+
+        return df[mask].copy()
 
     # ------------------------------------------------------------------
     # Private helpers -- feature computation

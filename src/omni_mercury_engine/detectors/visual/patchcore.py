@@ -30,6 +30,7 @@ from torch import nn
 from omni_mercury_engine.detectors.provenance import DecisionSource
 from omni_mercury_engine.detectors.visual.base_visual import (
     BaseVisualDetector,
+    ConfigAliasMixin,
     VisualDetectorConfig,
 )
 
@@ -37,28 +38,43 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class PatchCoreConfig(VisualDetectorConfig):
+class PatchCoreConfig(ConfigAliasMixin, VisualDetectorConfig):
     """Configuration for PatchCore detector.
 
     Attributes:
         coreset_sampling_ratio: Fraction of patches to keep in memory bank
-        coreset_ratio: Alias for coreset_sampling_ratio (for test compatibility)
-        num_neighbors: Number of neighbors for anomaly scoring
-        k_nearest: Alias for num_neighbors (for test compatibility)
+        coreset_ratio: Alias for coreset_sampling_ratio.  ``None`` means
+            "not given"; either name can be passed, the canonical field
+            wins whenever it is given (at any value, its default included),
+            and after construction the alias reads back the effective value
+            (see :class:`ConfigAliasMixin`)
+        num_neighbors: Number of memory items over which the image score is
+            re-weighted (the paper's ``b``)
+        k_nearest: Alias for num_neighbors; resolved like coreset_ratio
         faiss_on_gpu: Whether to use GPU for nearest neighbor search
         anomaly_score_num_nn: Number of neighbors for anomaly score computation
-        seed: Seed of the greedy coreset's starting point.  ``None`` draws it
-            from OS entropy (a different memory bank on every fit).
+        seed: Seed of the coreset selection (random projection and starting
+            point).  ``None`` draws it from OS entropy (a different memory
+            bank on every fit).
     """
 
     coreset_sampling_ratio: float = 0.1  # Keep 10% of patches
-    coreset_ratio: float = 0.1  # Alias for test compatibility
+    coreset_ratio: float | None = None  # Alias; None = not given
     num_neighbors: int = 9
-    k_nearest: int = 9  # Alias for test compatibility
+    k_nearest: int | None = None  # Alias; None = not given
     faiss_on_gpu: bool = True
     anomaly_score_num_nn: int = 1
     layers: list[str] = field(default_factory=lambda: ["layer2", "layer3"])
     seed: int | None = None
+
+    _FIELD_ALIASES = {
+        "coreset_ratio": "coreset_sampling_ratio",
+        "k_nearest": "num_neighbors",
+    }
+
+    def __post_init__(self) -> None:
+        """Resolve the alias fields so setting either name takes effect."""
+        self._resolve_aliases()
 
 
 class PatchCoreDetector(BaseVisualDetector):
@@ -78,6 +94,18 @@ class PatchCoreDetector(BaseVisualDetector):
         >>> print(results['scores'])  # Image-level scores
         >>> print(results['anomaly_maps'].shape)  # Pixel-level maps
     """
+
+    #: v2: re-weighted image score, plain L2 on every k-NN backend.
+    scoring_version = 2
+    scoring_changes = {
+        2: (
+            "the image score is the max patch distance re-weighted over its "
+            "num_neighbors nearest memory items (Roth et al., eq. 7) instead of the plain "
+            "1-NN maximum, and nearest-neighbour distances are plain L2 on every backend "
+            "(the faiss backend used to return squared L2) -- a threshold calibrated "
+            "before is on another score scale."
+        ),
+    }
 
     decision_source = (
         DecisionSource(
@@ -215,10 +243,13 @@ class PatchCoreDetector(BaseVisualDetector):
     def _greedy_coreset_sampling(
         self, embeddings: torch.Tensor, sampling_ratio: float
     ) -> torch.Tensor:
-        """Greedy coreset subsampling for memory efficiency.
+        """Greedy k-centre coreset subsampling for memory efficiency.
 
-        Iteratively selects the most distant points to maintain
-        coverage of the feature space while reducing memory.
+        Runs on a seeded random projection to at most 24 dimensions with an
+        incrementally updated min-distance vector (the pattern of
+        ``vision.analyzer._greedy_coreset``), replacing the previous
+        O(M*N*D) loop that also re-copied the selected set with ``vstack``
+        on every step.  Selection is deterministic given ``config.seed``.
 
         Args:
             embeddings: All patch embeddings [N, D]
@@ -237,44 +268,48 @@ class PatchCoreDetector(BaseVisualDetector):
             f"Coreset sampling: {num_samples} -> {target_size} " f"({sampling_ratio * 100:.1f}%)"
         )
 
-        # Move to CPU for sampling (memory intensive)
-        embeddings_np = embeddings.cpu().numpy()
+        embeddings_np = embeddings.detach().cpu().numpy()
+        reduced_dim = min(embeddings_np.shape[1], 24)
+        projection = self._rng.normal(size=(embeddings_np.shape[1], reduced_dim)) / np.sqrt(
+            reduced_dim
+        )
+        projected = embeddings_np @ projection
 
-        # Initialize with random point
-        indices = [int(self._rng.integers(num_samples))]
-        selected = embeddings_np[indices]
+        selected = np.empty(target_size, dtype=np.int64)
+        selected[0] = int(self._rng.integers(num_samples))
+        min_distances = np.sum((projected - projected[selected[0]]) ** 2, axis=1)
+        for i in range(1, target_size):
+            next_idx = int(np.argmax(min_distances))
+            selected[i] = next_idx
+            min_distances = np.minimum(
+                min_distances, np.sum((projected - projected[next_idx]) ** 2, axis=1)
+            )
 
-        # Greedy selection
-        min_distances = np.full(num_samples, np.inf)
-
-        for _ in range(target_size - 1):
-            # Update minimum distances to selected set
-            distances = np.linalg.norm(embeddings_np - selected[-1:], axis=1)
-            min_distances = np.minimum(min_distances, distances)
-
-            # Select point with maximum minimum distance
-            next_idx = np.argmax(min_distances)
-            indices.append(next_idx)  # type: ignore[arg-type, unused-ignore]
-            selected = np.vstack([selected, embeddings_np[next_idx : next_idx + 1]])
-
-        return torch.from_numpy(selected).to(embeddings.device)
+        return embeddings[torch.from_numpy(selected).to(embeddings.device)]
 
     def _build_nn_index(self, embeddings: torch.Tensor) -> None:
         """Build nearest neighbor index for fast querying.
 
-        Uses FAISS if available, otherwise falls back to Mercury NearestNeighbors.
+        Uses FAISS if available; otherwise the memory bank itself is kept as
+        a float32 array and queried by the exact chunked brute-force path in
+        :meth:`_chunked_knn` (the previous ``NearestNeighbors`` fallback
+        built a dense float64 cdist and fully argsorted it per batch).
 
         Args:
             embeddings: Memory bank embeddings [N, D]
         """
-        embeddings_np = embeddings.cpu().numpy().astype(np.float32)
+        embeddings_np = embeddings.detach().cpu().numpy().astype(np.float32)
 
         try:
             import faiss
 
             dimension = embeddings_np.shape[1]
 
-            if self.patchcore_config.faiss_on_gpu and torch.cuda.is_available():
+            if (
+                self.patchcore_config.faiss_on_gpu
+                and torch.cuda.is_available()
+                and getattr(faiss, "GpuIndexFlatL2", None) is not None
+            ):
                 # GPU index
                 res = faiss.StandardGpuResources()
                 self._nn_index = faiss.GpuIndexFlatL2(res, dimension)
@@ -286,20 +321,57 @@ class PatchCoreDetector(BaseVisualDetector):
             logger.info(f"Built FAISS index with {embeddings_np.shape[0]} vectors")
 
         except ImportError:
-            logger.warning("FAISS not available, using Mercury NearestNeighbors")
-            from omni_mercury_engine.ml.mercury_ml import NearestNeighbors
+            logger.info("FAISS not available; using chunked exact k-NN on the memory bank")
+            self._nn_index = embeddings_np
 
-            self._nn_index = NearestNeighbors(
-                n_neighbors=self.patchcore_config.num_neighbors,
-                metric="euclidean",
-                algorithm="ball_tree",
+    @staticmethod
+    def _chunked_knn(
+        queries: np.ndarray[Any, Any], bank: np.ndarray[Any, Any], k: int, chunk: int = 1024
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Exact k-NN by chunked squared distances and ``argpartition``.
+
+        Queries the bank in chunks (bounded memory) and partitions instead of
+        fully sorting each row.  Distances are plain (non-squared) L2, the
+        same metric the faiss branch is normalized to.
+
+        Args:
+            queries: Query embeddings [N, D]
+            bank: Memory bank [M, D]
+            k: Number of neighbors (clamped to the bank size)
+
+        Returns:
+            Tuple of (distances [N, k], indices [N, k]), nearest first.
+        """
+        k = min(k, bank.shape[0])
+        bank64 = bank.astype(np.float64)
+        bank_sq = np.sum(bank64 * bank64, axis=1)
+        n_queries = queries.shape[0]
+        distances = np.empty((n_queries, k), dtype=np.float64)
+        indices = np.empty((n_queries, k), dtype=np.int64)
+        for start in range(0, n_queries, chunk):
+            block = queries[start : start + chunk].astype(np.float64)
+            squared = np.maximum(
+                np.sum(block * block, axis=1)[:, None] + bank_sq - 2.0 * (block @ bank64.T),
+                0.0,
             )
-            self._nn_index.fit(embeddings_np)
+            if k < squared.shape[1]:
+                part = np.argpartition(squared, k - 1, axis=1)[:, :k]
+            else:
+                part = np.broadcast_to(np.arange(k), (squared.shape[0], k)).copy()
+            part_sq = np.take_along_axis(squared, part, axis=1)
+            order = np.argsort(part_sq, axis=1)
+            indices[start : start + chunk] = np.take_along_axis(part, order, axis=1)
+            distances[start : start + chunk] = np.sqrt(np.take_along_axis(part_sq, order, axis=1))
+        return distances, indices
 
     def _query_nn(
         self, query: torch.Tensor, k: int
     ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
         """Query k-nearest neighbors.
+
+        Both branches return the same metric, plain (non-squared) L2:
+        ``faiss.IndexFlatL2`` reports SQUARED L2, so its distances take a
+        square root before they are returned.
 
         Args:
             query: Query embeddings [N, D]
@@ -308,20 +380,36 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Tuple of (distances, indices) arrays
         """
-        query_np = query.cpu().numpy().astype(np.float32)
+        query_np = query.detach().cpu().numpy().astype(np.float32)
 
-        try:
-            import faiss
+        if not isinstance(self._nn_index, np.ndarray):
+            try:
+                import faiss
 
-            if isinstance(self._nn_index, (faiss.IndexFlatL2, faiss.GpuIndexFlatL2)):
-                distances, indices = self._nn_index.search(query_np, k)
-                return distances, indices
-        except (ImportError, AttributeError):
-            pass  # faiss not available, fall back to Mercury NearestNeighbors
+                # faiss-cpu ships no GpuIndexFlatL2: resolve the classes with
+                # getattr so a missing attribute cannot raise mid-isinstance.
+                flat_types = tuple(
+                    cls
+                    for cls in (
+                        getattr(faiss, "IndexFlatL2", None),
+                        getattr(faiss, "GpuIndexFlatL2", None),
+                    )
+                    if isinstance(cls, type)
+                )
+                if flat_types and isinstance(self._nn_index, flat_types):
+                    searcher: Any = self._nn_index
+                    squared, indices = searcher.search(query_np, k)
+                    distances = np.sqrt(np.maximum(squared.astype(np.float64), 0.0))
+                    return distances, indices
+            except ImportError:
+                pass
+            # Unknown index type: fall back to the raw memory bank.
+            if self.memory_bank is None:
+                raise RuntimeError("No nearest-neighbour index or memory bank available")
+            bank = self.memory_bank.detach().cpu().numpy().astype(np.float32)
+            return self._chunked_knn(query_np, bank, k)
 
-        # Mercury NearestNeighbors fallback
-        distances, indices = self._nn_index.kneighbors(query_np, n_neighbors=k)
-        return distances, indices
+        return self._chunked_knn(query_np, self._nn_index, k)
 
     def fit(self, data: np.ndarray[Any, Any] | torch.Tensor) -> PatchCoreDetector:
         """Fit detector by building memory bank from normal images.
@@ -332,8 +420,7 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Self for method chaining
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data, calibration = self._split_for_calibration(data)
         data = self.preprocess(data)
@@ -395,10 +482,11 @@ class PatchCoreDetector(BaseVisualDetector):
         if not self._is_fitted:
             raise RuntimeError("Detector must be fitted before detection")
 
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
-        original_size = data.shape[-2:]
+        # Read the input's spatial size with the same channel-layout rule as
+        # preprocess: shape[-2:] of a channel-last batch would be (W, C).
+        original_size = self._input_spatial_size(data)
         data = self.preprocess(data)
 
         all_scores = []
@@ -417,7 +505,7 @@ class PatchCoreDetector(BaseVisualDetector):
             patches = self._apply_local_neighborhood_aggregation(patches, patch_shape)
 
             batch_scores, batch_maps = self._compute_anomaly_scores(
-                patches, patch_shape, original_size  # type: ignore[arg-type, unused-ignore]
+                patches, patch_shape, original_size
             )
 
             all_scores.append(batch_scores)
@@ -448,6 +536,12 @@ class PatchCoreDetector(BaseVisualDetector):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute anomaly scores using nearest neighbor distances.
 
+        The image-level score follows the published re-weighting (Roth et
+        al., eq. 7): the max-scoring patch's distance ``s*`` is scaled by
+        ``w = 1 - softmax(d)[0]`` over its ``num_neighbors`` nearest memory
+        distances ``d``, so a patch whose nearest memory item sits in a dense
+        neighbourhood is down-weighted.
+
         Args:
             patches: Patch embeddings [B, num_patches, D]
             patch_shape: Spatial shape of patches (h, w)
@@ -467,13 +561,24 @@ class PatchCoreDetector(BaseVisualDetector):
 
         # Use mean distance to k neighbors
         patch_scores = distances.mean(axis=1)
-        patch_scores_t = torch.from_numpy(patch_scores).to(patches.device)
+        patch_scores_t = torch.from_numpy(patch_scores).to(patches.device).float()
 
         # Reshape to spatial map
         score_maps = patch_scores_t.view(batch_size, h, w)
 
-        # Image-level score is max of patch scores
-        image_scores = score_maps.view(batch_size, -1).max(dim=1)[0]
+        # Image-level score: re-weighted distance of the max-scoring patch
+        max_scores, max_indices = score_maps.view(batch_size, -1).max(dim=1)
+        image_scores = max_scores
+        num_neighbors = self.patchcore_config.num_neighbors
+        bank_size = 0 if self.memory_bank is None else int(self.memory_bank.shape[0])
+        if num_neighbors > 1 and bank_size > 1:
+            max_patches = patches[torch.arange(batch_size, device=patches.device), max_indices]
+            neighbor_distances, _ = self._query_nn(max_patches, k=min(num_neighbors, bank_size))
+            neighbor_t = torch.from_numpy(neighbor_distances).to(patches.device).float()
+            # w = 1 - exp(d0)/sum_j exp(dj), computed stably against d0 (the
+            # smallest distance), so the exponentials cannot overflow.
+            weights = 1.0 - 1.0 / torch.exp(neighbor_t - neighbor_t[:, :1]).sum(dim=1)
+            image_scores = weights * max_scores
 
         # Upsample to original size
         score_maps_up = nn.functional.interpolate(
@@ -501,8 +606,7 @@ class PatchCoreDetector(BaseVisualDetector):
         Returns:
             Feature tensor [N, 128] normalized for fusion
         """
-        if isinstance(data, np.ndarray):
-            data = torch.from_numpy(data).float()
+        data = self._as_float_images(data)
 
         data = self.preprocess(data)
 
@@ -515,24 +619,16 @@ class PatchCoreDetector(BaseVisualDetector):
             with torch.no_grad():
                 features = self.backbone(batch)
 
-            patches, _patch_shape = self._aggregate_features(features)
+            # Same locally-aware embedding as detect(): aggregation included.
+            patches, patch_shape = self._aggregate_features(features)
+            patches = self._apply_local_neighborhood_aggregation(patches, patch_shape)
 
-            # Global average pooling
-            global_feat = patches.mean(dim=1)  # [B, D]
+            # Global pooling over patches
+            global_feat = self._pool_for_fusion(patches, dim=1)  # [B, D]
             all_features.append(global_feat)
 
         features = torch.cat(all_features, dim=0)
-
-        # Project to 128D for fusion compatibility
-        if features.shape[1] != 128:
-            if not hasattr(self, "_fusion_projection"):
-                self._fusion_projection = nn.Linear(features.shape[1], 128).to(features.device)
-            features = self._fusion_projection(features)
-
-        # L2 normalize
-        features = nn.functional.normalize(features, p=2, dim=1)
-
-        return features
+        return self._project_features_for_fusion(features)
 
     def _fitted_state(self) -> dict[str, Any]:
         """The coreset memory bank -- PatchCore's whole fitted model."""

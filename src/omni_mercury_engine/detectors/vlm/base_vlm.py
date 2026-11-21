@@ -9,15 +9,84 @@ using Large Vision-Language Models (LVLMs).
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar, Self, cast
 
 import numpy as np
 import torch
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.exceptions import InputModalityError
+
+
+class ConfigAliasMixin:
+    """Alias fields of a dataclass config that mirror a canonical field.
+
+    A config keeps released alias names next to their canonical fields
+    (``LAVADConfig.llm_model`` for ``reasoning_model``).  Resolving the pair
+    by comparing values against the defaults cannot tell "explicitly set to
+    the default" from "unset", so ``dataclasses.replace(config,
+    reasoning_model=<the default>)`` was ignored and a value mutated back to
+    the default reverted on an ``asdict`` -> reconstruct round trip.  This
+    mixin resolves the pair from what the constructor was actually GIVEN:
+
+    * ``__new__`` records the names of the arguments passed to the
+      constructor, so a canonical field given explicitly is known as such
+      whatever its value;
+    * an alias field declares ``None`` as its "unset" default.  In
+      :meth:`_resolve_aliases` (called from ``__post_init__``) a canonical
+      field that was given always wins; otherwise a given alias sets it;
+    * after construction the alias reads back the effective (canonical)
+      value, and assigning either name updates both, so the pair can never
+      disagree.
+
+    ``asdict`` -> reconstruct and ``dataclasses.replace`` pass every field,
+    so the canonical value always survives them.  The one thing a caller
+    cannot do is ``replace(config, <alias>=...)``: ``replace`` also passes
+    the old canonical value, which wins -- change the canonical name
+    instead.
+
+    (``detectors.visual.base_visual`` carries the same mixin: the ``vlm``
+    and ``visual`` extras install independently, so neither package imports
+    the other.)
+    """
+
+    #: alias field name -> the canonical field it mirrors.
+    _FIELD_ALIASES: ClassVar[dict[str, str]] = {}
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
+        """Record which constructor arguments were given, then build."""
+        self = super().__new__(cls)
+        init_names = [f.name for f in fields(cast("Any", cls)) if f.init]
+        given = frozenset(init_names[: len(args)]) | frozenset(kwargs)
+        object.__setattr__(self, "_given_fields", given)
+        object.__setattr__(self, "_aliases_live", False)
+        return self
+
+    def _was_given(self, name: str) -> bool:
+        """Whether ``name`` was passed to the constructor (not defaulted)."""
+        return name in self.__dict__.get("_given_fields", frozenset())
+
+    def _resolve_aliases(self) -> None:
+        """Reconcile every alias pair; call from ``__post_init__``."""
+        for alias, canonical in self._FIELD_ALIASES.items():
+            value = getattr(self, alias)
+            if value is not None and not self._was_given(canonical):
+                object.__setattr__(self, canonical, value)
+            object.__setattr__(self, alias, getattr(self, canonical))
+        object.__setattr__(self, "_aliases_live", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Assign ``name``; once constructed, keep its alias twin in step."""
+        object.__setattr__(self, name, value)
+        if not self.__dict__.get("_aliases_live", False):
+            return
+        for alias, canonical in self._FIELD_ALIASES.items():
+            if name == alias:
+                object.__setattr__(self, canonical, value)
+            elif name == canonical:
+                object.__setattr__(self, alias, value)
 
 
 class LVLMType(Enum):

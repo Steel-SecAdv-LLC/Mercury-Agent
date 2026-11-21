@@ -3,7 +3,7 @@
 """Stage 2 calibration lever probe (held-out Brier/ECE vs the shipped default).
 
 Can the composite objective, the accept-gate tolerance, or the beta warm-start
-lower **held-out** Brier+ECE on the 23-event live suite WITHOUT breaking the
+lower **held-out** Brier+ECE on the live headline suite WITHOUT breaking the
 AUROC exact tie or the no-regression accept-gate?  Three levers named in the
 Stage-2 brief are swept on the same seeded 50/50 splits ``measure_calibration.py``
 uses:
@@ -68,6 +68,9 @@ _CONFIGS: tuple[tuple[str, float, float, str], ...] = (
     ("warm=mle,l_ece=2.0", 2.0, 0.0, "mle"),
 )
 _ECE_TOLS = (1e-3, 1e-2, 5e-2)  # accept-gate slack sweep (shipped default 1e-3)
+# Paired bootstrap over events, as measure_decorrelation.py does it.
+_BOOTSTRAP_RESAMPLES = 10_000
+_BOOTSTRAP_SEED = 12345
 
 
 def _mle_start(u: np.ndarray[Any, Any], y: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
@@ -177,12 +180,33 @@ def _holdout_metrics() -> tuple[dict[str, dict[str, float]], dict[str, Any]]:
         xs = [r[i] for r in rows if r[i] == r[i]]
         return float(np.mean(xs)) if xs else float("nan")
 
+    default_rows = per_cfg[_CONFIGS[0][0]]
+
+    def _paired(rows: list[tuple[float, ...]], i: int) -> dict[str, float]:
+        """Paired bootstrap of (config - default) over events, for column ``i``."""
+        deltas = np.array([row[i] - base[i] for row, base in zip(rows, default_rows, strict=True)])
+        rng = np.random.RandomState(_BOOTSTRAP_SEED)
+        means = [
+            float(deltas[rng.randint(0, deltas.size, size=deltas.size)].mean())
+            for _ in range(_BOOTSTRAP_RESAMPLES)
+        ]
+        return {
+            "mean": float(deltas.mean()),
+            "ci95_low": float(np.percentile(means, 2.5)),
+            "ci95_high": float(np.percentile(means, 97.5)),
+        }
+
     cfg_summary = {
         label: {
             "brier": _mean(per_cfg[label], 0),
             "ece": _mean(per_cfg[label], 1),
             "d_auroc_vs_identity": _mean(per_cfg[label], 2),
             "n": len(per_cfg[label]),
+            # How far each measure sits from the default's, event by event. A
+            # difference of means alone cannot tell a lever from noise: the
+            # probe once named a candidate on a Brier margin of 0.0001.
+            "d_brier_vs_default": _paired(per_cfg[label], 0),
+            "d_ece_vs_default": _paired(per_cfg[label], 1),
         }
         for label, *_ in _CONFIGS
     }
@@ -202,17 +226,20 @@ def main() -> None:
     cfg_summary, gate_summary = _holdout_metrics()
     base = cfg_summary["default(l_ece=1,l_nb=0,identity)"]
 
-    print("\n==== STAGE 2 LEVER PROBE (held-out, 23-event live suite) ====")
+    n_events = int(base["n"])
+    print(f"\n==== STAGE 2 LEVER PROBE (held-out, live suite, {n_events} events used) ====")
     print(f"{'config':<34}{'brier':>10}{'ece':>10}{'d_auroc':>10}{'dBrier':>10}{'dECE':>10}")
     landed = []
     for label, *_ in _CONFIGS:
         m = cfg_summary[label]
         db, de = m["brier"] - base["brier"], m["ece"] - base["ece"]
+        hi_b, hi_e = m["d_brier_vs_default"]["ci95_high"], m["d_ece_vs_default"]["ci95_high"]
         print(
             f"{label:<34}{m['brier']:>10.4f}{m['ece']:>10.4f}{m['d_auroc_vs_identity']:>+10.4f}"
-            f"{db:>+10.4f}{de:>+10.4f}"
+            f"{db:>+10.4f}{de:>+10.4f}   95% upper: dBrier {hi_b:+.4f}  dECE {hi_e:+.4f}"
         )
-        if db < -1e-4 and de < -1e-4:
+        # A lever lands only when both paired intervals lie below zero.
+        if hi_b < 0.0 and hi_e < 0.0:
             landed.append(label)
 
     print("\naccept-gate ece_tol sweep (accept_rate / held-out Brier of gated map):")
@@ -222,14 +249,19 @@ def main() -> None:
         )
 
     verdict = (
-        f"LAND candidates (beat default on BOTH Brier and ECE held-out): {landed}"
+        f"LAND candidates (95% paired interval below zero on BOTH Brier and ECE): {landed}"
         if landed
-        else "NEGATIVE: no lever beats the shipped default on held-out Brier AND ECE"
+        else (
+            "NEGATIVE: no lever beats the shipped default on held-out Brier AND ECE "
+            "(95% paired bootstrap interval over events)"
+        )
     )
     print(f"\nVERDICT -> {verdict}")
 
     out = {
-        "suite": "live headline (real) 23 events",
+        # Was the literal "23 events", which the file kept saying after the
+        # suite changed size.
+        "suite": f"live headline (real), {n_events} events used",
         "default_config": "lambda_ece=1, lambda_nb=0, warm_start=identity",
         "note_d_auroc": "paired (config - identity) per-event AUROC; ~0 confirms the monotone tie",
         "configs": cfg_summary,

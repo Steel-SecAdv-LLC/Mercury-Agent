@@ -32,6 +32,8 @@ from __future__ import annotations
 import ipaddress
 import os
 
+from omni_mercury_engine.serving_limits import serving_limits
+
 __all__ = [
     "TRUSTED_PROXY_HOPS_ENV",
     "resolve_client_ip",
@@ -85,9 +87,20 @@ def _normalize_ip(candidate: str) -> str | None:
         # IPv4 host:port (a lone colon with dots present cannot be IPv6).
         entry = entry.split(":", 1)[0]
     try:
-        return str(ipaddress.ip_address(entry))
+        parsed = ipaddress.ip_address(entry)
     except ValueError:
         return None
+    if isinstance(parsed, ipaddress.IPv6Address) and not parsed.ipv4_mapped:
+        # Rate-limit identity is the configured IPv6 prefix — default /64,
+        # the unit providers delegate to one subscriber
+        # (MERCURY_IPV6_RATE_LIMIT_PREFIX, validated to [1, 128] by the
+        # single source of truth). Per-address buckets gave a single /64
+        # holder 2^64 identities — unlimited fresh budgets, plus the ability
+        # to evict every legitimate bucket out of the limiter's bounded LRU.
+        prefix = serving_limits().ipv6_rate_limit_prefix
+        network = ipaddress.ip_network(f"{parsed}/{prefix}", strict=False)
+        return f"{network.network_address}/{prefix}"
+    return str(parsed)
 
 
 def resolve_client_ip(

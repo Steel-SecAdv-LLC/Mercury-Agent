@@ -108,16 +108,17 @@ class TestManifestPins:
             manifest = json.load(fh)
         assert external_label_count(manifest) == len(keys)
 
-    def test_external_label_substrate_is_still_only_two_events(self) -> None:
+    def test_external_label_substrate_is_ten_events(self) -> None:
         """A guard on the headline's own fragility, not a target to satisfy.
 
-        The externally-defensible AUROC is the mean of this many events. At two,
-        its environment-induced swing (measured 0.770 -> 0.809 on identical code)
-        exceeds any plausible single-change improvement, which is why expanding
-        this set is the prerequisite for optimizing the number rather than a
-        nice-to-have. When the substrate grows, update this and say so.
+        The externally-defensible AUROC is the mean of this many events. At two
+        (until 2026-11-16) its environment-induced swing, measured 0.770 ->
+        0.809 on identical code, exceeded any plausible single-change
+        improvement. It grew to ten with the eight FEMA declaration-activity
+        events, labelled by NOAA's billion-dollar disaster catalogue. When the
+        substrate changes again, update this and say so.
         """
-        assert len(external_label_keys()) == 2
+        assert len(external_label_keys()) == 10
 
 
 class TestGateRefusesToCompareAcrossChangedInputs:

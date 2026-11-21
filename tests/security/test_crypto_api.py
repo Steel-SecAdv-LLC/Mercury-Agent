@@ -396,6 +396,236 @@ class TestHybridCryptography:
         caps = crypto.get_capabilities()
         assert caps is not None
 
+    def test_a_hybrid_package_can_be_verified_by_the_keys_it_was_signed_with(self) -> None:
+        """Was: signed with a key pair generated on the spot and dropped.
+
+        The signature was real and nobody held a key to check it: not the
+        package, and not the object that made it.
+        """
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        data = {"finding": "gauge above flood stage", "score": 0.93}
+        package = crypto.create_crypto_package(
+            data, CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        )
+        classical_public, pqc_public = crypto.hybrid_public_keys()
+
+        assert package.hybrid_signature is not None
+        assert package.metadata["hybrid_public_keys"] == {
+            "classical": classical_public.hex() if classical_public else None,
+            "pqc": pqc_public.hex(),
+        }
+        pinned = crypto.verify_hybrid_package(
+            data, package, classical_public=classical_public, pqc_public=pqc_public
+        )
+        assert pinned == {
+            "hash": True,
+            "classical": True,
+            "pqc": True,
+            "key_pinned": True,
+            "core_valid": True,
+            "all_valid": True,
+        }
+
+    def test_every_package_from_one_object_is_signed_by_the_same_keys(self) -> None:
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        config = CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        keys = crypto.hybrid_public_keys()
+
+        for data in ({"n": 1}, {"n": 2}):
+            package = crypto.create_crypto_package(data, config)
+            result = crypto.verify_hybrid_package(
+                data, package, classical_public=keys[0], pqc_public=keys[1]
+            )
+            assert result["all_valid"] is True
+
+    def test_a_hybrid_package_checked_against_itself_is_not_called_authentic(self) -> None:
+        """The keys inside a package show it agrees with itself, not who signed it."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        data = {"n": 1}
+        package = crypto.create_crypto_package(
+            data, CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        )
+
+        unpinned = crypto.verify_hybrid_package(data, package)
+
+        assert unpinned["core_valid"] is True
+        assert unpinned["key_pinned"] is False
+        assert unpinned["all_valid"] is False
+
+    def test_a_changed_or_foreign_hybrid_package_does_not_verify(self) -> None:
+        signer = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        other = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        config = CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        data = {"n": 1}
+        package = signer.create_crypto_package(data, config)
+        classical_public, pqc_public = signer.hybrid_public_keys()
+
+        changed = signer.verify_hybrid_package(
+            {"n": 2}, package, classical_public=classical_public, pqc_public=pqc_public
+        )
+        assert changed["hash"] is False and changed["all_valid"] is False
+        assert changed["classical"] is False and changed["pqc"] is False
+
+        forged = other.create_crypto_package(data, config)
+        foreign = signer.verify_hybrid_package(
+            data, forged, classical_public=classical_public, pqc_public=pqc_public
+        )
+        assert foreign["hash"] is True  # same content
+        assert foreign["pqc"] is False and foreign["all_valid"] is False
+
+    def test_a_stripped_classical_half_is_not_fully_verified_for_one_pinned_key(self) -> None:
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        data = {"n": 1}
+        package = crypto.create_crypto_package(
+            data, CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        )
+        classical_public, pqc_public = crypto.hybrid_public_keys()
+        assert package.hybrid_signature is not None and classical_public is not None
+        package.hybrid_signature.classical_signature = b""
+        package.metadata["hybrid_public_keys"]["classical"] = None
+
+        only_pqc = crypto.verify_hybrid_package(data, package, pqc_public=pqc_public)
+        both = crypto.verify_hybrid_package(
+            data, package, classical_public=classical_public, pqc_public=pqc_public
+        )
+        itself = crypto.verify_hybrid_package(data, package)
+
+        assert only_pqc["all_valid"] is False
+        assert both["classical"] is False and both["all_valid"] is False
+        # A half that was not checked is not reported as holding. It was: with
+        # no classical key anywhere the provider's opt-out answered True, and
+        # the package read as "both halves hold".
+        assert only_pqc["classical"] is False and only_pqc["core_valid"] is False
+        assert itself["classical"] is False and itself["core_valid"] is False
+        assert itself["pqc"] is True  # the half that was checked
+
+    def test_a_package_without_a_hybrid_signature_is_not_verified_as_one(self) -> None:
+        crypto = MercuryCrypto(security_level=SecurityLevel.POST_QUANTUM)
+        package = crypto.create_crypto_package({"n": 1})
+
+        with pytest.raises(ValueError, match="no hybrid signature"):
+            crypto.verify_hybrid_package({"n": 1}, package)
+
+    @pytest.mark.parametrize("level", [SecurityLevel.POST_QUANTUM, SecurityLevel.CLASSICAL])
+    def test_a_default_package_can_be_verified_by_the_key_it_was_signed_with(
+        self, level: SecurityLevel
+    ) -> None:
+        """Was: signed with a key held in a private attribute and named nowhere."""
+        crypto = MercuryCrypto(security_level=level)
+        data = {"finding": "gauge above flood stage", "score": 0.93}
+        package = crypto.create_crypto_package(data)
+        public_key = crypto.signing_public_key()
+
+        assert package.metadata["public_key"] == public_key.hex()
+        assert crypto.verify_signed_package(data, package, public_key=public_key) == {
+            "hash": True,
+            "signature": True,
+            "key_pinned": True,
+            "core_valid": True,
+            "all_valid": True,
+        }
+        itself = crypto.verify_signed_package(data, package)
+        assert itself["core_valid"] is True and itself["all_valid"] is False
+        changed = crypto.verify_signed_package({"score": 0.0}, package, public_key=public_key)
+        assert changed["hash"] is False and changed["signature"] is False
+        foreign = MercuryCrypto(security_level=level).signing_public_key()
+        assert crypto.verify_signed_package(data, package, public_key=foreign)["all_valid"] is False
+
+    def test_a_key_that_cannot_be_a_key_fails_its_half_and_raises_nothing(self) -> None:
+        """Was: ``ValueError`` out of the whole check for a key of the wrong size."""
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        data = {"n": 1}
+        package = crypto.create_crypto_package(
+            data, CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        )
+        classical_public, pqc_public = crypto.hybrid_public_keys()
+
+        short = crypto.verify_hybrid_package(
+            data, package, classical_public=classical_public, pqc_public=b"\x01" * 10
+        )
+        assert short["pqc"] is False and short["classical"] is True and short["hash"] is True
+        assert short["all_valid"] is False
+
+        package.metadata["hybrid_public_keys"]["pqc"] = "not hex"
+        assert crypto.verify_hybrid_package(data, package)["pqc"] is False
+        package.metadata["hybrid_public_keys"] = "not a mapping"
+        nothing = crypto.verify_hybrid_package(data, package, pqc_public=pqc_public)
+        assert nothing["pqc"] is True and nothing["classical"] is False
+
+        single = MercuryCrypto()
+        signed = single.create_crypto_package(data)
+        assert single.verify_signed_package(data, signed, public_key=b"")["signature"] is False
+        signed.metadata["public_key"] = "zz"
+        assert single.verify_signed_package(data, signed)["signature"] is False
+
+    def test_keys_the_caller_keeps_sign_the_same_after_a_restart(self) -> None:
+        """Was: every object made its own keys, so a pinned key checked nothing after a restart."""
+        first = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        kept_hybrid = first.hybrid_provider.generate_keypairs()
+        kept_single = first.generate_signing_keypair()
+        config = CryptoPackageConfig(security_level=SecurityLevel.HYBRID)
+        data = {"n": 1}
+
+        restarted = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        restarted.use_package_signing_keys(signing=kept_single, hybrid=kept_hybrid)
+        classical, pqc = kept_hybrid
+
+        assert restarted.signing_public_key() == kept_single.public_key
+        assert restarted.verify_hybrid_package(
+            data,
+            restarted.create_crypto_package(data, config),
+            classical_public=classical.public_key if classical else None,
+            pqc_public=pqc.public_key,
+        )["all_valid"]
+        assert restarted.verify_signed_package(
+            data, restarted.create_crypto_package(data), public_key=kept_single.public_key
+        )["all_valid"]
+        with pytest.raises(ValueError, match="ML-DSA-65"):
+            restarted.use_package_signing_keys(hybrid=(classical, restarted.generate_kem_keypair()))
+
+    def test_threads_that_ask_for_the_signing_keys_together_get_one_pair(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Was: check-then-set with no lock; each thread that found none made its own."""
+        import threading
+
+        crypto = MercuryCrypto(security_level=SecurityLevel.HYBRID)
+        generate = crypto.hybrid_provider.generate_keypairs
+        entered = threading.Barrier(2, timeout=0.5)
+
+        def slow_generate() -> Any:
+            # Both threads reach key generation before either has stored a
+            # pair, if nothing serialises them.
+            try:
+                entered.wait()
+            except threading.BrokenBarrierError:
+                pass
+            return generate()
+
+        monkeypatch.setattr(crypto.hybrid_provider, "generate_keypairs", slow_generate)
+        seen: list[bytes] = []
+        threads = [
+            threading.Thread(target=lambda: seen.append(crypto.hybrid_public_keys()[1]))
+            for _ in range(2)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+
+        assert len(seen) == 2 and seen[0] == seen[1]
+
+    def test_the_capability_report_says_what_is_asserted_and_what_is_verified(self) -> None:
+        """Was: ``constant_time: True`` alone, for a property nothing here measures."""
+        from omni_mercury_engine.security.pqc_backends import get_pqc_capabilities
+
+        report = get_pqc_capabilities()
+
+        assert report["constant_time"] is True
+        assert report["constant_time_verified"] is False
+        assert "not measured or independently verified" in report["constant_time_basis"]
+        assert report["independently_audited"] is False
+
     def test_stripped_classical_signature_fails_closed(self) -> None:
         """A hybrid whose classical half was stripped must not verify classically.
 

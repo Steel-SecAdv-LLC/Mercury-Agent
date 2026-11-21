@@ -143,9 +143,17 @@ class TestStateRoundTrip:
         """The mapping matches the ``conformal_state`` checkpoint layout."""
         probs, y = _synthetic_probs(800, seed=11)
         state = BinaryConformalClassifier(coverage=0.85).fit(probs, y).export_state()
-        assert set(state) == {"coverage", "seed", "thresholds"}
+        assert set(state) == {
+            "coverage",
+            "coverage_achieved",
+            "seed",
+            "thresholds",
+            "n_calibration",
+        }
         assert isinstance(state["coverage"], float)
+        assert isinstance(state["coverage_achieved"], float)
         assert isinstance(state["seed"], int)
+        assert isinstance(state["n_calibration"], int)
         for label, threshold in state["thresholds"].items():
             assert type(label) is int and type(threshold) is float
 
@@ -164,3 +172,82 @@ class TestStateRoundTrip:
             restored.anomaly_score_threshold()
             == BinaryConformalClassifier.from_state(state).anomaly_score_threshold()
         )
+
+
+class TestHonestSmallSampleCoverage:
+    """Fix 6: a clamped quantile must report the ACHIEVED bound, not the request.
+
+    With ``n`` calibration rows per class, the split-conformal quantile rank is
+    clamped to ``n`` whenever ``ceil((n + 1) * coverage) > n``; the guarantee
+    actually achieved is then ``n / (n + 1)`` -- e.g. ~0.833 for ``n = 5`` --
+    while the certificate used to claim the requested 0.9.
+    """
+
+    def test_n5_per_class_certificate_reports_achieved_bound(self) -> None:
+        # 5 calibration rows per class: requested 0.9 is unattainable.
+        probs = np.array([0.1, 0.2, 0.3, 0.4, 0.45, 0.8, 0.9, 0.7, 0.6, 0.85])
+        labels = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+        clf = BinaryConformalClassifier(coverage=0.9).fit(probs, labels)
+
+        achieved = 5.0 / 6.0
+        assert clf.coverage_achieved == pytest.approx(achieved)
+
+        pred = clf.predict(np.array([0.5, 0.9]))
+        assert pred.coverage_level == pytest.approx(achieved), (
+            "certificate claims the requested coverage although only "
+            f"{achieved:.3f} is guaranteed with 5 calibration rows per class"
+        )
+        report = clf.coverage_report(probs, labels)
+        assert report["coverage_achieved"] == pytest.approx(achieved)
+
+    def test_large_calibration_reports_the_requested_level(self) -> None:
+        probs, y = _synthetic_probs(2000, seed=3)
+        clf = BinaryConformalClassifier(coverage=0.9).fit(probs, y)
+        assert clf.coverage_achieved == pytest.approx(0.9)
+        assert clf.predict(probs[:5]).coverage_level == pytest.approx(0.9)
+
+    def test_small_sample_fit_logs_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        probs = np.array([0.1, 0.2, 0.3, 0.4, 0.45, 0.8, 0.9, 0.7, 0.6, 0.85])
+        labels = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+        with caplog.at_level(
+            logging.WARNING, logger="omni_mercury_engine.core.conformal_prediction"
+        ):
+            BinaryConformalClassifier(coverage=0.9).fit(probs, labels)
+        assert any(
+            "coverage" in rec.message.lower() for rec in caplog.records
+        ), "an unattainable requested coverage must be visible in a WARNING"
+
+    def test_export_state_round_trips_achieved_coverage(self) -> None:
+        probs = np.array([0.1, 0.2, 0.3, 0.4, 0.45, 0.8, 0.9, 0.7, 0.6, 0.85])
+        labels = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+        clf = BinaryConformalClassifier(coverage=0.9).fit(probs, labels)
+        rebuilt = BinaryConformalClassifier.from_state(clf.export_state())
+        assert rebuilt.coverage_achieved == pytest.approx(clf.coverage_achieved)
+        assert rebuilt.predict(np.array([0.5])).coverage_level == pytest.approx(
+            clf.coverage_achieved
+        )
+
+    def test_decider_wording_uses_the_achieved_coverage(self) -> None:
+        # End-to-end: the decision layer's "at NN% coverage" reason must carry
+        # the achieved bound once the certificate does.
+        from omni_mercury_engine.decision import DecisionAbstentionResponder
+
+        probs = np.array([0.1, 0.2, 0.3, 0.4, 0.45, 0.8, 0.9, 0.7, 0.6, 0.85])
+        labels = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+        clf = BinaryConformalClassifier(coverage=0.9).fit(probs, labels)
+        pred = clf.predict(np.array([0.95]))
+        result = {
+            "anomaly_prob": 0.95,
+            "is_anomaly": True,
+            "threshold_used": 0.5,
+            "conformal": {
+                "prediction_set": pred.label_sets()[0],
+                "set_size": int(pred.set_size[0]),
+                "coverage": float(pred.coverage_level),
+            },
+        }
+        rec = DecisionAbstentionResponder().decide(result)
+        assert rec.coverage == pytest.approx(5.0 / 6.0)
+        assert any("83%" in reason for reason in rec.reasons), rec.reasons

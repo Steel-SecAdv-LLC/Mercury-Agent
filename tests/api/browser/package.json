@@ -1,0 +1,10 @@
+{
+  "name": "mercury-console-browser-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless-browser driver for tests/api/test_console_watch_alert_browser.py. Installed with `npm ci`, which verifies every package against the integrity hashes in package-lock.json.",
+  "license": "AGPL-3.0-or-later",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

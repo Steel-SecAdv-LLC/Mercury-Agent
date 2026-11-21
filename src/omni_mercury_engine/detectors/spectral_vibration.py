@@ -1352,11 +1352,19 @@ class SpectralVibrationDetector(BaseDetector):
         # Normalize spectrum
         power_spectrum_norm = power_spectrum / (power_spectrum.sum() + 1e-10)
 
-        # Dominant frequencies (peaks)
+        # Dominant frequencies (peaks). ``find_peaks`` returns indices in
+        # frequency order, so select the ``num_harmonics`` STRONGEST peaks by
+        # amplitude *before* truncating -- otherwise a strong high-frequency
+        # peak is dropped merely for arriving later than ``num_harmonics``
+        # weaker low-frequency ones, and the fundamental comes out wrong.
         peak_indices, _ = scipy_signal.find_peaks(power_spectrum, height=power_spectrum.max() * 0.1)
-        dominant_frequencies = [
-            (freqs[i], power_spectrum[i]) for i in peak_indices[: cfg.num_harmonics]
-        ]
+        if len(peak_indices) > cfg.num_harmonics:
+            strongest = peak_indices[
+                np.argsort(power_spectrum[peak_indices])[::-1][: cfg.num_harmonics]
+            ]
+        else:
+            strongest = peak_indices
+        dominant_frequencies = [(freqs[i], power_spectrum[i]) for i in strongest]
         dominant_frequencies.sort(key=lambda x: -x[1])  # Sort by amplitude
 
         # Harmonic ratios
@@ -2048,17 +2056,22 @@ def compute_short_time_fourier_transform(
     window_size: int = 256,
     hop_size: int = 64,
     window_type: str = "hann",
+    sample_rate: float = 1.0,
 ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any], np.ndarray[Any, Any]]:
     """Compute Short-Time Fourier Transform (STFT).
 
     Args:
-        signal: Input time-domain signal
-        window_size: FFT window size
-        hop_size: Hop size between windows
-        window_type: Window function type
+        signal: Input time-domain signal.
+        window_size: FFT window size.
+        hop_size: Hop size between windows.
+        window_type: Window function type.
+        sample_rate: Sampling rate in Hz, used to label the returned axes in
+            physical units (defaults to 1.0, i.e. cycles/sample and samples).
 
     Returns:
-        Tuple of (frequencies, times, spectrogram)
+        Tuple of ``(frequencies, times, spectrogram)`` where ``frequencies`` is
+        the positive-frequency axis in Hz, ``times`` is each frame's start time
+        in seconds, and ``spectrogram`` is ``[window_size//2, n_frames]`` power.
     """
     # Get window function
     if window_type == "hann":
@@ -2068,18 +2081,26 @@ def compute_short_time_fourier_transform(
     else:
         window = np.ones(window_size)
 
-    # Compute STFT
-    num_frames = (len(signal) - window_size) // hop_size + 1
-    spectrogram = np.zeros((window_size // 2, num_frames), dtype=complex)
+    half = window_size // 2
+    n = len(signal)
+    num_frames = (n - window_size) // hop_size + 1
+    if num_frames < 1:
+        # Signal shorter than one window: zero-pad to a single frame rather
+        # than allocate a negative-dimension array (which raised ValueError).
+        if n < window_size:
+            signal = np.concatenate([np.asarray(signal), np.zeros(window_size - n)])
+        num_frames = 1
 
+    spectrogram = np.zeros((half, num_frames), dtype=complex)
     for i in range(num_frames):
         start = i * hop_size
         frame = signal[start : start + window_size] * window
-        spectrogram[:, i] = fft(frame)[: window_size // 2]
+        spectrogram[:, i] = fft(frame)[:half]
 
-    # Create time and frequency axes
-    times = np.arange(num_frames) * hop_size
-    frequencies = np.arange(window_size // 2)
+    # Physical axes: frequencies in Hz, frame start times in seconds -- not the
+    # bare bin and sample indices the previous version returned.
+    frequencies = np.fft.rfftfreq(window_size, d=1.0 / sample_rate)[:half]
+    times = np.arange(num_frames) * hop_size / sample_rate
 
     return frequencies, times, np.abs(spectrogram) ** 2
 
@@ -2099,19 +2120,21 @@ def compute_wavelet_decomposition(
     """
     coeffs = []
     current = signal.copy()
+    root2 = np.sqrt(2.0)
 
     for _ in range(levels):
         n = len(current)
         if n < 2:
             break
-        n_half = n // 2
+        if n % 2 == 1:
+            # Odd length: repeat the final sample so it is not silently
+            # dropped (the old ``n // 2`` loop ignored ``current[n-1]``).
+            current = np.append(current, current[-1])
 
-        approx = np.zeros(n_half)
-        detail = np.zeros(n_half)
-
-        for i in range(n_half):
-            approx[i] = (current[2 * i] + current[2 * i + 1]) / np.sqrt(2)
-            detail[i] = (current[2 * i] - current[2 * i + 1]) / np.sqrt(2)
+        even = current[0::2]
+        odd = current[1::2]
+        approx = (even + odd) / root2
+        detail = (even - odd) / root2
 
         coeffs.append(detail)
         current = approx

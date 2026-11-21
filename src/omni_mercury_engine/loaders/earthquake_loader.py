@@ -29,6 +29,14 @@ _HISTORICAL_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
 # Ground truth event catalog
 # ---------------------------------------------------------------------------
 _EVENT_CATALOG: dict[str, dict[str, Any]] = {
+    # ``latitude``/``longitude`` are the published mainshock epicenter for
+    # each event; ``max_radius_km`` bounds the aftershock catalogue to that
+    # sequence.  Without this circular spatial filter the USGS query returns
+    # *every* M>=min_magnitude quake worldwide in the window, so unrelated
+    # distant quakes land in the frame and the ``magnitude >= mainshock-1.0``
+    # label rule flags them as part of the event.  Coordinates are from the
+    # USGS event pages for each mainshock; radii are generous enough to cover
+    # the documented rupture/aftershock zone.
     "turkey_syria_2023": {
         "name": "2023 Turkey-Syria Earthquake",
         "date": "2023-02-06",
@@ -37,6 +45,11 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "start": "2023-02-05",
         "end": "2023-02-08",
         "min_magnitude": 2.5,
+        # USGS us6000jllz mainshock epicenter (near Nurdağı, Gaziantep).
+        "latitude": 37.166,
+        "longitude": 37.042,
+        # ~300 km East Anatolian Fault rupture + Elbistan M7.5 strand.
+        "max_radius_km": 500.0,
     },
     "noto_2024": {
         "name": "2024 Noto Peninsula Earthquake",
@@ -46,6 +59,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "start": "2023-12-31",
         "end": "2024-01-04",
         "min_magnitude": 2.5,
+        # USGS us6000m0xl mainshock epicenter (Noto Peninsula).
+        "latitude": 37.488,
+        "longitude": 137.271,
+        "max_radius_km": 300.0,
     },
     "tohoku_2011": {
         "name": "2011 Tohoku Earthquake",
@@ -55,6 +72,11 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "start": "2011-03-10",
         "end": "2011-03-14",
         "min_magnitude": 4.0,
+        # USGS official20110311054624120_30 mainshock epicenter.
+        "latitude": 38.297,
+        "longitude": 142.373,
+        # Megathrust rupture ~500 km along strike; wide aftershock field.
+        "max_radius_km": 700.0,
     },
     "haiti_2010": {
         "name": "2010 Haiti Earthquake",
@@ -64,6 +86,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "start": "2010-01-11",
         "end": "2010-01-15",
         "min_magnitude": 2.5,
+        # USGS usp000h60h mainshock epicenter (near Léogâne).
+        "latitude": 18.443,
+        "longitude": -72.571,
+        "max_radius_km": 300.0,
     },
     "nepal_2015": {
         "name": "2015 Nepal Earthquake",
@@ -73,6 +99,10 @@ _EVENT_CATALOG: dict[str, dict[str, Any]] = {
         "start": "2015-04-24",
         "end": "2015-04-28",
         "min_magnitude": 2.5,
+        # USGS us20002926 mainshock epicenter (Gorkha district).
+        "latitude": 28.231,
+        "longitude": 84.731,
+        "max_radius_km": 400.0,
     },
 }
 
@@ -175,7 +205,11 @@ class EarthquakeLoader(BaseDomainLoader):
                 f"Unknown event_id '{event_id}'. " f"Available: {list(_EVENT_CATALOG.keys())}"
             )
 
-        cache_key = f"earthquake_historical_{event_id}"
+        # Cache schema v2: pre-fix entries were fetched WITHOUT the spatial
+        # filter (every M2.5+ quake worldwide) and with an exclusive end date.
+        # The query now differs, so the cached payload differs — version the
+        # key so stale worldwide frames are never read back.
+        cache_key = f"earthquake_historical_v2_{event_id}"
         cached = self._read_cache(cache_key)
 
         if cached is not None:
@@ -183,12 +217,25 @@ class EarthquakeLoader(BaseDomainLoader):
             return pd.DataFrame(cached)
 
         event = _EVENT_CATALOG[event_id]
+        # The ``end`` date is a bare calendar day (e.g. "2023-02-08"); the
+        # FDSN service reads a bare date as midnight at its start, which drops
+        # the entire final day.  Anchor ``endtime`` to the end of that day so
+        # the window is inclusive.
         params: dict[str, str] = {
             "format": "geojson",
             "starttime": event["start"],
-            "endtime": event["end"],
+            "endtime": f"{event['end']}T23:59:59",
             "minmagnitude": str(event["min_magnitude"]),
         }
+
+        # Circular spatial filter around the mainshock epicenter.  Without it
+        # the query is temporal-only and returns every quake worldwide in the
+        # window, so distant unrelated quakes enter the frame and the
+        # magnitude-threshold label marks them as part of this event.
+        if "latitude" in event and "longitude" in event and "max_radius_km" in event:
+            params["latitude"] = str(event["latitude"])
+            params["longitude"] = str(event["longitude"])
+            params["maxradiuskm"] = str(event["max_radius_km"])
 
         geojson = self._fetch_json(_HISTORICAL_URL, params=params)
         df = self._geojson_to_dataframe(geojson)
@@ -375,6 +422,7 @@ class EarthquakeLoader(BaseDomainLoader):
                     "magnitude",
                     "place",
                     "event_id",
+                    "event_ids",
                 ]
             )
 
@@ -391,6 +439,9 @@ class EarthquakeLoader(BaseDomainLoader):
                     "magnitude": props.get("mag"),
                     "place": props.get("place", ""),
                     "event_id": feature.get("id", ""),
+                    # Every id the event is known by. USGS's preferred id (above)
+                    # can change when another network's solution takes over.
+                    "event_ids": str(props.get("ids") or "").strip(","),
                 }
             )
 

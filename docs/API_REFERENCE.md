@@ -1,6 +1,6 @@
 # API Reference
 
-Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
+Applies to Mercury Agent **v3.1.x**. Last updated: 2026-11-21.
 
 > **Ethical-gate contract on every public surface.** Every `detect` /
 > `analyze` / `predict` entry point on `OmniMercuryEngine`,
@@ -31,6 +31,10 @@ Applies to Mercury Agent **v2.1.x**. Last updated: 2026-07-24.
 | `omni_mercury_engine.security.safe_http` | SSRF / DNS-rebinding defence layer | [`DATASOURCES.md`](DATASOURCES.md), [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §1 |
 | `omni_mercury_engine._env` | `MERCURY_ENV` production-mode primitive | [`MIGRATION-1.6-to-1.7.md`](MIGRATION-1.6-to-1.7.md) §3 |
 | `omni_mercury_engine.core.knowledge_profiles` | Profession, institutions, lineage and references of every domain and detector; served at `GET /api/v1/catalog/domains` and `GET /api/v1/catalog/detectors` | [`KNOWLEDGE_PROFILES.md`](KNOWLEDGE_PROFILES.md) |
+| `omni_mercury_engine.decision` | Decision / abstention / response layer: `DecisionRecord`, `DecisionLedger`, policy | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| `omni_mercury_engine.measurement` | `MeasurementEvidence`: the artifact that makes a number "measured" | [`DISCOVERY.md`](DISCOVERY.md) |
+| `omni_mercury_engine.discovery` | Discovery artifacts (novelty / causal / hypothesis) and their replay | [`DISCOVERY.md`](DISCOVERY.md) |
+| `omni_mercury_engine.serving_limits` | Every serving bound, single-sourced; served at `GET /api/v1/detect/flagship/limits` | [`DEPLOYMENT.md`](DEPLOYMENT.md) |
 | `omni_mercury_engine._pqc_gate` | Import-time PQC production gate | [`SECURITY.md`](https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/SECURITY.md), [`INSTALLATION.md`](INSTALLATION.md) |
 
 ---

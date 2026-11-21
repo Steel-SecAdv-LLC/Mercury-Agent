@@ -8,8 +8,11 @@ Provides univariate, multivariate, and advanced detection methods.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import math
 import threading
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import numpy as np
@@ -17,8 +20,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
+from omni_mercury_engine._env import flagship_cognitive_enabled
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, User
+from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
+    FUSION_WEIGHTS,
     as_matrix,
     column_statistics,
     deseasonalize,
@@ -30,6 +36,7 @@ from omni_mercury_engine.api.fusion_weights import (
     spectral_peak_z,
 )
 from omni_mercury_engine.api.routes.export import record_detection
+from omni_mercury_engine.serving_limits import serving_limits
 
 logger = logging.getLogger(__name__)
 
@@ -52,26 +59,203 @@ router = APIRouter(prefix="/api/v1/detect", tags=["Detection"])
 # ---------------------------------------------------------------------------
 _flagship_lock = threading.Lock()
 _flagship_engine: Any = None
+# Bounded audit trail of the served flagship's decisions (built with the
+# engine); GET /detect/flagship/decisions serves its summary, churn included.
+_flagship_ledger: Any = None
+# Admission bound for flagship detections. Every flagship call occupies one
+# AnyIO threadpool token (default pool: 40) while it WAITS on the single
+# engine lock, so ~40 queued calls — reachable anonymously, and amplified by
+# explain/gdpr_report — used to starve every sync route on the worker,
+# login included. Calls beyond this queue depth are refused with 429
+# immediately instead of parking a pool thread. The depth, like every
+# serving bound, comes from the single source of truth
+# (omni_mercury_engine.serving_limits), which validates it (>= 1).
+_LIMITS = serving_limits()
+_FLAGSHIP_MAX_QUEUE = _LIMITS.flagship_max_queue
+_flagship_admission = threading.BoundedSemaphore(_FLAGSHIP_MAX_QUEUE)
 
 
-def _record_text(records: list[dict[str, Any]]) -> str:
-    """Concatenate every string leaf of detection ``records`` for the harm gate.
+class _AdmissionStats:
+    """How often the flagship admission bound is reached, and how close.
 
-    The harm-uplift gate scores ``DecisionSubject.request`` first and guarantees
-    it survives the bounded subject, but a ``payload`` list is summarised only up
-    to a fixed item cap. Folding the record text into ``request`` therefore keeps
-    uplift text that would otherwise sit past that cap (in an arbitrarily long
-    ``data`` list) within what the gate actually scores. String values one level
-    deep cover the record shapes this endpoint accepts (``{"note": "..."}``);
-    the shared ``MAX_SUBJECT_CHARS`` bound still applies downstream.
+    A 429 from the queue cap is not a decision (no detection ran) and not an
+    adaptive change, so it belongs in neither the DecisionLedger nor the
+    Improvement Ledger; it is counted here and served beside them (the
+    decisions summary, the limits endpoint, and the Prometheus counter
+    ``omni_mercury_flagship_admission_rejected_total``), so an operator can
+    see whether the bound is ever hit before deciding to raise it.
     """
-    parts: list[str] = []
-    for record in records:
-        if isinstance(record, str):
-            parts.append(record)
-        elif isinstance(record, dict):
-            parts.extend(v for v in record.values() if isinstance(v, str))
-    return " ".join(parts)
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.admitted = 0
+        self.rejected = 0
+        self.in_flight = 0
+        self.peak_in_flight = 0
+
+    def admit(self) -> None:
+        with self._lock:
+            self.admitted += 1
+            self.in_flight += 1
+            self.peak_in_flight = max(self.peak_in_flight, self.in_flight)
+
+    def release(self) -> None:
+        with self._lock:
+            self.in_flight -= 1
+
+    def reject(self) -> None:
+        with self._lock:
+            self.rejected += 1
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            total = self.admitted + self.rejected
+            return {
+                "max_queue": _FLAGSHIP_MAX_QUEUE,
+                "admitted_total": self.admitted,
+                "rejected_total": self.rejected,
+                "rejection_rate": (self.rejected / total) if total else 0.0,
+                "in_flight": self.in_flight,
+                "peak_in_flight": self.peak_in_flight,
+            }
+
+
+_admission_stats = _AdmissionStats()
+
+
+def _ethical_refusal_detail(refusal: Any, message: str) -> dict[str, Any]:
+    """Structured 403 payload for an ethical refusal.
+
+    The exception has carried ``check``, ``score``, ``threshold`` and
+    ``details`` all along; the route used to flatten them to a one-line
+    string naming only the check, so an operator could not see what refused
+    at what margin, under which ruleset — and the console showed the refusal
+    as an authentication problem. The payload is bounded and JSON-safe:
+    ``details`` values are truncated, never echoed at full length.
+
+    Args:
+        refusal: The ``EthicalConstraintViolationError`` (or compatible).
+        message: The human-readable first line, kept for existing consumers.
+
+    Returns:
+        ``{"message", "ethics": {check, score, threshold, ruleset_version,
+        details}, "decision"}`` — the ``decision`` is a full fail-closed
+        :class:`~omni_mercury_engine.decision.record.DecisionRecord` (as a
+        dict) whose ``signals.ethics_report`` carries the same structured
+        report, so a blocked decision is reconstructable from its record
+        exactly like a served verdict.
+    """
+    from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+    def bounded(value: Any, depth: int = 0) -> Any:
+        if isinstance(value, bool) or value is None:
+            return value
+        if isinstance(value, (int, float)):
+            as_float = float(value)
+            return as_float if math.isfinite(as_float) else None
+        if isinstance(value, str):
+            return value[:240]
+        if depth >= 2:
+            return str(value)[:240]
+        if isinstance(value, Mapping):
+            return {str(k)[:60]: bounded(v, depth + 1) for k, v in list(value.items())[:12]}
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return [bounded(v, depth + 1) for v in list(value)[:8]]
+        return str(value)[:240]
+
+    detail: dict[str, Any] = {
+        "message": message,
+        "ethics": {
+            "check": str(getattr(refusal, "check", "unknown")),
+            "score": bounded(getattr(refusal, "score", None)),
+            "threshold": bounded(getattr(refusal, "threshold", None)),
+            "ruleset_version": int(ETHICAL.RULESET_VERSION),
+            "details": bounded(getattr(refusal, "details", None) or {}),
+        },
+    }
+    # Every blocked decision carries a full fail-closed DecisionRecord, not
+    # only the refusal report: the decider's ethical Stage 1 (UNDECIDABLE /
+    # HOLD) was unreachable from serving because the gates raise before a
+    # record exists — this is where the blocked branch gets its record. The
+    # layer is pure and deterministic, and must never turn a refusal into a
+    # 500, hence the broad guard: a record-construction failure degrades to
+    # the structured refusal alone.
+    try:
+        from omni_mercury_engine.decision import DecisionAbstentionResponder, Evidence
+
+        record = DecisionAbstentionResponder().decide_from_evidence(
+            Evidence.from_ethical_block(detail["ethics"])
+        )
+        detail["decision"] = record.to_dict()
+    except Exception:  # pragma: no cover - defensive: refusal must still serve
+        logger.exception("decision record for ethical refusal could not be built")
+    return detail
+
+
+def _raise_if_too_large_to_assess(refusal: Exception) -> None:
+    """Answer 413 when the gate refused a request for carrying more text than it reads.
+
+    The refusal is the harm gate's and keeps its check code. But it is about
+    how much was sent, not about what it said, and a 403 naming the harm gate
+    gave the caller nothing to act on.
+    """
+    from omni_mercury_engine.cognitive.decision_gate import refused_for_size
+
+    too_much = refused_for_size(refusal)
+    if too_much is not None:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request not assessed by the harm-uplift decision gate: {too_much}.",
+        ) from refusal
+
+
+def _enforce_route_gate(surface: str, operation: str, payload: Any) -> None:
+    """Run the fail-closed harm-uplift gate over a detection route's request.
+
+    ``cognitive/decision_gate.py`` is "the single fail-closed choke point every
+    public decision surface passes through"; /fusion, /three-r, /tier and /rca
+    are public decision surfaces, so they pass through it exactly like
+    ``/detect/neurosymbolic`` does: the gate reads the caller's whole payload
+    (every string in it, at any depth), a refusal maps to HTTP 403 (or 413 when
+    the request carried more text than the gate reads), and an unavailable or
+    broken gate is a 503/403, never a silent allow.
+
+    Raises:
+        HTTPException: 503 when the gate machinery cannot be imported, 413 when
+            the request was too large to assess, 403 when the gate refuses
+            (including fail-closed on any internal gate error).
+    """
+    # Import the gate machinery up front so a missing module is a clean 503
+    # (a genuine environment fault), mirroring the neuro-symbolic endpoint.
+    try:
+        from omni_mercury_engine.cognitive.decision_gate import (
+            DecisionSubject,
+            enforce_decision_boundary,
+        )
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+    except ImportError as e:
+        logger.error("Harm-uplift gate unavailable for %s: %s", surface, e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The decision gate is not available in this environment.",
+        ) from e
+
+    try:
+        enforce_decision_boundary(
+            DecisionSubject(surface=surface, operation=operation, payload=payload)
+        )
+    except EthicalConstraintViolationError as e:
+        # Fail closed: the harm-uplift gate refused this request.
+        logger.warning("%s blocked by harm-uplift gate '%s'", surface, e.check)
+        _raise_if_too_large_to_assess(e)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_ethical_refusal_detail(
+                e, f"Request refused by the harm-uplift decision gate (check={e.check})."
+            ),
+        ) from e
 
 
 def _served_flagship_engine() -> Any:
@@ -90,9 +274,41 @@ def _served_flagship_engine() -> Any:
         # detection carries a ``decision`` record (grounded verdict or
         # explicit abstention plus a bounded, non-destructive response plan).
         # Additive only: the detection route returns the raw result dict, so
-        # existing consumers see one extra key. The core engine's own default
-        # stays opt-in (``OmniMercuryEngine.enable_decision_layer``).
-        engine.enable_decision_layer()
+        # existing consumers see one extra key. The engine constructor already
+        # builds a default responder (the layer is ON by default engine-wide);
+        # the explicit call here is what attaches the served ledger below.
+        #
+        # The layer records into a bounded, process-wide ledger (the "verify"
+        # step): GET /detect/flagship/decisions serves its summary, including
+        # the measured decision churn (consecutive-disposition flip fraction).
+        # Before this, DecisionLedger existed but no served path ever wrote
+        # to one, so churn was a library-only number.
+        from omni_mercury_engine.decision import DecisionLedger
+
+        global _flagship_ledger
+        _flagship_ledger = DecisionLedger(maxlen=4096)
+        engine.enable_decision_layer(ledger=_flagship_ledger)
+        # Cognitive self-critique on the served flagship, on by default:
+        # every detection also carries ``cognitive_analysis`` (reliability,
+        # confidence and uncertainties with their measured/placeholder flags,
+        # historical analogs), and the decision record's signals keep a
+        # bounded summary of it.
+        # Measured cost on single-row serving with the shipped checkpoint
+        # (median of 12 warm calls, 2026-11-20): 9.1 -> 139.4 ms per call.
+        # Operators who need the latency back set
+        # MERCURY_FLAGSHIP_COGNITIVE=off (the k6/locust load lanes exercise
+        # /detect/univariate and are unaffected). The orchestrator's working
+        # memory is bounded (OBSERVATION_MEMORY_LIMIT observation nodes,
+        # oldest evicted), so a long-lived served engine does not grow per
+        # anomalous request.
+        if flagship_cognitive_enabled():
+            # Curiosity novelty is ON for the served flagship: the signal is
+            # measured to discriminate (read-only mean AUROC 0.9282 over the
+            # 15 recorded evaluations, artifacts/novelty_discovery.json), it
+            # runs only on detected anomalies at O(features) cost, and it
+            # rides the record's cognitive summary as a *signal* — never a
+            # verdict-mover (that adoption would need its own harness).
+            engine.enable_cognitive_analysis(enable_curiosity=True)
         _flagship_engine = engine
     return _flagship_engine
 
@@ -109,12 +325,97 @@ def _describe_flagship_model() -> dict[str, Any]:
         }
 
 
+def _admit_flagship_call() -> None:
+    """Take one slot of the flagship admission bound, or refuse with 429.
+
+    The caller releases it (``_admission_stats.release()`` and
+    ``_flagship_admission.release()``) when its work is done.
+    """
+    if not _flagship_admission.acquire(blocking=False):
+        # The queue is full: refuse now rather than park another threadpool
+        # token behind it (see the admission bound's comment at the module
+        # top). Counted, so how often the bound is hit is measured, not
+        # guessed.
+        _admission_stats.reject()
+        from omni_mercury_engine.core.metrics import record_flagship_admission_rejected
+
+        record_flagship_admission_rejected()
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "The flagship detector's queue is full; retry shortly. "
+                f"(admission bound: {_FLAGSHIP_MAX_QUEUE} queued calls)"
+            ),
+            headers={"Retry-After": "1"},
+        )
+    _admission_stats.admit()
+
+
+@contextlib.contextmanager
+def flagship_admission_slot() -> Iterator[None]:
+    """Hold one slot of the flagship admission bound for the block.
+
+    The one bound on heavy work in flight on this server: a flagship
+    detection, a replay that recomputes from supplied data, and an artifact
+    review each hold a slot while they run.
+
+    Raises:
+        HTTPException: 429 when the bound is full (nothing is held).
+    """
+    _admit_flagship_call()
+    try:
+        yield
+    finally:
+        _admission_stats.release()
+        _flagship_admission.release()
+
+
+@contextlib.contextmanager
+def flagship_engine_lock() -> Iterator[None]:
+    """Serialize one call on a fusion engine in this process.
+
+    Every fusion engine here shares the process-global GOSNN singleton (see
+    the comment at the top of this module), so a second engine -- the
+    artifact-review engines are three -- must take the same lock the served
+    flagship does, not one of its own.
+    """
+    with _flagship_lock:
+        yield
+
+
+def _replay_served(
+    record: dict[str, Any],
+    data: np.ndarray[Any, Any] | None,
+    reference: np.ndarray[Any, Any] | None,
+) -> list[dict[str, Any]]:
+    """Replay a caller's record under the bounds a shared server needs.
+
+    The record is whatever the caller sent, and so are the width and lag its
+    causal artifact asks to be recomputed at; unbounded, one request could
+    hold a threadpool thread for minutes. Two bounds apply. The recomputation
+    is limited to what the shipped instrument produces
+    (``SERVED_REPLAY_BOUNDS``; anything larger is CANNOT_REPLAY with the
+    reason and the offline command). And a replay that recomputes from
+    supplied numbers takes a slot of the flagship admission bound, so the
+    heavy work in flight on this server stays within one limit; a replay from
+    the record alone is a few hundred arithmetic operations and takes none.
+    """
+    from omni_mercury_engine.discovery import SERVED_REPLAY_BOUNDS, replay_record
+
+    if data is None and reference is None:
+        return replay_record(record, bounds=SERVED_REPLAY_BOUNDS)
+    with flagship_admission_slot():
+        return replay_record(record, data=data, reference=reference, bounds=SERVED_REPLAY_BOUNDS)
+
+
 def _run_flagship_detection(
     matrix: np.ndarray[Any, Any],
     domain: str | None,
     explain: bool,
     gdpr_report: bool = False,
     subject_id: str | None = None,
+    reference_scope: str | None = None,
+    disclose_reference: bool = True,
 ) -> dict[str, Any]:
     """Build (once) and run the flagship fusion engine under the serialization lock.
 
@@ -124,13 +425,15 @@ def _run_flagship_detection(
     scalar bleed described above. Any :class:`EthicalConstraintViolationError`
     propagates to the caller, which maps it to HTTP 403.
     """
-    with _flagship_lock:
+    with flagship_admission_slot(), _flagship_lock:
         result: dict[str, Any] = _served_flagship_engine().detect_with_fusion(
             matrix,
             domain=domain,
             explain=explain,
             gdpr_report=gdpr_report,
             subject_id=subject_id,
+            reference_scope=reference_scope,
+            disclose_reference=disclose_reference,
         )
         return result
 
@@ -186,6 +489,13 @@ class FusionRequest(BaseModel):
         default=True,
         description="Return per-detector contributions",
     )
+
+
+#: /three-r stability: the submitted series is cut into this many consecutive
+#: segments (the estimator compares its first and last 10 scores, so it needs
+#: more than 10), each at least this long for its own scores to mean anything.
+_STABILITY_SEGMENTS: int = 20
+_STABILITY_MIN_SEGMENT: int = 16
 
 
 class ThreeRRequest(BaseModel):
@@ -261,7 +571,19 @@ class ThreeRResponse(BaseModel):
     optimization_score: float
     ethical_scaling: float
     lyapunov_bound: float
-    is_stable: bool
+    is_stable: bool = Field(
+        description=(
+            "Whether the fusion score contracted across the consecutive segments of the "
+            "submitted series. Meaningful only when stability_evaluated is true."
+        )
+    )
+    stability_evaluated: bool = Field(
+        default=False,
+        description=(
+            "False when the series is too short to form the score trajectory a stability "
+            "estimate needs; is_stable is then false because nothing was measured."
+        ),
+    )
     weights: dict[str, float]
     harmonic_analysis: dict[str, Any]
 
@@ -296,6 +618,7 @@ Perform hybrid neural-symbolic anomaly detection using the NeurosymbolicFusionEn
 - **confidence_weighted**: Dynamic weighting based on component confidence
 """,
 )
+@records_detection("neurosymbolic")
 async def detect_neurosymbolic(
     request: NeurosymbolicRequest,
     user: User | None = Depends(_get_optional_user),
@@ -331,18 +654,17 @@ async def detect_neurosymbolic(
         # internally, so it must be enforced here or the documented control is
         # absent on a public decision surface. A refusal maps to HTTP 403 below.
         #
-        # The record text is folded into ``request`` rather than passed as the
-        # ``payload``: the gate scores ``request`` FIRST and guarantees it is not
-        # evicted from the bounded subject, whereas a payload list is summarised
-        # only up to its first N items -- so uplift buried past that cap in an
-        # arbitrarily long ``data`` list would never be scored. Every string leaf
-        # of the (unbounded, min_length=1) records is concatenated so the request
-        # carries all caller text before the shared MAX_SUBJECT_CHARS bound.
+        # The records are the payload, which the gate reads whole: every
+        # string in them, at any depth. Their text used to be folded into
+        # ``request`` as well, from when a payload was read through a bounded
+        # summary; with both, the same text was read twice and counted twice
+        # against what one decision may carry, so a request half the size the
+        # gate reads was refused for its size.
         enforce_decision_boundary(
             DecisionSubject(
                 surface="api.detect_neurosymbolic",
                 operation="neuro-symbolic anomaly detection over caller-supplied records",
-                request=_record_text(request.data),
+                payload=request.data,
             )
         )
 
@@ -415,9 +737,12 @@ async def detect_neurosymbolic(
     except EthicalConstraintViolationError as e:
         # Fail closed: the harm-uplift gate refused this request.
         logger.warning("Neuro-symbolic detection blocked by harm-uplift gate '%s'", e.check)
+        _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Request refused by the harm-uplift decision gate (check={e.check}).",
+            detail=_ethical_refusal_detail(
+                e, f"Request refused by the harm-uplift decision gate (check={e.check})."
+            ),
         ) from e
     except ImportError as e:
         logger.error("Neuro-symbolic module not available: %s", e)
@@ -470,16 +795,51 @@ Combines outputs from statistical, temporal, dimensional, and other
 specialized detectors using weighted ensemble.
 """,
 )
+@records_detection("fusion")
 async def detect_fusion(
     request: FusionRequest,
     user: User | None = Depends(_get_optional_user),
 ) -> FusionResponse:
     """Perform multi-detector fusion analysis."""
+    # Fail-closed harm-uplift gate, first, over the whole request (the
+    # ``detectors`` list is caller text).  Same choke point as /neurosymbolic.
+    _enforce_route_gate(
+        surface="api.detect_fusion",
+        operation="multi-detector fusion anomaly detection over a caller-supplied series",
+        payload=request.model_dump(),
+    )
+
+    # M3: a detector list is validated against the engine's actual detector
+    # set.  Unknown names used to be silently dropped, so a typo'd list scored
+    # nothing and answered a *confident normal* (fused_score 0, is_anomaly
+    # False, confidence 1.0).  An empty or unknown selection is the caller's
+    # error: 422, never a fabricated verdict.
+    unknown = sorted(set(request.detectors) - set(FUSION_WEIGHTS))
+    if not request.detectors or unknown:
+        known = ", ".join(sorted(FUSION_WEIGHTS))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"unknown detector name(s): {unknown!r}; " if unknown else "empty detector list; "
+            )
+            + f"valid detectors are: {known}",
+        )
+
+    # Rows of features (a 1-D series is one feature), standardised per
+    # feature: the components the batch job's fusion scores per sample,
+    # so the two routes agree on multi-feature input too.  A ragged 2-D
+    # array is a malformed request (422), not an internal error (it used to
+    # surface as a 500 from numpy's inhomogeneous-shape ValueError).
     try:
-        # Rows of features (a 1-D series is one feature), standardised per
-        # feature: the components the batch job's fusion scores per sample,
-        # so the two routes agree on multi-feature input too.
         matrix = as_matrix(request.data)
+    except (TypeError, ValueError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="'data' must be a rectangular 1-D or 2-D numeric array "
+            "(every row the same length).",
+        ) from e
+
+    try:
         # A dominant periodic component is removed before the point components
         # score (a spike riding a strong season is one seasonal amplitude above
         # the crest, a z of 2 against the whole series' spread); the spectral
@@ -590,11 +950,20 @@ Where:
 Guarantees convergence: V(S_t) ≤ ε × e^(-0.25t)
 """,
 )
+@records_detection("three_r")
 async def detect_three_r(
     request: ThreeRRequest,
     user: User | None = Depends(_get_optional_user),
 ) -> ThreeRResponse:
     """Perform 3R mechanism analysis."""
+    # Fail-closed harm-uplift gate: /three-r is a public decision surface and
+    # passes through the same choke point as every other one.
+    _enforce_route_gate(
+        surface="api.detect_three_r",
+        operation="3R (recursion-resonance-refactoring) anomaly analysis over a series",
+        payload=request.model_dump(),
+    )
+
     try:
         from omni_mercury_engine.core.three_r.fusion import OmniAvaEquation
 
@@ -613,47 +982,70 @@ async def detect_three_r(
                 0.5 * (left_score + right_score) + 0.5 * np.std(x) / (np.mean(np.abs(x)) + 1e-8)
             )
 
-        recursion_score = compute_recursion_score(data, request.recursion_depth)
-        recursion_score = float(np.clip(recursion_score, 0.0, 1.0))
-
-        fft_result = np.fft.fft(data)
-        magnitudes = np.abs(fft_result)
-
-        n_bands = min(request.harmonic_bands, len(magnitudes) // 2)
-        band_size = len(magnitudes) // (2 * n_bands) if n_bands > 0 else 1
-
-        band_energies = []
-        for i in range(n_bands):
-            start = i * band_size
-            end = (i + 1) * band_size
-            band_energy = float(np.sum(magnitudes[start:end] ** 2))
-            band_energies.append(band_energy)
-
-        total_energy = sum(band_energies) + 1e-8
-        band_ratios = [e / total_energy for e in band_energies]
-
         phi = 1.618033988749895
-        expected_ratios = [1.0 / (phi**i) for i in range(n_bands)]
-        expected_sum = sum(expected_ratios)
-        expected_ratios = [r / expected_sum for r in expected_ratios]
 
-        harmonic_deviation = sum(abs(a - e) for a, e in zip(band_ratios, expected_ratios))
-        # Normalise by the maximum L1 distance between two probability vectors
-        # (2.0). Both band_ratios and expected_ratios sum to 1, so the raw
-        # deviation ranges over [0, 2] and ``1 - deviation`` is negative for any
-        # spectrum that is not already phi-shaped -- which clipped the score to
-        # a saturated 0 on real data. Measured on the four recorded NAB files
-        # (128-point windows, stride 16): the served form scored at chance,
-        # mean AUROC 0.511, and was a CONSTANT 0.0 across all 63 windows of
-        # realTraffic/speed_7578.csv, so the stream carried no signal at all
-        # while holding 27.6% of the OAE's weight. Dividing by 2 recovers it:
-        # mean AUROC 0.755, and 0.849 on the file where it had been constant.
-        resonance_score = float(np.clip(1.0 - harmonic_deviation / 2.0, 0.0, 1.0))
+        def three_r_scores(series: np.ndarray[Any, Any]) -> dict[str, Any]:
+            """R, H and O of one series, plus its band analysis."""
+            recursion_score = compute_recursion_score(series, request.recursion_depth)
+            recursion_score = float(np.clip(recursion_score, 0.0, 1.0))
 
-        signal_variance = np.var(data)
-        noise_estimate = np.var(np.diff(data)) / 2
-        snr = signal_variance / (noise_estimate + 1e-8)
-        optimization_score = float(np.clip(1.0 / (1.0 + np.exp(-np.log10(snr + 1))), 0.0, 1.0))
+            fft_result = np.fft.fft(series)
+            magnitudes = np.abs(fft_result)
+
+            n_bands = min(request.harmonic_bands, len(magnitudes) // 2)
+            band_size = len(magnitudes) // (2 * n_bands) if n_bands > 0 else 1
+
+            band_energies = []
+            for i in range(n_bands):
+                start = i * band_size
+                end = (i + 1) * band_size
+                band_energy = float(np.sum(magnitudes[start:end] ** 2))
+                band_energies.append(band_energy)
+
+            total_energy = sum(band_energies) + 1e-8
+            band_ratios = [e / total_energy for e in band_energies]
+
+            expected_ratios = [1.0 / (phi**i) for i in range(n_bands)]
+            expected_sum = sum(expected_ratios)
+            expected_ratios = [r / expected_sum for r in expected_ratios]
+
+            harmonic_deviation = sum(abs(a - e) for a, e in zip(band_ratios, expected_ratios))
+            # Normalise by the maximum L1 distance between two probability vectors
+            # (2.0). Both band_ratios and expected_ratios sum to 1, so the raw
+            # deviation ranges over [0, 2] and ``1 - deviation`` is negative for any
+            # spectrum that is not already phi-shaped -- which clipped the score to
+            # a saturated 0 on real data. Measured on the four recorded NAB files
+            # (128-point windows, stride 16): the served form scored at chance,
+            # mean AUROC 0.511, and was a CONSTANT 0.0 across all 63 windows of
+            # realTraffic/speed_7578.csv, so the stream carried no signal at all
+            # while holding 27.6% of the OAE's weight. Dividing by 2 recovers it:
+            # mean AUROC 0.755, and 0.849 on the file where it had been constant.
+            resonance_score = float(np.clip(1.0 - harmonic_deviation / 2.0, 0.0, 1.0))
+
+            signal_variance = np.var(series)
+            noise_estimate = np.var(np.diff(series)) / 2
+            snr = signal_variance / (noise_estimate + 1e-8)
+            optimization_score = float(np.clip(1.0 / (1.0 + np.exp(-np.log10(snr + 1))), 0.0, 1.0))
+            return {
+                "recursion": recursion_score,
+                "resonance": resonance_score,
+                "optimization": optimization_score,
+                "n_bands": n_bands,
+                "band_energies": band_energies,
+                "band_ratios": band_ratios,
+                "harmonic_deviation": harmonic_deviation,
+                "magnitudes": magnitudes,
+            }
+
+        scored = three_r_scores(data)
+        recursion_score = scored["recursion"]
+        resonance_score = scored["resonance"]
+        optimization_score = scored["optimization"]
+        n_bands = scored["n_bands"]
+        band_energies = scored["band_energies"]
+        band_ratios = scored["band_ratios"]
+        harmonic_deviation = scored["harmonic_deviation"]
+        magnitudes = scored["magnitudes"]
 
         aafe = OmniAvaEquation(
             ethical_compliance_threshold=request.ethical_threshold,
@@ -665,7 +1057,25 @@ async def detect_three_r(
             optimization_score=optimization_score,
         )
 
-        is_stable, _ = aafe.verify_lyapunov_stability()
+        # Stability is a property of a TRAJECTORY of fusion scores, and one
+        # request yields one score: asking the equation after a single
+        # ``compute`` returned False for every input, whatever it contained.
+        # The trajectory is taken from the request itself -- the same scoring
+        # over its consecutive segments, in time order -- when the series is
+        # long enough to give the estimator the history it needs; otherwise
+        # the response says stability was not evaluated.
+        stability_evaluated = len(data) >= _STABILITY_SEGMENTS * _STABILITY_MIN_SEGMENT
+        is_stable = False
+        if stability_evaluated:
+            trajectory = OmniAvaEquation(ethical_compliance_threshold=request.ethical_threshold)
+            for segment in np.array_split(data, _STABILITY_SEGMENTS):
+                part = three_r_scores(segment)
+                trajectory.compute(
+                    recursion_score=part["recursion"],
+                    resonance_score=part["resonance"],
+                    optimization_score=part["optimization"],
+                )
+            is_stable = bool(trajectory.verify_lyapunov_stability()[0])
 
         user_id = user.id if user else "anonymous"
         await record_detection(
@@ -692,6 +1102,7 @@ async def detect_three_r(
             ethical_scaling=request.ethical_threshold**phi,
             lyapunov_bound=result.lyapunov_bound,
             is_stable=is_stable,
+            stability_evaluated=stability_evaluated,
             weights=result.fusion_weights,
             harmonic_analysis={
                 "n_bands": n_bands,
@@ -722,7 +1133,11 @@ class TierDetectRequest(BaseModel):
     data: list[float] = Field(
         ...,
         min_length=8,
-        description="1-D anomaly series (the tier's native temporal contract)",
+        description=(
+            "1-D anomaly series (the tier's native temporal contract). At least 8 "
+            "points; the default tier includes spot_evt, which needs 10, so send 10 "
+            "or more unless 'subset' leaves spot_evt out"
+        ),
     )
     labels: list[int] | None = Field(
         default=None,
@@ -798,11 +1213,20 @@ threshold, cross-detector uncertainty, and (when ``conformal_alpha`` is set)
 flags with a distribution-free false-positive guarantee. Torch-free.
 """,
 )
+@records_detection("tier")
 async def detect_tier(
     request: TierDetectRequest,
     user: User | None = Depends(_get_optional_user),
 ) -> dict[str, Any]:
     """Run the detector-tier ensemble on a 1-D series."""
+    # Fail-closed harm-uplift gate, before any work: ``subset``, ``method``
+    # and ``counterfactual_method`` carry caller text.
+    _enforce_route_gate(
+        surface="api.detect_tier",
+        operation="streaming detector-tier ensemble detection over a 1-D series",
+        payload=request.model_dump(),
+    )
+
     try:
         from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
 
@@ -850,8 +1274,13 @@ async def detect_tier(
         return result
 
     except ValueError as e:
-        # Bad request: unknown detector name, stacking-without-labels, bad alpha.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # Bad request: unknown detector name, stacking-without-labels, bad
+        # alpha. First line, clipped: deep numpy/engine ValueErrors can carry
+        # internal detail (shapes, module paths).
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except Exception as e:
         logger.error("Tier detection failed: %s", e)
         raise HTTPException(
@@ -866,10 +1295,22 @@ class FlagshipDetectRequest(BaseModel):
     data: list[list[float]] = Field(
         ...,
         min_length=1,
+        # Caps what the body-size middleware cannot see: element counts.
+        # The default (65,536) is far beyond the measured serving envelope
+        # (latency is recorded at 1-1024 rows) while bounding the
+        # ledger/memory cost a single anonymous call can pin. Read from the
+        # single source of truth, so the OpenAPI maxItems below is the
+        # enforced bound.
+        max_length=_LIMITS.flagship_max_rows,
         description="Rows of equal-length numeric feature vectors (a feature matrix).",
     )
     domain: str | None = Field(
         default=None,
+        # The engine's sanitize_domain collapses anything outside its
+        # whitelist to 'general'; the cap stops an arbitrary-size caller
+        # string from riding raw into DecisionRecord.domain and the
+        # 4096-entry decision ledger.
+        max_length=_LIMITS.flagship_max_domain_chars,
         description="Optional domain for GOSNN threshold tuning (e.g. 'medical').",
     )
     explain: bool = Field(
@@ -889,6 +1330,7 @@ class FlagshipDetectRequest(BaseModel):
     )
     subject_id: str | None = Field(
         default=None,
+        max_length=_LIMITS.flagship_max_subject_id_chars,
         description="Optional data-subject identifier recorded in the GDPR report.",
     )
 
@@ -917,6 +1359,183 @@ async def describe_flagship_model(
             detail="The flagship fusion engine is not available in this environment.",
         ) from e
     return description
+
+
+@router.get(
+    "/flagship/decisions",
+    summary="Decision trail summary of the served flagship",
+    description="""
+Aggregates over the bounded, process-wide audit trail of `POST /detect/flagship`
+decisions since this server started (ring buffer, most recent 4096): counts by
+transparency state, disposition and response action, the abstention and
+calibration fractions, and the measured decision **churn** — the fraction of
+consecutive decisions whose disposition flipped. Empty counts mean no flagship
+decision has been recorded yet.
+""",
+)
+async def flagship_decision_summary(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Serve the flagship decision ledger's aggregate summary."""
+    # Deliberately lock-free: this handler runs on the event loop, and
+    # ``_flagship_lock`` is a threading.Lock held for the whole of every
+    # flagship detection — taking it here let one caller freeze the entire
+    # worker (every route, /health included) for the duration of a detection.
+    # Reading the module global is atomic, and ``DecisionLedger.summary()``
+    # is O(1) under the ledger's own internal lock.
+    ledger = _flagship_ledger
+    # Admission is reported whether or not a decision was ever recorded: a
+    # server whose every flagship call was refused at the queue cap has no
+    # decisions, and that is exactly when the rejection count matters.
+    admission = _admission_stats.snapshot()
+    if ledger is None:
+        return {"total": 0, "recorded": False, "admission": admission}
+    summary: dict[str, Any] = ledger.summary()
+    summary["recorded"] = True
+    summary["admission"] = admission
+    return summary
+
+
+@router.get(
+    "/flagship/limits",
+    summary="The serving bounds this server enforces",
+    description="""
+Every resource bound the served API enforces, with its active value, its
+default, the environment variable that overrides it, its unit, and what it
+protects against — rendered from the single source of truth the enforcing code
+reads (`omni_mercury_engine.serving_limits`), so the numbers here are the
+numbers enforced. Also reports the flagship admission counters: how many calls
+were admitted, how many were refused with 429 at the queue cap, and the peak
+concurrency seen. The same limits appear in the OpenAPI document under
+`info.x-serving-limits`.
+""",
+)
+async def flagship_serving_limits(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Serve the active serving limits and the flagship admission counters."""
+    return {
+        "limits": serving_limits().to_dict(),
+        "admission": _admission_stats.snapshot(),
+    }
+
+
+class ReplayRequest(BaseModel):
+    """A decision record to replay, with optional data to replay it against."""
+
+    record: dict[str, Any] = Field(
+        ...,
+        description=(
+            "A decision record (the `decision` of a flagship response), a whole "
+            "flagship response, or its `cognitive_analysis`."
+        ),
+    )
+    data: list[list[float]] | None = Field(
+        default=None,
+        max_length=_LIMITS.flagship_max_rows,
+        description=(
+            "The window a causal finding was computed on. Its statistics are "
+            "recomputed from it; it must be the same window (digest-checked)."
+        ),
+    )
+    reference: list[list[float]] | None = Field(
+        default=None,
+        max_length=_LIMITS.flagship_max_rows,
+        description=(
+            "A reference of your own, one observation per row: is the recorded "
+            "observation novel against it?"
+        ),
+    )
+
+
+@router.post(
+    "/flagship/replay",
+    summary="Replay a decision record's discovery artifacts",
+    description="""
+Re-run the discovery artifacts a decision record carries — the novelty verdict,
+the causal edges, the derived hypothesis — from the numbers in the record, with
+the procedure that produced them, and report whether each claim comes out:
+**HOLDS**, **FAILS** or **CANNOT_REPLAY** (with the reason; never read as
+holding). The hypothesis is replayed against the other two, so a premise that
+no longer holds withdraws the conclusion.
+
+Stateless and pure arithmetic: no model runs, nothing is stored, and the record
+need not have been issued by this server. `data` recomputes a causal finding's
+statistics from the window itself; `reference` asks whether a novelty verdict
+holds against a reference of your own. The same replay is available offline as
+`mercury-agent replay record.json`.
+
+Bounded, because the record is yours and so is the work it asks for: a causal
+finding is recomputed only up to what the shipped instrument produces (five
+columns, lags up to five); a larger one is **CANNOT_REPLAY** with the reason,
+and replays offline. A replay that recomputes from `data` or `reference` takes
+a slot of the flagship admission bound and is refused with 429 when it is full.
+
+The response is `{"verdict", "artifacts", "replay"}`: `verdict` is the worst
+outcome among the artifacts (**FAILS** over **CANNOT_REPLAY** over **HOLDS**),
+or `NO_ARTIFACTS` when the record carries none; `replay` holds one report per
+artifact.
+""",
+)
+async def replay_flagship_record(
+    request: ReplayRequest,
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Replay the discovery artifacts of a decision record."""
+    from omni_mercury_engine.discovery import CANNOT_REPLAY, FAILS, HOLDS
+
+    try:
+        data = np.asarray(request.data, dtype=float) if request.data is not None else None
+        reference = (
+            np.asarray(request.reference, dtype=float) if request.reference is not None else None
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="'data' and 'reference' must be rectangular numeric matrices",
+        ) from exc
+    reports = await run_in_threadpool(_replay_served, request.record, data, reference)
+    statuses = {report["status"] for report in reports}
+    if not reports:
+        verdict = "NO_ARTIFACTS"
+    elif FAILS in statuses:
+        verdict = FAILS
+    elif CANNOT_REPLAY in statuses:
+        verdict = CANNOT_REPLAY
+    else:
+        verdict = HOLDS
+    return {"verdict": verdict, "artifacts": len(reports), "replay": reports}
+
+
+@router.get(
+    "/flagship/improvements",
+    summary="Improvement Ledger: every adaptive change, with its rollback",
+    description="""
+Two trails. `runtime` is the bounded, process-wide Improvement Ledger: every
+adaptive change applied in this server since it started — an online-recalibrated
+operating threshold taking over or moving, a conformal certificate refit, the
+label-scarcity schedule resolving the symbolic weight, probe decorrelation or
+contrastive refinement rescaling weights — each with what changed, why, the
+measured impact where one exists, and how to roll it back. `committed` is the
+shipped record of measured adaptive-change *decisions* (adopted or refused,
+each with its harness numbers), from `artifacts/improvement_ledger.json`.
+""",
+)
+async def flagship_improvement_ledger(
+    user: User | None = Depends(_get_optional_user),
+) -> dict[str, Any]:
+    """Serve the runtime Improvement Ledger and the committed decisions."""
+    from omni_mercury_engine.governance.improvement_ledger import (
+        default_improvement_ledger,
+        published,
+    )
+
+    ledger = default_improvement_ledger()
+    recent = [entry.to_dict() for entry in ledger.entries()[-64:]]
+    return {
+        "runtime": {"summary": ledger.summary(), "recent": recent},
+        "committed": published(),
+    }
 
 
 @router.post(
@@ -968,18 +1587,35 @@ async def detect_flagship(
             request.explain,
             request.gdpr_report,
             request.subject_id,
+            # Novelty is judged against what THIS caller has shown before. A
+            # signed-in caller has a reference of their own and gets it back
+            # in the artifact, so the verdict replays from the record. Callers
+            # without credentials share one reference, built from each
+            # other's data, so it is not disclosed to any of them.
+            f"user:{user.id}" if user else "anonymous",
+            user is not None,
         )
 
         user_id = user.id if user else "anonymous"
+        # A result without a probability is recorded as having none ("scores"
+        # stays empty and the summary carries None), never as a fabricated
+        # 0.0 — the same placeholder the decision layer explicitly removed
+        # from its records.
+        recorded_prob = result.get("anomaly_prob")
+        recorded_prob = (
+            float(recorded_prob)
+            if isinstance(recorded_prob, (int, float)) and not isinstance(recorded_prob, bool)
+            else None
+        )
         await record_detection(
             user_id=user_id,
             method="flagship_fusion",
             data=request.data,
             results={
                 "anomalies": [bool(result.get("is_anomaly", False))],
-                "scores": [float(result.get("anomaly_prob", 0.0))],
+                "scores": [recorded_prob] if recorded_prob is not None else [],
                 "summary": {
-                    "anomaly_prob": float(result.get("anomaly_prob", 0.0)),
+                    "anomaly_prob": recorded_prob,
                     "severity": float(result.get("severity", 0.0)),
                     "class_prediction": result.get("class_prediction"),
                 },
@@ -990,12 +1626,26 @@ async def detect_flagship(
     except EthicalConstraintViolationError as e:
         # Fail closed: the flagship refused this input at a hard ethical gate.
         logger.warning("Flagship detection blocked by ethical gate '%s'", e.check)
+        _raise_if_too_large_to_assess(e)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Detection blocked by the '{e.check}' ethical gate.",
+            detail=_ethical_refusal_detail(
+                e, f"Detection blocked by the '{e.check}' ethical gate."
+            ),
         ) from e
+    except HTTPException:
+        # Already a shaped HTTP answer (e.g. the 429 admission refusal from
+        # the queue bound); the generic handler below must not flatten it
+        # into a 500.
+        raise
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # Bounded: deep numpy/torch/engine ValueErrors can carry internal
+        # detail (shapes, fitted widths, module paths); the caller gets the
+        # first line, clipped, which is enough to fix the input.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except ImportError as e:
         logger.error("Flagship fusion engine unavailable: %s", e)
         raise HTTPException(
@@ -1045,11 +1695,20 @@ channel) most likely originated the fault. Torch-free. The same analysis behind
 ``mercury-agent rca`` and the ``mercury_localize_root_cause`` MCP tool.
 """,
 )
+@records_detection("rca")
 async def detect_rca(
     request: RootCauseRequest,
     user: User | None = Depends(_get_optional_user),
 ) -> dict[str, Any]:
     """Localise the root cause of a multivariate anomaly."""
+    # Fail-closed harm-uplift gate, before any work: ``node_names`` carries
+    # caller text.
+    _enforce_route_gate(
+        surface="api.detect_rca",
+        operation="graph-based root-cause localization over multivariate observations",
+        payload=request.model_dump(),
+    )
+
     try:
         from omni_mercury_engine.detectors.detection_tier import localize_root_cause
 
@@ -1075,7 +1734,11 @@ async def detect_rca(
 
     except ValueError as e:
         # Bad request: non-2-D observations, mismatched node_names length.
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        # First line, clipped, for the same reason as the tier route.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e).splitlines()[0][:400] if str(e) else "invalid input",
+        ) from e
     except Exception as e:
         logger.error("Root-cause localization failed: %s", e)
         raise HTTPException(

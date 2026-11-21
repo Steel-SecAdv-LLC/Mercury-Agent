@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **Reproducibility note (applies to all 1.x release entries below):**
+> **Reproducibility note (applies to all 1.x release entries, now in
+> [`docs/changelog/CHANGELOG-pre-3.0.md`](docs/changelog/CHANGELOG-pre-3.0.md)):**
 > Headline benchmark numbers vary by release cut; the current committed
 > run is **66 reproducible datasets** (of 75 attempted), surfaced in the
 > README "Latest Benchmark Results" block. 9 datasets currently
@@ -14,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > FEMA HazardMitigation). As of v1.7.0
 > the previously-flagged "FEMA Disaster — inverted scores" loader
 > is no longer in the broken set; the label-polarity correction is
-> documented under `[1.7.0]` below and locked by
+> documented under `[1.7.0]` in that archive and locked by
 > `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`.
 > The 11 watch-listed loaders now have a two-lane reachability harness
 > (`tests/datasets/test_unreachable_loaders_{offline,network}.py`,
@@ -24,6 +25,431 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > dataset.  See the README "Empirical Benchmark Results" section for
 > the full reproducibility footnote and `docs/ROADMAP.md` for
 > tracked fixes.
+
+## [Unreleased]
+
+**Added — upload a document, an image or a recording and get a Mercury decision about it.** `mercury-agent review FILE`, `POST /api/v1/review/upload` (multipart), `POST /api/v1/review/inline` (base64 JSON) and the console's REVIEW A FILE answer one narrow question about a file — is some part of it unlike the rest? — with the three answers (why this segment, how sure, the record) beside a complete `DecisionRecord`. The upload is decoded within served bounds (text, Markdown, CSV, JSON, HTML, DOCX, PDF with a text layer; PNG, JPEG, GIF, BMP, WebP, TIFF; uncompressed WAV), read by the harm-uplift gate, cut into a constant number of segments per kind, measured by 16 named features computed here or by instruments the package already had, standardized against the file's own median and spread, and scored by `detect_with_fusion` with a checkpoint for its kind (`review_{document,image,audio}.pt`). No learned embedding, no external detector, no new dependency. The measuring step carries the `GATED_BOUNDARY` capability contract, so no surface can review an upload the gate did not read; a review holds a slot of the flagship admission bound and scores under the flagship engine lock; five new serving limits bound the surface (`MERCURY_REVIEW_MAX_BODY_BYTES` 32 MiB, `..._TEXT_CHARS` 1,000,000, `..._PIXELS` 25,000,000, `..._AUDIO_SECONDS` 600, and `MERCURY_REVIEW_MAX_CONCURRENT` 2 reviews measured at once) and anything past a size bound is refused, never reviewed in part. Measured on 300 held-out reference artifacts per kind (`artifacts/artifact_review.json`); the reference artifacts are procedural and the README table says which of the three pre-set bars each kind missed. Compressed audio is recognised and refused with the conversion to run; text inside images and speech in recordings is not read by the harm gate, and every result says what was read.
+
+**Added — a conformal certificate for the verdict a batch actually gets, and a test of whether a batch belongs to it.** `detect_with_fusion` reports one verdict for a batch: its most anomalous row. A per-row certificate does not cover a maximum over rows; measured on the bundled flagship model, 4 of 30 clean 40-row batches kept the right label in their prediction set. `OmniMercuryEngine.calibrate_fusion_conformal_batches` fits the certificate on one batch-max statistic per calibration batch (25 of 30 clean and 30 of 30 anomalous held-out batches covered on the same data), names the regime in the result, the record and the checkpoint (`conformal.regime: "batch_max"`; checkpoints written before it load as `"per_sample"`), and stores the family its calibration batches form. A served batch is then tested for membership of that family (ten scale-free summary numbers, a rank test at level 0.05 against the calibration batches' own leave-one-out distances) in place of the row-level drift ensemble; a batch outside the family defers. A checkpoint may carry a `certificate_scope` statement in its provenance, which the decider repeats on every record as a caveat. Existing per-row calibration is unchanged.
+
+**Fixed — the ML Tests lane fits its runner.** The lane ran the whole suite under coverage as one pytest session and was killed by the hosted runner at 36% ("The runner has received a shutdown signal"). Measured on a 16 GB, 4-core machine: 5.9 GB as soon as collection ends (each of the four xdist workers has imported the package under the tracer), then steady growth as tests run, to 13.6 GB; the runner also loads the pinned HuggingFace models. The lane now runs the same tests, with the same four workers, as four sessions that append to one coverage file, and enforces the coverage floor on the last, over all four. A new session starts new workers, so what one part accumulated is returned before the next begins. Measured with the workflow's own step script: 25,580 passed, coverage 78.73% (78.72% as one session), peaks of 8.7, 6.2, 7.3 and 6.1 GB per part, 30 minutes in all against 26. `scripts/ci_test_partition.py` assigns every top-level entry of `tests/` to exactly one part, and `tests/scripts/test_ci_test_partition.py` holds that the parts are disjoint and together are every test file pytest collects; each part's peak memory is printed in the job log, so the margin on the hosted runner is measured there too. The release gate, which is pinned to run what this lane runs and would have been killed the same way on release day, runs the same parts. No test is skipped and no threshold moved. Also fixed: a property test of webhook-secret redaction could fail with nothing leaking, when a generated secret shared six characters with the fixed words of the error message ("ection" in "Connection refused"); its leak detector now compares against the same message built around a stand-in secret, and still fails when a redactor does nothing.
+
+**Added — `mercury-agent demo`: three answers on one real decision, then challenge it.** One command scores a committed 80 x 16 window with the bundled flagship model and prints why this row, how sure and the record in plain language, each beside the record fields it was read from, next to the complete `DecisionRecord`; it replays the record's findings against the data (HOLDS), shows a tampered copy failing, and ends with the exact command that re-runs the stored challenge. The README quick start leads with it, the console offers the same decision as a Mass Run capability, and `tests/test_demo_three_answers.py` (a CI gate) fails if any of the three answers disappears.
+
+**Changed — a number is measured only when it carries the evidence, and a finding can be replayed by whoever holds the record.** `UncertaintyEstimate`, `CognitiveAnalysisResult` and `ExplorationResult` no longer accept a `measured` flag and no longer default one to `True`: each takes the evidence as a required argument (`omni_mercury_engine.measurement.MeasurementEvidence`: the method, the observations behind it, the SHA-256 of the numbers it was measured on, and for a verdict the statistic and its cut), and `epistemic_measured`, `aleatoric_measured`, `confidence_calibrated` and `measured` are derived from it. **This is a breaking change for code that constructs those types**: omitting the evidence is a `TypeError`, as is passing a flag. The decision record carries the evidence and reads a `true` flag with no parsable evidence beside it as `false`. Three misstatements fall with the old design: a batch of predictions with nothing drawn was reported as measured epistemic uncertainty with `mc_samples` naming draws that never ran; an ensemble of five reported `mc_samples` as the configured count; and an analysis given no raw data reported both uncertainties as measured.
+
+**Changed — the discovery instruments are measured against the truth, corrected, and made re-runnable.** *Novelty:* `is_novel` is now a rank test (novel when the distance ranks in the top 5% of the reference's own distances; undetermined below 20 reference distances). The cut it replaces, score ≥ 0.7, called 14.5% of ordinary held-out rows novel on the recorded benchmark tables; the rank test calls 3.9% (worst table 4.9%), at the cost of calling 73% of anomalies novel instead of 88%. The payload's `novelty_threshold` gives way to `novelty_p_value`, `novelty_alpha`, `novelty_measured` and `novelty_evidence`. *Causal factors:* on independent noise the Granger step reported at least one edge in 76–94% of analyses, and called `1 − p` a strength. It is now corrected for the lags it searches (Bonferroni) and the pairs it tests (Holm), sets aside contaminated time steps, and does not assess a window whose level is not stable; the strength is the partial R². False edges: 0–3% in every scenario measured, with the planted edge found in 95–96% of 200-row windows. The stability check declines most strongly autocorrelated windows (76% at AR(1) 0.7), which misses the coverage bar set for it and is recorded as an open problem, not a pass; two alternatives that decline nothing were measured and refused. `CausalDiscoveryEngine.discover_temporal_causation` and `GrangerCausalityTest.test` return the corrected values. *Hypothesis:* the orchestrator's reasoning step was handed premises none of its rules could match, so `reasoning_chain` was empty and the record's hypothesis was `None` on every served decision. It now derives a conclusion from the verdicts that hold, names the premise closest to failing and the value at which the conclusion is withdrawn, and reports no confidence, because none was measured.
+
+**Added — replay.** Each instrument reports an artifact under `signals.cognitive.discovery` in the decision record: the claim, the procedure and the numbers it was computed from, sealed by a digest. `mercury-agent replay record.json` (also `POST /api/v1/detect/flagship/replay`, and the console's decision panel) re-runs each from the record and reports **HOLDS**, **FAILS** or **CANNOT_REPLAY**; `--data` recomputes a causal finding from the window itself, `--reference` asks whether a novelty verdict holds against a reference of your own, and a hypothesis falls with its premise. On a shared server a signed-in caller's novelty reference is their own and is returned to them; callers without credentials share one and are not handed it; and the decision ledger keeps each artifact's claim and digest, not its inputs. See [`docs/DISCOVERY.md`](docs/DISCOVERY.md).
+
+**Refused — the entropy-selected component weights.** Recorded last cycle as not adopted because they were chosen on the tables they were scored on. Chosen on four tables and scored on the fifth they gain +0.0015 on average and lose 0.019 on one, failing both clauses of the adoption bar.
+
+**Security — the served paths are bounded, the bounds are visible, and secrets stay out of what is kept.** No layer bounded a request body: a pure-ASGI middleware now refuses one over the byte cap, on a declared `Content-Length` before the body is read and on the streamed count for a chunked or lying one (10 MiB; 600 MiB for the authenticated model-management surface). The flagship route admits at most 8 requests behind its single engine and answers 429 past that, counted (`omni_mercury_flagship_admission_rejected_total`, and `admission` on `GET /api/v1/detect/flagship/decisions`); its `data`, `domain` and `subject_id` are capped at 65,536 rows, 128 and 256 characters. Every one of these numbers has a single source (`omni_mercury_engine.serving_limits`, each an environment variable validated at start) and is visible without reading source: `GET /api/v1/detect/flagship/limits` and `info.x-serving-limits` in the OpenAPI document report the values in force. An IPv6 client is rate-limited by its /64 (`MERCURY_IPV6_RATE_LIMIT_PREFIX`), where one host could previously draw a fresh bucket per address. The ethical kill switch is ignored in production, with an ERROR that names it. An anonymous alert stream no longer receives other anonymous callers' detections. A request body that failed validation on a non-finite number (`{"data": Infinity}`) was answered 500 on every route that validates a body; it is 422. A webhook secret survived every connection failure, because the transport words one with the request path alone (`Max retries exceeded with url: /services/.../<secret>`): a credential that is itself a URL is now scrubbed piece by piece, and the delivery layer's own URL stripping no longer keeps `user:secret@` or stops at an apostrophe. An invalid JWT is logged by its failure class only.
+
+**Security — a release can be verified by anyone, and the job that signs runs no code.** Release artifacts carry a Sigstore build-provenance attestation and PyPI uploads carry PEP 740 attestations; the dependency SBOM is CycloneDX from Mercury's own emitter; `python scripts/verify_release.py <tag>` checks the artifacts, both SBOMs, the attestation (pinned to this repository, the tag and `release.yml`) and the image in one command, reporting UNVERIFIED rather than PASS when a tool is missing. Signing is its own job: it downloads what `build` uploaded and signs it, with no checkout and no script, so the job that executes the build backend holds no signing identity. The image's base is pinned by digest; AMA is built from its tag with the commit that tag must resolve to checked beside it (`AMA_COMMIT`). Releases 3.0.0 and earlier predate signing and cannot pass the attestation check.
+
+**Fixed — found by fuzzing the ingest and alert paths.** `StreamingDetector` kept an observation whose width contradicted the stream's; the next refit then raised before the tick's sample was stored, so every later `ingest` raised too and one malformed sample ended the stream until `reset()`. It is refused at the sample that carries it (`ValueError`, `last_status == "rejected"`, counted in `get_stats()["rejected_points"]`) and the stream goes on. An alert whose record was not a mapping, or could not be worded, ended the subscriber's stream; a frame carrying a non-finite float was not JSON and the console dropped it silently. Both now go out (the second with `null`). A mail subject no longer carries control characters from a headline. A non-string `domain` no longer crashes hazard evidence. A cognitive analysis given no raw data reported both uncertainties as `0.0` *and measured*; it reports them unmeasured, and the set of fields allowed to be unmeasured is pinned by test.
+
+**Changed — the discovery instruments become first-class, challengeable, and closed-loop where the evidence allows; five more decisions land in the ledger.** The neuro-symbolic hub's calibration is sound for the first time: the split is drawn *before* the encoder fit, Platt is fitted on the served fused score (it was fitted on neural scores of already-seen rows and applied to fused scores), and `predict()` serves a conformal certificate fitted on a stratified calibration half no fitted component touched — measured on the 15 recorded evaluations at mean held-out coverage 0.9294 against honestly-stated bounds (mean 0.8343), for a mean AUC cost bounded by 0.0256 that concentrates entirely on the smallest table (`research/neurosymbolic/harness_hub_conformal.py`). The derived hypothesis and the novelty verdict now state their own falsifiers on the record and the console: the hypothesis names its weakest chain step (the lowest-confidence link every later conclusion depends on) with the re-test recipe, and the novelty verdict carries its measured standardized distance and threshold with the read-only re-measurement recipe. Three proposals were measured and refused with their numbers in `artifacts/improvement_ledger.json` (now fifteen decisions): the **guarded Meta-Fusion Controller** (per-dataset fallback to uniform unless the historical same-corpus pool clears the keep bar) falls back on 17 of 19 datasets and still regresses where history cleared it (mean −0.0017, worst −0.0294) — at this pool size, historical clearance does not transfer; **hysteresis as the math-arrest alarm default** degrades the NAB standard score 43.93→31.94 and raises the false-alarm rate 0.0117→0.0180 for a 0.0034 churn cut — the gate's measured gain is the point-verdict protocol's, so it stays opt-in; and **cross-modal consistency as a demotion factor** cannot separate false from true positives (flagged-row agreement 0.9505 vs 0.9613, direction inconsistent) — a floor would defer true detections as often as false ones. The **Math Arrest promotion bar is published** (mean rank +0.25 on the 8-set guard subset or mean AUC +0.003, no set below −0.002, ≤10% latency, NAB mean held) and `ResponsePlan` is documented as deliberately non-scored: no labelled outcome exists for a recommendation's correctness, so no bound is fabricated for one.
+
+**Added — discovery on the served path, measured; the forecast carries a certificate; streaming verdicts hold steady.** The CuriosityEngine's novelty score is measured for the first time (read-only mean AUROC 0.9282 over the 15 recorded ADBench evaluations; `artifacts/novelty_discovery.json`) and elevated to the served flagship (route, CLI, MCP; +3.5 ms on anomalous rows): each detected anomaly's distance from the observed distribution rides the DecisionRecord's cognitive summary (`novelty_score`, `is_novel`) and the console, as a signal, never a verdict-mover. A read-only `CuriosityEngine.novelty()` scores without absorbing, so measurement cannot drift the estimate it scores against. The multi-hop reasoner's derived conclusion (`hypothesis`: conclusion, confidence, rule, chain depth) and the causal-discovery factors now ride the same bounded summary, so the discovery behaviour is reconstructable and challengeable from the record. The Kp→G1 storm forecast carries a conformal certificate in the fusion checkpoint's exact `conformal_state` layout, fitted on 9,497 walk-forward out-of-sample forecasts (2000–2025) and measured on the 320 after-the-fit days: empirical coverage 0.8656 overall, 0.9286 on storm days, 0.8523 on quiet days — the 2026 regime sits under the 0.90 target on quiet days and the evidence says so; issued forecasts state their label set (`basis.conformal`), and the shipped model artifact is bit-identical in every prior key. Streaming decision churn is now reducible, not only measured: a two-threshold hysteresis gate (`streaming/hysteresis.py`, opt-in via `CausalMathArrest(exit_alpha=...)`) cuts mean NAB verdict churn 0.0235→0.0153 (35%) with mean point F1 0.3123→0.3722, the (0.95, 0.80) band chosen by every leave-one-stream-out fold, and the gate provably never creates a flip. The Improvement Ledger (`governance/improvement_ledger.py`, served at `GET /api/v1/detect/flagship/improvements`) records every runtime adaptive change — threshold takeover/moves, conformal refits, the resolved symbolic weight, probe decorrelation and refinement — with what/why/impact/rollback, beside the committed decision record (`artifacts/improvement_ledger.json`) of nine measured adopt/refuse decisions, including the refusals: probe-local calibration and live-contributor ranking (every candidate degrades the shipped uniform fusion), the Meta-Fusion Controller (LODO historical prior raises the mean +0.0413 — the first label-free selector signal to do so out-of-fold — but regresses single datasets up to 0.14, failing the standing keep bar), adaptive recursion depth and λ (unchanged from their measured refusals).
+
+**Changed — the Phase 1 decision-quality layer closes its stated gaps.** The
+certificate now says what it is: the calibration-set size rides the checkpoint
+(`conformal_state.n_calibration`; the shipped `default_fusion.pt` re-saved
+bit-identical in weights, temperature and detector state, now carrying
+n=251), and a multi-row batch's record states that the per-sample certificate
+applied to the batch-max row is not a batch-level guarantee
+(`conformal.regime`/`n_rows`, per-row set-size counts, a decider caveat). The
+self-critique can challenge detector results in both directions: a *measured*
+unreliable critique demotes a grounded verdict to DEFER (needs a human;
+`DecisionPolicy.defer_on_unreliable_critique`), a reliable *calibrated*
+critique at or above `critique_support_confidence_floor` (0.75) disputes an
+abstention on the record without overturning a fail-closed gate, and a
+critique built from placeholder uncertainties can do neither — the
+transparency flags (`epistemic_measured`, `aleatoric_measured`,
+`confidence_calibrated`) now ride `cognitive_analysis` and the record's
+cognitive summary, where the record previously presented the placeholder 0.1s
+as measurements. Every ethically blocked decision now carries a full
+fail-closed DecisionRecord: the structured 403's `decision` is an
+UNDECIDABLE/HOLD record whose `signals.ethics_report` is the same bounded
+report (detection routes, the route gate, and additively on the assessment
+surface), so the decider's ethical Stage 1 is reachable from serving for the
+first time. The CLI and MCP flagship surfaces run the cognitive critique
+under the same `MERCURY_FLAGSHIP_COGNITIVE` switch as the route (their
+"mirrors /flagship" comments were false; measured on the shipped checkpoint,
+single row, median of 12: 9.1 ms off, 139.4 ms on). The served flagship
+records every decision into a bounded ledger and
+`GET /api/v1/detect/flagship/decisions` serves its summary — including the
+measured decision churn — where `DecisionLedger` churn was library-only. The
+flagship's historical recorder no longer fabricates a 0.0 score for a result
+without one. The console decision panel renders decision confidence, the
+response plan, model provenance (checkpoint, sha, conformal n), the
+per-sample-regime note on batches, and the critique with its
+measured/unmeasured flags. The NAB streaming figures in the README were
+re-measured on the current detector (per-stream AUROC 0.817/0.692/0.665/0.749,
+mean 0.731; the committed artifact re-recorded) where the README still carried
+the pre-fix 0.729 record, and `NeuroSymbolicHub` no longer advertises conformal
+prediction it does not implement (it implements Platt scaling; its calibration
+split is drawn after the encoder fit, so a conformal certificate fitted there
+would not be exchangeable with unseen rows).
+
+## [3.1.0] - 2026-11-16
+
+Backward compatible with 3.0.0: no released interface is removed or changed in
+shape. Recorded data replaces constructed series in two loaders, several label
+rules are corrected, and the published hazard and governed-fusion figures are
+re-measured; where a figure fell, it is stated with its cause.
+
+**Added — the watch: Mercury reads its live feeds on its own and says what matters.** Every live source could be read and every batch scored, and nothing did either unless called. Scored against themselves on an ordinary day the feeds flagged 1,036 tsunami-buoy readings and 99 river-gauge readings, about one row in twenty by construction, and a "real-time" read was cached for an hour (a day, for the buoys). `mercury-agent watch` reads its feeds on their own cadences (USGS earthquakes, NOAA geomagnetic activity, NOAA DART buoys, NWS river gauges, USGS volcano alert levels, FEMA tropical-cyclone declarations) and reports a finding only when a published scale says so (USGS magnitude classes, the NOAA G scale, a buoy's own event mode, the NWS flood category). Each finding is one plain account with its source, its basis and what it cannot tell, reported once; most reads say "nothing notable", with one line per feed. A server runs it in the background with `MERCURY_WATCH_ENABLED=true` and serves it at `/watch` and `GET /api/v1/watch`. Replayed on the NDBC record of 14 November 2026 it reports DART buoy 46407 entering event mode. See `docs/WATCH.md`.
+
+**Added — the watch tells the people a finding concerns, and what to do.** It reported a river in major flood and told no one: findings were printed where it ran, stored and served to whoever came to look, and none said what a person there should do. Now every finding carries the action the responsible agency publishes for that hazard, attributed to it (Mercury writes no safety advice of its own). A seventh feed, `warnings`, relays the National Weather Service's own alerts with the Service's instruction word for word: every alert it rates Extreme, nationwide, and every alert in effect at a subscriber's place. `mercury-agent alerts add|remove|list|test` manages subscribers: an address, a place and radius, a least severity. A finding is delivered by email (through `MERCURY_SMTP_HOST`) to subscribers within their radius or at whose place the Service says an alert is in effect, to open consoles through the alert dock, and to one webhook (`MERCURY_WATCH_WEBHOOK_URL`, a shape ntfy and Slack-compatible hooks read) for a phone. Each delivery is recorded: once per severity, retried when it fails, never claimed when it could not be sent (without an SMTP server the command, the page and the route say subscribers cannot be reached). Someone who subscribes during a flood is told of it. The store is readable by its owner only and the route serves counts, never an address or a place. Run live on 2026-11-17 for a place at Cocoa, Florida it delivered the major flood on the St. Johns River 7 km away, the Flood Warning and Flood Watch in effect there with NWS Melbourne's instructions, and a minor flood upstream, each once. `api.weather.gov` joins the trusted hosts; `SafeHTTPClient.post` sends a JSON body to an endpoint whose reply is not JSON.
+
+**Added — a person manages their own watch alerts from their account.** The watch's messages ended "To stop, ask whoever runs it, or change it under your account there", and nothing under the account touched the watch: only the operator's command line could subscribe or unsubscribe anyone. The account page has a "Watch alerts" card (`GET`/`POST /api/v1/auth/watch-subscriptions`, `DELETE /api/v1/auth/watch-subscriptions/{id}`): name a place, its coordinates, how far and how severe, with a locator that shows where the coordinates fall before they are saved. The address is always the account's verified one, so nobody can subscribe an address that is not theirs; an account names at most `MERCURY_WATCH_MAX_PLACES_PER_ACCOUNT` places (default 5), checked in the transaction that writes. The page says when the server has no mail server or is not running the watch. The subscriptions move with the account when its address changes, are in its data export, and are removed before the account is deleted (a deletion does not go ahead while they cannot be). `AuthService` gains two optional callbacks, `on_email_changed` and `on_account_deleting`; `WatchStore` gains `subscriptions_of`, `remove_subscription`, `move_subscriber`, `places` and `standing_deliveries`.
+
+**Fixed — a hazard that came back was never told again.** When a flood ended and the same gauge flooded a month later, the earlier occurrence was archived under `key@began` and its deliveries were left under the bare key, where they read as deliveries of the new one: nobody told of the first flood at a gauge, the first geomagnetic storm or a volcano's first raised level was ever told of the next. Deliveries are archived with their occurrence, and a record older than the finding it is filed under (a store written before this) no longer counts as a delivery of it.
+
+**Fixed — an earthquake "stood" for as long as the store kept it.** A single occurrence is never ended by a read, and everything but the feed's own count took "not ended" for "standing": the page, the console and `watch --status` listed a three-month-old earthquake as standing, and a new subscriber was mailed each one the store remembered (up to 1,000) as news. A single occurrence stands for a day after it was last seen, by one rule in the store that every surface and the delivery pass read. `ongoing` and the verdict are columns (an existing store gains them on opening), so ending a feed's findings, counting what stands and the track record no longer parse every finding ever recorded.
+
+**Added — the 21-probe ensemble is measured, calibrated and explains itself.** The probes' fit-time correlation structure is persisted per recorded dataset (`artifacts/math_arrest_probe_correlation.json`); at mean |r| ≥ 0.80 two redundant clusters exist, and keeping each cluster's strongest member ships as the `"decorrelated"` preset (mean AUROC 0.7584 vs 0.7494 NAB, 0.6859 vs 0.6763 ADBench; the 21-probe default is unchanged — its feature surface is a released contract). Every detection now carries a leave-one-probe-out attribution vector, a cross-probe consistency statistic, and — after the opt-in supervised `fit_vector_calibration` — an isotonic probability calibrated on the full (probes + fused) score vector and Mondrian conformal {normal, anomaly} prediction sets with the finite-sample 1−α guarantee. Measured on the five recorded ADBench tables: ECE 0.155 → 0.058, Brier 0.136 → 0.081, F1 0.186 → 0.404, conformal coverage 0.911 at target 0.90; low-consistency samples (4.9%) route to the don't-know set instead of a forced point decision. An opt-in contrastive refinement re-weights probes from the fused score's own discordant pairs (held-out mean AUROC 0.664 → 0.711 at η=1.0). The fusion weights are projected non-negative, so the fused score provably never decreases when a probe's score rises (a corrupted checkpoint could previously invert a probe's contribution).
+
+**Added — causal execution modes of the existing instruments.** `CausalMathArrest` runs the ensemble, its fusion and its conformal cut over a fixed trailing window (measured on the recorded NAB files: AUROC 0.671 / NAB standard score 43.9 / alarm rate 0.012, against the offline batch mode's 0.749 / 33.7 / 0.017 — the causal window trades ranking for the earliness the NAB score rewards), with an online Lyapunov-envelope stability monitor whose abstention flag measured a 0.0 false-abstention rate on normal points. `OmniMercuryEngine.score_fusion_causal` gives the trained fusion layer the same trailing-window mode.
+
+**Changed — measured answers replace assumptions in the fusion stack.** The three pure-Python probe loops run as NumPy with identical mathematics (fit 7.97 s → 0.31 s, detect 2.69 s → 0.07 s at 4,096 rows); `detect()` derives all its views from one scoring pass. Wide (>100-feature) non-temporal data now classifies TABULAR, closing the gap that left KinematicScore at full weight on data its own documentation calls meaningless. The competitive CI guard additionally gates Mercury's mean rank against every PyOD baseline (ceiling: baseline 4.25 + 0.5). Measured and recorded rather than adopted: no domain-affinity map (released or LODO-trained) beats the uniform global weights; the co-trained symbolic term moves mean AUROC ≤ 0.0024 across `symbolic_weight` 0–0.5 on fully labelled subsets; the trained attention fusion leads every simpler internal composition (0.9535 vs 0.9369 best); the OAE is flat in its golden-weight perturbations (±20% band spans 0.018), in recursion depth 3–7 (0.003) and exactly flat in λ; an entropy-constrained weight re-selection and a spectral-entropy-adaptive recursion depth both edge the shipped values only inside measured noise and are therefore recorded, not adopted. `HybridFusionLayer`'s docstring now states the dense-attention forward it actually computes, pinned by test.
+
+**Changed — the watch's time thresholds are measured, per feed, not judged.** Two were set by judgment: a condition returning within three hours of clearing was the same episode, and an earthquake stood for a day. `research/watch_thresholds` measures both on the records of what they describe and `tests/research/test_watch_thresholds.py` holds the values to them. Three hours was wrong twice over. For floods: in thirty days of readings from 1,424 NWS gauges (5.2 million readings) a gauge that dropped below flood stage came back 789 times, 57% of them six to twenty-four hours later (the next high tide; one station crossed 69 times), none between 26 and 30 hours, 5% later (median four days). Under three hours those 884 runs above flood stage were 658 tellings; under 26 hours they are 138. For geomagnetic storms: Kp is one value per three hours, so the commonest return (1,638 of 8,338 since 1932) is exactly three hours and was merged or not by the timing of a read; activity stayed at Kp 4 through 84% of one-interval dips, 56% of two-interval and 30% of three, and the window is 7.5 hours. The window is now the feed's (`Feed.same_episode`), and a feed that has measured nothing merges one missed read and no more. A day for an earthquake stands: of 385 earthquakes, 91% of first ShakeMaps came within an hour, and 58%, 85% and 86% had nine in ten of their felt reports by 12, 24 and 48 hours. The same record showed the felt extent was being read too often: every ten minutes for the day (144 reads) is now every ten minutes for three hours and hourly after (39).
+
+**Changed — the console browser test runs in CI.** The full-suite lane installs the pinned driver (`npm ci` against `tests/api/browser/package-lock.json`, integrity-checked, no install scripts), fetches Chromium, and sets `MERCURY_REQUIRES_BROWSER=1`, under which a missing browser fails the session instead of skipping. Dependabot watches the driver.
+
+**Changed — what the evidence ledger measures broken contributes nothing by default, for an engine that has not loaded a trained fusion network.** The Detector Evidence Ledger grades every component from committed evidence; three of the engine's thirteen default models are measured broken on their declared modality (tier T0 — constant output, the same "signal" whatever the input: `affective`, `chemistry`, `parapsychology`). They were constructed and their constant scores fused all the same. The ledger's tiers now ship inside the package (`core/evidence_tiers.json`, written and checked by the same generator as the ledger, never hand-assigned). On an engine that has not loaded a trained fusion network, a T0 model is still constructed and reachable at `engine.models`, but contributes no feature and no score. **The shipped fusion checkpoint (`default_fusion.pt`) was trained with `affective` in its feature groups, so `load_default_fusion_checkpoint()` (the `detect` and `serve` path) keeps `affective` feeding it.** Its trained projection depends on that input. `chemistry` and `parapsychology` are not in that checkpoint and are off after loading it. Removing `affective` from the default path means retraining the default fusion checkpoint without it; that retrain is not in this change. `OmniMercuryEngine(include_unproven=True)` restores all three.
+
+**Added — per hazard: what a score means, whether the certificate holds, how often nothing is decided.** The hazard table says how well the detector ranks the rows of a real event. It did not say that a score is a probability, that a "90%" conformal set is right nine times in ten on an event it has not seen, or how much the decision layer abstains on. `research/hazard_calibration` measures the three on the same real events, re-fetched from their live sources, leave one event out: an isotonic calibration and a class-conditional conformal certificate are fitted on a hazard's other events, the decision layer as it ships decides or abstains on each row of the held-out one, and each event is judged both ways round so that what the choice of half is worth can be seen. The certificate held for ten of the eleven hazards that could be measured and fell short for one (network security 72.5%); the calibrated probability says more than the base rate for six (FEMA declaration activity, hurricane, marine, pandemic, tornado, tsunami); abstention runs from 32.5% of rows (pandemic) to 97.6% (earthquake), and more than half the rows are abstained on for eight of the ten hazards where the certificate held. For the three hazards whose labels are independent of what is scored: FEMA declaration activity, 67.5% of anomaly calls right; network security, 56.4% of true attacks called normal; sepsis, 4.7% of anomaly calls right. Landslide and flood have one event; financial, volcanic and wildfire could not be fetched. This is the record measured 2026-11-20 on the corrected loaders. The first record, two days earlier, read five of ten; a control on the pre-fix loaders reads seven of ten, so part of the change is not the loaders, and the document separates the two. Document and table: `docs/HAZARD_CALIBRATION.md`. Served at `GET /api/v1/catalog/hazard-evidence` and in each catalog domain record.
+
+- *A decision record about a measured hazard carries that hazard's record* as a caveat (`decision/hazard_evidence.py`): its coverage and abstention on held-out real events, and that it is the generic detector's score that was measured, not the result's own certificate. The verdict is not changed by it.
+- *What is not in the repository:* the events themselves. They are fetched by `research/engine_calibration/build_cache.py`; the evidence records each event's rows and anomalies so that a rebuild that differs can be seen.
+
+**Added — a forecast the watch commits to before the day, and is scored on after.** The watch reported what had happened and said nothing of what would, so it could never be shown wrong or right. It now issues, each day from 12:30 UT, the probability that the next UT day holds a geomagnetic storm at NOAA G1 or above (`watch/forecast.py`), from the 27 days of the Kp record that end at noon the day before and nothing later. The forecast goes into an append-only, hash-chained ledger (`watch/ledger.py`) that refuses a forecast of a day that has begun, an outcome before the day has ended, and any change or deletion; with `MERCURY_FORECAST_SIGNING_KEY` each entry is signed with ML-DSA-65. Each is resolved three hours after its day and scored against two forecasts fixed with it, the long-run rate and persistence; a day with no forecast is counted as missed, not left out. `mercury-agent forecasts show|verify|export|run`, `GET /api/v1/watch/forecasts`. Measured walk-forward on the record from 1932 (`research/forecast_kp`, the record itself is in the repository, CC BY 4.0 from GFZ): over 24,107 days from 1960 to 2025, each forecast by a model fitted only on earlier years, a Brier score of 0.1369 against 0.1598 for the long-run rate and 0.1506 for persistence; on the 320 days of 2026 the shipped model never saw, 9.8% and 10.7% better. Modest skill, stated as that.
+
+- *What the chain cannot prove* is when an entry was written: whoever holds the file could write a new chain. The ledger's head is served and printed so that anyone can note it down before a day and check it after (`forecasts verify --contains`).
+- *It reads nothing of the Sun or the solar wind,* and nothing is sent to anyone on a forecast. `MERCURY_WATCH_FORECASTS=false` turns it off.
+
+**Added — the watch finds out whether its messages arrive.** A delivery was recorded as sent when a mail server or a text provider took it, and nothing told a message that was taken from one that arrived. `watch/canary.py` sends a test through the same mailer, text sender and webhook an alert goes through and counts it proven only by what comes back: its link is opened and confirmed or its code given to `mercury-agent alerts ack`; the carrier reports the text delivered (`TwilioSms.status`, asked about the SID `send` now returns); or the email is found in the mailbox it was sent to, read over IMAP (`MERCURY_WATCH_CANARY_IMAP_*`). `mercury-agent alerts canary [--wait N]` sends one now and `alerts proof` shows each channel's latest; with `MERCURY_WATCH_CANARY_EMAIL` or `_PHONE` set, the watch that tells people sends one every `MERCURY_WATCH_CANARY_HOURS` (24). A test a channel refuses is *failing* and one nothing has vouched for within an hour is *unproven*: logged as errors, exit status 1 from the commands, and `proof_of_delivery` in `GET /api/v1/watch` by channel, with no address in it. The tests send through an SMTP server and read an IMAP mailbox over TLS on the test's own machine; a real inbox and a real phone are the operator's `alerts canary --wait`. See `docs/WATCH.md`.
+
+- *Opening a test's link proves nothing by itself:* `GET /api/v1/watch/ack/{token}` shows one button and `POST` records it. Mail scanners and link previews fetch every link in a message.
+- *The store keeps no address with a test,* and only hashes of its link's token and its code.
+
+**Changed — the meaning-level classifier is asked about a long text a part at a time.** It was trained on single requests and scores what it is given as one bag of words, so a request was weighed with everything round it: of 400 requests from its own training corpus, each refused alone, 178 were still refused with a hundred words of unrelated statements on each side, and of the 133 held-out offensive requests, 45 where 105 are refused alone. `assess_weapons_uplift` now reads a text as a whole and then, where that does not block it and it names a hazard, asks the classifier about each sentence, each two sentences together, and windows of 48 and 24 words of anything longer. A part raises the text on what the whole is held to (a hazard named in it, no professional's frame in it or beside it, the classifier over its threshold) and only where someone in it is asking: the classifier has never seen a statement, and scored an encyclopedia's "the plant produced sarin" as a request. With the same padding: 392 of 400, and 106 of 133 held out; no harmless training row and no held-out professional row refused, and of 120 encyclopedia articles (80 the rules were adjusted on, 40 read once afterwards) the same 27 refused as before, all of them about hazards. Sizes and rules were chosen on the training sample and those articles; the held-out slice is reported as it came out. Counts: `research/meaning_level_windows/evidence.json`; method and what was tried and not adopted: `docs/MEANING_LEVEL_CLASSIFIER.md`.
+
+- *Not fixed, and whose it is:* a harmless mention of a hazard among how-to requests about other things is refused by the lexical axes, which pair a how-to frame with a hazard named in the same passage (115, 305 and 400 of 400 harmless rows at 24, 96 and 384 words of such text; the same with no classifier at all).
+- *What it costs:* only a text that names a hazard is read a part at a time. A short text of about fifty words that names a hazard is assessed in 3.0 ms where it took 1.6 ms; a megabyte of such text in 6.5 s where it took 4.0 s. A text that names none is read as it was.
+- *`harm_normalization.canonical_unfolded` and `fold_obfuscation`* are added: the canonical form before its digits and symbols are read as letters, and that reading, one character for one. "Up to 1% gallium" read as letters is "up to i% gallium"; that "i" was taken for someone speaking and an article on plutonium refused for it.
+- *One request alone is read as it was:* `assess_weapons_uplift_once` is the reading as it stood, and `assess_weapons_uplift(text, in_windows=False)` gives it.
+
+**Fixed — a tenth pass, over the ninth.** Probing the ninth pass's reader found text in the keys of records still read as labels, once for the whole payload. Three ways through, each refused alone and permitted among 400 records like it: "how to make" beside a count, with the agent named in the record's next field; the same with the agent named in its next key; and a request kept a word to a record as that record's key, its words dropped when they came round again.
+
+- *Harm gate: a record that says anything is read with all its keys,* each where it stands. A record that says nothing (numbers, and strings no word could be in) is read with its keys too, unless it is the same record, keys and all, as the one before it in the same place with nothing read between: one row more of a table. The first two rows of a table are read, so that what ends one and begins the next is read side by side once. 300,000 rows of readings are six strings.
+- *What this costs:* a key beside a number is read in every record that has a word anywhere in it, so 57,000 records with a label and a number each are about the most the gate reads; more are refused for size.
+- *Not the reader's:* the same request among twenty records about the agent is permitted where among twelve it is refused. That is the meaning-level classifier, which a longer text dilutes; it does the same to the words as one string, and did under 3.0.0.
+
+**Fixed — a ninth pass, over the eighth.** The eighth pass read records down their columns only where one record followed another with the same keys in the same order. Six ways round that were each permitted: the keys in another order, a field name that changes, each word in a list of one, each record in a list of one, a dict of records, a number between each two.
+
+- *Harm gate: what keys stand between is read again without them.* What a caller hands over is read once as given, keys and all, and then its values again with no key between them: all of them in the order they came, and each field's by itself. A stretch of text no key broke was read whole the first time and is given again by its two ends. The limit on a decision's text is on what the caller said; what is read again is made of it and is not counted a second time, so 50,000 records with a label each are read where the eighth pass refused them.
+- *Harm gate: whether a key is read is asked after its value is.* A key over numbers was a label, read once, though the value's own keys were text: "how to make" over a dict keyed by what is made was read for the first of 400 records and not beside the one that named an agent. A key is read each time anything under it is (and, since the tenth pass, whenever its record says anything at all).
+- *Harm gate: "aricine"* reads as the agent with an article before it, as "aricin" does, and is off the exempt list, which is 61 words.
+
+**Fixed — an eighth pass, over the seventh.** Eleven findings, each corrected.
+
+- *Harm gate: a request kept a word to a record was no request.* Records were read by row, the field's name between each value and the next: `[{"w": "how"}, {"w": "to"}, {"w": "make"}, …]` was permitted, as it had been before the seventh pass. A run of records with the same keys was read by row and then each field down its column (the ninth pass reads every value again without its key, however the records are kept).
+- *Harm gate: 250,000 records of numbers were refused for size.* The seventh pass read a key each time beside anything but a bare number, and so beside a point's coordinates and a list of readings. Numbers through and through say nothing, whatever holds them.
+- *Harm gate: five words on the exempt list read as the agent.* "How to make asarin at home" was permitted, and refused by 3.0.0; so "aricin", "aricine", "myricin" and "ricing". They are off the list, which is 61 words.
+- *Harm gate: a term of two words with a letter glued to each side was not routed* ("xnerve agentx"), where 3.0.0 routed it. It is found wherever it stands, as a term of one word is; "Minerve agentic" is refused again, as by 3.0.0, and is held by the test of what this costs.
+- *Harm gate: "so manes" was soman and a plural ending.* A plural ending may follow a term of several words where its separators have gone ("nerve-agents"), not a single word put together from two.
+- *Harm gate: bytes.* A field padded with NULs that held digits beside its words ("sarin 12345678") was neither text by its control codes nor words by its letters; the padding is taken off first. A text of under four characters with a byte-order mark was not read.
+- *The reasoning backend* still counted numbers a container prints as `np.float64(0.25)`.
+- *Cost.* The exempt words were looked for with a 66-way pattern over the whole text on every reading, 0.37 s a megabyte; they are looked for by substring first. The mark a delivery pass is owed by read every subscriber on every tick; it is a count the store keeps by trigger as those rows change.
+
+**Fixed — a seventh pass, over the sixth.** Sixteen candidates and what probing them turned up; fifteen corrected, one declined (below). Two were ways through the gate with ordinary JSON, and one would have held it for most of an hour.
+
+- *Harm gate: a record refused alone was permitted among others like it.* A string was read once, however often it occurred. So a field named "how to make" was read for the first of 400 records and not beside the agent the last one named under it; "how", "to" and "make" came round again further down a list of words and were passed over; a request handed over a letter to an element lost its letters once the common ones had been used. What a caller hands over in lists and records is now read in the order given, every piece: a key beside what it names each time (beside a number it names nothing new, and is read once), letters joined as `"".join` would join them, and of a run of equal elements the first sixteen. The cells of an array or a frame are still read as labels, each distinct one once. 100,000 records of readings are still three strings.
+- *Harm gate: a term repeated in one long word held the gate.* Every occurrence walked the whole word and none ended the search: 14,000 characters took 6.7 s, 40,000 took 34 s, and a fetched page of 262,144 would have taken most of an hour. A quarter of a million characters now take under a second.
+- *Harm gate: letters round a term hid it.* The sixth pass counted a term strictly inside a word only between words the gate knows, which "Spores", "now" and a single letter are not: "AnthraxSpores", ``xsarinx`` and a request run together went unrouted, and an exempt word was exempt wherever its letters began ("ricin" + "gel" was "ricing"). A term is found as 3.0.0 found it, wherever it stands in a word a writer wrote; the exempt words are taken out whole, before anything else is done; and where separators have been removed a term must begin and end where the writer's own pieces do. Row for row against 3.0.0, the 1,462 labelled texts are as they were.
+- *Harm gate: bytes.* More than a tenth control codes was "data", read for runs of sixteen printable bytes: a field padded with NULs, values with a unit separator between them and a request with a control code between its letters were unread. Two bytes that are a byte-order mark before an ASCII request made UTF-16 of it, in which it says nothing; one unit that is half of a pair lost a whole text; and text in a single-byte encoding was read again as UTF-16 and counted half as much again.
+- *Harm gate: objects* are followed as deep as containers are, 64 levels, and refused past that. Eight deep and then refused, a linked list of ten was a refusal.
+- *The reasoning backend* asked the evidence for its truth value, which a data frame does not have, and counted printed numbers as text: 70,000 readings print to 1.3 million characters and were refused for size.
+- *Watch.* A change of an address's case deleted its delivery record, and everything standing went out again. The mark a delivery pass is owed by was sums, which one severity raised and another lowered leave equal, and a time, which every reading changed; it is of the rows. A pass that lost its lease half way and took it back was counted as made.
+- *A fetched page* is given whole only to a screen whose `reads_whole_page` is `True`; any truthy value had done, and a mock has one for the asking.
+- *Declined:* lengthening a verb's reach from 160 characters back to 400. At 400, "enhance our outreach" met "flu virus" three sentences on; bounding it by the sentence instead does not hold in the variant of the text that has no punctuation.
+
+**Fixed — a sixth pass, over the fifth.** Twenty-four candidates, most reproduced against the commit before. The reader and the scorer rules written in the fifth pass each failed open somewhere; they are rewritten to fail closed.
+
+- *Harm gate: an object more than four objects deep was passed over,* so a request five down went unread. Objects are followed, and past the depth a container may nest the decision is refused (eight deep at first; see the seventh pass). What is not followed is named: the process's own machinery (a logger, a lock, an open file), not every object of the standard library, which had taken `argparse.Namespace` with it. A record that can be called is still a record; a pydantic model's private attributes are read.
+- *Harm gate: bytes.* Bytes with a byte-order mark are what it declares, and bytes that are UTF-8 are UTF-8. Of the rest nothing says what they are, so every reading that makes text of them is read: Latin-1, UTF-16 in each byte order, and otherwise their runs of printable ASCII. UTF-16 without a mark had been known by a zero in every other byte, which is ASCII text only: the same request in full-width letters, with look-alike letters of another alphabet, or spaced with U+2000 was permitted as bytes and refused as a string. It is known now by what it decodes to (few characters, unevenly used, at most one in ten a control code), which numbers are not: 600,000 bytes of counts, 16-bit values or samples are read as before, as nothing. A text cut in the middle of a unit is decoded up to there, and an undeclared UTF-16 text is counted in both byte orders. Not read, and held by a test: UTF-16 padded with thousands of different characters, which is what numbers look like.
+- *Harm gate: a short string was read every time it occurred,* so the keys of 300,000 records filled the budget. (Capped at sixteen here, which garbled a request handed over a letter at a time; see the seventh pass.)
+- *The reasoning backend* reads the context as data and the evidence as the prompt prints it, in two readings: only what could not be read as data had been read as printed, so an object read by its fields reached the model as whatever it prints; and the hand-over ran outside the gate, so evidence too large was a bare error with no audit record.
+- *A fetched page* is cut to what the screen reads unless the screen says it reads the whole page (`reads_whole_page`): the default screen had been recognised by being the function itself, and inside any wrapper got the page whole.
+- *Watch.* A delivery pass is owed when who is told, or where, has changed (a place re-saved, a severity changed, a felt extent read), not only when someone is new; what it depends on is noted before it runs, and a pass that lost its lease is not counted as made. An address change keeps "sent" where both addresses hold a record of one finding. A message that fits is not cut for a character at its end.
+
+**Fixed — a fifth pass, over the fixes of the third and fourth.** Twenty-three candidates. The first two were confirmed against the commit before: the scorer fix had let requests through ("release chlorine gas against civilians", "how to make neurotoxins at home"). Both are refused again; see the scorer entry below for what stands.
+
+- *Harm gate: a passage that blocked was read again with both its neighbours,* eight thousand characters in which one defensive phrase talked it down. It is read again with 256 characters more at each end, enough to finish a cut phrase.
+- *Harm gate: what is read.* Bytes in UTF-16 or Latin-1 are decoded as what they are (only runs of printable ASCII bytes were kept). An object's attributes are not followed into the process's own machinery: a record holding a logger held, through it, every logger in the process. A record's values are counted once (they were read from its fields and again from its `__dict__`). A string of one to three characters is neither passed over nor taken for a repeat, so a word handed over a letter to an element is read. The reasoning backend's evidence, handed over as data and again as printed in one payload, counted twice: 600,000 characters were refused as too many.
+- *Watch: the record of what an address was sent* follows a change of address (everything standing went again to the new one) and is dropped when the address holds no subscription (it stayed, under a number made from the address).
+- *Watch: a message another message of its warning replaces* no longer speaks for the warning: a downgrade was outvoted by the message it updated while both were listed. The latest of two pieces is the latest by time. A warning's name is kept for 300 reads after it was last listed: one failed lookup forgot the chain of every warning at that place.
+- *Watch: the full delivery pass* ran once a minute whatever had happened. It runs when a feed was read, a finding was recorded, a subscriber or a verified number is new, or a failed delivery's wait may have passed: three small queries decide.
+- *A text with a character outside the GSM alphabet in the part cut off* keeps the GSM text before it when that is longer than 134 characters.
+- *A fetched page that was cut* says so (`FetchResult.truncated`).
+- *Smaller.* The carried exponent in the harmonics recurrence is a C int (`ldexp` has no 64-bit loop where a C long is 32 bits). One function tells a refusal for size from one for harm, for both routes that answer 413. One function orders findings for the page and for the command.
+- *Left.* An earthquake known by two ids costs one more look at the store, and about one in a hundred is. A signature backend that cannot run raises; it is not reported as a failed signature.
+
+**Fixed — a fourth pass, over the second round of fixes.** Twenty-eight candidates, each checked against the code or the live feeds before anything was changed. Two were made by the fixes they reviewed.
+
+- *A warning in effect as several pieces lost most of its audience.* Keying an alert by its warning (the pass before) put every piece of one warning under one key: 23 of the 527 National Weather Service alerts in effect on 2026-11-18 were pieces of 8 warnings, each for different zones, and the last piece read replaced the others' places. The pieces are one finding whose reach is all of them; the most severe speaks for it.
+- *A gauge wavering between two stages was told at every climb.* Keeping a finding's current severity (the pass before) made major, moderate, major three alerts. A climb back to a severity already told is new only after the feed's own episode window.
+- *Other authorities' warnings.* Of 34 updates read from 17 authorities on 2026-11-18, 26 named one earlier message; where that is the message before, every other update was a new warning. A message takes the name of any message it references that has been read. A warning's first message is the earliest by time, where it was by the text of the time. A warning since cancelled was "confirmed" from its first message; its latest is read.
+- *Several watches of one store.* A feed was due by each watcher's own reads, so with a 15-minute lease the workers took turns reading the 30- and 60-minute feeds, up to four times as often as each asks. The watch that tells people delivered only on a tick when it had itself read a feed: beside a `mercury-agent watch` doing the reading, a warning waited for the server's next read. A delivery pass went on sending after its lease was given up. Two stores opened together on an older file both added the same column and one failed; that worker served without a watch.
+- *Removing a place re-sent everything standing near the others:* the ledger entry was the address's oldest place. It is the address's own.
+- *An expired warning stood for as long as one place's lookup kept failing.* It ends when the nationwide list no longer holds it.
+- *Declarations in January.* With the end of December read too, "earlier this year" was last year, and a finding of 3 January checked on the 15th had lost 31 December and was called "revised".
+- *Phones.* An opt-out from the verified number voided the code of the number being changed to, and the account went on saying texts "still go to" the one that had opted out. A number awaiting its code was left out of the data export.
+- *A text with one character outside the GSM alphabet* ("São Paulo") is sent in 16-bit units of 67: the 306-character limit was five segments, not two. It is 134 for such a text.
+- *Harm gate.* A string without two letters together was "not text": `s a r i n` in a payload, past its summary, never reached the normalizer that exists to rejoin it. A structured array was walked record by record, six million numeric ones to a refusal. The detection route passed its records as the request and as the payload, so they were counted twice and a request of 600,000 characters was refused for its size.
+- *Smaller.* An earthquake's felt extent is kept under the id it is recorded by; the page and the command list what stands in the same order, from one table of ranks.
+- *Left.* A frame with more than 1,048,576 characters of distinct string labels is refused for its size, as any text of that size is. From 1 to 18 January the declarations read fetches the whole year before. A package signed where Ed25519 is unavailable does not verify where it is available (a supported install always has it). The watch reads `MERCURY_PUBLIC_BASE_URL` itself: unlike the account mailer it must not fail when the setting is absent.
+
+**Fixed — ordinary requests the harm gate refused for letters inside their words.** Found by reading 80 encyclopedia articles through the gate (`research/harm_gate_long_text`), and true of a single sentence as well: all three were in 3.0.0.
+
+- *"How to make pricing tables for a web shop" was refused as production of a biological agent.* A lexicon term matched as a bare substring, so "ricin" was found in "pricing"; and in the variant of the text with every separator removed, "soman" in "so many" ("how do I make so many cookies for the bake sale": refused, chemical) and "tatp" in "what a tp-link". A term is found wherever it stands in a word a writer wrote, as it was: "neurotoxins", "sarin-based", `xsarinx`. A word that holds a term and has nothing to do with it is taken out of the text first, whole: 61 of a 370,105-word English list, which is every such word but the five a reader takes for the agent ("asarin", "aricin", "aricine", "myricin", "ricing"), among them amphotericin, sericin, tsarina, dipsomania, sandblasting, and "pricing" in "pricing-model", `pricing.csv` and `PricingTable`. Where the separators have been removed a term must begin and end where a piece of the original text does, or a plural ending after it: `s a r i n`, `sa rin`, `s.a.r.i.n` and "nerve-agents" are found as before; "so many" and "fabric-insert" are not. Given up, and held by a test: a term split in two with other letters glued to the halves (`absar incd`). The cost, held by the same test: a word no list has that holds a term's letters ("tricine", a surname) is read as the term, as 3.0.0 read it.
+- *"Prejudice against people with diabetes" was a hard refusal for attack planning.* The targeting pattern matched the bare words "against people" with no hazard anywhere in the text. They are attack planning where a hazard is named, as before, and with a verb of use before them ("use … against people") anywhere; alone in a text that names no hazard they are not.
+- *A verb reached its object across any distance.* Three patterns had an unbounded `.*` between them ("enhance … virus", "engineer … more lethal", "divert … material"), which is the same thing in a sentence and not in an article: "enhance relationships with clients" and, twenty pages on, "virus" was a hard refusal for pathogen enhancement. The reach is 160 characters, longer than any text in the labelled corpora (138).
+- *Four versions of this were wrong before the one that stands,* and a review found each. A term had to touch a word's edge: "how to make neurotoxins" was permitted. The bare words needed a verb everywhere: "release chlorine gas against civilians" was permitted. Then only listed words were exempt, each looked up as the variant's word: "pricing-model" was refused, the reach was 400 ("enhance our outreach" met "flu virus" three sentences on), and a variant that split camelCase made phrases of code identifiers. Then a term inside a word counted only between words the gate knows: "AnthraxSpores" and `xsarinx` went unrouted, and "ricin" + "gel" was the exempt "ricing". None was released.
+- *Checked.* The disposition, domain, intent and signals of all 1,462 texts in the two labelled corpora and the gate's own tests are identical before and after, row for row, and the frozen floor of 6,278 refused sentences holds. The ethics ruleset is version 15, so cached verdicts are discarded. The held-out ratchet records three new regex fragments (pieces of "deploy" and "unleash"); none occurs in the slice.
+
+**Fixed — a third pass, over the two commits that fixed the first two.** Twenty-six findings. Eight were of the commit before those and already corrected; what reproduced on the current tree is below.
+
+- *Harm gate: what is paired.* A short request was scored beside the first lines of the payload only, so an intent in the request and its object in the last row were permitted; the request now opens every passage of the payload. Within one long text a hazard and an intent are paired when a passage holds both and not beyond: pairing at any distance was built and measured, and it refused 7 of the 40 general articles, each for a phrase on one page and a hazard word far from it, where passages refuse none. That limit is pinned by a test and stated in `SECURITY.md`.
+- *Harm gate: what reading everything costs.* On the 40 articles about hazards (agents, weapons, incidents), the gate refuses 15 of 40 where reading only the first 4,096 characters refused 3. Those articles say how agents are made and used, which is what the gate reads for; whether each refusal is right was not adjudicated.
+- *Harm gate: a passage cut in the middle of a phrase.* "Make a nerve agent | detector" read as production of the agent: three sentences of defensive work were each refused at seven to nine of the 4,300 offsets tried. A passage that blocks is read again with its neighbours, and the bounded description is no longer scored when it does not hold everything.
+- *Harm gate: the verdict.* The most restrictive passage decides, where the first that blocked did. A long text is read whole first and permitted there when nothing in it is hazard vocabulary or offensive intent: a megabyte of harmless text takes 1.4 s where it took 2.5.
+- *Harm gate: a refusal for size* was an ERROR with a traceback, no audit record, and nothing to tell it from a refusal for harm. It is a WARNING, on the audit trail, with `details["reason"] == "unassessable"`, and HTTP 413 on the detection and assessment routes. A failure inside the gate is on the audit trail too, which the code's own comment said it was.
+- *Harm gate: what is read.* `request=None` was a refusal (it had always passed). A data frame with two columns of one name went through unread. Sequences that are not lists, plain objects (by attribute and by slot), fields a pydantic model leaves out of its dump, the arguments of an exception, paths and enum members are read. Bytes that are not UTF-8 are read as their printable runs, not as a megabyte of replacement characters. Left unread, and said so: classes, modules and functions, and generators, which cannot be read without using them up.
+- *The reasoning backend's prompt printed the evidence; the gate read its fields.* An object that says what it holds only when printed reached the model unread. The gate reads the evidence both ways.
+- *A fetched page was screened to 256 KiB and returned whole,* marked `screened`. Only what the screen read is returned.
+- *Crypto packages.* A package at the default levels was signed with a key held in a private attribute and published nowhere; it carries its public key, `signing_public_key()` gives it out of band, and `verify_signed_package` checks it. A malformed key raised out of the whole check and now fails the half it belongs to. Two threads asking for the signing keys at once each made a pair. Keys made here die with the process, so a pinned key checked nothing after a restart: `use_package_signing_keys` takes keys the caller keeps.
+- *Spherical harmonics past degree 1,900 were finite and wrong:* squared norm 0.82 at (2500, 1000) and 6e252 at (3000, 1500), where it is 1. `sin^m` left the range of a float on the way to a value of order one. Each point carries a binary exponent; the values agree with an 80-digit evaluation to 2e-13 at degrees 1,900 to 5,000, and the squared norm is 1 to 1e-11 through degree 5,000.
+- *The knockout gate* follows the gate's new shape and gains two mutations (a short request not put to the rest of the payload; a hazard term matched as letters inside other words): 11 of 11 killed.
+- *Documents and tests.* `SECURITY.md` said neither gate "has a flag that turns it off" beside a flag that turns one off; it now lists everything that can, and a test holds the list to the code. A test asserted a checkpoint scores below the always-negative rate (true today, a failure after a better retraining) and matched figures as substrings.
+
+**Fixed — a second pass over the same diff.** Twenty-seven more findings. Twenty-two were corrected, two in part, and three were left; what was left is stated at the end.
+
+- *Every update of a warning was a new alert.* The watch keyed an alert on its message identifier. Read live on 2026-11-17, 194 of the 517 National Weather Service alerts in effect were updates, each with a new identifier (one was the twelfth of its warning). A finding now follows the warning: the first message its `references` name. The same for alerts of other authorities.
+- *A finding that fell and climbed back was never told again.* The store kept the highest severity a finding had reached, so a volcano back at WARNING after months at ADVISORY was not announced. It keeps the current severity and when it last rose; what was sent before then does not count.
+- *One unanswered place kept every expired warning standing.* A read that could not look at one subscribed place ended nothing at all. It now says which places it could not look at, and only findings in effect there are kept.
+- *A watch of one feed stopped the rest being read.* There was one lease, held by whichever watch started first. Each feed has its own; a watch with no way of telling anyone does not take the lease for telling; a watch that is stopping gives its leases up at once instead of leaving them to lapse for fifteen minutes; and a command standing by prints what another watch found.
+- *The public page showed the newest fifty rows, then removed the private ones.* Sixty place-bound alerts left a public flood off the page, and fifty gauges hid a magnitude 7. What stands comes first, the most severe first, and the limit is applied after the filter. `mercury-agent watch` said "50 findings standing" of 181.
+- *An address with two places could be sent a finding twice* when the nearer place changed between passes; the ledger entry is the address's.
+- *A verified phone number was dropped the moment another was asked for.* It is kept, and texted, until the new one is confirmed.
+- *Declarations.* The review counted different days from the finding and called an unchanged record "revised"; the first declaration of a year was "the busiest week of the year"; and from 1 January the record began on 1 January, losing late December.
+- *Harm gate.* A table of 45,000 numeric records was refused for its column names, counted once per record; a text is read once and a string with no two letters together is not text. Structured arrays, row labels and dict views are read. The detection route hands the gate the whole request, not only strings one level deep.
+- *Smaller.* A name that does not resolve is the provider being unreachable; a text is two segments (306 characters, and no ellipsis character, which made every segment 16-bit); the link in a message reads the deployment's documented setting; the hybrid verifier no longer reports an unchecked half as holding; a failure while checking past findings no longer marks a feed down; the delivery pass reads only the feed just read and only the ledger of what stands; an earthquake recorded under one of its USGS ids keeps it when the preferred id changes.
+- *Left, or done in part.* Three compatibility shims with no callers are kept (unused code is not removed here without a decision). The two alert feeds still each have their own place-lookup loop. The command line's one-layout rule for input files stands as designed. In part: the account routes share one store handle, but the account page still builds a text sender per request; the delivery pass is scoped to the feed just read, but still recomputes that feed's audience each time. A generator handed to the gate is still seen as its type name, because reading it would consume it. Whether USGS in fact changes an event's preferred id in the first hour was not observed; the alias handling covers it if it does.
+
+**Fixed — what a line-by-line review of this release found.** Fifteen findings, each reproduced before it was changed.
+
+- *Harm gate.* The reader added below remembered the containers it had read by `id()` alone. The dict a pydantic model dumps to and the list a string array converts to are temporaries, freed once read, and the next was given the same address and skipped as already seen: a payload of two models or two string arrays was read as the first alone. References are now held. A table of numbers is checked for words in one pass (15 ms for a million floats, where visiting each took 170 ms) and no longer counts toward the refusal limit.
+- *A failed delivery burned its five attempts in one pass.* The watch delivers after every feed it reads, nine in a pass, so a mail server down for a minute left the alert failed for good. A failed delivery now waits one minute, then two, four, up to an hour, twelve attempts over about six hours.
+- *A falling flood was three alerts.* The ledger is keyed by the severity in the finding's text, which follows the latest reading down, so major, moderate and minor each went out. A finding is not sent again at or below a severity it was already sent at.
+- *A hazard that lost its coordinates went to everyone.* One failed location lookup would have mailed each Alaskan volcano to a subscriber in Florida with a 50 km radius. Only kinds that are nowhere in particular (a geomagnetic storm, a buoy alarm, a national surge of declarations) go to every place.
+- *Where a subscriber is was published.* An alert recorded only because it is in effect at a subscriber's place was put on the alert bus every open console hears, with the place ids, and a foreign authority's Extreme alert was shown on the public page. One rule (`watch.model.public_view`) now decides both.
+- *Three workers in four heard nothing.* The alert bus is in-process and only the worker that read a feed published on it; with `mercury-agent watch` beside a server, no console heard anything. Findings are announced through the store, and every watcher, leading or standing by, tells its own consoles.
+- *The verification-text limit could be reset.* Removing a number deleted the row its count was in: remove, add again, and 21 codes went to one number in a second. The count is kept for the address and for the number, as digests, apart from the phone's row; a code the provider could not be reached to send is not counted.
+- *Two ideas of an email address.* The watch refused addresses the account system had verified (`o'brien@example.com`), which was an internal error on subscribing and left a change to such an address half done. One rule (`utils.email_address`). An address change now drops every session and is audited before anything that can fail.
+- *The provider being unreachable was an unhandled error* on the route and a traceback in the command. It is `SmsUnreachableError`, reported as such.
+- *The public snapshot rebuilt the store on every request* (seven connections, the schema, a mailer and a text sender, and an error logged each time the text settings were wrong). The store is opened once in a process and the channels worked out once per configuration.
+- *Copies.* `distance_km` is the shared geo kernel's; a severity's rank and the E.164 pattern each have one definition; two branches in the detection tier that could not be reached are gone.
+
+**Security — the harm gate did not read past 4,096 characters, or into most of a payload.** `enforce_decision_boundary` scored one string cut at `MAX_SUBJECT_CHARS`, on the stated ground that a real uplift request "cannot hide past it". Each of the pillar suite's own red-team requests was permitted behind 4,640 characters of small-talk. A payload was read through a bounded summary (the first 512 characters of a string, the first 24 keys, six levels), and anything that was not a plain container as its type name: the reasoning backend hands the gate a `ReasoningContext`, which it saw as that one word while the evidence inside went on to a language model. The gate now reads all of the caller's text: the whole request, and every string in the payload (values, keys, bytes, string arrays, the text columns of a data frame, the fields of a dataclass or pydantic model), as passages of 4,096 characters that overlap by half. The passage that decides is what the refusal and audit record quote. A decision carrying more than 1,048,576 characters of text, more than 5,000,000 values, or nesting past 64 levels is refused, fail-closed. A decision that fits one passage is scored exactly as before (asserted), and 58,000 characters of harmless text are still permitted. (How passages are scored, what else is read and what it costs were corrected again: see the third pass, above.) The knockout gate gains two mutations (the gate reading only its first passage; the tripwire actually undone by `resume`, where the mutation of that name only stopped it engaging) and kills 9 of 9.
+
+**Fixed — a hybrid signature nobody could verify, and a key-generation wrapper that could not be called.** `MercuryCrypto.create_crypto_package` at `SecurityLevel.HYBRID` signed each package with an Ed25519 and ML-DSA-65 key pair generated on the spot and dropped, so neither the package nor the object that made it held a key to check the signature. The object now keeps one pair, publishes the public halves with each package and through `hybrid_public_keys()`, and `verify_hybrid_package` checks hash and both halves, reporting `all_valid` only when both keys were supplied out of band. `generate_slhdsa_keypair_from_seed` took the seed length to be the whole public-key length where FIPS 205 makes it half, and so refused every valid seed; NIST's key-generation vectors found it. Those nine vectors (ML-DSA-65, ML-KEM-1024, SLH-DSA-SHAKE-128s) sat in the curated file unused and are now reproduced byte for byte, with negative cases beside them: 18 of the 21 curated vectors, where 9 were used. The three encapsulation vectors cannot be (AMA exposes no derandomised encapsulation), and the matrix row now says what the eighteen show and do not. `get_pqc_capabilities()` printed `constant_time: True` for a property nothing here measures; it now also says `constant_time_verified: False` and `independently_audited: False`.
+
+**Fixed — spherical harmonics overflowed at degree 150.** The orthonormal associated Legendre functions were formed as the unnormalised function times a factorial ratio; the first passes 1e308 at order 151 and the second cannot be converted to a float from l + m = 171, so the class that offers "numerical stability for high degrees" returned NaN and then raised `OverflowError`. They are now computed by the recurrence on the normalised values themselves: equal to the old formula to 3.5e-14 wherever that could be evaluated, and of unit norm to 1e-9 by quadrature at degree 1,000.
+
+**Corrected — figures and statements that the code or the records no longer supported.** `CAPABILITY_MATRIX.md` quoted solar-storm G-bucket accuracy 0.9598 from before the checkpoint was retrained; the record says 0.9444, which is below the 0.9610 that predicting "no storm" every hour scores, so the row now leads with the gate's own primary metric (Kp MAE 0.5746 against 1.0537) and says why the accuracy is not a figure to quote. Seven more solar figures in `docs/HAZARD_CHECKPOINT_TRAINING.md` were from before the retrain. `tests/docs/test_capability_matrix_checkpoints.py` now reads every detection-model row against its checkpoint's record. `SECURITY.md` still described a mandatory `Benevolence (>= 0.99)` hard gate with "no advisory mode", removed long since, and an "ACVP-validated" HMAC; `tests/docs/test_security_doc_matches_the_gates.py` holds the section to the check codes the gates raise. The matrix says of the decision ledger what append-only does and does not mean (in memory, evicting when bounded, no chaining). `research/governed_fusion/FINDINGS.md` states that its "best single" comparator is chosen per event with the evaluation labels, an oracle, and that the fair comparison cannot be made from the committed results.
+
+**Fixed — the landslide loader could not read the catalog, and misread it.** Every loader was run against its live source with an empty cache. `LandslideLoader` failed on its first request from any network without IPv6: NASA's host publishes no IPv4 address. It now asks NASA's service first and then the public ArcGIS Online copy of the same catalog (the one the trained landslide model reads), and says which answered in `catalog_source`; an ArcGIS error body is a failed source, not an empty catalog. Against the catalog's 14,750 rows: the kind of slide was read from a field the catalog does not have (`event_category`; it is `landslide_category`), so that feature was zero on every real row; the largest size, `catastrophic`, had no code and was labelled normal unless someone died; `rock_fall` (942 rows), rotational and translational slides and three trigger values had no code either (9.4% of categories encoded "unknown", now only what the catalog itself calls unknown); a date before September 2001 was read as seconds, not milliseconds; and "the most recent 2000" were the first 2000 by object id, 1974 to 2025 (now newest first). Run live: `oso_2014` returns 24 reports with the 2014-03-22 slide (43 dead) labelled.
+
+**Fixed — three loaders that fetched again what they had just fetched, and one whose answer depended on the cache.** `EnergyLoader.fetch_realtime` wrote a frame of timestamps to a cache that cannot hold them, so all three SWPC feeds were requested on every call; `PandemicLoader` kept its 60 MB download as Parquet, which needs an engine no install of this package has, so it was downloaded every time (it is now kept as the file it is, written whole). `NetworkSecurityLoader.engineer_features` computed in float32 on a fetched frame and float64 on a cached one, so the same rows scored up to 9.2e-7 apart depending on whether the cache was warm.
+
+**Changed — an earthquake goes to the places where USGS says it was felt, not to a fixed radius.** A subscriber was told of an earthquake when its epicentre lay within their radius (200 km unless changed), whatever its size. The magnitude 6.6 earthquake off Tual, Indonesia on 2026-11-16 was reported felt in Darwin, 708 km away, and a subscriber there was told nothing; a magnitude 4.5 at 190 km, felt by no one there, was sent. `omni_mercury_engine.watch.shaking` reads USGS's two statements of where each reportable earthquake was felt: ShakeMap's intensity grid, and the "Did You Feel It?" 10 km cells with their reports. A place is told when USGS estimates intensity III (weak shaking) or more there, or when people in its cell reported feeling it, however far away; it is not told when the estimated shaking there is below that; and the message says what USGS found ("5 people near "Darwin" told USGS they felt it"). Until USGS has published either, and for a place its map does not cover and nobody reported from, the subscriber's radius decides as before. The grid's row order (south to north) was checked against USGS's own contours on three earthquakes. The felt extent is kept beside the finding and read again every ten minutes while the earthquake stands. Run live for that earthquake: Darwin told, with the five reports; Jakarta not.
+
+**Added — warnings from outside the United States.** Outside it a subscriber was told of earthquakes, tsunami buoys and geomagnetic storms, and of nothing their own weather service had warned of. Two feeds: `world_warnings` reads the Common Alerting Protocol alerts of national authorities through the WMO Severe Weather Information Centre (50 countries on 2026-11-17, most of Europe's MeteoAlarm members among them; not Japan or India), asking its map service which alerts' polygons contain each subscribed place, as the National Weather Service is asked for a place in the United States, then reading each alert's CAP document for the authority's name, rating, expiry and instruction; `gdacs` reports current tropical cyclones, floods, eruptions and wildfires the Global Disaster Alert and Coordination System rates Orange or Red. Run live on 2026-11-17: Deutscher Wetterdienst's wind warning at Erfurt, MeteoSwiss's gale warning at Zurich and GeoSphere Austria's storm warning at Vienna, each with its own instruction; at Cocoa, Florida the centre returned the same two alerts the National Weather Service's API returned (left to that feed); GDACS's Orange cyclone AKVAN-26. The centre's map service stamps times eight hours from the CAP documents' own, so times are read from the documents. `severeweather.wmo.int` and `www.gdacs.org` join the trusted hosts.
+
+**Fixed — two ways the watch would have told people again what it had already told them.** With deliveries now following their occurrence, a feed that could not look somewhere for one read (a place lookup that timed out) left that place's alerts out, they were ended, and the next read told them as new. A read that could not look everywhere now ends nothing (`Judgment.partial`). And a condition that clears and returns within three hours (a gauge hovering at flood stage) is the same episode, reopened, not a new one at every crossing.
+
+**Added — text messages, to a phone its owner verified.** A warning at two in the morning needs the phone, not an inbox. `omni_mercury_engine.watch.sms` sends a finding as a text through the operator's own Twilio account (`MERCURY_SMS_TWILIO_ACCOUNT_SID`, `MERCURY_SMS_TWILIO_AUTH_TOKEN`, `MERCURY_SMS_FROM` or `MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID`); with none, no text is attempted and every surface says so. A number is texted nothing until a six-digit code sent to it is typed back: on the account page ("Text messages", `POST /api/v1/auth/watch-phone`, `POST …/confirm`, `DELETE`) or with `mercury-agent alerts phone`. Only the code's hash is kept; it lasts ten minutes and five wrong guesses; an address is sent at most one a minute and five a day, because a form that texts on request is a way to spend the operator's money and ring a stranger's phone. Texts use the same ledger as email (once per severity, retried on failure), start at the severity the owner chose (significant by default), and stop when the owner replies STOP (the provider's error 21610 unverifies the number). The number follows the account's address, is in its export and is removed before the account is. The request was checked against Twilio's live API up to authentication; a delivered message needs an operator's account.
+
+**Fixed — someone with two places near a finding was sent it twice.** A subscription is one place, and each place within reach got its own message. An address is told once, for its nearest place.
+
+**Added — a browser test that watches a finding reach an open console.** The console's alert stream had only been tested as text. `tests/api/test_console_watch_alert_browser.py` serves the real application, opens `/console` in headless Chromium (`scripts/console_watch_alert_check.js`), enters it, and has the watcher report one finding: the banner is drawn on top with the headline and what to do, the assertive live region tells a screen reader, the terminal and the agent panel carry it once, dismissing the banner leaves the record, and `GET /api/v1/watch` shows it standing. It runs where Node, Playwright and Chromium are installed, CI included (see above).
+
+**Fixed — the watch's email was never sent through a mail server, and was not a well-formed message.** Every test "sent" to an object that recorded the call. `tests/watch/test_watch_smtp.py` runs the deployment's mailer, built from `MERCURY_SMTP_*` as a deployment builds it, against a listening SMTP server (STARTTLS and TLS from the first byte, AUTH, a refused recipient, a certificate that is not trusted) and reads what arrived. It found: no `Date` and no `Message-ID` on any message (RFC 5322 requires the first; `SmtpMailer` now sets both, for every email the platform sends); nothing marking an alert as automatic, so an out-of-office reply answered each one (`Auto-Submitted: auto-generated`); and `alerts test` refusing a subscribed address that differed only in capitals.
+
+**Fixed — a subscriber outside the United States made the warnings feed fail.** The National Weather Service answers HTTP 400, `"point" is invalid: out of bounds`, for a point outside its area (read 2026-11-17 for Tokyo and London). That is an answer, not a failure: the place is counted as outside the Service's area in the feed's summary, is not asked about again, and takes none of the 250 places one read looks up. A deployment whose only subscriber is abroad was "down"; it relays. The account page's places each have a Change button that loads the place into the form.
+
+**Fixed — every worker ran its own watch and sent its own copy.** `serve --workers 4` with the watch on, or `mercury-agent watch` beside a server, put several watches on one store: each read every source, and with one subscriber and one finding four workers sent three copies of the email. Two of them writing the same new finding at once also collided on its key, and the loser's pass was recorded as down. The store holds a lease that one watch has at a time (renewed before each feed read and after each delivery, 15 minutes unrenewed); the others stand by, read nothing and take over when it stops or lapses. A single `watch --once` beside a running watch records what it read and leaves the telling to the holder. Recording a finding is one atomic step. Measured on a store holding a year of hourly earthquake findings: ending a feed's findings 33.7 ms a read before, 0.1 ms after; `GET /api/v1/watch` with 3,000 findings and 500 subscribers 11.5 ms before, 4.9 ms after.
+
+**Fixed — one subscribed place could take every warning from everyone.** The `warnings` feed asks the National Weather Service about each subscribed place. A 251st distinct place, or one lookup the Service refused, raised out of the read: the feed was down and no subscriber was sent any warning, the nationwide Extreme ones included, for as long as that place stayed subscribed. The longest-subscribed 250 places are looked up and the summary says how many were not; a place that cannot be looked up is skipped and counted; the nationwide relay goes on either way. Only every lookup failing is still "down", because "no alert in effect" would then be a guess. An address differing only in capitals was a second subscriber and received every message twice; it is one.
+
+**Fixed — one store error ended the watch for good.** Reading a feed was guarded; recording what it showed was not. A single `database is locked` while a finding was being written ended the loop's thread, and the server went on serving with nothing watching. Each feed's pass now stands alone (it is recorded as down, with why, and tried again at its cadence) and nothing a pass raises ends the loop. A line break in a source's text (a place, an alert's area) was refused as a mail subject on all five attempts, leaving the finding undelivered; the subject is one line. A delivery pass asked the ledger once per finding per subscriber on every feed read; it reads it once (2,000 subscribers, 20 standing findings, nothing to send: 3.01 s a pass before, 0.17 s after).
+
+**Fixed — a query assembled from strings failed both security scans.** `WatchStore.findings` built its `WHERE` clause by interpolation under `# noqa: S608`, which Ruff honours and Bandit does not: the Security Scan and Dependency Security Scan jobs failed on B608 at the pushed head with every local gate green. The statement is fixed text with bound parameters; a test walks `src/` for any row query built from strings; and `scripts/run_ci_gates.sh` runs the Bandit lane.
+
+**Added — the watch checks its own findings.** A finding was reported and never looked at again: a preliminary magnitude USGS later revised, or an automatic solution it deleted, stood as first said, and nothing counted how often the watch was right. Each finding is now looked up in the record that settles it (the USGS catalogue once a seismologist has reviewed the event, NOAA's Kp for the interval, NOAA NCEI's tsunami database, the NWS record of the gauge, the observatory's notice, OpenFEMA read again) and given one of four verdicts: confirmed, revised, withdrawn, unconfirmed. A record that cannot be reached is not a verdict, and a finding that becomes more severe is checked afresh. The counts are the watch's track record, in `mercury-agent watch --status`, in `track_record` on `GET /api/v1/watch`, on `/watch` and in the console. A store written by the previous build is migrated in place. On 2026-11-16 the watch reported a magnitude 6.6 earthquake near Tual, Indonesia one minute after USGS posted it; two hours later the reviewed catalogue entry confirmed 6.6.
+
+**Added — the watch in the Mercury Console.** The console could send `GET /api/v1/watch` as a raw route and nothing else. The Mercury Agent workspace has a WATCH tab (also "Open the watch" in the command palette, and the agent offers it when asked what it is watching): standing findings with what the later record said, every feed's state, the track record, re-read every 30 seconds while open. Offline or unreachable it says so and shows no reading. The console self-test covers it.
+
+**Changed — the watch's river feed reads every NWS gauge, by the NWS's own flood categories.** It read three stream gauges (the ones the flood benchmark uses) and reported a gauge only when it passed its own recorded maximum, because the USGS reading carries no flood stage. On 2026-11-17 the National Weather Service classed seven gauges as in flood, three of them major (Devils Lake and Eastern Stump Lake, North Dakota; the St. Johns River near Cocoa, Florida); the feed read none of them and said "3 gauges reporting; none above its record". `FloodLoader.fetch_flood_status()` reads the National Water Prediction Service for the fifty states and Puerto Rico (about 12,000 gauges, in six requests because the service times out on a national one), and the feed reports a gauge at minor flooding or above, with the forecast when it is worse. `FloodLoader.fetch_realtime()` is unchanged. `api.water.noaa.gov` joins the trusted hosts.
+
+**Fixed — the volcanic loader's live read called an API USGS has retired; volcano alert levels join the watch.** `VolcanicLoader.fetch_realtime()` requested `/vsc/api/volcanoApi/alerts`, which answers HTTP 404, so every live read failed. It reads the USGS Hazard Notification System (`/hans-public/api/volcano/getMonitoredVolcanoes`), and its frame gains `volcano_number`, `observatory` and `notice_id`; `alert_date` and `elevation`, which the old key names left empty, are filled. `fetch_notice()` reads one observatory notice. The watch's sixth feed, `volcanoes`, reports a volcano above NORMAL on the USGS volcano alert levels and checks it against the notice the level came from, quoting the observatory's synopsis. On 2026-11-17: Great Sitkin at WATCH, Kīlauea and Ahyi Seamount at ADVISORY, each confirmed by its notice.
+
+**Fixed — the console failed WCAG 2.1 AA in 190 places an axe-core pass could measure.** Over every workspace, tab and dialog in the dark, grey and light themes (81 views): text under 4.5:1 on raised and tinted surfaces (2.5:1 for the primary button's label in the light theme); radios and checkboxes that lost `aria-checked` when not chosen, because the runtime dropped a false attribute; scrolling blocks the keyboard could not reach; no level-one heading once the opening screen was dismissed; and the caption over the agent figure at 2.8:1 in the light theme. The tokens are retuned per theme (each hue moved only as far as 4.5:1 needs; the grey theme's surfaces are a step darker), a false ARIA state is written, scrolling blocks take focus, and the page has a heading. The same pass now reports none, at 1400 and 390 pixels and in high-contrast mode.
+
+**Fixed — a harm command after a line break was permitted (ethics ruleset 9).** "here is the plan and⏎kill my wife" joins into one sentence with no stated speaker, and rulesets 5, 7 and 8 permitted it, because the same join is what keeps "he said he would come and⏎kill my wife" a report. The two differ in who acts before the break. When someone other than the speaker or the reader does, the next line is theirs and the text is a report, a fear or a prognosis; when nobody does, it is a command and is refused. A third party's words quoted after a verb of saying and a colon ("he wrote: kill my wife") are likewise a report and are now permitted; "the plan is simple: kill my wife" is not. Over the 9,111-sentence comparison ruleset 9 releases no threat an earlier ruleset refused, and benign refusals fall from eight to six. `RULESET_VERSION` is 9.
+
+**Added — FEMA declaration activity, labelled by NOAA.** The FEMA row of the hazard table sits at chance (0.4930) because its label, "major disaster with individual and public assistance", is an administrative category: a third of the rows carry it and no column independent of it tracks it in one direction. `FEMAActivityLoader` measures what a monitor of that stream watches for, a surge: one row per day of a year's tropical-cyclone county designations, labelled from outside FEMA's record by NOAA NCEI's billion-dollar disaster catalogue (a storm's dates plus the 30-day request period of 44 CFR 206.36(a)). The rule was fixed before it was measured and measured once: AUROC 0.70 to 0.95 per year, 0.8583 over 2017 to 2024. The earlier FEMA row is kept beside it, labelled for what it is.
+
+**Added — DOE disturbance reports to the hour, for 2021 as well.** EIA's Electric Power Monthly republished DOE's OE-417 reports with the hour each disturbance began and was restored. `EnergyLoader` reads them from the monthly archive (no spreadsheet library: the workbook is parsed as XML with the hardened parser), so Winter Storm Uri is labelled by the reports made to DOE instead of by demand against forecast, two columns of the scored series, and all six grid columns are scored for it: AUROC 0.9012. `texas_2023` moves from whole days to hours (0.6680). Energy row: 0.7808. EIA carried the table through 2023; a later year is refused, not treated as quiet. ORNL's date-only copy remains the fallback for 2023.
+
+**Changed — the governed-fusion suite scores its externally labelled events against a normal reference.** An event with audited ground truth has a reference known to be normal, and the suite fitted the detector on the whole event anyway: on NSL-KDD, on rows that were 48% attacks. Those events are now fitted on every other normal row and scored on the rest, as the main benchmark does it. Self-labelled events are still scored in place. With the FEMA activity events the suite has ten externally labelled events instead of two.
+
+**Fixed — FEMA labels were empty for every declaration since about 2007.** The label is a major disaster with individual and public assistance, and the rule read `iaProgramDeclared`. FEMA sets that column on declarations up to about 2007 and records individual assistance as `ihProgramDeclared` since: of the 1,738 declarations in the 2023 and 2024 events none has the first, 293 have the second, and all 1,738 were labelled normal. The rule and the `ia_program` feature now read either column. Re-measured without the declaration flags in the scored matrix, the five FEMA events average AUROC 0.4930; the 0.7598 published before was measured on a different extract and does not survive the corrected labels.
+
+**Changed — the governed-fusion research suite is re-measured on 39 live events in 10 domains.** Tsunami and energy are live (recorded archives), FEMA declaration activity is added, the reconstructed class is empty, and every file under `research/governed_fusion/results/` and `manifest.json` is regenerated with synthetic stand-ins refused. All live: AUROC 0.8457; the ten externally labelled events: 0.8627. Two probes gained a paired bootstrap interval over events, because a difference of means had named a calibration lever on a Brier margin of 0.0001: with the interval no lever beats the shipped default, and Beta-MCA is ahead of isotonic on Brier, AUROC and net benefit (ECE not established). The decorrelation verdict is INCONCLUSIVE rather than KILL (no reconstructed events remain to pool, and separating +0.01 from zero would take on the order of 500 events); fusion stays unpromoted and default-off. `measure_decorrelation.py` wrote NaN, which is not valid JSON, for an empty class. `research/governed_fusion/FINDINGS.md` opens with the re-measurement. **Re-measured again on 2026-11-20** on the corrected hazard loaders (38 events, manifest re-pinned): all live 0.8436, the ten externally labelled 0.8627, unchanged. The sentence above about Beta-MCA no longer holds, and the cause is not the loaders: isotonic regression itself is fixed in this release (it did not pool tied inputs), so on unchanged inputs its Brier is 0.0840 where it had been 0.1114, and on the corrected inputs isotonic has the lower ECE while Brier does not separate the two. `FINDINGS.md` says so and leaves the shipping decision open.
+
+**Fixed — the kNN density stream was given priority on a reference nobody had vetted.** The detector fuses a kNN density stream at a weight set from the feature width, up to 0.85. That weight was measured with the detector fitted on rows known to be normal. Fitted instead on the unlabelled data it scores (the engine's auto-fit on an inference batch, the MCP detection tool, the governed-fusion suite), density can rank the anomalies as the most normal rows: on the externally labelled NSL-KDD event, where 48% of the rows are attacks, AUROC fell from 0.6788 to 0.3973 on byte-identical input when the stream was added, and one ADBench set scores 0.2021 at that weight and 0.9956 without the stream. `fit(..., unlabeled_reference=True)` (or the `unlabeled_reference` config key) now caps the weight at 0.5, and the callers that fit on what they score declare it. The cap was chosen on the 47 ADBench sets fitted and scored in place (`benchmarks/knn_unlabeled_reference.py`): equal weight has the best mean AUROC (0.7751 against 0.7590) and the smallest worst loss (0.076 against 0.793). Not used to choose it, the 31 governed-fusion events agree (0.8306 against 0.8239). A plain `fit` is unchanged: the 76-dataset benchmark re-run on the changed tree matches the run before it on every dataset. With a normal reference NSL-KDD scores 0.9699 with the stream and 0.9482 without. 3.0.0 has the uncapped behaviour. The repository's own in-place ledger (18 full ADBench sets, `research/omni_equation/`) is re-measured with it: 0.7737 against 0.7745 before, eight sets up and nine down, still 13 W / 1 tie / 4 L against its base, with the two largest regressions against the base roughly halved (`cardio` −0.0855 to −0.0330, `optdigits` −0.0624 to −0.0424). The MCP detection tool's stated `contamination` is now cut as a percentile: the default method chose a cut near it, 64 of 200 rows for a stated 30%.
+
+**Added — the X-ray class of a historical storm is the recorded one.** `xray_class` was empty for every historical energy event, on the ground that OMNI2 does not carry it. NOAA NCEI's yearly GOES XRS flare reports do (1975 to 2017): each 3-hour step now holds the strongest flare that peaked in it, 0 when none did, and NaN for a year outside the archive (the 2021 and 2023 grid events). With it the Energy row is 0.7343 (Halloween 2003 rises from 0.5931 to 0.7709).
+
+**Added — the alert rules are validated by promtool, in CI.** `promtool check rules` parses every expression and `promtool test rules` runs `monitoring/prometheus/rules.test.yml`: six cases that feed series to the rule file and assert which alerts fire, among them a low-traffic route failing every request while the fleet stays at 98%, a route that has never succeeded, and detections of 15 to 30 seconds firing `OmniMercurySlowDetection`. Both run in the code-quality job and in `scripts/run_ci_gates.sh`.
+
+**Fixed — the benchmark refresh left hand-typed copies of its figures stale.** `scripts/update_readme_benchmarks.py` rewrote one README block; the "Headline results" tables beside it were typed by hand, so the refresh's own pull request failed the README-claims tests. Those tables are now a third regenerated block. The bot's run of 2026-11-15 is merged and then superseded by a run on this release's own tree (`e356358`, 2026-11-16: 67 of 76 datasets, 55 genuinely labelled, Mean AUC 0.8616, Median 0.9038, Mean Oracle F1 0.6493); the documents that quote it are updated. The two runs agree on all 47 ADBench sets and differ on NAB and five live feeds.
+
+**Fixed — the skip ledger missed several ways of parking a test.** A mark bound to a name (`parked = pytest.mark.skip(...)`, then `@parked`), `self.skipTest`, a raised `unittest.SkipTest`, `unittest.skipIf(True)` / `skipUnless(False)`, `add_marker` / `applymarker`, `pytestmark +=` and a skip inside a `with` block were all invisible. Three false positives are gone: a local variable named `pytestmark`, `xfail(False)` and a conditional `xfail`. The forms followed, and the one that cannot be (a mark returned by a helper), are listed in `docs/SKIP_LEDGER.md`.
+
+**Changed — Caddy 2.11.7 to 2.11.9** in `docker-compose.platform.yml`.
+
+**Fixed — ethics ruleset 7 permitted threats that ruleset 5 refused; its reported differential was wrong.** Ruleset 7 was described here as newly permitting six sentences, all benign, on a 1,797-sentence comparison. An independent comparison over 9,111 sentences found 188 threats it permitted that the pre-existing ruleset refused, including "i will murder my family" and a threat broken across a line ("i will kill\nmy wife"), and a quadratic whitespace substitution (7.3 s for 100 kB of spaces, 117 s for 400 kB). Ruleset 8 (`RULESET_VERSION` 8) restores every one, reads a wrapped line both joined and split, handles lines in linear time, and no longer lets a typographic apostrophe, quotation marks or a trailing clause after "with kindness" hide the object. It is held to a frozen floor of 6,278 sentences that an earlier ruleset refused (`tests/pillars/data/ruleset_floor.json`): each must stay refused or be listed with its reason. Three are listed, all a form ruleset 5 also permitted. Eight benign sentences of the 9,111 are refused and are listed in `docs/HARM_POLICY.md` §5a.
+
+**Added — DOE OE-417 disturbance reports label a grid event.** `EnergyLoader` catalogues `texas_2023` (ERCOT, 2023) and labels it from the Department of Energy's OE-417 electric disturbance reports (ORNL Open Energy Hub), a record independent of the EIA-930 series the detector reads. Only reports with a demand loss or customers affected count; a year the archive does not cover is refused.
+
+**Fixed — recorded tsunami series gave the event window away.** On a 1-minute grid the `measured` flag alone ranked the labelled window at AUROC 0.60 to 0.67, because a DART buoy samples faster once it has detected an event. The series is now the buoy's standard 15-minute cadence with two days of baseline either side (flag AUROC 0.50). Detector AUROC on the recorded series: Tohoku 0.98, Chile 0.91, Tonga 0.74. A span with fewer than 90% of its steps recorded is refused rather than interpolated, and a truncated gzip transfer, a header-only file or a malformed row no longer raises bare.
+
+**Fixed — a grid event was scored on the solar wind.** `EnergyLoader` handed the detector its space-weather matrix for every event, so the Texas 2021 winter storm and the Texas 2023 disturbance year were scored on three solar-wind columns and sat at chance (AUROC 0.55 and 0.49). `engineer_grid_features` is the grid's own matrix (demand, net generation, interchange, forecast error and their changes, from EIA-930), and `engineer_scored_features` returns it for a grid frame: all six columns when DOE's reports are the labels, generation and interchange only when the label is demand against forecast. Measured: Texas 2021 0.72, Texas 2023 0.61. `engineer_features` is unchanged. The hazard table's Energy and Tsunami rows are re-measured by the new `research/engine_calibration/remeasure_recorded.py` (Tsunami 0.8771; Energy 0.7343 over five events once the flare class below is read; with FEMA corrected, Overall 0.7809 over 34).
+
+**Fixed — energy loader robustness.** A truncated EIA-930 download was cached as the record (a grid event now needs 95% of its hours); a window starting on a file boundary missed the hours EIA files under the neighbouring half-year; a short row or an "NA" cell failed the file; one missing Kp blanked 24 hours of rolling features and made the labels raise.
+
+**Fixed — smaller defects from the same review.** One mistyped SPC report time re-dated the whole file (a majority of rows must be ahead of the clock); an unreadable elevation cost a geomagnetic observatory its position and a longitude of 400 was wrapped to 40; a JSON integer of several hundred digits was a CLI traceback; a detection route exported no counter until its first request, so `increase()` could not see a first failure; the dashboard's dialog restored focus to a hidden or disabled opener and lifted `inert` while another dialog was open.
+
+**Fixed — historical tsunami and energy events are the recorded series, not constructions.** `TsunamiLoader.fetch_historical` built a sine wave for every event and `EnergyLoader.fetch_historical` a synthetic Kp profile, each on the stated ground that no archive reaches back that far. Both exist. NDBC keeps a yearly archive of every DART station, holding each catalogued tsunami with the buoy's event-mode samples (857, 918 and 1,205 recorded minutes for Tohoku 2011, Chile 2010 and Tonga 2022). NASA's OMNI2 archive holds hourly Kp and solar wind since 1963 (Kp reaches 9.0 in all three catalogued storms). EIA-930 holds each grid operator's hourly demand, forecast and generation, keyless; the Texas 2021 event is now ERCOT's record joined to OMNI2, labelled where served demand fell more than 20% below the day-ahead forecast (2021-02-15 13:00 to 2021-02-18 14:00 UTC, the only such hours in the window). It used to need `EIA_API_KEY`, query all regions, fill the space-weather columns with constants and label every row. The synthetic series remain only behind `MERCURY_ALLOW_SYNTHETIC=1` when an archive is unreachable, marked and never cached. Re-measured with the same detector: Tsunami AUROC 0.8771 (published 0.8905), Energy 0.6865 on label-disjoint features (published 0.9237); the README table, `results.json` and `deleak_impact.json` carry the new rows. (First measured as 0.8078 and 0.6597, before the 15-minute tsunami grid and the grid-event features described above.)
+
+**Fixed — every live tsunami reading was the measurement-type code.** NDBC's DART layout is `YY MM DD hh mm ss T HEIGHT`; the parser assumed no seconds column, so `bpr` held `T`. Over ten stations and 32,497 live rows its mean was 1.02 and its maximum 3, where the water column is 3,265 m to 5,886 m. Features were also differenced across the seam between two stations in one frame.
+
+**Fixed — readings placed at latitude 0, longitude 0.** A CO-OPS station outside a five-entry table, a USGS observatory outside its table and an earthquake feature without geometry were each located in the Gulf of Guinea; the providers' own responses carry the position, which is now used. An earthquake without an origin time or magnitude was completed with 1970-01-01 or 0.0 and is now skipped. Live: 278 points across four sources, none at (0, 0).
+
+**Added — `OmniMercuryDetectorFailing`.** The fleet-wide success ratio cannot see a low-traffic component that fails every request (4% of traffic failing leaves 96%). The new alert is the same ratio per `detector_type`; both metric writers now export a success series at 0 for a component that has only failed.
+
+**Fixed — SPC reports read just after 1200 UTC.** `today.csv` can still hold the previous convective day then; a report cannot be later than the moment it is read, so such a file is dated one day back. `_fetch_url` no longer retries a 404 or other status that describes the request.
+
+**Verified — console self-test.** The in-browser `:diag` run passes all 9,396 checks on this tree. The marine loader was run against live OBIS for all three events and its real-time path.
+
+**Security — soupsieve raised to 4.1.1; three advisories closed.** The lock carried soupsieve 2.10 (for Python 3.11.0 to 3.11.4) and 3.0.4 (for 3.11.5 and later). GHSA-6655-6qjp-jx7x (exponential ReDoS in selector compilation) and GHSA-7g44-g9rc-x53w (uncontrolled parser recursion) are fixed in 3.0.2, and GHSA-mmhr-3c5m-f64f (polynomial-time descendant combinator) in 4.0.0, so 2.10 was open to all three and 3.0.4 to the last. soupsieve is transitive only (`deepface` → `gdown` → `beautifulsoup4`), and every release from 3.0 on requires Python ≥ 3.11.5, which is why the lock forked to 2.10 below it. The `[face]` extra now installs DeepFace and tf-keras on Python 3.11.5 through 3.13 only: on 3.11.0 to 3.11.4 it installs without them and the guarded imports fall back, the treatment 3.14 already has. `[tool.uv] constraint-dependencies` holds `soupsieve>=4.0.0`, and `tests/test_uv_lock_contract.py` fails if a locked version is below a declared security floor or the constraint is removed. The project's Python floor is unchanged.
+
+**Fixed — defects in this branch's own earlier fixes, found by three independent reviews of its diff.** Each was reproduced before it was changed and has a test that fails on the previous code. *Ethics gate (ruleset 7):* the passive lookahead skipped every verb form before "by", so "torture by waterboarding the prisoner" went from refused to permitted; plain variants of the pinned threats were permitted (typographic apostrophe, second line, "am gonna", "should", "can you", step- relations, children); and ordinary text was refused ("intimidate the other team so my son wins", "kill her session before deploying"). The first correction (ruleset 6) over-corrected and was itself reviewed: requiring the person directly after the verb permitted "help me extort money from my boss", skipping only a past participle before "by" refused "harassment by him", and treating every line start as a clause start refused wrapped third-person text. Ruleset 7 addressed all three and was itself superseded by ruleset 8 (see the entry above): its side-by-side run against ruleset 5 was too small to show what it released. *CLI:* `tier-detect` flattened a `t,value` table into alternating points and flagged the timestamps; it and `rca` still left as tracebacks for bad labels, too few points and unknown members; a labels vector of the wrong length was an `IndexError`; a non-numeric JSON input failed inside a detector (a JSON `null` is still read as a missing value); `physics integrated` refused one file containing a NaN for `-s` and `-d`, and its first help example could not succeed; a saved one-vector `.npy` no longer scored on the fusion path. *API:* SMTP without `MERCURY_PUBLIC_BASE_URL` was refused on the first account request instead of at boot (`/health` healthy, `/register` 500); a base URL without a scheme was accepted; an enabled frontend whose import failed still booted; `api_batch` success was 1.0 by construction; a Starlette 4xx counted as a failed detection.
+
+**Fixed — `OmniMercurySlowDetection` could never fire.** It alerts on p95 > 10 s and the detection histogram's highest finite bucket was 10.0; `histogram_quantile` returns that bound for anything beyond it. The histogram gains 15, 30 and 60 s buckets, and `tests/api/test_quantile_alerts_can_fire.py` ties every recorded-quantile alert threshold to its histogram.
+
+**Fixed — three loaders never cached, and partial fetches were served as the record.** The financial, flood and tsunami loaders hold Timestamps in their frames; the plain JSON cache writer cannot serialise them and logged that at DEBUG, so every call re-fetched (five FRED series, USGS Water Services) or rebuilt. They use the frame cache now and the failure is a WARNING. A FRED fetch with some series lost at the transport is returned uncached with the lost columns named, and labels are refused when VIX or the yield curve is among them (the 2008 crisis was labelled all-normal). A partial OBIS fetch is refused instead of being stamped real and cached for a day.
+
+**Fixed — data-source parsing.** One malformed NASA EONET event failed the whole fetch; a response with no `events` array, or whose events all failed to parse, was a successful empty fetch; positions outside the valid range or not finite became data points; a date without a zone became a naive timestamp. INTERMAGNET with only unknown observatory codes returned zero points stamped `live`. SPC daily storm reports were dated on today's calendar date instead of the 1200 UTC convective day (2330 and 0010 were 23 h 20 min apart, in the wrong order), in the tornado and hail loaders; a rated report (`EF3`) lost its rating.
+
+**Fixed — account pages: contrast, focus, dialog and narrow screens.** Measured with axe-core 4 and from the stylesheet: in the dark scheme links kept the browser's default blue and the danger button was white on `#ff6d63` (2.76:1); input and secondary-button boundaries were 1.26:1 to 1.63:1; buttons and links had no keyboard focus indicator; the dialog let Tab walk into the page behind it and did not return focus on close; a control focused by keyboard could scroll underneath the sticky header; usage bars exposed no value; with one API key the dashboard scrolled sideways by 100 px at 375 px wide. `mercury.css` is rewritten on tokens that `tests/api/test_frontend_contrast.py` holds to WCAG 2.2 AA in both schemes (48 pairs), with a visible focus ring, a skip link, reduced-motion and forced-colours handling. In the console, the side-panel tab buttons carried `role="tab"` with no tablist (axe: critical) and the page had no main landmark. After: zero axe violations on every page, both schemes, at 1280 and 375 px, and no horizontal scroll.
+
+**Fixed — the Type Checking job failed on every leg.** An `unused-ignore` in a test: the job installs `[ml,dev]`, which has no FastAPI, so the ignore a full-extras environment needs is unused there.
+
+**Fixed — the API server started without the AMA backend, reported `healthy`, and served sign-in pages with no account API behind them.** The PQC gate runs at import of `omni_mercury_engine.engine`, and the docs said the API was covered because it serves the engine. `api/server.py` reaches the engine only inside request handlers, so on an install without AMA (`pip install "mercury-agent-global[api]"` and nothing else) `mercury-agent serve` started: `/health` answered `{"status":"healthy"}`, the account router was dropped on an `ImportError` with one warning line (56 documented paths instead of 76; all 20 of `/api/v1/auth/*` gone), `/login` and `/dashboard` still loaded with `MERCURY_FRONTEND_ENABLED=true`, the startup maintenance sweep logged a traceback, and the first request that touched the engine returned 500. Measured on a clean `[api]`-only environment before the fix. No CI lane could see it: every lane builds AMA before its first import. The server module now runs the gate itself at import, `mercury-agent serve` checks before it prints a banner and exits 1 with the build steps, and a server with the frontend enabled refuses to start if the account router did not load. Pinned by `tests/test_pqc_startup_gate.py::TestScopedGateContract` (two new cases, with the same stubbed-AMA subprocess as the engine and crypto cases) and `tests/api/test_router_manifest.py::TestDegradedBoot`.
+
+**Added — a router manifest, exported on `/metrics`, and an alert on it.** Each of the server's 15 surfaces is attached through `api/router_manifest.py::mounting`, which records `mounted`, `disabled` (the frontend and the decoy surface are opt-in) or `unavailable` (the import failed). `/metrics` carries the result as `omni_mercury_api_router_state{router,state}`, valued 1 on the router's current state; the failure reason stays in the log and is not a label, because it can hold a path. `/health` is unchanged: it is pinned to `status` and `version` only (`tests/api/test_health_minimal.py`). `OmniMercuryApiRouterUnavailable` (warning, 2 minutes) is added to the PrometheusRule CRD and rendered into `monitoring/prometheus/rules.yml` and the Helm template, with `docs/runbooks/api-router-unavailable.md`. An exception other than `ImportError` while attaching a router still stops the process.
+
+**Added — a boot smoke test on a real install, run where CI briefly is one.** `scripts/api_boot_smoke.py --expect refuse` runs in Core Tests between `uv sync` and the AMA build, the one moment a lane looks like a bare `[api]` install: importing the server and running `serve` must both refuse, and `serve` must refuse before its banner. It exits 2 if AMA is already importable, so moving the build earlier fails the step instead of emptying it. `--expect serve` runs after the build: uvicorn with the frontend on, `/health`, the account API in the OpenAPI document, the frontend pages, no router `unavailable`, no traceback in the startup log. All four combinations of environment and mode were run locally (`[api]`-only: refuse 0, serve 2; with AMA: refuse 2, serve 0).
+
+**Fixed — Dependabot's weekly uv run could not resolve the lock, and the replay that exists to catch that passed the day before.** All seven updates of 2026-11-09 failed with `No solution found when resolving dependencies for split (markers: python_full_version >= '3.15' and sys_platform == 'emscripten')`. `[tool.uv] environments` listed `sys_platform != 'darwin'`, which admits emscripten; httpx2 carries an emscripten-only dependency (`httpx2-jsfetch`), so the lock had an emscripten fork, and torch ships no wheel there. uv 0.11.32, which CI and the replay use, tolerated that fork; Dependabot bundles its own uv (0.13.7 that day), which does not. Reproduced with 0.13.7 on the unchanged files; with emscripten excluded the relock drops `httpx2-jsfetch` and nothing else, and 0.13.7 then takes `pandas 3.1.0 -> 3.1.1`. `scripts/simulate_dependabot_uv.py` now replays every update under both resolvers (the second fetched with `uv tool run --from uv==0.13.7`), after a baseline relock under each, and against the old files it fails with the same error Dependabot reported. `DEPENDABOT_UV_VERSION` is a pin that has to be refreshed from a Dependabot run log when Dependabot moves.
+
+**Fixed — the rolling benchmark pull request could never pass its required checks.** `benchmark.yml` moves `ci/benchmark-results` twice per run and dispatches `ci.yml` by hand, because commits made with the default token start no workflows. The dispatch sat between the two updates, so CI ran on the first commit and the second replaced the head with one that had no check runs (run of 2026-11-08: checks on `42952ab`, head `408a6fa` 108 seconds later). The dispatch is now the last step, runs when either persist step moved the branch, and keeps `always()` so a failed seven-axis runner does not cancel it. Pinned by `tests/scripts/test_benchmark_pr_dispatch_order.py`. Not fixed here: that pull request's refreshed results say 66 of 76 datasets while `docs/BENCHMARKS.md` says 67, so its own Workflow Hardening run fails; whether the headline follows a provider outage is a maintainer decision.
+
+**Added — a skip ledger: a gate on tests that can never run.** A skipped test reports as a pass. `scripts/measure_skip_ledger.py` reads `tests/` with `ast` and `uv.lock` for what the full test lane (`--extra all --extra dev`) installs, and fails on a test behind `importorskip()` of a dependency no extra provides, on a computed `importorskip` name, on an unconditional skip and on an expected failure, unless the script declares it with a reason. On `main` it found one: `gymnasium` guarded `tests/ml/test_ppo_trainer.py::test_gymnasium_vector_environments`, no extra carried it, and the PPO trainer's Gymnasium vector-environment path had never run in CI. `gymnasium>=1.4.0` is now in `[dev]` (test-only; not a runtime dependency) and the test passes, as do the other 221 in the two RL test files with it installed. One exception is declared: `ama_cryptography`, built from source in every lane. No test in the tree is unconditionally skipped or marked `xfail`. The result is `docs/SKIP_LEDGER.md`, gated in Workflow Hardening and pre-commit; volatile counts are in the script's plain report and deliberately not in the gated block. The 39 `raise NotImplementedError` in `src/` were read at the same time: 21 are abstract hooks or backends that refuse by design, 18 are refusals of an unsupported configuration; none is unfinished work.
+
+**Fixed — three Permissions-Policy names no browser enforced.** `ambient-light-sensor`, `battery` and `document-domain` produced an `Unrecognized feature` console error on every response in Chromium and denied nothing. They are removed, and ten features that Chromium does enforce and the frontend does not use are denied instead (`browsing-topics`, `captured-surface-control`, `compute-pressure`, `hid`, `identity-credentials-get`, `idle-detection`, `local-fonts`, `otp-credentials`, `publickey-credentials-create`, `window-management`). The 28-name set was loaded as a response header in Chromium 153.0.8010.12 and produced no console message; `bluetooth` was tried and is not recognised by that build. The set is pinned in `tests/api/test_security_headers.py`.
+
+**Fixed — the console reported a server it had not yet asked as down.** The first `GET /health` leaves 1.2 s after mount; until it answered, a console served by a running engine showed `no server · browser preview` on the boot screen and `SERVER DOWN` in the header. A `pending()` state now covers that interval (`checking engine…`), and the probe's answer, either way, ends it. Four named patches in `scripts/build_console_port.py`; `logic.js` regenerated.
+
+**Fixed — `mercury-agent serve` did not list `/console` or `/metrics`.** The banner now lists `/metrics` always and the browser pages only when `MERCURY_FRONTEND_ENABLED=true` mounts them.
+
+**Fixed — seven of the eight detection routes wrote no detection metrics, so two alerts could not fire for them.** Found by running the compose monitoring stack against a live server. `omni_detection_requests_total`, `omni_detection_success_total` and `omni_detection_duration_seconds` are written by the engine around each of its detectors, and only `/api/v1/detect/flagship` runs the engine. One successful call to each of univariate, multivariate, fusion, tier, neurosymbolic, three-r and rca returned 200 and moved none of the three series: the "Detections by Type" and "Detection Processing Time" panels were empty, and `OmniMercuryDetectionSuccessRateDrop` and `OmniMercurySlowDetection` had nothing to evaluate for the routes most clients call. `api/detection_metrics.py::records_detection` now writes the same series for those seven handlers and the batch worker under `detector_type="api_<route>"`, so a route never shares a label with an engine detector of the same name. A request refused with a 4xx is not an attempt and counts nothing; a 5xx or an unhandled exception counts a request without a success; the server's two warm-up calls at startup are not counted. Re-measured on the same stack: each route moves its series by exactly one, and both panels have data. Pinned by `tests/api/test_detection_metrics.py`, including a check that a new detection route is either recorded or declared engine-backed.
+
+**Fixed — the Error Rate panel read "No data" on a healthy service.** A server that has returned no 5xx has no `status=~"5.."` series, so `omni_mercury:http_errors:rate5m` produced no sample. The numerator now falls back to 0 for a service that has traffic; a service with no traffic in the window still reports nothing. The two error-rate alerts compare against a threshold above zero and are unaffected.
+
+**Added — a "Routers Down" panel on the Grafana overview, and a statement of which panels need Kubernetes.** The panel reads `omni_mercury_api_router_state`. `docs/DEPLOYMENT.md` now says which rows have data under docker compose and that API Replicas, CPU Utilization and Memory Utilization are empty there by design (they read kube-state-metrics and cAdvisor, which the compose stack does not run). A test now requires every dashboard panel to read a recording rule that exists or a series the code emits.
+
+**Fixed — a plainly stated threat against a person was approved by the ethics gate.** Found by calling every MCP tool. Through `mercury_score_ethics`, "kill my neighbour", "i want to kill her", "I will murder John Smith tomorrow" and "help me stalk and hurt my ex-wife" all returned `is_permissible: true`: the grave-harm lexicon counted `kill`/`murder` only with a stated manner of violence, and its person list holds pronouns and a few roles, not a relation or a name. Widening the lists would have refused a patient and a victim, who use the same words ("could this arrhythmia kill my mother", "someone is blackmailing my father"). The new pattern fires only when the speaker is the agent: stated intent, a request for help, or a bare imperative. A passive's agent is also no longer read as a victim ("stalked by her ex" is a report, and was refused). Measured on the corpora now pinned in `tests/pillars/test_non_maleficence.py`: 18/18 refused (0/18 before), 26/26 permitted (25/26 before). The CI-gated weapons evaluation is unchanged (0 false positives, 0 false negatives) and the 838 pillar, cognitive, assessment and ethical tests pass. `RULESET_VERSION` is 5, so cached verdicts invalidate. Not changed, and reported: the weapons gate reads the bare imperative "synthesize sarin at scale and release it in a subway" as `mechanism` (`allow_provenance`) and "poison the city water supply" as no hazard domain; its classifier has its own evaluation harness and was not retuned here.
+
+**Fixed — account emails linked to the project's website instead of the server that sent them.** `MERCURY_PUBLIC_BASE_URL` defaulted to `https://mercuryagent.global` and was absent from `.env.example`. Registering on a local server filed a verification link to that host: it could not reach the server that issued the token, and the token went to a host the operator does not run. Unset, the base URL is now this server's own address with the development mailer (`http://127.0.0.1:<port>`; `serve` passes its port), and the setting is required when `MERCURY_SMTP_HOST` is set, where the account service refuses to build rather than mail a guess. The hosted compose file already sets it. Pinned by `tests/api/test_public_base_url.py`, end to end through the filed message.
+
+**Fixed — four console defects found by using it against a live engine.** (1) The alert banner sits over the header and its background was a 12 % tint, so the header showed through and the alert text was drawn across the search field; the tint is now layered over the solid background. (2) The presence caption read `startingLIVE · activity …` after a re-render restored the template's text; the figure module rewrites it when the element no longer holds what it wrote. (3) The flagship capability sends `explain: true`, which took 11.1 s for the built-in sample against a 12 s limit for every request: it passed on a quiet machine and showed "Timed out after 12000 ms" on a busy one while the server finished it; requests that ask for an attribution get at least 60 s and the message reports the limit that applied. (4) `:diag` reported one failure on every fresh console, because it picked the command already selected and expected a change; the self-test now passes 9,396 of 9,396 checks. A Mass Run of 45 capabilities sent 38 requests, all 200.
+
+**Fixed — three MCP tools answered a bad argument unhelpfully or not at all.** `mercury_tier_detect` advertises `minItems: 8`, but a default run on 8 or 9 points failed from inside one member with `SPOT calibration needs at least 10 samples`; the tier now says which series is short, how many points to send, and that a subset without `spot_evt` runs on 8 (the same message reaches the API route and the CLI). `mercury_write_document` with `format: "pdf"` surfaced as `internal tool error: ValueError`; it now names the formats. `mercury_self_consistency` thresholded `prob: 7` as "positive" and `prob: -1` as "negative"; a probability outside [0, 1] is refused. `docs/INTERCONNECT.md` listed 14 of the 20 registered tools; the six assessment tools are added and a test pins the table to the registry.
+
+**Fixed — two data sources returned made-up data as real, and four loaders failed or lied quietly.** Found by calling every loader with its source reachable, unreachable and offline. `MarineLoader.fetch_historical` returned 4,000 fabricated rows when OBIS was unreachable, including under `MERCURY_OFFLINE=1`, with `is_synthetic()` false, so they were scored as a real event; it now raises `OfflineModeError` / `DataSourceUnavailableError` naming OBIS, and synthesises only under `MERCURY_ALLOW_SYNTHETIC=1`, marked and uncached. `INTERMAGNETSource` and `SuperMAGSource` made no request and emitted fixed points with confidence 0.85 that the ingestion seam stamped `live`; they are now labelled `simulated` with confidence 0, which the seam refuses without an explicit opt-in. `TornadoLoader.fetch_realtime` read the wind and hail header lines of the three-section SPC file as tornado reports and then raised `KeyError: 'len'`. `NASAEONETSource` failed on polygon geometries (`float() argument must be ... not 'list'`). `FinancialLoader` returned and cached an empty frame when FRED was unreachable. `EnergyLoader`'s error for `texas_2021` did not name `EIA_API_KEY`. Each has a test that failed first; 1,029 loader and data-source tests pass. Left as designed, with reasons: the tsunami loader's historical series is a documented reconstruction the benchmarks depend on, and the one-hour domain cache under offline mode matches the documented "fresh cache" rule. Not fixed (upstream services changed and need live research): the USGS volcano alert endpoints return 404, NCEI has no 2026 heatwave directory, the WHO ebola endpoint returns 404, and the ALFA UAV download redirects.
+
+**Fixed — a labelled detector-tier run failed on every input.** `tier-detect -l`, and the `stacking` and `bma` methods through the API and MCP, raised `input has N nodes but the detector was fitted on N-1`: the tier fits on the label-0 points and its `rca` member cannot score a series of another length. `rca` is now left out of a labelled default run and named in `excluded_members`, as it already was for a reference fit; asking for it with labels is refused by name.
+
+**Fixed — `detect` on a one-column CSV read 300 rows as one sample and reported no anomaly.** Found by running every command on small realistic files. A single column of N rows (and a 1-D `.npy`) was reshaped to one sample of N features, so `detect -i series.csv` answered `"is_anomaly": [false]` with exit 0 while the same values as a JSON array flagged the spike; `train` reported "1 samples". A column, a 1-D array and a flat JSON array now all load as N samples of one feature; a one-row file is still one sample. Also fixed in `cli.py`: tracebacks where one line belongs (`detect`, `rca`, `tier-detect` and `hazard-viz` on a missing, empty or text-column file; `causal --names` with the wrong count; `stacking` without labels), each now a single `Error:` line saying what to do and a non-zero exit; `physics dynamics` flattened a multi-column file into one interleaved series and called constant velocity an anomaly (score 0.80), and now scores each column as its own axis (0.0006); `physics integrated` failed for every option combination with `'dict' object has no attribute 'size'`; `physics list` printed `mercury physics` instead of `mercury-agent physics`; a UTF-8 BOM cost a headerless CSV its first row; `--time-step 0` and `--significance 5` were accepted. 35 new cases in `tests/test_cli_first_run_inputs.py`, 33 of which failed before; all 191 CLI tests pass and no help text changed. One behaviour change: a flat JSON array given to `detect -d fusion` is now N samples, and one sample is written `[[...]]`. Still open: `physics integrated -s a.csv -d b.csv` with two different recordings is refused with a clear message because the detector takes one series, and its verdict on a single file is not yet meaningful (it is fitted on its own input).
+
+**Changed — releases before 3.0.0 moved to `docs/changelog/CHANGELOG-pre-3.0.md`.** The eleven releases from 0.1.0 to 2.0.0 (4,103 lines, 243 KB) were moved unchanged; the comparison is byte-exact. This file keeps 3.0.0 onward and an index of the archived releases. `scripts/doc_lint.py` and `workflow_version_drift_gate` exempt the archive as they exempt this file, `algorithm_name_drift_gate` still reads it, and the prose pointers that named a moved entry now name the archive.
+
+**Fixed — the decision layer grounded a missing probability as a confident "clear".** `Evidence.from_detection` coerced an absent, `None` or non-finite `anomaly_prob` to 0.0, and the threshold band then grounded CLEAR at confidence 1.0: `decide({})`, `decide({"anomaly_prob": nan})` and `decide({"anomaly_prob": None, "is_anomaly": True})` all did. `Evidence.anomaly_prob` is now `float | None` (a real 0.0 is kept) and the decider abstains UNAVAILABLE/DEFER when it is absent. `CognitiveOrchestrator.analyze` ran its harm-uplift and σ_Immutable gates after it had already stored the caller's context in the knowledge graph, adapted plasticity and appended to history; both gates now run first, and a refused request leaves no trace. `/fusion`, `/three-r`, `/tier` and `/rca` never called `enforce_decision_boundary`; each does now, fail-closed, and `/fusion` answers an unknown or empty detector list with 422 (it was a confident "normal") and ragged data with 422 (it was 500). `EscalationBroker` approved on any truthy reviewer return, so a reviewer answering `"no"` approved; it requires `True` and counts approvals under a lock. The shipped harm classifier no longer stays disabled for the life of the process after one failed import: it retries on a bounded backoff and logs the lexical-only fallback at WARNING.
+
+**Fixed — two gate thresholds and two stability checks did not do what they said.** GOSNN-3R lowered the process-global ethical threshold from recent input scores (toward 0.90, under the 0.93 trained floor) and overwrote every domain's threshold on the shared instance; the adjustment is clamped at the domain floor, never lowered, and instance-local. `LyapunovRuntimeEnforcer.check` tested `v <= (1-λ)·v_prev` while claiming `exp(-λ)`, and OR-ed it with an absolute envelope under which a 1.5²⁰-fold rise recorded no violation; it tests `v <= v_prev·exp(-λ)` and nothing else. `OmniAvaEquation.verify_lyapunov_stability` divided by the wrong time base, missed that variance decays at 2λ, and called any positive rate stable; it now recovers λ = 0.25 from an `exp(-0.25t)` trajectory (it read 0.333) and requires `LYAPUNOV.MIN_CONVERGENCE_RATIO`, a constant that was used nowhere. Split-conformal clamped the quantile silently at small n — five calibration rows guarantee 5/6, and the certificate said 0.90; the achieved bound is computed, logged when below the request, and is what the decision wording quotes.
+
+**Fixed — the spectral Oracle read rows as signals, and scaled the scores it was meant to inform.** Inside `MercuryAnomalyDetector` the Oracle was fitted and queried on rows — one time step across features — at an assumed 1 kHz, and its batch-level multiplier was applied to the decision scores before the `[0, 1]` clip, which moved the operating point per batch and tied the top-ranked scores on the batches that looked most anomalous. It now analyses each feature's series and reports its multiplier as metadata only. Detect on 256 temporal rows: 185 ms to 3.7 ms. `fit_with_labels` stored the conformal reference under the unsupervised weights and then replaced the weights (up to 0.287 score-units apart); the reference is re-anchored under the served weights, on normal rows only. The 18-set ADBench ledger is unchanged, set by set (mean 0.7737).
+
+**Fixed — a batch whose top scores saturated could not be flagged.** The residual frequency filter hard-clipped its blend at 1.0, so a sustained run of high scores came out tied at exactly 1.0; when more than the false-alarm budget of the fit-time reference was in that tie, the conformal cut was 1.0 and `score > cut` flagged nothing. The Oracle's per-row multiplier had been breaking the tie by accident, and the Oracle fix above exposed it: on a recorded FEMA declarations series 16 of 229 rows were tied and none was flagged. The blend is now bounded by the detector's tie-free saturation with a knee at 0.999, so every score below the knee is bit-identical and only the former tie is resolved (10 rows flagged on that series, as before the Oracle fix). Over 37 cached hazard events, before the Oracle fix / after it / now: mean AUROC 0.6794 / 0.6794 / 0.6794, flag rate 0.0386 / 0.0374 / 0.0386, recall 0.2190 / 0.2168 / 0.2188. The 18-set ADBench ledger is unchanged, set by set; the quickstart's JMSE published-protocol figure moves 0.8779 to 0.8780 (its December training file held saturated tracks whose tie is now resolved).
+
+**Changed — `IMAGE` means a raster, and row order can be declared.** The data-type gate called data an image when the feature count was near √(sample count). Across the 76 benchmark sets that fired once, on a 196-feature network-flow table. It now requires a square 1- or 3-channel layout whose neighbouring pixels cohere along a row and down a column, and image rows are treated as unordered like tabular ones (that set: 0.9297 to 0.9296; the other six wide sets are bit-identical). A table sorted by class still reads as `TEMPORAL` — its block order is real autocorrelation, and the comment claiming the Ljung-Box test prevented this was wrong; a criterion that would catch it cost a recorded NAB stream 0.017 AUROC and is not applied. The new config key `{"data_type": "tabular" | "temporal" | "image" | "unknown"}` (default `"auto"`) lets a caller say what row order means.
+
+**Fixed — streaming scored a point against itself, without its dynamics, and "leak-free" was not.** `StreamingDetector` scored each new point as a single row, where the kinematic component is a constant 0.5, and re-fitted on a window that already contained the point. It now scores the rolling window and reports the newest row (median 4.5 ms per tick), and the refit runs before the point joins the window. A failed detect or refit still returns `None`, but `last_status` / `last_error` (also in `get_stats()`) tell an outage from warm-up, and a failed refit waits for the next interval instead of retrying a full-window fit on every tick. The NAB benchmark scored each stream in one batch call through stages that read later samples; each point is now scored from its trailing 256 samples and a prefix-invariance test holds it. Recorded causal AUROC: 0.817 / 0.692 / 0.665 / 0.749, mean 0.731 (the batch run read 0.839 / 0.660 / 0.686 / 0.728, mean 0.729). Spectral Residual's baseline included the point itself, so the newest sample was scored against itself: the same spike read 0.758 at the end of a series and 0.985 in the middle, now 0.942 and 0.987. The baseline is the trailing mean of the preceding points and the score is the deviation above it. On the four recorded NAB files the AUROC moves 0.489 to 0.512, the NAB standard score 45.3 to 51.4, and the false-alarm rate 0.0096 to 0.0110; on the 29-series NAB detection-tier benchmark the detector's own mean AUROC moves 0.506 to 0.517 and the average ensemble's 0.617 to 0.619. The SR paper's ratio score was tried first and withdrawn (NAB score 42.4 at a doubled false-alarm rate), as was a centred leave-one-out mean (false alarms halved, but ranking no better than the original on either harness). The Parseval self-check could never pass (0.19 for any input) and its result was discarded; it is an exact per-frame identity and fires only on a mis-scaled transform. Framing no longer drops the newest half-window; vibration peak selection keeps the strongest peaks, not the lowest-frequency ones. The served-routes adversarial ledger is re-recorded on the changed routes: the tier average moves 0.773 to 0.776 on `slow_ramp` and 0.619 to 0.620 on `level_shift`, Spectral Residual's own AUROC in it 0.848 to 0.861, and at contamination 0.05 the rank cut catches twelve of fifteen seeded anomalies where it caught thirteen (recall 0.867 to 0.800, false-positive rate 0.007 to 0.011; over six seeds the mean recall is 0.867 against 0.878, one anomaly at the cut boundary). Every floor holds.
+
+**Fixed — the visual detectors: a student that never trained, maps resized to the wrong shape, a position encoding with one axis.** Reverse Distillation's student encoder ran under `no_grad` while being handed to the optimizer, so after `fit` it was still its random initialisation (AUROC on the real-image fixture 0.9931 to 1.0000 once it trains). All five detectors read the image size before `preprocess` permutes channel-last input, so `[B,H,W,C]` arrays produced `(W, C)` anomaly maps. CFlow's positional encoding varied along rows only (1.0000 to 0.9861 with both axes; the bar is 0.90). `extract_features` built an unseeded projection that entered `state_dict` and broke `load` after `save`; it is deterministic and outside the state dict. PatchCore's re-weighted score, coreset selection and nearest-neighbour fallback now do what their names say, and the faiss-cpu crash path is closed. `efficientnet_b4` and `vit_base_patch16_224` return real feature stages. `BackboneType.DINO_V2` names a model timm does not have; the member is kept and its construction raises an error naming the timm DINOv2 model.
+
+**Fixed — the VLM detectors' votes and verdicts.** BLIP matched keywords as substrings (`usual` inside `unusual`, `or` inside `floor`) and its formula pinned one anomaly keyword at exactly 0.5, which never alarmed; matching is word-boundary and the vote alarms on more anomaly than normal evidence. AnyAnomaly never alarmed on a bare `YES` and read `YES` inside `EYES`; verdict parsing is anchored, the prompt asks for `ANOMALY_PROBABILITY` and only that value is read as a probability of anomaly, a stated confidence is confidence in the stated verdict (so `NO … 95% confident the scene is normal` no longer alarms at 0.95), an out-of-range number is discarded, and a verdict that contradicts its own probability alarms and is marked as a conflict. LAVAD could not alarm on a `YES` that named no frames. `StatisticalVLMDetector` is a texture heuristic whose `fit` did nothing — every textured normal was flagged (40 of 40) and no smooth anomaly (0 of 8); `fit` now calibrates an interval (2 of 40, 8 of 8), and the class says what it is. `LAVADConfig.llm_model` / `vlm_model` were declared as aliases and never wired; they are wired. Keyword matching keeps its left word boundary and accepts regular inflections (`flooded`, `crashed`, `fires`). AnyAnomaly and LAVAD share a model cache whose eviction no longer deletes a model a detector still holds. Visual checkpoints carry a scoring version: a PaDiM or PatchCore checkpoint saved before this release is refused with an error that says a refit is required, because its scores would not mean what the loaded detector computes.
+
+**Fixed — the fusion network's symbolic term, calibration and importance.** The LTN universal quantifier was the plain power mean, which is more lenient than the arithmetic mean and gave a fully violating row a gradient near 1e-8; it is the pME quantifier, and on 99 satisfied rows and one violation it returns 0.900 with the gradient on the violator. The rule weights were trained by the loss they weight and drifted to whichever rule was easiest (0.50/0.50 to 0.128/0.872); they are fixed. In-house isotonic regression did not pool tied inputs (it predicted 1.0 at a tie whose mean was 0.5) and `average_precision_score` depended on label order among ties (0.311 or 1.0 on the same data); both are tie-aware. `detector_importance` was the softmax of weights that never receive a gradient — exactly uniform — fetched by a second forward pass; it is read from the forward's own attention. Feature groups the model has no projection for are dropped with a warning instead of acquiring untrained parameters.
+
+**Fixed — hazard loaders: features aligned with labels, sources that deliver what they name, and an undefined AUC that is not 0.5.** Three loaders sorted twice; on tied `datetime64` keys the second sort permuted rows, so feature row *i* was no longer label row *i* (flood 172 of 1,000 rows, FEMA 141 of 600 anomaly rows, pandemic 34 of 240). The earthquake historical query had no spatial filter, so every M2.5+ quake on Earth was the event. Ebola's integer year parsed as nanoseconds after 1970 and left an empty frame; `mpox_2022` was served from the COVID file; the volcanic historical path served today's alert as a past eruption; hurricane 24-hour deltas counted rows on mixed 3- and 6-hourly tracks, and seven catalogue events carried storm IDs IBTrACS does not hold, so they were never read; tornado segment rows counted multi-state EF3+ tracks more than once; tsunami features filled leading gaps from the end of the window and used centred rolling windows; an empty landslide area query fell back to 2,000 unrelated slides worldwide. Each is fixed at the source. Where no honest source exists the event is marked not-benchmarkable instead: flood `european_2021`, pandemic `mpox_2022` and the four historical volcanic events. The domain benchmark returned 0.5 for a single-class event and counted it into the mean; such events are now reported as undefined and left out. Cache keys are versioned wherever the cached payload changed, so an existing cache cannot keep serving the old data. **The hazard table is re-measured on the corrected loaders, with a control on the old ones to separate causes: Overall 0.8011 over 42 events to 0.7324 over 54 (53 with a defined AUROC).** Where it fell, the fix removed an advantage the number should not have had: Tsunami 0.8771 to 0.8110 (rolling windows no longer read later samples), Hurricane 0.7792 to 0.7044 over twelve events (0.6204 on the original five; deltas are taken on the 6-hourly main track), FEMA declaration flags 0.4930 to 0.4832. Earthquake's 0.9367 was mostly a label leak (the row was carried from a cache that predates the label-column exclusion): de-leaked on the old loaders it is 0.3537, and the spatial filter brings it to 0.6321. Tornado 0.8803 to 0.9355 over three events. Energy and FEMA declaration activity are unchanged and reproduce exactly. The table is now reproducible from the repository (`research/engine_calibration/score_events.py` produces the scores file, which had no committed producer), and an undefined AUROC is written as `null` with its reason.
+
+**Fixed — `NeuroSymbolicHub.predict` never returned with its default settings.** `GOSNN3RIntegration.adjust_weights` held a non-reentrant lock and called `verify_stability`, which takes the same lock; every hub test passed `enable_gosnn_3r=False`. The lock is re-entrant. The refinement that call was meant to drive could not act even then (its bar was reached for 0 of 68,921 inputs; with the bar removed it changed 15 of 1,800 rows and no verdict), so the hub no longer calls it and reports the stability fields as not evaluated rather than a structural 0.0. Where the integration does evaluate its gate, volatile scores now tighten what is enforced (configured 0.93: 0.96 after one step, 0.99 after 400) without lowering it and without writing another domain's threshold.
+
+**Fixed — smaller instruments that did not do what they said.** `FastSHTransform` forward and inverse were not a round trip (Y10 came back at 0.144×); round-trip error is now ≤ 7e-15 through degree 32. `CognitiveOrchestrator.learn_from_feedback` addressed a pattern `analyze()` never creates, so no weight ever moved, and later feedback than about four seconds moved none either; it now reinforces the connection the analysis recorded (six hours late: 0.2710 to 0.3710) and returns what it changed. `calibrate_detector` reported its Brier score on the rows it was fitted on (0.2107 where a fresh holdout read 0.2630); the reported figure is cross-fitted (0.2540). The tier streaming scorer returned `is_anomaly: False` for a message with no numeric value and ignored NumPy scalars; it abstains and reads them. `OnlineDriftDetector` rebuilt its window every tick (133–174 µs to 32–34 µs at 1,024 samples, decisions bit-identical on 109 streams) and raised about 195 false drifts per 2,000 samples beside a constant feature; a feature with zero range is not testable. `CausalMathArrest` scored a non-finite reading as normal and let it shift the next window of scores; it abstains and leaves its history untouched.
+
+**Added — the served decision explains itself: calibrated certificate, full provenance, multi-factor abstention, self-critique, churn.** The shipped fusion checkpoint carries a fitted conformal certificate for the first time (per-sample regime, held-out coverage 0.9163 per-sample / 0.9522 batch at the 0.90 target; weights, temperature and every fitted detector state bit-identical to the previous artifact), so served flagship records are `calibrated=True` — measured on the held-out half, grounded ACT precision goes 25/26 to 24/24 and grounded CLEAR precision 224/225 to 206/206, with the one false alarm and the one confidently-cleared anomaly both landing in 21 fail-closed holds. A deferral names every overlay that applied (the decider stopped at the first; it is resolvable by re-input only when all of them are). One served record now reconstructs the decision: `DecisionRecord.signals` carries the skip entries' reason/detail, per-detector uncertainties, out-of-support rows, the model's identity (`model_provenance`: checkpoint basename + sha256 hashed once at load, temperature, conformal coverage, trained groups), a bounded `contributions` block (detector importance, Integrated-Gradients and Shapley top-16 at 6 dp) and a bounded `cognitive` block. The cognitive orchestrator runs on the served flagship by default (`MERCURY_FLAGSHIP_COGNITIVE=off` opts out; measured 31.8 to 171.8 ms per single-row call), surfacing `is_reliable`, calibrated confidence, measured uncertainties and historical analogs; its knowledge graph gains `remove_node` and a 512-observation working-memory bound, where it grew one node per detected anomaly without limit. An ethical 403 carries `{message, ethics: {check, score, threshold, ruleset_version, details}}`, bounded and JSON-safe. Decision churn is measured on both live paths: a per-tick verdict-flip fraction on `EngineStreamSession` (`churn`, trailing 32 point-resolved verdicts) and `DecisionLedger.summary()['churn']`. The operator console renders the decision record (state, disposition, abstained, calibrated, coverage, reasons, caveats), charts `detector_importance`, renders the Integrated-Gradients explanation instead of `[object Object]`, gates STABLE/UNSTABLE on `stability_evaluated` (a too-short series read UNSTABLE), and shows an ethical refusal as a policy refusal with its payload instead of "create an API key".
+
+**Fixed — `fit_fusion` was not reproducible, validated on rows its detectors had seen, and served a different function than it scored.** The fitted model depended on what the process had drawn from torch's global RNG before the fit (two engines, the same rows: scores up to 0.34 apart), every epoch replayed the same batches, and under class imbalance the validation split was often single-class, which skipped calibration (wbc: 4 of 8 fits). `fit_fusion`, `fit_fusion_pooled`, `tune_fusion` and `train_fusion_model` take a `seed` (default 0; `None` keeps the ambient stream), stratify the split, reshuffle each epoch and restore the caller's RNG state. The validation rows are drawn before any detector is fitted, so early stopping, the temperature and `fit_validation` are measured on rows nothing fitted for training had seen, and those detectors are the ones served. Refitting them on all of `X` afterwards, as the method had always left them, was measured and is off by default (`refit_detectors=True` restores it): over 8 paired seeds it cost test AUC 0.0013 (standard error 0.0006; pima 0.0062) and ECE 0.0018 (0.0008), and did not move the certificate's coverage. A second `fit_fusion` on new data kept the first call's detector references; it replaces them, and a fit the caller made directly is still kept. A fresh network registers the feature groups the fit extracted (two were extracted and dropped, three registered and never fed) and pools over the groups present. `detect_with_fusion`, `score_fusion` and `detect_with_fusion_calibrated` were three functions — the out-of-support floor ran only when serving (up to 0.057 apart), conformal calibration was fitted on unfloored scores, and serving discarded the features of three trained groups whose models report no score — and now take their probabilities from one core (`score_fusion(apply_support_guard=False)` returns the network's own). On the shipped checkpoint served probabilities move by at most 0.0073 and none of 300 verdicts flips. The conformal holdout takes the rows its requested coverage needs when a class can spare them (9 at 0.9; 40 positives had yielded a 5/6 certificate). Measured on five recorded ADBench tables over 8 paired seeds, with the refit still on: mean test AUC 0.9534 to 0.9558 (standard error 0.0029), mean ECE 0.0715 to 0.0582; wbc's ECE is worse (0.0248 to 0.0326), and pima's `fit_validation` AUC falls from 0.8358 to 0.8025 now that validation is held out.
+
+**Fixed — a verdict on part of the evidence, a hold that had become a deferral, and a score that was never measured.** A detector that timed out, was refused by a saturated executor or failed left a DEBUG line and nothing else; the fused probability was computed without it and the verdict stayed grounded. `detect_with_fusion` now returns `skipped_detectors` (`reason`, and whether the fusion network was trained on the group), and the decider defers a verdict it would have grounded when a trained group is missing. A NaN probability with an empty conformal set — the atypical point no class explains — had become a resolvable UNAVAILABLE/DEFER; it is UNDECIDABLE/HOLD, fail-closed, as an empty set is when the probability is present. A decision without a probability carried 0.0 in its record, which `explain()` printed as `p=0.000` and the CAP bridge sent as "Score 0.00": `DecisionRecord.anomaly_prob` is now `float | None`, and the explanation and the alert say that no score was produced (CAP urgency, severity and certainty `Unknown`). One-row calls could never reach the drift test's 20-row minimum, so every CLI, MCP and `DecisionLoop` call reported `insufficient_rows`; normal-looking rows from small calls accumulate in a 100-row window that is tested once it holds 20. `is_anomaly_rows` used the static threshold while `threshold_used` reported the adaptive one. `_GOSNN_TESTING_BYPASS`, a module attribute that skips the σ_Immutable gate, is ignored and logged at ERROR when `MERCURY_ENV=production` or the environment mode cannot be read.
+
+**Fixed — a stream session fitted the engine's shared detectors, scored a sample against itself, and flagged the window instead of the sample.** `EngineStreamSession` fitted `engine.detectors` in place at warm-up and at every refit, so a session overwrote a trained engine and two sessions overwrote each other. It holds its own copies and scores them through the gated boundary with the new `detect(..., detector_overrides=...)`; `SigmaDirectiveDetector`, which holds a `threading.local`, can now be copied and pickled, and a detector that cannot be copied is rebuilt from its configuration or refused by name. The fit runs before a sample joins the window. A detector that reports only a window-level result had that statistic presented as the newest sample's verdict, so one spike flagged every tick until it scrolled out; it is reported `point_resolved: False` and takes no part in the verdict, and a tick on which nothing speaks about the sample is `not_point_resolved`, not a clear. A drift the monitor detected was counted and nothing else (post-shift flag rate 1.00 against 0.05 before); the session drops the pre-change samples and refits.
+
+**Changed — the fusion regression guard gates the median of seven seeded fits.** It pinned one fit and called it bit-stable; at its eight epochs the same data and code give F1 from 0.835 to 1.000 across fit seeds, and one seed read 0.985, 0.943 and 0.868 at four, two and one torch threads, the last under the floor. It fits once per seed at one thread and gates each metric's median, with every realization recorded. Re-pinned on the current engine: AUC 0.9970, F1 0.9851, coverage 0.9222; the AUC floor rises from 0.95 to 0.9570, the F1 (0.9151) and coverage (0.85) floors are unchanged.
+
+**Fixed — defects in this pass's own fixes, found by two independent reviews of its diff.** Each was reproduced before it was changed. `StreamingDetector.ingest` had begun returning its whole scoring window, so one spike was counted once per window position (2,912 "anomalies" in a 400-point stream); it returns the newest point's row again and scores against a bounded trailing window. `fit_with_labels` re-anchored its reference on rows `fit` had dropped as non-finite (one NaN cell moved the conformal cut from about 0.20 to 0.37). The spectral Oracle's reference spread was taken across features, so a univariate series read every band as significant on clean data; the reference is now the series' own history in equal segments, and its window is the periodic Hann (the symmetric one weighted the newest sample at exactly zero). The raster test accepted smooth one-dimensional waveforms; a raster must cohere more one row down than half a row away. The pME quantifier's floor saturated above p=2 (0.937 for a fully satisfied batch at p=10). Detector importance was credited to feature groups that supplied nothing. The harm classifier's retry never reached a long-lived scorer, which had resolved it once in its constructor. The hurricane track filter kept only `main` and so dropped every storm not yet post-analysed (413 storms to 237 on the live file); only spur tracks are dropped. The tsunami realtime read had been put under the 24-hour historical cache.
 
 ## [3.0.0] - 2026-11-06
 
@@ -3015,6 +3441,63 @@ was never released. Upgrading from 2.0.0: the license is now
 AGPL-3.0-or-later (2.0.0 stays GPL-3.0-or-later), and every renamed or removed
 2.0.0 name is listed with its replacement in DEPRECATION.md §6.6-§6.15 and §7.
 
+### Added — the console and docs now deliver the three answers, with a challenge button
+
+- **Console decision panel, complete**: a flagship decision renders in the
+  three sections an operator asks in — *why this row* (carrying row,
+  contributions, detector uncertainties, skipped detectors, out-of-support
+  rows, causal factors and test, hypothesis with its weakest premise), *how
+  sure* (verdict vs threshold, conformal set with its calibration basis,
+  per-sample certificate note, drift, symbolic agreement, GOSNN second
+  opinion, critique with measured flags, novelty verdict with p-value and
+  reference size) and *the record* (response plan, model provenance, ethics
+  outcome with score vs threshold, policy and its gates, replay paths,
+  reasons, caveats). `tests/api/test_console_decision_complete.py` pins the
+  panel against `DecisionRecord`/`Evidence` field-for-field, so a field added
+  to the record fails CI until the console shows it. The decision-trail
+  summary (`GET /detect/flagship/decisions`) renders its rates, churn and
+  admission counters; flagship per-row arrays (`anomaly_probs`,
+  `is_anomaly_rows`) now feed the headline and charts.
+- **"Challenge this decision"**: a console action (button on any result whose
+  record carries discovery artifacts, and a clickable terminal row under the
+  decision block) that POSTs the record to `/detect/flagship/replay` and
+  renders the verdict per artifact; measured in headless Chromium against the
+  served page (`test_console_decision_forbidden_browser.py`).
+- **End-to-end example** `examples/auditable_decision.py`: one committed
+  window with known planted structure through the shipped flagship model in
+  the served posture; prints the three answers, replays the decision's
+  artifacts (HOLDS), shows a tampered copy failing, and exits 0 only when
+  both come out. The README's new "The Single Issue Mercury Resolves" section
+  and the console landing state the issue and where each answer lives.
+
+### Fixed — honesty and bounds found while closing the loop
+
+- **Record severity honours its contract**: `DecisionRecord.severity` is
+  documented in [0, 1] and the response layer bands it on that scale, but the
+  fusion severity head is an unbounded regression and a real served record
+  carried −0.041; the evidence layer now clamps to the documented range (the
+  raw value stays in the detection result).
+- **Served replay is bounded**: a causal finding is recomputed only up to what
+  the shipped instrument produces (5 columns, lags to 5) — a crafted record
+  naming 64 columns at lag 50 did not finish in ten minutes; larger findings
+  are CANNOT_REPLAY with the reason and replay offline. A replay that
+  recomputes from supplied data takes a flagship admission slot (429 when
+  full), and the novelty reference rebuild is linear-time (the quadratic form
+  measured 0.72 s at 4,000 rows, 13.4 s at 16,000).
+- **Assessment body cap restored**: the every-route 10 MiB cap had silently
+  lowered the assessment surface's documented 64 MiB
+  (`MERCURY_ASSESSMENT_MAX_BODY_BYTES`); the cap now lives in the serving
+  limits and is enforced as the body streams (the old guard read only a
+  declared Content-Length, which a chunked request omits).
+- **Docs match the shipped code**: the decision layer is documented as on by
+  default engine-wide (README, ARCHITECTURE, a stale engine comment); the
+  fusion output and MCP tool return lists are complete; the CLI list gains
+  `replay`; SECURITY.md and DEPLOYMENT.md document every serving bound and
+  the IPv6 /64 rate-limit identity; DISCOVERY.md documents the replay
+  response shape, `NO_ARTIFACTS`, the served bounds and the schema name;
+  API_REFERENCE gains the `decision` / `measurement` / `discovery` /
+  `serving_limits` modules and drops its v2.1.x header; the curiosity rows
+  state the rank-test verdict and the served default.
 ### The streaming worker alarms with a learned policy: PPO on NAB
 
 **Added — `ml/alarm_policy.py`, now the default detector of
@@ -8987,4118 +9470,26 @@ assumed "AMA built" implied "`omni_mercury_engine` imports". Two gaps closed:
   Self-gating via `find_spec` keeps the action reusable for pure-AMA jobs. No new
   CI jobs, no DAG/latency change.
 
-## [2.0.0] - 2026-06-17
-
-### Docs↔code reconciliation + release-engineering pass (2026-06-17)
-
-The pass that cut 2.0.0: published figures trued to the CI-gated source of truth,
-plus the version and deployment-secret wiring that entries below already assumed.
-
-* **Single source of truth for the distribution version
-  (`omni_mercury_engine/_version.py`, new).** Resolves the version once from
-  installed package metadata (`importlib.metadata`) with a source-tree fallback;
-  `__version__`, `API_VERSION`, the `mercury --version` CLI, the OTLP
-  `service.version` resource/exports, and the `crypto` / `models.sota` package
-  versions all derive from it. Closes a live drift where `engine.py` reported
-  `1.7.0` from stale installed metadata while the hard-coded literals said
-  `2.0.0`; every surface now agrees and cannot desync on a release bump.
-* **Helm chart now provisions every runtime secret the app reads.** The chart
-  rendered only `JWT_SECRET_KEY`; `API_KEY_HASH_SALT` (required in production by
-  `api/auth.py`) and `MERCURY_CACHE_SECRET` (the cache entry-signing key) were
-  documented and read by the app but never placed in the Secret. Added both to
-  `config.secrets` + `templates/secret.yaml` (auto-injected via the deployments'
-  existing `envFrom: secretRef`); `JWT_SECRET_KEY` keeps its legacy `JWT_SECRET`
-  values-key fallback. Verified with `helm lint` / `helm template`;
-  `docs/DEPLOYMENT.md` install/upgrade commands corrected to the real
-  `helm/mercury-agent/values.yaml` path and `config.secrets.*` keys.
-* **Prometheus `/metrics` served at the conventional root path.** The exposition
-  handler (`api/health.py::health_metrics`) is mounted at `/metrics` on the app
-  — the target scraped by `monitoring/prometheus/prometheus.yml`, the k8s
-  `prometheus.io/path` annotation, and the chart — instead of 404. Locked by
-  `tests/test_api.py::TestAPI::test_metrics_endpoint`.
-* **Documentation trued to CI-gated reality.** Engine/loader/test counts, dates,
-  benchmark prose, the adaptive-ensemble detector docstring, and the OpenAPI
-  version examples aligned to proven values; version-pinned tests assert against
-  the resolved constants instead of frozen literals.
-* **Integration test lane built out — `tests/integration/` now carries real
-  cross-subsystem signal.** The CI `integration-tests` job built the full
-  `.[api,dev]` stack and the native AMA backend only to run zero tests (the
-  directory had never existed) and was timing out before reaching the no-op.
-  Added end-to-end suites that exercise genuine component boundaries: the
-  detection pipeline through the `OmniMercuryEngine` facade and its detector
-  suite; the REST API request→engine→response path asserting detection
-  *correctness* (not just shape) plus boundary validation; external-source
-  ingestion (USGS loader → feature matrix → detector) with the network mocked;
-  and post-quantum signing of a real detection artifact through Mercury's
-  `MLDSAProvider` / `KyberProvider` on the live ML-DSA-65 / ML-KEM-1024 backend.
-  No `skipif` escape hatch — a missing native backend fails loudly, matching the
-  repo's PQC-gate convention.
-* **CI `integration-tests` lane given the pip cache it was missing.** It was the
-  single heaviest-install lane (`.[api,dev]` + API server stack) with no
-  `actions/cache`, so it rebuilt the whole torch/dev tree from scratch every run
-  and tipped past its 30-minute budget mid-setup. Added the cache (shared
-  `-pip-` restore-key warms a cold first run from sibling lanes), bringing the
-  lane in line with `core-tests` / `type-checking`. Root-cause fix, not a
-  timeout bump.
-
-### Phase 3: Governed self-improvement seam — live reflexion + drift arrows routed through the gate (2026-06-16)
-
-Wires the live self-improvement arrows through a fail-closed governance seam at
-the exact point a change would take effect, so neither the reflexion critic nor
-the online-learning drift trigger can mutate Mercury's live behaviour
-autonomously. (Supersedes the earlier routing-only Phase 3 surface, which
-governed a copy of the decision while the live mutation still executed
-ungoverned.)
-
-* `src/omni_mercury_engine/governance/self_improvement.py` (new) — the
-  engine-owned seam: `ThresholdGovernance` / `RecalibrationGovernance`
-  protocols, the `ProposedThresholdChange` / `ProposedRecalibration` /
-  `GovernanceReview` records, and two built-in policies —
-  `FailClosedSelfImprovementGovernance` (default; withholds every autonomous
-  change) and `MeasurementGovernance` (explicit, named opt-in for held-out
-  measurement harnesses).
-* `agentic/orchestration.py` — `MultiAgentOrchestrator.reflect()` now routes an
-  actionable threshold recommendation through `threshold_governance` instead of
-  applying it; `ReflectionRecord` gains the governance disposition. Default
-  fail-closed; the live operating point moves only on an authorised review.
-* `ml/online_learning.py` — `OnlineLearningPipeline` routes its
-  high/critical-drift and performance-degradation retrain triggers through an
-  optional `recalibration_governance` policy before `model.fit()`. Standalone it
-  remains an autonomous online learner; in the governed composition it is
-  fail-closed. Explicit `force_retrain()` is never gated.
-* `engine.py` — `enable_multi_agent_orchestration(threshold_governance=…)`
-  installs the policy on the production orchestrator.
-* `research/governed_fusion/phase3_governance_adapters.py` (new) — the
-  gate-backed policies (`PromotionGateThresholdGovernance`,
-  `PromotionGateRecalibrationGovernance`) implement the engine seam by routing a
-  proposal through the Phase 2 promotion gate (research → engine dependency). A
-  gate `promote` is queued for human approval, never auto-applied.
-* `research/governed_fusion/phase3_governance.py` — adds
-  `dormant_revival_report_to_section` and a `--dormant-revival` CLI path so the
-  recurring workflow routes every measured verdict through the gate instead of
-  only uploading it (closes the measure → route loop). `maintain` remains a
-  no-op; missing candidate evidence fails closed; `promote` remains human-review
-  gated.
-* `Phase3DecisionStore` — append-only JSON records plus `index.jsonl` for
-  Reflexion, drift, and dormant-revival routing outcomes.
-* `tests/research/test_phase3_governance.py` — routing logic, composite reports,
-  append-only records, CLI `--check`, and the dormant report → routing loop.
-* `tests/research/test_phase3_live_wiring.py` (new) — end-to-end proof against
-  the real gate: the autonomous threshold move and the autonomous drift retrain
-  are both observed to be withheld by default, applied only under an explicit
-  measurement stance, and queued (never auto-applied) when the gate-backed
-  policy clears them.
-* `.github/workflows/phase3-governance.yml` — pull requests run deterministic
-  Phase 3 routing tests; scheduled/manual runs execute the real dormant-module
-  revival benchmark, route every verdict through the gate, and upload both the
-  measurement and the routing decisions.
-* `docs/PHASE3_GOVERNANCE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`,
-  `ARCHITECTURE.md`, `SECURITY.md`, and `README.md` — document the governed
-  seam, the live wiring, and the fail-closed posture; Phases 4–8 remain
-  explicitly deferred.
-
-### Promotion-gate ingestion hardening — close fail-open paths on the decision boundary (2026-06-16)
-
-Hardens the Phase 2 gate (`research/governed_fusion/promotion_gate.py`) and the
-Phase 3 router CLI against malformed and non-finite evidence. Each fix closes a
-fail-**open** path on the security-critical decision boundary; all are locked by
-new tests in `tests/research/test_governed_promotion_gate.py`.
-
-* `_as_float` now rejects `bool` (a Python `int` subclass) and non-finite
-  values. Previously a JSON `true`/`false` in a safety field read as `1.0`/`0.0`
-  and cleared a floor (`{"benevolence": true}` → promote), and an `Inf` metric
-  satisfied the improvement delta while a `NaN` never compared below a regression
-  floor.
-* `_as_int` rejects `bool` and accepts an integral float (`2.0` → `2`) so a
-  legitimate candidate whose metric code emits `2.0` is no longer rejected by a
-  crash.
-* A non-finite **ledger baseline** (e.g. a degenerate single-class measurement
-  that produced `NaN`) is now a fail-closed reject reason, not a silently-skipped
-  ablation check.
-* Both CLI `main()` entry points convert validation errors into an auditable
-  REJECT decision record plus a non-zero exit, instead of a bare traceback that
-  leaves the store empty; decision records are written with `allow_nan=False`.
-
-### Phase 2: Governed promotion gate — held-out replay, experiment store, rollback decisions (2026-06-16)
-
-Adds the enforcement layer that consumes Phase 1's transparent fitness
-substrate before any recursive self-improvement candidate can advance.
-
-* `research/governed_fusion/promotion_gate.py` — deterministic promotion
-  gate for candidate evidence records. The gate reads only the
-  `external_label` bucket, requires AUROC or F1 improvement without
-  AUROC/AUPRC/F1 regression, enforces σ_Immutable / benevolence /
-  conformal / Lyapunov floors, requires capability-regression success,
-  checks the latest `status="ok"` marginal-ablation baseline when present,
-  and emits rollback decisions for failed canaries.
-* `ExperimentStore` — append-only JSON decision records plus `index.jsonl`
-  so promotion, rejection, and rollback outcomes remain reviewable.
-* `tests/research/test_governed_promotion_gate.py` (8 assertions) —
-  promotion eligibility, external-label-only optimization, broadened-bucket
-  rejection, capability-evidence enforcement, ablation-regression rejection,
-  canary rollback, manifest-count reconciliation, and append-only store
-  behavior.
-* `.github/workflows/ablation-ledger.yml` — extends the transparent fitness
-  substrate CI lane with the governed promotion gate tests.
-* `docs/GOVERNED_PROMOTION_GATE.md`, `docs/SELF_IMPROVEMENT_LOOP.md`, and
-  `README.md` — document the Phase 2 operator contract, held-out replay
-  terminology, human-review requirement, and rollback behavior.
-
-### Phase 1: Transparent fitness substrate — leakage-split gate + fusion-marginal ablation ledger (2026-06-16)
-
-Closes the **measurement** stage of the governed recursive self-improvement
-loop. The autonomous self-improvement work that follows (Phase 2: governed
-promotion gate; Phase 3: Reflexion / drift-triggered recalibration /
-recurring dormant revival) optimises whatever the fitness signal measures —
-and Phase 0 verification found the fitness signal was partly
-provenance-contaminated. The `loaders/` side of the codebase had no
-label-provenance discipline at all, even though
-the governed-fusion suite (`research/governed_fusion/`) was already using
-those loaders to compute its 23-event live headline. Of the 15 concrete
-live-API loaders, **13** manufacture anomaly labels by thresholding a column
-that is also a scored feature (label leakage / circularity); only **2**
-(`network_security`, `sepsis`) produce labels independent of the scored
-signal. Phase 1 surfaces that transparently and CI-enforces the discipline
-so the autonomous loop reads only independently labelled live events.
-
-* `src/omni_mercury_engine/loaders/base.py` — adds
-  `LABEL_SOURCE: str = "ground_truth"` to `BaseDomainLoader`
-  (provenance-declaration default; loaders override to declare their
-  actual provenance). Mirrors `datasets/base.py`.
-* Every concrete loader updated with an audited `LABEL_SOURCE` and a
-  per-loader justification citing the exact circular pattern: earthquake
-  (`magnitude >= mainshock_mag - 1.0` on feature[0]), hurricane (24h wind
-  delta on the scored wind-delta feature), tornado (`mag >= 3` on
-  feature[0] `ef_scale`), fema (DR + IA + PA flags scored as features),
-  marine (richness-decline threshold on the scored richness-loss feature),
-  pandemic (7d rolling > 2x 30d baseline on the same 7d feature; ebola_2014
-  reconstructed), energy (`kp >= 7` on reconstructed kp), tsunami
-  (reconstructed series), financial (VIX / yield-curve thresholds on scored
-  features), flood (`gauge_height >= NWS flood-stage` on feature[0]),
-  landslide (fatality/size on scored features), wildfire (FRP p90 on scored
-  `frp`), volcanic (alert level on scored feature 1). The two
-  ground-truth loaders (`network_security`, `sepsis`) are explicitly
-  declared with their justifications.
-* `src/omni_mercury_engine/loaders/label_provenance.py` — canonical
-  per-loader registry (`LABEL_PROVENANCE_REGISTRY`), audit
-  (`audit_label_provenance`), discovery (`discover_loaders`), AST
-  circularity heuristic (`scan_circular_label_construction`), and the
-  ground-truth subset helper (`ground_truth_loader_keys`). Module CLI:
-  `python -m omni_mercury_engine.loaders.label_provenance --check`.
-* `research/governed_fusion/label_provenance.py` — pivots from per-loader
-  `LABEL_SOURCE` to per-event `(label_provenance, series_provenance,
-  external_label)`. Single source of truth for the manifest, the
-  aggregator, and the ablation ledger.
-* `research/governed_fusion/manifest.json` — every entry now carries the
-  three new audit fields, plus a top-level `provenance_summary` block.
-  Today's headline: 2 external-label, 21 self-label, 7 reconstructed.
-* `research/governed_fusion/build_manifest.py` — emits the new fields
-  and summary; reads from the loader audit so manifest and loader
-  registry can never silently drift.
-* `research/governed_fusion/evaluate.py` — `aggregate()` adds a
-  `per_provenance` breakdown alongside `per_event` / `per_domain` /
-  `overall`. Phase 2's promotion gate reads `external_label` only.
-* `research/governed_fusion/measure_baseline.py` — prints the
-  per-provenance block alongside the per-domain block, with the
-  external-label bucket tagged `(FITNESS)`.
-* `research/governed_fusion/measure_marginal_ablation.py` — standing
-  fusion-marginal ablation ledger: leave-one-component-out
-  ΔAUROC / ΔAUPRC / ΔF1 on the external-label live subset only. Records
-  timestamp, git SHA, components, event keys, and the selected cache
-  path per run. When the selected score cache is absent (typical on a
-  fresh CI runner) emits an informational `needs_cache` record (exit 0)
-  so the ledger keeps a chronological reachability account.
-* `research/governed_fusion/ablation_ledger.json` — seed ledger; the
-  fitness function the autonomous loop will climb.
-* `.github/workflows/ablation-ledger.yml` — runs on PR + nightly: loader
-  audit, manifest integrity, ledger schema + math correctness, then the
-  measurement itself. Uploads the ledger as a CI artifact.
-* `tests/loaders/test_label_provenance_gate.py` (12 assertions) —
-  mirrors the `datasets/` gate for the live-API path.
-* `tests/research/test_governed_fusion_label_provenance.py` (7
-  assertions) — per-event provenance integrity, manifest-vs-loader
-  drift, the `external_label` bucket lock at exactly
-  `{network_security/batadal, network_security/nsl_kdd}`.
-* `tests/research/test_marginal_ablation_ledger.py` (6 assertions) —
-  ledger schema, math correctness on synthetic events (informative
-  components produce positive lift; a noise component ranks below),
-  the missing-cache informational path, and `--cache-dir` propagation
-  into the score-cache reader.
-* `docs/SELF_IMPROVEMENT_LOOP.md` — the rollout narrative: the verified
-  capabilities map, the transparent baseline, the 10-dataset reconciliation
-  (mirror vs cannot-score), Phase 1 deliverables, and the explicit
-  out-of-scope decisions for Phases 2–8 (each is a documented decision,
-  not a gap). NAS is excluded; UBI 9/10 is a separate PR; HITL for
-  actuation is documented as a Phase 8 contingency, not a Phase 1
-  deliverable (Mercury is sensing-only today).
-* `docs/BENCHMARKS.md` — adds the provenance-split block surfacing the
-  Phase 1 finding: of the 23 live events, only 2 (network_security)
-  produce labels independent of any scored feature; external-label mean AUROC
-  **0.7704** / F1 **0.1863**.
-* `docs/DORMANCY_LEDGER.md` — section 7 names the ablation ledger as
-  the standing measurement substrate that Phase 3 revival routing reads.
-* `README.md` — adds a paragraph on the live-API loader provenance
-  audit and points at `docs/SELF_IMPROVEMENT_LOOP.md`.
-
-No gate, threshold, ethics floor, or assertion was loosened to make CI
-pass: σ_Immutable (0.93/0.96), benevolence floor (0.99), Lyapunov
-certificate, conformal coverage target (0.90), the
-`fusion-regression.yml` floors, and the existing `datasets/`-side
-provenance gate are all unchanged. The new gates are additive.
-
-### Geospatial kernel + movement-plausibility detector — one lat/lon geometry, a boreal undercount fixed, FINDΩYOU groundwork (2026-06-11)
-
-Consolidates all latitude/longitude geometry behind a single numpy-only
-kernel, fixes a measured correctness defect in the wildfire loader, and
-adds the engine's first trajectory-level geographic detector.  The
-detector core is a corrective rebuild of an externally audited geospatial
-module (2026-06-10 audit); all four audited defects are reproduced as
-regression tests against the corrected implementations.
-
-* **New `omni_mercury_engine.utils.geo` — canonical geospatial kernel
-  (numpy only).** `haversine_km`, `haversine_km_to_point`, and
-  `pairwise_haversine_km` use the numerically robust `atan2` haversine
-  form and the IUGG mean Earth radius (6371.0088 km).
-  `neighbor_counts_within_km` (with an optional temporal co-occurrence
-  window) and `dbscan_geo` (kilometre-denominated DBSCAN, Ester et al.
-  1996) prune candidate pairs with an *exact* latitude band — on the
-  sphere the central angle is at least |Δlat|, so the band can never drop
-  a true neighbor — and never materialize the full n² distance matrix.
-  `dbscan_geo` closes a real gap: the native `ml.mercury_ml.DBSCAN`
-  delegates to `scipy.cdist`, which has no haversine metric, and no single
-  euclidean-degrees eps is meaningful across latitudes (50 km spans 0.45°
-  of longitude at the equator but 0.90° at 60°N).
-
-* **Wildfire loader correctness fix (boreal undercount).**
-  `WildfireLoader._compute_spatial_clustering` pre-filtered candidates
-  with a flat `radius_km / 111 * 1.5` degree box before exact distance
-  checks.  Above ~48° latitude one degree of longitude spans too few km
-  for that buffer: at 62°N (boreal fire country, prime VIIRS territory)
-  two detections 9.49 km apart — inside the 10 km radius — were dropped
-  entirely, and a 400-point synthetic boreal swarm lost 9,886 true
-  neighbor pairs (~20%).  The `cluster_count` feature is now exact at
-  every latitude; `tests/loaders/test_geo_rewire.py` pins mid-latitude
-  parity with a verbatim port of the legacy loop and demonstrates the
-  boreal fix against brute-force ground truth.
-
-* **Loader geometry rewired to the kernel — faster, behavior pinned.**
-  Tornado temporal clustering (same-hour + 100 km co-occurrence): 18×
-  faster at n=3,000 (4.7 s → 0.26 s).  Wildfire spatial clustering: 3.6×
-  at n=3,000 and 9× at n=20,000 (12.7 s → 1.4 s).  Wildfire spread rate:
-  2× (lookahead window vectorized; first-minimum tie semantics
-  preserved).  Tornado centroid distance (`geo_anomaly` feature)
-  vectorized.  Three private haversine copies collapse into the kernel.
-  Standardizing the Earth radius (6371.0 → 6371.0088, +1.4e-6 relative)
-  shifts a 10 km cutoff by ~1.4 cm; measured effect on dense synthetic
-  swarms: 2–4 flipped neighbor counts per ~1.7M true pairs, versus VIIRS
-  positional resolution of 375 m.  Deliberately untouched: the hurricane
-  loader's translation speed (angular degrees by documented design) and
-  the landslide loader's ArcGIS bounding box (correct cos-compensated
-  server-side prefilter).
-
-* **New `GeoMovementAnomalyDetector`
-  (`detectors/geo_movement.py`) — movement plausibility for
-  (lat, lon, time) trajectories.**  BaseDetector-compliant
-  (`fit`/`detect`/`extract_features`, auto-calibration supported,
-  registered in the detectors lazy-import table and `DETECTOR_MANIFEST`
-  as `geo_movement`, BASE category, feature_dim 8), plus a casework
-  `assess(history, current, now)` API for datetime-stamped sightings —
-  groundwork for the FINDΩYOU missing-persons mission.  Three channels in
-  [0, 1] (velocity vs. a 130 km/h feasibility ceiling, step-length z-score
-  vs. *fitted* history, silence vs. expected reporting cadence) fuse by
-  noisy-OR, so one saturated channel alone exceeds any threshold below
-  1.0.  The audited module it rebuilds could not fire on a 450 km/h
-  teleport: weighted-sum fusion (0.4/0.3/0.3 vs. a 0.72 threshold) capped
-  any single channel at 0.4, and the jump statistic measured spread from
-  the candidate point, suppressing its own signal.  Both failure modes
-  are locked as tests (`test_impossible_jump_fires`,
-  `test_single_saturated_channel_fires_alone`,
-  `test_jump_scored_against_history_not_candidate`).
-
-* **Tests: 36 new** across `tests/utils/test_geo.py` (ground-truth
-  distances, brute-force neighbor parity, permutation invariance, DBSCAN
-  transitivity/planted-cluster recovery), `tests/detectors/
-  test_geo_movement.py` (audit regressions + interface contract), and
-  `tests/loaders/test_geo_rewire.py` (parity with verbatim legacy
-  implementations).  Affected existing suites pass unchanged (domain
-  loaders, detector manifest, spatial detector).
-
-### Engine integration — manifest detectors made reachable through `OmniMercuryEngine`; inference/training exception symmetry
-
-Closes the wiring gap that left every `DETECTOR_MANIFEST` entry outside the
-five built-in base detectors — notably the new `geo_movement`, and
-`graph_based` — registered but unreachable through the engine: nothing
-consumed the manifest, so such a detector never participated in the
-detect → fuse → decide path it was nominally registered for.
-
-* **Opt-in detector-registration seam on `OmniMercuryEngine`.**
-  `register_detector(name, detector, *, replace=False)` adds a
-  `BaseDetector` to the engine's active set; `enable_detector(name)` bridges
-  the declarative manifest to a live instance
-  (`engine.enable_detector("geo_movement")`); `available_detectors()` reports
-  which manifest detectors are active on the engine. Purely additive — the
-  default five-detector set (`statistical`, `temporal`, `spatial`,
-  `dimensional`, `directive`) and the calibrated fusion path are byte-identical
-  until a caller opts in. A detector registered after `fit_fusion` has trained
-  is recorded but ignored at fusion inference — which is restricted to the
-  trained feature groups (`_fusion_feature_groups`) — until a re-fit, and that
-  case warns rather than silently misleading. Once enabled, the detector
-  contributes its feature group through the single source of truth
-  (`_extract_fusion_features`) on both the training and inference paths;
-  verified end-to-end for `geo_movement` (an `(n, 8)` group on trajectory
-  input, the five base groups still present).
-
-* **Inference/training exception-handling symmetry (latent defect, fixed).**
-  The inference feature extractors (`_extract_detector_features`,
-  `_extract_model_features`) caught only six built-in exception types, while
-  the training extractor (`_extract_fusion_features`) catches `Exception`. A
-  detector or model that fail-louds with Mercury's own `OmniAnomalyException`
-  (e.g. `geo_movement` raising `DetectorException` on non-trajectory data)
-  was therefore skipped gracefully during training but would crash
-  `detect_with_fusion` at inference. Both inference extractors now also catch
-  `OmniAnomalyException`, honouring their documented graceful-degradation
-  contract; the five built-ins never raise it, so the default path is
-  unchanged. This asymmetry is what made a specialized, fail-loud detector
-  unsafe to add — fixing it is the precondition for the seam above.
-
-* **Tests: 15 new** (`tests/core/test_engine_detector_registration.py`):
-  default-set lock, `register`/`enable`/`available` contracts, the
-  post-training warning path, fusion-feature-group wiring for an enabled
-  detector, and the inference graceful-skip regression lock (a fail-loud
-  detector cannot crash `detect_with_fusion`).
-
-* **Detector audit — orphaned first-class detector wired in, manifest hygiene.**
-  A full audit of every `*Detector`/`*Analyzer` in `detectors/` (manifest
-  membership, exports, engine reachability, callers, tests, `BaseDetector`
-  conformance) found the framework largely sound — the apparent orphans are
-  deprecated-on-purpose (`enhanced_statistical`), abstract bases
-  (`BaseVLMDetector`, `BaseVisualDetector`), or wired subsystem components
-  (the VLM / advanced families, the EMP pulse channels of `EMPDetector`). Two
-  genuine gaps were closed:
-  * **`KMeansDistanceDetector` is now a first-class registered detector.** The
-    revived dormant clusterer (measured on ADBench, ROC-AUC ~0.8–0.98) existed
-    as a plain duck-typed class in neither the manifest nor the exports — built
-    as "a first-class detector" but reachable through nothing. It now subclasses
-    `BaseDetector` (backward-compatible constructor; genuinely accepts numpy or
-    torch input), is registered in `DETECTOR_MANIFEST` (`kmeans_distance`, BASE,
-    feature_dim 9) and exported, so it is reachable via
-    `engine.enable_detector("kmeans_distance")`. Opt-in, not a default base
-    detector — the calibrated ensemble is unchanged.
-  * **`SpectralDomainFrequency` now has a dedicated test.** A shipped manifest
-    BASE detector that previously relied on incidental coverage; new
-    `tests/detectors/test_spectral_domain_frequency.py` exercises the real
-    fit → extract_features → detect path and the `BaseDetector` contract.
-
-* **Manifest/engine drift lock (CI):
-  `tests/detectors/test_detector_manifest_integrity.py`.** Pins the invariants
-  that let the gap form: every manifest entry resolves to its class; every BASE
-  entry is a `BaseDetector` exposing the engine's contract (the check that would
-  have caught `kmeans_distance`); the engine's default detector set is a subset
-  of the manifest, so the two catalogs cannot silently drift; and
-  `geo_movement` / `graph_based` / `kmeans_distance` are reachable through the
-  engine seam.
-
-### Deployment image & review hardening
-
-* **Deployment image on Debian trixie — accepted-CVE ledger cut 14 → 8 → 3
-  (Critical 4 → 2 → 0); closes GOV-001.** The runtime base is
-  `python:3.13-slim-trixie` (Debian 13.5). The `.trivyignore` ledger and the
-  SECURITY.md table were rebuilt from a fresh trixie scan with the gate's own
-  trivy 0.70.0 and cross-checked against the Debian Security Tracker: every
-  retained entry suppresses a real, currently-present trixie CRITICAL/HIGH OS
-  finding (verified 1:1 against the built-image scan — no inert entries). Six
-  bookworm-era acceptances were **dropped, not carried inert** — CVE-2023-45853
-  (zlib) and CVE-2025-7458 (SQLite) are resolved in trixie's newer packages;
-  CVE-2025-59375 / CVE-2026-25210 / CVE-2026-45186 drop because `libexpat1` is
-  not an installed dpkg package in the trixie image; CVE-2026-48959 (perl) is no
-  longer a CRITICAL/HIGH finding (8 left). Then **`perl-base` was eliminated, not
-  accepted**: the Dockerfile purges the Debian-essential `perl-base` and its
-  `adduser` consumer right after `apt-get upgrade` (nothing in the runtime needs
-  Perl — Mercury is Python/Rust/C and the user is made with `useradd`), removing
-  5 more CVEs including **both former CRITICALs** (Archive::Tar / Perl overflow:
-  CVE-2026-8376, CVE-2026-42496, CVE-2026-42497, CVE-2026-48962, CVE-2026-9538).
-  Verified on the built image: the interpreter, `sqlite3`, `pip` and `useradd`
-  all work without Perl. The 3 retained acceptances (`libsqlite3-0`, `ncurses`)
-  are linked by CPython itself and have no trixie fix; the prior bookworm
-  enumeration is superseded, and the earlier SECURITY.md "re-validation pending"
-  caveat is removed — the posture is measured, not deferred.
-* **Mesa GL stack removed from the runtime image — accepted-CVE ledger 15 → 14
-  (Critical 5 → 4).** `libgl1-mesa-glx` was installed only as OpenCV's `libGL`
-  dependency, but Mercury uses `opencv-python-headless` (whose `cv2` extension
-  links no `libGL` — verified: zero GL linkage in the wheel's `.so`) and makes
-  no `cv2` GUI calls, so it was dead weight carrying an unfixed **Critical** CVE
-  (CVE-2026-40393). Dropping the package **eliminates** the CVE rather than
-  accepting it: the Dockerfile no longer installs it, and the `.trivyignore`
-  entry plus the SECURITY.md ledger row are removed. The ledger header now
-  states plainly that the remaining entries are *irreducible* — CPython itself
-  links `libsqlite3-0` / `libexpat1` / `zlib1g` / `ncurses` (the `sqlite3`,
-  `pyexpat`, `zlib`, `readline`/`curses` stdlib modules), and `perl-base` is
-  apt's own `adduser` dependency — rather than the previous "deferred slimmer
-  image" framing. The blocking Trivy gate (`ignore-unfixed: false`) re-verifies
-  the package stays gone on every build.
-* **`register_detector` now warns when replacing a *trained* feature group.**
-  Review surfaced that `replace=True` after `fit_fusion` left the fusion network
-  consuming a different feature distribution for an existing group with no
-  operator signal; it now warns and recommends a re-fit in that case too, not
-  only when adding a new group. Locked by a new test.
-* **Wildfire clustering docstring** corrected to describe the actual
-  latitude-band pruning (`neighbor_counts_within_km`) instead of the
-  inaccurate "vectorized in row blocks".
-
-### LLM layer: free-weights-first & provider-neutral under Mercury's identity
-
-Defaults, selection order, and naming only — no rewrite; OpenAI and every other
-cloud adapter stay available, just never privileged.
-
-* **Free/local is the baseline default.** `LLMModelRegistry.select()`
-  (`models/llm_registry.py`) now orders **free/local ahead of paid cloud**:
-  `local`/`builtin` providers are treated as genuinely cost-0, so they sort
-  first, satisfy any budget, and win ties; an *undeclared cloud* price stays
-  unknown and is excluded from budget queries (not assumed free). Replaces the
-  prior "priced-first, unpriced-last" order. Pinned by
-  `tests/models/test_llm_registry_local_first.py` and the updated
-  `tests/models/test_llm_registry.py`.
-* **`MERCURY_OFFLINE` is the master air-gap for the LLM layer too.**
-  `FallbackLLMChain` (`models/foundation/ollama_adapter.py`) and the reasoning
-  router now refuse to construct or call any cloud adapter when
-  `MERCURY_OFFLINE` is set — reusing the dataset layer's
-  `offline_mode_active()` so one switch governs both. Local + template only.
-  Pinned by `tests/models/test_llm_offline_airgap.py` (zero cloud construction)
-  and a reasoning-router offline test.
-* **No vendor privileged by default.** `FallbackLLMChain` already tries local
-  (Ollama) → optional cloud → template, with cloud off unless explicitly
-  enabled and configured (confirmed, unchanged). `.env.example` now presents
-  the reasoning backend as local/free by default and lists cloud keys as an
-  unordered optional set (no OpenAI-first framing); `docs/OFFLINE_OPERATION.md`
-  documents the now-*enforced* LLM air-gap and the free/local-first baseline.
-
-### Reasoning backend layer — Mercury-owned, offline-first, ethics-gated co-AI interface (`reasoning/`)
-
-* **`reasoning/` subpackage** (new): a pluggable reasoning layer Mercury *calls*
-  as a subordinate dependency — never a wrapper Mercury sits behind.
-  * `ReasoningBackend` (ABC): typed, provider-neutral surface — `explain()`,
-    `propose_hypotheses()`, `synthesize_report()` (`reasoning/schemas.py`).
-    Every operation passes Mercury's benevolence + σ_Immutable dual hard
-    ethical gate (`enforce_dual_ethical_gate`) before any output is surfaced;
-    the gate fails closed, so an integrated LLM cannot bypass Mercury's
-    governance.
-  * Implementations: `MockReasoningBackend` (deterministic, network-free, for
-    CI), `LocalReasoningBackend` (offline-first / air-gap-safe over the local
-    Ollama+template chain — free to run, no external call), and
-    `RemoteReasoningBackend` (operator-declared frontier model; no hard-coded
-    model name, credentials via env).
-  * `ReasoningRouter`: offline-first routing — the local backend is the floor
-    and default, the remote backend is reached only on explicit opt-in, and
-    hard-offline mode provably never selects or calls a network backend.
-  * Threads the `UsageLedger` so token spend is accounted regardless of
-    which backend serves a call.
-  * **Wired into the engine (real consumer, not standalone substrate):**
-    `OmniMercuryEngine.enable_reasoning()`, the lazy `reasoning_backend`
-    property, and `explain_detection(result, domain=...)` let Mercury call the
-    backend on its *own* `detect_with_fusion` certificates — Mercury owns the
-    detection and the decision and invokes the subordinate backend only to
-    render a governed, evidence-grounded explanation (offline-first; the dual
-    ethical gate still fail-closes the call at the engine boundary).
-    `reasoning_usage()` exposes the threaded ledger's provider-truthful totals
-    (the offline template path books nothing — never fabricated tokens). The
-    `LLMModelRegistry` is consumed too: `reasoning.backends.select_reasoning_model()`
-    lets an operator-populated registry choose the local model (free/local-first)
-    instead of a hard-coded default.
-  * Tests: `tests/reasoning/test_reasoning_backend.py` (gate fail-closed,
-    provenance stamping, hard-offline zero-network, ledger threading,
-    registry-driven model selection) and `tests/core/test_engine_full.py`
-    (engine-governed explanation, ethics fail-closed at the engine boundary,
-    registry-driven local model).
-* **Vendor-neutral defaults (identity):** `LLMConfig.model_name` default changed
-  from `"gpt-4o"` to `""` (unset) — each adapter applies its own
-  provider-appropriate default, so no vendor model id (nor the `"template"`
-  sentinel) is ever sent across providers; the `llm_registry` docstring example
-  now uses a local open-weights model instead of a hosted one. Mercury presents
-  as itself by default, not as any external AI.
-
-### Calibration — `StrictIsotonicCalibration` ported from the calibration brief (X1 survivor) (2026-06-12)
-
-* **`StrictIsotonicCalibration`** (`core/calibration.py`): isotonic calibration
-  with a squeezed strictly-increasing tie-break, so the map preserves AUROC
-  exactly while keeping isotonic's ECE (the brief measured vanilla isotonic
-  losing AUROC on 5/6 ADBench datasets, e.g. thyroid 0.9788 -> 0.9535).
-  Exposed as `calibrate_detector(..., method="strict_isotonic")`; pinned by
-  `tests/test_calibration_brief.py`.
-* Five factually wrong "requires scikit-learn" `ImportError` messages reworded
-  to name the actual dependency (`omni_mercury_engine.ml.mercury_ml`, pure
-  numpy/scipy) — the brief's V12c finding.
-* **Evidence suite** `benchmarks/calibration_brief/` (validation register
-  V1–V11, explorations X1/X2/X8 with captured results) restored from the
-  brief's superseded source (commit `bc211a0`), with a
-  disposition note reconciling it to what `main` has since shipped.
-* Deliberately not ported: the brief's `BetaCalibration` (superseded by the
-  accept-gated Beta in the governed-fusion substrate), the X12a eta-multiply lint (the eta^Phi
-  term was settled as an opt-in decoupling, R6 default-off), and the
-  MATH_SPEC phi_sum patch (superseded by the `Φ + 2` canonical derivation).
-
-### Session bootstrap — no hosting-vendor files in the tree; Mercury-named script hardened (2026-06-12)
-
-The repository carries no hosting-vendor configuration (the vendor-named
-directory stays removed). The environment bootstrap (AMA Cryptography native
-PQC build plus `[ml]`/tooling install) lives only at
-`scripts/mercury_session_setup.sh`, now hardened with a
-disposable-environment guard: it runs in hosted remote sessions (which mark
-themselves at runtime) or when forced via
-`MERCURY_SETUP_FORCE=1 bash scripts/mercury_session_setup.sh`, and refuses to
-modify any other environment. Automatic session start-up, where desired, is
-configured in the host environment itself, outside this repository, by
-pointing the host's session-start hook at this script.
-
-### Reproducibility & API consolidation — deterministic construction of the fusion feature path's random components; conformal serialization moved behind a first-class API (2026-06-11)
-
-Consolidation follow-up to the checkpoint round-trip closure (ROADMAP row
-16): salvages the source-level pieces of a superseded competing
-implementation that remain advantageous on top of the shipped
-fitted-state persistence design. No checkpoint format change; the shipped
-`default_fusion.pt` is byte-unchanged and loads identically.
-
-* **Deterministic construction (measured):** three fusion feature groups were
-  still instance-dependent for *checkpoint-free* engines — two engines
-  constructed under different ambient RNG states extracted different features
-  (measured max|Δ| at the pre-fix commit: `dimensional` ≈ 3.01, `multiverse`
-  ≈ 0.98, `temporal` ≈ 0.27). Root causes fixed at the source, each under a
-  forked fixed-seed RNG that leaves the caller's global stream untouched:
-  the temporal detector's untrained LSTM projector is now an architecture
-  constant; the dimensional autoencoder's `fit()` init is deterministic, so
-  fit is a pure function of its data (full-batch, shuffle-free loop); the
-  default multiverse population is fixed-seed with index-only universe IDs
-  (an explicitly injected `rng` still overrides). Measured after: **all 13
-  feature groups bit-identical across instances** (max|Δ| = 0.0), pinned by
-  `tests/test_deterministic_construction.py`. Checkpoints continue to
-  persist fitted state, so every existing artifact reproduces exactly.
-* **Conformal serialization API:** `BinaryConformalClassifier` gains
-  `export_state()` / `from_state()` (checkpoint-safe primitives, layout
-  identical to the `conformal_state` key fusion checkpoints already carry);
-  `engine.save_model`/`load_model` now use them instead of poking private
-  attributes. `from_state` coerces string-keyed thresholds, so a JSON
-  round-trip of the mapping loads equally.
-* **Stale-state drop on load:** `load_model` now *replaces* engine-local
-  calibration state with the checkpoint's, including replaced-by-`None` — a
-  temperature calibrator or conformal surface fitted against a previous
-  fusion stack is dropped rather than silently misapplied to the loaded one
-  (regression-pinned in `tests/test_fusion_checkpoint_roundtrip.py`).
-* **Auto-fit audit record kept truthful across load** (defect surfaced in
-  review): restoring a detector's fitted state from a checkpoint
-  now drops that detector from `_inference_auto_fit_detectors` — the
-  first-batch leak it recorded no longer describes the engine, and a stale
-  entry would also suppress the audit warning for any future post-load
-  auto-fit. Legacy loads restore nothing, so a surviving contamination
-  keeps its record (regression-pinned).
-* **Tooling:** `scripts/train_default_fusion.py` self-check now asserts
-  detectors-restored-as-fitted on load and save→load probability equivalence
-  (verified here: max |dP| = 1.35e-07 on a scratch artifact); the fusion
-  regression guard's "train rather than load" rationale updated to reflect
-  the row-16 closure (gate re-run against the existing committed baseline:
-  **PASS**, no re-pin needed).
-
-### Performance & correctness — optimization/efficiency pass over the serving and checkpoint paths, with four pre-existing defect families fixed to completion (2026-06-11)
-
-Profile-first discipline: every change below is driven by a fresh
-measurement, every fast path is a compiled form of pinned reference
-semantics, and the candidates the profile did *not* confirm are recorded as
-such instead of "optimized".
-
-* **Serving purity (defect):** identical batches scored differently
-  call-to-call — the directive detector's recursive-memory buffer and the
-  neural cognitive model's hippocampal buffer leak streaming state across
-  calls, so the first ``memory_depth`` rows of every batch depended on what
-  the previous call left behind (measured: `coordinate()` on the same input
-  twice returned different consensus scores; repeated `detect_with_fusion`
-  drifted). Fixed at the *boundaries*, not in the components:
-  `DetectorAgent.score_batch` and the engine's fusion feature extraction
-  reset transient state per call (pure function of fitted state + batch);
-  detectors/models keep their documented streaming semantics for direct
-  callers. The orchestration-validation grid was re-run under the corrected
-  semantics — **all four pre-registered bars still pass** (consensus AUC
-  0.841 vs members 0.833; reflexion +0.054 paired balanced accuracy 15/15
-  acted; planning 129/129; trace fidelity 600/600) and the artifact is
-  regenerated.
-
-  Disclosed consequence: purity exposed that **batch-calibrated conformal
-  sets never matched the single-sample serving regime** — several detector
-  features are batch-relative by design (recursive-memory deviation,
-  batch-percentile stability, batch-max magnitude, sliding windows,
-  within-batch min-max), so a row scored alone does not get its in-batch
-  score; the empirical-coverage fixture's historical ~0.94 rode on the
-  streaming buffers accidentally making serve calls resemble batches, and
-  under purity it measured 0.77. The principled remedy ships:
-  `calibrate_fusion_conformal(..., per_sample=True)` scores calibration
-  rows in the exact serving regime (verified: per-row `score_fusion`
-  equals the served `detect_with_fusion` probability bit-for-bit),
-  restoring the guarantee by exchangeability-by-construction — measured
-  **0.9405 empirical coverage at the 0.90 target** (abstention 5.95%,
-  grounded accuracy 1.0, zero gate-vs-certificate contradictions). Batch
-  consumers' default path is byte-unchanged.
-* **Exact incremental single-sample serving (measured 7.5x).**
-  `DetectorAgent.detect()` re-scored the full 512-row reference batch
-  through every detector protocol per call (54 ms/sample across the five
-  agents; directive 28 ms of it). New
-  `agentic/_incremental_serving.py` serves the appended row *bit-identically*
-  for the three profile-dominant detectors by caching row-independent terms
-  and recomputing only what the row genuinely participates in: temporal
-  9.4 -> 0.09 ms (105x), spatial 11.4 -> 0.29 ms (39x), directive
-  27.7 -> 2.6 ms (11x; floor = the batch-global blend scalars, which include
-  the new row by definition); total serve 52.6 -> 7.0 ms. Never an
-  approximation: unsupported types/subclasses/configs, stale caches and
-  non-finite inputs fall back to the verbatim full path, and a runtime
-  guard refuses out-of-contract scores. Pinned bit-identical across seeds,
-  reference sizes (1..512), duplicate-heavy ties and non-default configs by
-  `tests/test_native_acceleration.py::TestIncrementalServingParity`.
-* **GSIS numba lane (measured 2.9x at 1.1k rows, 5.5x at 4k).** The
-  O(n^2 d) gravitational-stability term gets a parallel JIT kernel behind
-  the existing optional `[performance]` extra that replicates numpy's
-  pairwise-summation order *exactly* — bit-identical distances, percentiles,
-  counts and scores (pinned across seeds/shapes/tie-heavy data, plus an
-  explicit numba-vs-numpy cross-lane test). float64 rows up to 128 features
-  only; other dtypes/widths and numba-less installs keep the byte-identical
-  numpy path. The kernel is deliberately non-recursive: numpy's
-  recursive-halving regime (d > 128) stays on the numpy lane (self-recursion
-  inside a numba parallel region segfaulted under test).
-* **Parallel agent scoring (measured 1.2x).** `coordinate()` now scores the
-  five agents on a thread pool — admissible only because the purity fix
-  makes scoring thread-independent: results are pinned bit-identical to
-  serial (5-run repeat test), wall-clock 72.8 -> 62.2 ms on cardio-scale and
-  285 -> 228 ms at 2.2k rows on the 4-core profiling box; the modest factor
-  is transparent (the detectors' internal numba/BLAS parallelism already uses the
-  cores). Per-agent failure exclusion and quorum semantics unchanged.
-* **Fusion checkpoint round-trip fidelity — ROADMAP row 16 CLOSED.**
-  Measured root causes: a loaded engine auto-fit its base detectors on the
-  first inference batch (the leak), torch-module domain models
-  re-randomized per process, the multiverse population re-randomized per
-  construction, and **two stub models emitted fresh RNG output per call**
-  (`AffectiveAnomalyModel` fed 64 columns of pure noise into the fusion
-  feature set at train and serve; `neural`'s buffer drifted) — same-engine
-  repeat drift was ±0.08 before any save/load was attempted. Remediation:
-  (1) `get_fitted_state()`/`set_fitted_state()` on all five base detectors
-  (statistical incl. Oracle re-arm via the existing federation-stats path;
-  dimensional incl. trained autoencoder weights; spatial rebuilds its
-  KDTree from persisted points; temporal incl. its construction-random LSTM
-  feature weights); (2) checkpoint now carries `model_state_dicts`
-  (torch-module domain models), `model_fitted_state` (multiverse
-  population) and `conformal_state` (calibrator thresholds); (3) the
-  affective stub is quarantined to deterministic *neutral* output (zero
-  features, 0.5 scores, one-time warning) per the repo's
-  parapsychology/schumann precedent — it fabricates nothing; (4)
-  `default_fusion.pt` regenerated with full state. **Measured: save->load
-  max |dProb| = 5.9e-08 (bar < 1e-3; was ~0.76 historical / 0.427
-  re-measured), same-engine repeat drift exactly 0.0, conformal sets
-  identical.** Pinned by `tests/test_fusion_checkpoint_roundtrip.py`;
-  legacy checkpoints still load with legacy behavior; fusion regression
-  gate re-run green.
-* **Spatial detector defects (found by the parity battery, fixed):**
-  (a) `_NativeLOF.decision_function` raised `AxisError` whenever k == 1
-  (single training sample, or `n_neighbors=1`) — scipy squeezes the
-  neighbor axis for k=1; restored explicitly. (b) `detect()` crashed
-  outright on NaN/Inf queries (`KDTree.query` refuses them) before its own
-  downstream NaN guards could run — sanitized at the boundary exactly like
-  the temporal detector; finite inputs are byte-unaffected. Regression
-  tests in `tests/detectors/test_spatial_detector.py`.
-* **Test-infra:** the suite's per-xdist-worker thread cap now covers
-  numba's parallel kernels too (`NUMBA_NUM_THREADS=1`, mirroring the
-  existing torch cap in `tests/conftest.py`) — without it each worker
-  spawned a full physical-core pool for the new GSIS prange lane and the
-  oversubscription starved borderline-heavy tests past the 300 s timeout.
-* **Candidates re-profiled and *not* optimized (transparent negative results):**
-  (1) the inherited "fit_fusion 610 s / 20 epochs on cardio" figure does
-  not reproduce — measured 6.8 s (labels), 10.1 s (semi-supervised), 9.1 s
-  (domain encoder) for 20 epochs on this 4-core box, with feature
-  extraction ~1.2 s of it; nothing profile-justified to attack. (2) GPU
-  lane: `torch.cuda.is_available()` is False in this environment — no GPU
-  work was attempted and no GPU numbers exist; the lane awaits the
-  operator's GPU CI runners.
-
-### DimensionalAnalyzer — dead spectral-divergence term given real, gate-cleared semantics (2026-06-11)
-
-The DB term's spectral-divergence component — disclosed as identically zero
-in the native-acceleration pass — now carries real semantics
-(operator-approved): each row's feature-axis power spectrum is compared
-against the fit-time mean training-row spectrum with the original
-normalized-distance formula.
-
-* **Pre-registered ablation gate, cleared decisively**
-  (`benchmarks/db_spectral_ablation.py`, artifact
-  `artifacts/db_spectral_ablation.json`; paired OFF/ON fits under identical
-  global seeds, real ADBench, 5 datasets × 3 seeds): mean paired detector
-  ΔAUC **+0.071** (bar +0.002), seed agreement **0.93** (14/15), the term
-  alone moving from chance (**0.460** — confirming it was dead weight) to
-  **0.811** AUC. Largest gains where spectral structure exists (thyroid
-  +0.12…+0.20, cardio +0.08…+0.14); the single negative is −0.0013, inside
-  the noise floor.
-* **Default flipped to enabled** per the cleared gate;
-  `{"db_spectral_divergence": False}` preserves the pre-2026-06-11 shipped
-  scores exactly (pinned byte-equal by the legacy-oracle parity test).
-* **Behavioral contract:** `tests/test_db_spectral_term.py` — the enabled
-  term detects precisely what it claims (every spectrum-diverging row
-  out-scores every conforming row on constructed spectral structure,
-  multi-seed), fit-time baseline, and dimension-mismatch truncation.
-* Orchestration-validation grid re-measured with the new default; all four
-  pillar-B bars still pass (artifact regenerated).
-
-### Operations — explicit online/offline (air-gapped) modes for the data layer (2026-06-11)
-
-Production deployments require both connectivity modes; detection itself
-was already fully local — the gap was the data layer.
-
-* **`MERCURY_OFFLINE=1`** refuses every dataset-layer network fetch at the
-  single HTTP chokepoint (`datasets/base.py::http_get_with_retry`) before
-  any socket is opened, raising the new `OfflineModeError` with a
-  remediation hint. Cached data keeps serving; uncached data fails closed —
-  never stale, never synthetic. Read at call time (the `MERCURY_ENV`
-  contract), so tests and operators toggle without restarts.
-* **`MERCURY_DATA_DIR` / `MERCURY_CACHE_DIR`** env overrides for the
-  dataset directories (defaults unchanged when unset), so air-gapped
-  deployments pin a stable cache location.
-* **`scripts/prefetch_datasets.py`** primes the cache while online
-  (`--adbench cardio thyroid …` or `--adbench-all` for the 47-dataset
-  catalog); exits non-zero on any failed fetch — a partial prime is
-  reported, never silently accepted.
-* **Docs:** `docs/OFFLINE_OPERATION.md` (mode matrix, env vars, priming
-  runbook). **Tests:** `tests/datasets/test_offline_mode.py` pins flag
-  parsing, refusal-before-socket, cached service under offline mode,
-  fail-closed uncached errors, and the env-aware directory defaults.
-
-### Performance — native acceleration pass on the live detection hot path, equivalence-pinned (2026-06-11)
-
-A profile of the orchestrated detection path on a real-scale batch
-(1,132 × 21) showed 91% of time inside two live detectors' per-sample
-Python loops, not in the new orchestration layer. Every fast path below is
-a *compiled form* of its reference semantics — outputs are pinned
-bit-for-bit (or to 1e-12) by `tests/test_native_acceleration.py`, and the
-full orchestration-validation grid reproduces its pre-optimization verdicts
-(consensus 0.829 vs members 0.823; reflexion +0.078; planning 129/129;
-fidelity 600/600).
-
-* **`DimensionalAnalyzer._dimensional_code_breaking`:** one batched FFT
-  over all rows replaces two FFT calls per sample. Disclosed in the same
-  pass: the loop's spectral-divergence component is **identically zero**
-  for every sample (a single row's per-column FFT has length 1, so the
-  half-spectrum slice is empty and the divergence evaluates to
-  `0/(0+1e-10)`), meaning 50% of the DB-score weight has always been a
-  constant. Preserved as an explicit, documented zero — giving the term
-  real semantics would change this live detector's shipped scores and
-  therefore requires its own measured ablation gate first.
-* **`SigmaDirectiveDetector._detect_micro_anomalies`:** a strided
-  sliding-window view computes all window variances in one reduction
-  (formerly ~24k one-window `np.var` calls per batch).
-  **`_gravitational_stability_check`:** chunked pairwise broadcasting
-  replaces the per-row loop (one full distance pass + one percentile call
-  per sample); the O(n²·d) semantics are inherent and preserved.
-* **Orchestrator consensus fast path:** the per-sample
-  `ConsensusProtocol` derivation is vectorized for the default
-  CONFIDENCE_WEIGHTED method; the protocol remains the semantic
-  authority — a deterministic subsample of every batch is re-derived
-  through the real protocol and any divergence fails the batch closed
-  (`MultiAgentOrchestrator._spot_check_consensus`). Non-default methods
-  keep the per-sample path.
-* **Measured effect:** orchestrated `coordinate()` on the profiled
-  workload 855 ms → 324 ms (**2.6×**); the wins land in the live
-  detectors, so `detect_with_fusion` feature extraction and every other
-  consumer of `dimensional`/`directive` benefit equally. Remaining cost is
-  intrinsic O(n²) stability math and scipy KDTree — already native.
-* **`[performance]` extra (new):** `numba` was referenced by the code and
-  the mypy overrides but declared in no dependency group, so the designed
-  `@jit` lanes (e.g. `detectors/spatial.py` distance scoring) could never
-  be engaged by install — dormant in every environment including CI. Now
-  installable via `pip install mercury-agent-global[performance]`; JIT-vs-numpy
-  parity is pinned by `tests/test_native_acceleration.py` (skipped when
-  numba is absent).
-* **Reproducibility:** `benchmarks/orchestration_validation.py` now pins
-  the global numpy/torch seeds per (dataset, seed) run — some live
-  detectors carry stochastic components that follow the global seed
-  (e.g. `DimensionalAnalyzer`'s autoencoder lane, instance-to-instance
-  spread ≈0.56 on identical fits), so the grid was transparent but not
-  bit-reproducible run-to-run before this.
-* **Environment/tooling:** the session-provisioning gap that made
-  `pytest-asyncio`/`pytest-xdist`/`pytest-timeout` unavailable locally
-  (one async test erroring with "async def functions are not natively
-  supported", and the `asyncio_mode` config warning on every run) is
-  closed by installing the already-declared dev extras — no code change;
-  the failure predated this change.
-
-### Multi-agent orchestration (pillar B) — the dormant planning/coordination/reflexion/chain-of-thought tier revived as a measured planner/critic/executor loop over the live ensemble (2026-06-11)
-
-Closes the capability-matrix "Multi-agent" gap ("no planner/critic/executor
-multi-agent orchestration in Mercury yet") by wiring DORMANCY_LEDGER rows
-10–11 (~6,000 LOC retained as "reference only") into one live execution path,
-under the same ablation discipline as every other revival.
-
-* **New subsystem: `agentic/orchestration.py` (`MultiAgentOrchestrator`).**
-  `HierarchicalPlanner` plans and *drives* each detection episode — the real
-  pipeline stages (score → consensus → decide) are registered as options
-  whose initiation/termination predicates read the actual pipeline state,
-  with TD value learning from real stage rewards; `AgentCoordinator` +
-  `ConsensusProtocol` form per-sample consensus across `DetectorAgent`
-  wrappers of the engine's five real detectors; `AnomalyReflexion` is the
-  critic, turning real labeled outcomes into operating-threshold adaptation;
-  `AnomalyChainOfThought` renders per-decision reasoning traces whose stated
-  determination is contractually locked to the issued decision. Dual hard
-  ethical gates (benevolence floor + σ_Immutable) run fail-closed at the
-  orchestrator's decision boundary, exactly as on the engine boundary.
-  Engine wiring: `OmniMercuryEngine.enable_multi_agent_orchestration()`.
-* **Measured, not asserted:** `benchmarks/orchestration_validation.py`
-  (artifact `artifacts/orchestration_validation.json`), real ADBench labels,
-  5 datasets × 3 seeds, four pre-registered bars — all passed: consensus
-  preserves member signal (mean AUC **0.827** vs mean member **0.821**; best
-  member 0.903 reported as context — no claim of beating the trained fusion
-  model); reflexion improves the operating point by **+0.079** paired
-  balanced accuracy vs a fixed threshold on identical batches/agents
-  (15/15 runs acted); plan executability **129/129** episodes with
-  monotone initial-state value growth; trace fidelity **600/600** with
-  exact numeric quotes.
-* **Defects found and corrected (not deferred) in the dormant modules:**
-  (1) `hierarchical_planning` could not select options at all — the option
-  library returned dict projections that `plan()`/`select_action()`
-  type-checked away, so every plan shipped empty and every action fell back
-  to `default_action`; option eviction never fired (builtin prefix test
-  matched every ID) and `Option.get_action` never consulted its own
-  `"default"` policy. (2) `multi_agent_coordination` returned a silent
-  benign verdict below quorum (fail-open — now an explicit `abstained`
-  consensus flag), silently dropped duck-typed dict votes from consensus
-  (now coerced and counted), and reported `individual_results` from a
-  nonexistent attribute (always empty — now the real per-agent results).
-  (3) `chain_of_thought` traces classified against hardcoded 0.7/0.4 bands
-  regardless of the issuing pipeline's boundary, so a trace could state
-  "POTENTIAL ANOMALY" while the verdict said anomaly (now: traces classify
-  at the caller's `anomaly_threshold`); the self-consistency strategy
-  returned the normalized vote *token* ("anomaly") as the chain conclusion,
-  stripping the human-readable determination (now: winning path's full
-  conclusion, token kept in metadata). (4) `reflexion`'s
-  `execute_with_reflection` recomputed an identical decision every
-  iteration (reflection never fed back — now critiques are answered with
-  real evidence computed from the task data); its threshold-recommendation
-  rule (`fn > 2·fp` → jump ≥ 0.1) was **measured harmful on real labels**
-  (paired Δ −0.071; WBC balanced accuracy 0.98 → 0.50) and replaced with an
-  evidence-grounded balanced-accuracy sweep over recorded outcomes with
-  minimum-evidence and hysteresis guards (measured: +0.079, and
-  well-calibrated points are left untouched).
-* **Transparency semantics throughout:** below-quorum coordination abstains
-  explicitly (never "benign"); agent fit/score failures surface and the
-  orchestrator refuses below quorum; an unexecutable plan raises instead of
-  bypassing the planner; an unfaithful trace raises instead of shipping.
-* **Tests:** `tests/cognitive/test_orchestration_behavioral.py` — 45
-  multi-seed behavioral tests pinning every defect fix and every
-  orchestration contract (planner-driven sequencing, TD value growth,
-  quorum abstention, reflexion adaptation with paired improvement, trace
-  fidelity incl. post-adaptation issue-time fidelity, ethical-gate
-  enforcement, engine wiring). Full `tests/cognitive/` suite: 577 passed.
-* **Docs:** DORMANCY_LEDGER rows 10/11 updated to *revived (orchestration
-  tier)* with the measured numbers; `chain_of_hindsight` and
-  `plasticity_engine` split into rows 10b/11b (still retained — no transparent
-  harness yet); capability matrix "Multi-agent" row moved to
-  **Shipped + measured** with the build-out item (B) closed.
-### Added — multi-model substrate: provider-reported usage accounting + LLM model registry (2026-06-11)
-
-First slice of the multi-agent/multi-model build-out
-(`docs/capability_vs_vision_matrix.md` §4 item B): before orchestrating
-across Mercury's ten LLM providers, calls must be *costed* and models must
-be *selectable*. Both pieces are provider-truth-only — no client-side
-token estimates, no hard-coded market facts.
-
-* **Usage accounting**
-  (`omni_mercury_engine.models.foundation.llm_usage`): `LLMUsage` (one
-  immutable record per successful generation, counts exactly as the
-  provider's response reported them) and `UsageLedger` (thread-safe;
-  exact lifetime totals via running counters; bounded recent-history
-  ring that never bends the totals). Calls whose provider reports no
-  usage are recorded as **unmetered** (`reported=False`) so unmeasured
-  spend is visible rather than silently absent.
-* **Adapter wiring**: every shipped adapter's success path now parses
-  its provider's usage block into `last_usage` and an optionally
-  attached ledger (`BaseLLMAdapter.attach_usage_ledger`) — OpenAI +
-  xAI/DeepSeek/Cursor (`usage.{prompt,completion,total}_tokens`),
-  Anthropic (`usage.{input,output}_tokens`), Gemini (`usageMetadata`),
-  Cohere v2 (`usage.tokens`), Ollama (`prompt_eval_count`/`eval_count`),
-  HuggingFace Inference (no usage block → unmetered record). Failed
-  calls book nothing — **every** adapter extracts the response content
-  *before* recording usage, so a 200 carrying a usage block but
-  unextractable content books nothing (uniform across all ten adapters,
-  not only the OpenAI-style ones).
-  `FallbackLLMChain(usage_ledger=...)` threads one ledger through every
-  adapter in the chain and exposes `last_usage`.
-* **LLM model registry** (`omni_mercury_engine.models.llm_registry`,
-  importable without torch): `PROVIDER_CATALOG` — code-grounded facts
-  about the ten shipped adapters (wire format, key env var, locality,
-  explicit-base_url requirement, usage-reporting), drift-gated in CI
-  against `IMPLEMENTED_LLM_PROVIDERS`; `LLMModelSpec` /
-  `LLMModelRegistry` — operator-declared model facts with mandatory
-  provenance (a spec carrying prices must carry `pricing_as_of`) and
-  deterministic capability/context/budget selection (`select` /
-  `select_one`; unpriced specs are excluded from budget queries rather
-  than assumed free; unknown capabilities raise rather than silently
-  matching nothing).
-* **Locks:** `tests/models/test_llm_usage_ledger.py` (validation,
-  aggregation, bounded-ring-vs-exact-totals, concurrent exactness),
-  `tests/test_llm_usage_capture.py` (per-wire-format parsing against
-  canned payloads, unmetered HF route, failed-call no-booking, chain
-  threading), `tests/models/test_llm_registry.py` (spec/selection
-  contracts + the provider-catalog drift gate).
-
-### Security — owner-governed risk posture: enumerated CVE ledger, shared HD master seed, signed cache entries (2026-06-10)
-
-Closes three standing gaps where risk was silently accepted or a promised
-control was never wired, replacing each with an enforced mechanism.
-
-* **Deployment-image CVE gate: blanket waiver retired.** The blocking
-  Trivy gates (`ci.yml` Docker job, `security.yml` table scan) now run
-  `ignore-unfixed: false` with the new repo-root `.trivyignore` — an
-  enumerated, expiring (90-day `exp:`), per-CVE acceptance ledger. A new
-  unfixed CRITICAL/HIGH finding, or an expired entry, now **fails the
-  gate** instead of passing invisibly. Ledger as measured by the
-  blocking gates' own built-image scan (trivy 0.70.0 via
-  `trivy-action@v0.36.0`, 2026-06-10): 13 no-upstream-fix OS CVEs
-  (5 Critical, 8 High) — nine first enumerated from the
-  `python:3.13-slim-bookworm` base, of which seven (ncurses
-  CVE-2025-69720 + six perl-base CVEs) had been present but undisclosed
-  under the old blanket waiver, plus four surfaced only by the enforced
-  built-image gate (three libexpat1 CVEs + mesa CVE-2026-40393 via the
-  OpenCV `libgl1-mesa-glx` runtime dependency). Resolved entries
-  removed from `SECURITY.md`: the fixed pip family (pip ≥ 26.1 floor)
-  and five formerly-listed findings no longer present at gated
-  severities.
-* **`AMA_MASTER_SEED` — deterministic fleet-wide HD key derivation.**
-  `api/auth.py::get_auth_key_manager()` now sources the AMA HD master
-  seed from the `AMA_MASTER_SEED` env var (hex, ≥ 32 decoded bytes;
-  malformed values raise instead of degrading to an ephemeral seed).
-  With it set, HD-derived keys — including the production JWT signing
-  key — are identical across workers, replicas, and restarts. Seedless
-  production derivation still works but now logs an explicit warning
-  naming the per-process-key hazard. A whitespace-only value is
-  malformed (raises), never a silent unset: `bytes.fromhex` ignores
-  ASCII whitespace, so a trailing newline on a valid seed is harmless
-  while a garbage value still fails loudly. Locked by
-  `tests/security/test_jwt_auth.py::TestAMAMasterSeed` (8 tests).
-* **`MERCURY_CACHE_SECRET` wired — Redis cache entry signing.** The
-  Helm-provisioned secret, previously read by no code path, is now
-  consumed by `integrations/stubs/cache.py::RedisCache`: entries are
-  wrapped in an HMAC-SHA256-signed envelope on `set` and verified on
-  `get`; unsigned, tampered, or foreign-keyed entries raise the new
-  `CacheIntegrityError` (loud, never a silent miss). Plain-JSON
-  behaviour is byte-identical when the secret is unset. `_sign()` guards
-  its signing-active contract with an explicit `CacheIntegrityError`
-  instead of an `assert` (survives `python -O`); envelope detection
-  requires the exact three-key shape `_serialize` writes, so user data
-  that merely contains the marker key cannot be misclassified. Locked by
-  `tests/integrations/test_cache_hmac.py::TestRedisCacheHMAC` (10 tests).
-* **`.env.example` reconciled to the real env surface.** Dead toggles
-  removed (`OMNI_ML_ENABLED`, `OMNI_QUANTUM_ENABLED`,
-  `OMNI_EXPERIMENTAL_FEATURES`, `OMNI_CACHE_DIR`); `AMA_MASTER_SEED`,
-  `MERCURY_ENV`, `API_KEY_HASH_SALT`, `MERCURY_CACHE_SECRET`, and
-  `MERCURY_CORS_ORIGINS` documented; the stale "conditional PQC gate"
-  comment and a nonexistent `validate_env` command corrected.
-
-### Decision / Abstention / Response layer — closes identify→interpret→decide→deter with a calibration-grounded "don't-know" gate (2026-06-09)
-
-Converts the calibrated detection certificate into a **closed autonomous loop**
-with an explicit, principled abstention gate — the first time the engine‑wide
-three‑state contract is wired into the *detection* path rather than only the
-verifier/governance paths.
-
-* **New `omni_mercury_engine.decision` package (pure Python, deterministic).**
-  `DecisionAbstentionResponder.decide(result)` maps a `detect_with_fusion`
-  result onto the existing `ThreeState` invariant
-  (`verifiers/three_state.py`) and an operational `Disposition`:
-  * the conformal certificate is **authoritative** — singleton `{1}`/`{0}` →
-    `GROUNDED` (`ACT`/`CLEAR`) with the coverage level as the transparent
-    confidence; `{0,1}` → `UNAVAILABLE` (a *resolvable* don't‑know, `DEFER`);
-    `{}` → `UNDECIDABLE` (an atypical point no class explains; fail‑closed
-    `HOLD`);
-  * with no certificate, a probability inside the threshold's indecision band
-    is `UNAVAILABLE`, and a decision outside it is grounded but flagged
-    `calibrated=False` (no coverage guarantee);
-  * **demotion overlays** weaken a grounded verdict to `DEFER` on
-    neuro‑symbolic disagreement (`symbolic_consistency.satisfaction` below a
-    floor) or severe distribution drift — overlays only ever move *toward*
-    abstention;
-  * an explicit ethical‑gate refusal (`gosnn_metadata.ethical_gate_passed is
-    False`) forces a fail‑closed `HOLD`, over any score.
-* **Bounded, non‑destructive response layer (`decision/response.py`).** Every
-  `ResponsePlan` is advisory/notifying — `MONITOR` / `ALERT` /
-  `RECOMMEND_MITIGATION` / `ESCALATE_TO_HUMAN` / `REQUEST_INPUT` / `HOLD` —
-  with severity‑banded urgency, human‑in‑the‑loop above a bar, and a
-  fail‑closed hold that always requires a human. A test invariant asserts the
-  catalogue contains no destructive verbs (Civilization‑First made concrete).
-* **Auditable `DecisionRecord`.** A frozen, JSON‑safe record carrying the
-  grounded label or transparent abstention, the calibrated confidence, the bounded
-  response, ordered `reasons`/`caveats`, and the full evidence + active policy
-  as `signals` provenance; `explain()` renders a one‑paragraph operator
-  account. The operational sibling of the governance layer's `GovernanceScalar`.
-* **Closed into existing channels (`decision/bridge.py`).** `to_agent_action`
-  adapts a record to the autonomy loop's existing `AgentAction` vocabulary;
-  `to_cap_alert` emits a standards‑based CAP 1.2 alert (via the existing
-  `alerting/cap_generator.py`) for any notifying decision — no new silo.
-* **"Verify" step — audit ledger + closed loop (`decision/ledger.py`,
-  `decision/loop.py`).** `DecisionLedger` is an append‑only, JSON‑serialisable,
-  **bounded** (ring‑buffer) trail of every decision with a `summary()`
-  (per‑state / per‑disposition / per‑response counts + abstention and
-  calibrated rates). The `summary()` is now **O(1)** — aggregate counts are
-  maintained incrementally (and decremented on ring‑buffer eviction) instead of
-  re‑scanning the trail, byte‑identical output (measured: 14.6 µs vs 75.9 ms at
-  10⁵ records, a ~5000× reduction). The ledger is **thread‑safe** (a lock guards
-  every mutation/read; 8×1000 concurrent records lose no count) and
-  **persistable** (`to_json`/`from_json`, `save`/`load`, with a new
-  `DecisionRecord.from_dict`/`ResponsePlan.from_dict` inverse of `to_dict` so a
-  serialised trail reloads). `DecisionLoop` runs decide → deter → **verify** over
-  a stream, recording each pass and fanning it out to an optional `FeedbackSink`
-  (the seam for outcomes to flow back to calibration / learning / a human
-  queue) — keeping the responder's `decide()` a pure function.
-* **Integrated onto the Phase‑2 governed fusion substrate.** Its one new
-  `detect_with_fusion` key,
-  `result["info_geometry_certificate"]`, was evaluated and is **deliberately a
-  no‑op** in the gate (measured): it certifies a *component's* price level‑set,
-  "NOT the fused/gated verdict", and is degenerate in the single‑sample serve
-  path (its batch‑adaptive threshold collapses to `price == threshold`). The
-  gate keeps consuming the authoritative conformal certificate; a new
-  torch‑gated **empirical‑coverage test** proves that guarantee survives the
-  projection — **zero gate‑vs‑certificate contradictions** and ~94 % coverage at
-  a 90 % target on a held‑out split, with abstention lifting selective accuracy
-  to ~100 % vs ~99 % raw. Defensive `.get()` reads; the layer is an exact no‑op
-  on any absent or unmodelled signal.
-* **Opt‑in engine wiring.** `OmniMercuryEngine.enable_decision_layer()` attaches
-  a `result["decision"]` section to every `detect_with_fusion` result; an exact
-  no‑op until enabled (mirrors `enable_drift_detection` / conformal). Pass
-  `enable_decision_layer(ledger=DecisionLedger())` to record the audit trail
-  (the serve path stays stateless otherwise). Most informative after
-  `calibrate_fusion_conformal()`, which turns a thresholded guess into a
-  coverage‑guaranteed decision.
-* **Tests:** 123 pure‑Python tier tests (`tests/decision/`) + 11 torch‑gated
-  tests (5 engine‑wiring in `tests/test_decision_layer_wiring.py` + 6
-  empirical‑coverage in `tests/test_decision_coverage_empirical.py`) at **100%
-  statement+branch coverage** of the package. Beyond the example‑based suites,
-  **Hypothesis property tests** (`tests/decision/test_properties.py`) pin the
-  gate's laws over the whole input space — fail‑closed dominance (an ethical
-  block beats any score/certificate), monotonicity (more uncertainty never
-  yields less abstention), and structural soundness + `to_dict`/`from_dict`/JSON
-  round‑trips. The gate, fail‑closed invariants, determinism, the
-  non‑destructive response contract, the O(1)/thread‑safe/persistable ledger,
-  and the substrate's no‑op contract are all pinned. Runnable demo:
-  `examples/decision_abstention_response_demo.py`. A code‑grounded
-  capability‑vs‑vision audit ships at `docs/capability_vs_vision_matrix.md`.
-
-### Dependencies — corrected numpy floor to match the real support contract (2026-06-09)
-
-The declared core dependency was `numpy>=1.24.0`, which was inaccurate on two
-independent axes and is now corrected to `numpy>=2.4.0`:
-
-* **Python-matrix reality.** The project is `requires-python>=3.11` and CI
-  builds/tests on Python 3.11/3.12/3.13/3.14, but numpy `1.24` publishes no wheels
-  for Python 3.12 (first added in `1.26`) or 3.13 (first added in `2.1`) — so
-  the old `1.24.0` floor was not installable across the very matrix the
-  project claims to support.
-* **Strict-mypy type contract.** The codebase annotates ~300 sites with bare
-  `np.ndarray`, which is only valid under `disallow_any_generics` once numpy's
-  `ndarray` carries PEP-696 type-parameter defaults. Combined with the
-  fancy-index shape typing in `core/conformal_prediction.py`, the strict gate
-  emits 232 errors on numpy 2.2.6 and 5 on 2.3.5; **2.4.0 is the first release
-  that type-checks cleanly** across all three mypy lanes. Bumping the floor
-  (rather than rewriting ~300 annotations to `np.ndarray[Any, Any]`, which
-  would erase type precision and break the 145 `isinstance`/constructor sites
-  that must stay unsubscripted) keeps the contract transparent without weakening it.
-
-A new **"Run MyPy at the numpy floor"** step in the *Type Checking* CI job
-pins `numpy==2.4.0` and re-runs all three mypy lanes, so the declared minimum
-can never again silently drift from what actually type-checks. Updated in
-`pyproject.toml`, `docs/INSTALLATION.md`, and `.github/workflows/ci.yml`.
-
-### Research — executed the decorrelated-stream fusion protocol (Item D); SHIP rejected, runtime byte-unchanged (2026-06-09)
-
-The last logged-but-untried fusion lever in `research/governed_fusion/FINDINGS.md`
-— *decorrelation* (the hypothesis that fusion only dilutes because the three
-committed streams are redundant, and a genuinely orthogonal net-new stream would
-let a learned stacker beat best-single) — was run end-to-end under its
-pre-registered, kill-criteria'd protocol rather than left as a promise. **No
-runtime path changed; everything here is research-only and default-off.**
-
-* **New `research/governed_fusion/measure_decorrelation.py`** executes all four
-  protocol steps off the existing deterministic score cache: (1) redundancy
-  diagnosis via mean pairwise Spearman `|ρ̄|`; (2) two net-new detectors — a
-  learned multi-lag **autoregressive innovation** stream (the decorrelated
-  candidate) and a **k-NN local-density** stream (pre-declared sensitivity check);
-  (3) per-event 50/50 logistic stacking fit on calibration scores only; (4) a
-  10,000-resample paired bootstrap against best-single with a deterministic seed.
-* **Result (live headline, 20 stackable events): SHIP rejected.** Measured
-  `|ρ̄| = 0.462` (moderate, **refuting** the pre-registered `≳ 0.6` prediction).
-  The temporal stream is genuinely decorrelated (`|ρ| = 0.316`, driving the
-  4-stream `|ρ̄|` down to `0.389`), yet stack-4 AUROC `0.8705` still **trails**
-  best-single `0.8760` — paired `Δ = −0.0055`, 95% CI `[−0.050, +0.034]`, with a
-  hurricane per-domain regression of `−0.125`. The reconstructed group is a clean
-  KILL (`Δ = +0.0027`, CI upper `< +0.01`); the 27-event pooled power check stays
-  negative (`Δ = −0.0034`). Decorrelation was necessary-by-hypothesis but
-  **insufficient**: the lever is closed as a measured non-improvement.
-* **No regression.** Both detectors stay in `research/`, tested and unused by
-  runtime; the default `detect()` path and baseline ensemble are byte-unchanged.
-  Committed artifact `research/governed_fusion/results/decorrelation_results.json`;
-  offline guards in `tests/research/test_decorrelation_protocol.py` (7 tests, no
-  network). FINDINGS.md and RUN.md record the verdict with exact numbers.
-
-### Equations — golden-ratio fibring runtime profile + correlation-aware decorrelation (2026-06-02)
-
-Improves the *math* of the runtime equation blend by harmonising it with
-Mercury's canonical TIER-4.2 fusion (`core/fibring_fusion.py`) instead of an
-arbitrary fixed split.
-
-* **New `phi_fibring_v1` runtime profile** — blends the calibrated neural score
-  with the frozen OAE R/H/O equation signal using the **golden-ratio split**
-  `w_neural = φ/(1+φ) ≈ 0.618`, `w_equation = 1/(1+φ) ≈ 0.382` (the same
-  `_phi_base()` ratio the production fibring fusion uses), rather than the
-  source branch's ungrounded `0.70/0.30`.
-* **Correlation-aware decorrelation** — when the equation signal merely echoes
-  the neural score (`|Pearson r| ≥ REDUNDANCY_THRESHOLD = 0.85`, imported from
-  `fibring_fusion` as the single source of truth), the lower-variance (less
-  informative) stream's weight is shrunk by `1/(1+|r|)` and the pair is
-  renormalised — so a redundant equation channel cannot double-count. The
-  blend remains a convex combination of two `[0,1]` signals (output bounded).
-  `score_runtime_equation_profile` now reports `neural_weight`,
-  `equation_weight`, `correlation`, and `decorrelation_applied` in its metadata.
-* `baseline_original_v1` / `quiet_horizon_v1` stay **frozen** (fixed `0.70/0.30`,
-  no decorrelation), honouring the optimizer's freeze-and-add discipline.
-
-Tests: `tests/core/test_equation_profiles.py` gains golden-ratio-split,
-decorrelation-fires-on-redundant-signal, and distinct-from-baseline cases.
-`black`/`ruff`/`flake8` clean; `mypy --strict` clean.
-
-### Security — CodeQL/Trivy: real system-pip upgrade + scipy fetchers false-positive (2026-06-02)
-
-* **pip CVEs (CVE-2025-8869 / CVE-2026-1703 / CVE-2026-6357)** — the runtime
-  stage's `python -m pip install --upgrade pip>=26.1` was a no-op against the
-  vulnerable pip Trivy flags: `ENV PATH` puts `/opt/venv/bin` first, so it
-  upgraded the (already-patched) venv pip and left the base image's *system*
-  pip at `/usr/local` untouched. Fixed to target `/usr/local/bin/python`
-  explicitly and to drop the bundled `ensurepip` wheels that re-seed a stale
-  `pip-*.dist-info`.
-* **scipy "JWT token" false-positive** — `scipy/datasets/_fetchers.py` embeds
-  the pooch dataset *registry* (SHA-256 hashes + URLs), which Trivy's secret
-  scanner misclassifies as a JWT. Added to the existing Trivy `skip-files`
-  allowlist (the repo's established mechanism) in both scan steps, since it is
-  an upstream-dependency artifact, not a Mercury secret.
-
-### Equations — universal equation optimizer + opt-in runtime equation profiles (2026-06-02)
-
-Marshals the previously-unintegrated **universal equation optimizer** work
-(developed on an earlier working branch and never opened as a PR) into a
-single branch, adapted to the current engine surface and re-verified
-end-to-end. The optimizer is reproducible and *safety-gated by
-construction* — it does not weaken any existing gate, and when no candidate beats
-the proven baseline under the hard constraints, the frozen baseline wins.
-
-* **`tools/equation_optimizer.py`** — inventories the equation surfaces from
-  `docs/MATH_SPEC.md`, freezes the original equations as an immutable baseline
-  (`preserve_original_equations=True`), searches a constrained universal
-  candidate family, and promotes a winner only when it clears *hard* gates
-  (ethical-compliance invariant, output range `[0, 1]`, contraction `α ≤ 0.999`,
-  Lyapunov `λ ≥ 1e-6`). Emits versioned artifacts + rollback / continuous-
-  revalidation metadata. Registered in the `python -m tools` dispatcher
-  (entry-point `_cli`).
-* **`scripts/run_equation_research_protocol.py`** + `configs/equation_research_protocol.yaml`
-  — a governed inventory → freeze → search → gate → decision-ledger runner.
-* **`scripts/compare_runtime_equation_profiles.py`** — compares the frozen
-  baseline against a candidate runtime profile on real data (AUC / ECE via
-  `core.calibration.compute_ece`, neuro-symbolic satisfaction, latency, per-domain
-  η), asserting the hard gates are preserved.
-* **`omni_mercury_engine.core.equation_profiles`** + engine wiring — an **opt-in**
-  runtime serve path. `OmniMercuryEngine(..., equation_profile=...)` (or a per-call
-  override on `score_fusion` / `detect_with_fusion` / `detect_with_fusion_calibrated`)
-  blends the calibrated neural probability with the golden-ratio R/H/O equation
-  signal and surfaces the blend metadata under `result["equation_profile"]`.
-  **`None` (default) is an exact no-op** — verified that the profile-less path
-  returns the calibrated array unchanged — so existing serve/benchmark behaviour
-  is byte-for-byte preserved. The per-domain η estimate (`_domain_eta`) is aligned
-  to the canonical OAE `DOMAIN_THRESHOLDS` convention (medical 0.93, humanitarian
-  0.95, infrastructure 0.995, default 0.96), correcting a stale source-branch table
-  that carried invented values and keys (`security`/`humanitarian`) silently zeroed
-  by `sanitize_domain`'s disjoint `EnvironmentDomain` vocabulary.
-
-Tests: `tests/tools/test_equation_optimizer.py` (pipeline artifacts + CLI smoke),
-`tests/core/test_equation_profiles.py` (bounded/distinct profiles, `None`
-pass-through, unknown-profile rejection, channel→R/H/O mapping),
-`tests/scripts/test_run_equation_research_protocol.py`,
-`tests/scripts/test_compare_runtime_equation_profiles.py`. Regression-verified
-against `tests/test_omni_mercury_engine.py`, `tests/test_fusion_explainability.py`,
-`tests/test_fusion_symbolic_cotraining.py`, `tests/test_neurosymbolic_integration.py`,
-and `tests/tools/test_dispatcher.py`. `black`/`ruff`/`flake8` clean; `mypy --strict`
-clean on all changed source files (the source branch's `mypy` gaps in
-`run_equation_research_protocol.py` were fixed in passing).
-
-### Docs — removed dangling `make checkpoint` reference (2026-06-02)
-
-`scripts/train_default_fusion.py`'s module docstring referenced a `make checkpoint`
-target that does not exist in-tree (the `Makefile` lived only on the rejected
-hidden_dim=128 `fusion-capacity-on-merits` branch). Corrected to point at the
-script directly so the documented invocation is real.
-
-### Neuro-symbolic — `LogicTensorNetwork` re-wired to the canonical co-trained module (2026-06-02)
-
-Reverses the earlier *retirement* of `LogicTensorNetwork` in favour of **wiring**
-it (the mission's "do not retire — implement its predict to call the canonical
-co-trained symbolic module"). The original class was a never-trained `nn.Module`
-whose random-init noise fed fusion as if a neural confidence; rather than delete
-the surface, it is rebuilt as a thin head over the canonical co-trained module:
-
-* **`SymbolicConstraintModule.predict(detector_scores) -> (B,)`** — new public
-  per-sample inference API exposing the module's fuzzy-logic `Consensus`
-  predicate (the *same* component co-trained with real gradients inside
-  `fit_fusion`). Fails closed on a shape/width mismatch.
-* **`models/neurosymbolic.py::LogicTensorNetwork`** is re-introduced as an
-  SCM-backed wrapper: `predict()` routes detector scores through
-  `SymbolicConstraintModule.predict`. **No random init** — an untrained module's
-  zero-initialised parameters yield a deterministic uniform-weight consensus; a
-  co-trained module (e.g. restored from a fusion checkpoint via `module=`)
-  applies its learned detector reliabilities. `NeurosymbolicEngine.ltn` is built
-  when torch is importable (transparently reported by `get_statistics`:
-  `ltn_available`, `ltn_backend="symbolic_constraint_module"`).
-* The raw-feature `neural_inference` is **kept** as a transparently-labelled
-  deterministic dispersion heuristic (it is a per-feature statistic, *not* a
-  trained signal, and says so) — distinct from the trained-capable detector
-  consensus now reachable via `ltn.predict`.
-
-Tests: `tests/ml/test_symbolic_constraint.py::TestPredictInference` (6 tests:
-per-sample shape/range, matches the consensus predicate, monotone in scores,
-zero-detector trivial case, fail-closed shape checks) and
-`tests/test_neurosymbolic_integration.py::{test_ltn_is_wired_to_canonical_symbolic_module,
-test_ltn_predict_delegates_to_symbolic_consensus}` (LTN exists, is SCM-backed,
-delegates exactly, deterministic, monotone). The prior `*_is_retired` assertions
-are flipped to wired assertions. `black`/`ruff`/`flake8` clean; `mypy --strict`
-clean on both changed source files.
-
-### MLOps — fusion AUC/F1 + conformal-coverage CI regression gate (2026-06-02)
-
-Finishes the WS5/WS6 "MLOps train→eval→register CI regression gates" item
-deferred earlier. The fusion train→eval→register pipeline + AUC/ECE sweep
-artifacts existed, but **no CI gate pinned the fusion AUC/F1 or the conformal
-coverage floor**, so a fusion-stack regression could merge silently.
-
-* **`benchmarks/fusion_regression_guard.py`** — deterministically trains the
-  real fusion path on a fixed seeded synthetic corpus (`symbolic_weight=0.0`,
-  `seed=20260526`), evaluates held-out AUC + F1, and measures empirical conformal
-  coverage from a disjoint calibration split. `--update` re-pins the committed
-  baseline (`benchmarks/fusion_capacity/fusion_gate_baseline.json`) **and** emits
-  a timestamped metrics artifact under `artifacts/fusion/<ts>/metrics.json`;
-  `--check` exits non-zero if AUC/F1 fall below `baseline − margin` or empirical
-  coverage drops below `target − 0.05`. Mirrors the existing
-  `anomaly_regression_guard.py` pattern.
-* **`.github/workflows/fusion-regression.yml`** — runs the gate on every PR to
-  `main`/`develop` (+ weekly + dispatch): builds AMA Cryptography (v3.2.0),
-  installs `.[ml]`, runs the fast gate-logic unit tests, then the real
-  `--check`.
-* **Committed measurement.** First baseline (`seed=20260526`, 8 epochs):
-  **AUC=1.0000, F1=0.9851, empirical coverage=0.9521** (target 0.90); the gate
-  `--check` re-trains and passes against it.
-
-**Why train, not load the shipped checkpoint.** A diagnostic found the
-checkpoint round-trip drifts per-sample probabilities (max |Δ|≈0.76; AUC
-survives at Δ≈0.002 but absolute probabilities — hence F1@0.5 / coverage — do
-not), and the shipped `default_fusion.pt` underperforms in-distribution
-(AUC≈0.70, base detectors auto-fit on inference because their state isn't
-persisted). The gate therefore trains in-process for a bit-stable measurement
-of *achievable* performance; the round-trip drift is a tracked follow-up (see
-ROADMAP). Tests: `tests/benchmarks/test_fusion_regression_guard.py` (5 fast
-gate-logic tests: floors, pass, AUC regression, coverage collapse, missing
-baseline).
-
-### Explainability — IntegratedGradients + faithfulness on the fusion serve path (2026-06-02)
-
-Finishes the WS5 "explanations on the serve path" item deferred earlier: the
-validated `IntegratedGradientsExplainer` + `FaithfulnessEvaluator`
-(`cognitive/explainability.py`, DORMANCY_LEDGER #3) are now wired into the
-detection path instead of living only in the benchmark harness.
-
-* `OmniMercuryEngine.detect_with_fusion(..., explain=False)` gained an opt-in
-  `explain` flag. When `True`, it attaches `result["explanation"]` — an IG
-  attribution of **the same `score_fusion` calibrated probability the result
-  reports** (so the explanation explains the served decision, not a proxy) plus
-  its faithfulness scores (comprehensiveness / sufficiency / monotonicity). The
-  attribution is computed by the new private helper `_explain_fusion_decision`.
-* Opt-in (default `False`) because IG over the full fusion stack costs
-  finite-difference forward passes per feature × interpolation step; steps are a
-  module constant (`_EXPLAIN_IG_STEPS = 32`, matching the harness) so tests/CI
-  can turn it down.
-
-**Faithfulness non-regression gate (measurement).**
-`tests/benchmarks/test_explanation_fidelity.py::test_faithfulness_non_regression_comprehensiveness_and_recovery`
-pins, across seeds, that IG comprehensiveness exceeds a random-attribution
-baseline by > 0.01 **and** recovery@k of the genuinely-informative features
-exceeds 2× chance — the same contract as the harness verdict, so a future
-attribution regression fails CI. Serve-path wiring is locked by
-`tests/test_fusion_explainability.py` (explanation absent by default; present,
-well-formed, JSON-serialisable, and matching the served probability when
-requested). Measured this run: comprehensiveness(IG) ≈ 0.40 vs random ≈ 0.22,
-recovery@k ≈ 0.68 (chance 0.30).
-
-### Detectors — concrete offline `StatisticalVLMDetector` un-retires the VLM surface (2026-06-02)
-
-Finishes the VLM half of ROADMAP **#3**: the public `detectors.vlm` path now
-ships a *concrete, instantiable, network-free* detector instead of only an
-abstract base. `detectors/vlm/statistical_vlm.py::StatisticalVLMDetector`
-implements all five `BaseVLMDetector` contract methods for real, with no
-`transformers` import and no model download:
-
-* `extract_features` returns a deterministic `[N, 8]` per-frame salience
-  statistics tensor (luma mean/std, H/V gradient energy, p10/p90, bright/dark
-  fractions); `detect` maps those to a calibrated `[0, 1]` anomaly score and
-  runs the genuine VQA control flow (`_create_prompt` → score →
-  `_parse_response`).
-* The base classes stay genuine `@abstractmethod` ABCs (the existing
-  not-instantiable / `__abstractmethods__` contract tests are unchanged) — the
-  surrogate is an *added* concrete subclass, not a weakening of the base.
-
-**Surrogate, with a remediation plan (not a retirement).** The production VLM
-backends (AnyAnomaly / LAVAD / BLIP) require `transformers` + a HuggingFace
-download of a multi-billion-parameter LVLM, which is an external dependency not
-available in every environment. Rather than retire the surface or leave an
-un-instantiable ABC, the statistical detector preserves the public contract
-offline; the module docstring documents the exact steps to graduate to a
-trained LVLM (`pip install '...[vlm]'`, revision-pinned `BLIPVLMDetector` /
-`get_lvlm_backend`). Coverage: `tests/test_vlm_detectors.py::TestStatisticalVLMDetector`
-(11 tests — offline instantiation, full-contract shapes, salience ordering
-[textured > flat], determinism, channel-last video, uint8 normalisation,
-prompt/response round-trip).
-
-### Security / σ_Immutable Wave C — narrative voice + federation dual-gate, GOSNN bidirectional coupling (2026-06-02)
-
-Closes ROADMAP v1.7.x deferred items **#1** (σ_Immutable Wave C —
-narrative voice + federation) and **#5** (GOSNN coupling wired into the
-FL aggregator training loop).
-
-**Shared σ_Immutable vector builder.** The canonical 256-D input-vector
-builder — previously a copy at the engine boundary, a copy in
-`CognitiveOrchestrator._build_sigma_immutable_vector`, and a copy in
-`NeuroSymbolicHub._build_sigma_immutable_vector` — is promoted to a single
-calibrated helper,
-`security.sigma_immutable_gate.build_sigma_immutable_vector(benevolence_score,
-severity, anomaly_prob)`, plus a shared `enforce_dual_ethical_gate(...)`
-primitive that runs `BenevolenceScorer.enforce` →
-`project_benevolence_to_sigma_band` → `SigmaImmutableGate.enforce`.  The
-engine and orchestrator now delegate to the helper (the engine's
-benevolence-only vector is reproduced byte-for-byte with
-`severity == anomaly_prob == 0`); the hub uses the shared helper for its
-base vector and keeps its one load-bearing difference (the richer
-per-sample neural / symbolic / fused overlay).  One source of truth, no
-drift between five boundaries.
-
-**Three previously-ungated public surfaces now carry the dual hard gate**
-(both gates fail closed; gates constructed eagerly in each `__init__`;
-every caller-supplied domain hint routed through `sanitize_domain`):
-
-* `narrative/voice.py::{speak, process_detection, alert}` — `alert` gains
-  an optional `domain=` kwarg (defaulting through `sanitize_domain`);
-  `process_detection` sources its σ_Immutable severity / anomaly signal
-  from the detection being narrated.
-* `federation/aggregator.py::{submit, aggregate}` — per-submission gate on
-  `submit`, round-level gate on `aggregate`.
-* `federated_learning/server.py::_execute_round` — round-level gate placed
-  **outside** the per-client `try/except` so a benevolence- or
-  σ_Immutable-violation fails the whole round closed instead of being
-  swallowed as one client's error.
-
-The synthetic-vector projection is calibrated against the *real* trained
-gate (not asserted): legitimate voice / federation calls score ≈ 1.0 and
-pass the 0.93 threshold, while sub-floor benevolence scores 0.0 and fails
-— verified in-tree, see below.
-
-**GOSNN coupling wired into the FL training loop.**
-`FederatedServer._execute_round` now routes every round's weights through
-`GOSNNCoupling{Server,Client}` (`publish → ingest → aggregate → receive`)
-with SHA3-256 + shape + round integrity, closing the one-way
-(server → client) gap.  Each client's absolute post-step weights
-(`global + model_update`) are published with a digest, ingested under
-shape / digest / round verification, aggregated, and broadcast back to
-every contributing client (digest re-verified on `receive`).  Unit-LR
-FedAvg flows through the coupling's own digested weighted mean
-(mathematically identical to `global + Σ wᵢ·model_updateᵢ`); FedAdam /
-SCAFFOLD / secure-aggregation / non-unit-LR FedAvg keep their
-strategy-specific numerics and are installed + broadcast through a new
-`GOSNNCouplingServer.install_global_state`, preserving the privacy-engine
-and secure-aggregation branches and the `LocalUpdate` / `RoundResult`
-field contracts.  A `GOSNNCouplingError` (digest / shape / round mismatch)
-fails the round closed.
-
-Coverage:
-
-* `tests/ethical/test_hard_enforcement.py` — three new boundary classes
-  (`TestNarrativeVoiceBoundary`, `TestFederatedAggregatorBoundary`,
-  `TestFederatedServerRoundBoundary`), each pinning the four-way contract
-  (legitimate pass on the real gate, `check="benevolence"`,
-  `check="sigma_immutable"`, `check="gosnn_unavailable"`), plus a test that
-  the FL round gate runs outside the per-client `try/except`.
-* `tests/federated/test_no_silent_failure.py` —
-  `test_federated_server_round_drives_gosnn_digested_fedavg_path` drives a
-  live `FederatedServer` round end-to-end through the coupling and asserts
-  the new global equals the sample-weighted FedAvg mean of the clients'
-  absolute post-step weights; plus `install_global_state` round-trip /
-  reshape-fails-closed coverage.
-
-### Agentic — RL policy in the loop + real task execution, fail-closed (2026-06-02)
-
-Truthing-up the autonomous-agent surfaces flagged in the v1.7 audit.
-
-**`agentic/agentic_autonomy.py` — the RL policy now actually steers.**
-`autonomous_detect` previously hardcoded `_decide_action → "flag_anomaly"`
-and never consulted the Q-table, leaving `select_action_with_policy`,
-experience replay, and reward shaping as dead machinery.  It now derives an
-observation state, lets the **epsilon-greedy Q-policy** choose the action
-type (explore vs. exploit), materialises that action, and learns from it.
-The selection-time state features are carried on the `AgentAction` so the
-TD update writes the exact Q-key the policy read (no off-by-one drift from
-`action_history` mutating between selection and learning).  `_decide_action`
-now produces action-type-specific parameters and rationale.
-
-**`agentic/mercury_a_agent.py` — `_execute_task` does real work.**
-The prior implementation was a no-op that always returned `completed` with
-`output=f"Executed: {description}"`, forcing `success_rate` to 1.0.  It now:
-
-* runs a **fail-closed ethical gate** first (scores the task via
-  `BenevolenceScorer.enforce`, `sanitize_domain` on the domain hint), placed
-  *before* the execution `try/except` so a harmful task halts the plan
-  instead of being recorded as a benign result — mirroring the OODA
-  reference (`cognitive/autonomous_agent.py`);
-* dispatches a task that binds a registered tool (`task.metadata['tool']`)
-  to that tool for real, with genuine success / failure (a raising tool →
-  `status="failed"` with the error captured; the analysed batch is injected
-  as `data=` for tools that accept it);
-* marks a task with no bound tool as a transparent `status="skipped"` — never a
-  fabricated `completed`.  `_execute_plan` now measures `success_rate` over
-  *executed* tasks, so a pure-reasoning plan reports `0.0`, not `1.0`.
-
-Coverage (both files previously had **zero** behavioural tests for these
-paths):
-
-* `tests/test_agentic_autonomy.py::TestReinforcementLearningPolicy` — Q-table
-  writes (`new_q == lr·reward`), reward-shaping contract, epsilon-greedy
-  exploit-best-Q vs. explore-all-actions, experience-replay convergence
-  logging, exploration decay, selection/learn Q-key consistency.
-* `tests/test_mercury_a_agent.py` (new, 12 tests) — real tool dispatch,
-  genuine tool failure, unregistered-tool failure, transparent skip, fail-closed
-  ethical block (and that the tool never runs on a blocked task),
-  success-rate accounting, dependency gating, end-to-end `analyze`.
-
-### Detectors — VLM / visual base contracts are now transparent ABCs (2026-06-02)
-
-Closes ROADMAP v1.7.x deferred items **#3** (VLM detector surface) and
-**#4** (visual base detector).  Both bases previously raised
-`NotImplementedError` from their contract methods — an ambiguous stub on a
-public path.  They are now genuine `@abstractmethod` declarations:
-
-* `detectors/vlm/base_vlm.py::BaseVLMDetector` — `_initialize_model`,
-  `_create_prompt`, `_parse_response`, `detect`, `extract_features` are
-  abstract; the class is explicitly **experimental** (the 2026-05 strategic
-  decision keeps native detectors and does not ship BLIP/GPT adapters).
-* `detectors/visual/base_visual.py::BaseVisualDetector` — `fit`, `detect`,
-  `extract_features` are abstract; the native SOTA detectors (PatchCore,
-  PaDiM, STFPM, ReverseDistillation, CFlow) remain the concrete
-  implementations.
-
-Direct instantiation of either base now raises `TypeError` (the transparent
-Python idiom) rather than constructing an object whose methods explode at
-call time — no `NotImplementedError` remains on the public detector API.
-Concrete subclasses are unaffected (all already implement every contract
-method).  Coverage: `tests/test_vlm_detectors.py::TestBaseVLMDetector` and
-`tests/test_visual_detectors.py::TestBaseVisualDetector` pin the abstract
-contract (not-instantiable + `__abstractmethods__` set) and exercise the
-concrete helpers (`_sample_frames`, `preprocess`, `postprocess`) via minimal
-concrete subclasses.
-
-### Neuro-symbolic — retire the untrained legacy LTN *random-init network*; co-training + conformal on the serve path (2026-06-02)
-
-> **Partially superseded by the `LogicTensorNetwork` re-wire entry above.**
-> This step removed the random-init *implementation*; the
-> `LogicTensorNetwork` *surface* was subsequently **re-wired** to the canonical
-> co-trained module — it is **not** left removed.
-
-**Retired the never-trained random-init network.**
-`models/neurosymbolic.py::LogicTensorNetwork` was a random-init `nn.Module`
-whose forward pass returned meaningless noise that
-`NeurosymbolicEngine.neural_inference` then fed into the fusion consensus *as
-if it were a neural confidence* — the "untrained network as if live"
-dishonesty the v1.7 audit flagged.  The random-init network is **removed** (the
-`LogicTensorNetwork` surface itself is re-wired to the canonical module, not
-retired — see the re-wire entry above); `neural_inference` now returns a
-**deterministic statistical heuristic** (robust standardized-dispersion through
-a logistic — bounded, reproducible, feature-responsive), and the module /
-`neural_inference` / `get_statistics` docstrings carry a migration note to the
-canonical *trained* neuro-symbolic surface,
-`ml/symbolic_constraint.py::SymbolicConstraintModule` (co-trained in
-`OmniMercuryEngine.fit_fusion`).  The module imports torch only lazily, inside
-the re-wired LTN wrapper; the `NeurosymbolicEngine` reference surface stays
-torch-free.  Regression: `tests/test_neurosymbolic_integration.py`
-(deterministic + feature-responsive `neural_inference`, migration pointer; the
-LTN-surface assertions were later flipped from *retired* to *wired* by the
-re-wire above).
-
-**Co-training + conformal verified together on the serve path.** New
-`tests/test_fusion_symbolic_cotraining.py::TestCoTrainingConformalServePath`:
-
-* `test_adaptive_cotraining_then_conformal_on_serve_path` — the production
-  default (`symbolic_weight="adaptive"`) co-trains a `SymbolicConstraintModule`
-  on a scarce-anomaly regime, then `calibrate_fusion_conformal` +
-  `score_fusion_conformal` produce valid, bounded prediction sets and
-  detection still separates the classes (ROC-AUC ≥ 0.85).
-* `test_checkpoint_round_trip_no_symbolic_dimension_drift` — after
-  co-training, `save_model` → `load_model` into a fresh engine reproduces
-  `score_fusion` to within 1e-5: the co-trained symbolic constraint
-  round-trips through the checkpoint (its `state_dict` + config are persisted
-  and restored) yet stays inference-inert, so the symbolic channels never
-  drift the persisted fusion dimensions consumed at scoring.
-
-The adaptive-default and neural-only-escape (`symbolic_weight=0.0`) contracts
-remain pinned by the existing `test_adaptive_is_the_default` /
-`test_zero_weight_has_no_symbolic_state`.
-
-### Cognitive — behavioural coverage for knowledge-graph + case-based reasoning (2026-06-02)
-
-The largest cognitive file (`knowledge_graph.py`, 2109 LOC) and
-`case_based_reasoning.py` had public methods that were import-clean-only (no
-behavioural assertions).  Added behavioural tests pinning *algorithmic
-correctness* (not anomaly-detection salvage — the DORMANCY_LEDGER measured
-both at chance as detectors, a verdict left unchanged):
-
-* `tests/cognitive/test_knowledge_graph_behavioral.py` (15 tests) —
-  random-walk **embedding recovery** on a known two-cluster graph (intra >
-  inter cosine over 5 seeds), `GNNMessagePassing.forward` shape + neighbour
-  propagation, `LinkPredictor` / `KnowledgeGraph.predict_links` recovery of a
-  held-out intra-cluster edge, and transitive-closure / symmetric-relation
-  inference (including the empty result for non-transitive predicates).  Also
-  documents that `RandomWalkEmbedding.fit` shuffles its `node_ids` argument
-  in place.
-* `tests/cognitive/test_case_based_reasoning_behavioral.py` (11 tests) —
-  retrieval ranking + retrieval-count bookkeeping, domain filtering, the
-  REUSE-vs-REVISE branch in `solve` (with the transparent `no_matching_cases`
-  result on an empty base), proportional `adapt` (numeric solution params
-  whose key references the changed feature scale; unrelated params untouched)
-  + adaptation history, and `learn_from_outcome` state updates.
-
-DORMANCY_LEDGER rows #6 / #9 updated to note the new behavioural coverage.
-
-### Core — concrete `AttentionProvider` wired to real multi-head attention (2026-06-02)
-
-Closes ROADMAP deferred item **#7**.  `core/gosnn_optimizer.py::MultiHeadAttentionProvider`
-is the first concrete `AttentionProvider`, backed by a real
-`torch.nn.MultiheadAttention`: `observe(sequence)` runs a forward pass and
-caches the **per-head** `(num_heads, seq_len, seq_len)` attention weights
-(`average_attn_weights=False`); `get_attention()` returns them, or raises
-`RuntimeError` before any forward ("model not yet run") so the optimizer
-transparently skips the metric rather than scoring noise.  It defaults to 32 heads
-to match `AttentionOptimizer`'s triadic φ-weighting, so wiring it into
-`GOSNNOptimizer(attention_provider=…)` drives the real attention-overhead
-metric — the removed deterministic-random placeholder is fully replaced.
-Regression: `tests/core/test_attention_provider.py` (10 tests) — per-head
-shape, softmax-normalised rows, fail-closed pre-forward, determinism, batched
-input, and that a wired+observed provider drives the metric while an
-unobserved one fails closed to a skip.
-
-### Neuro-symbolic — label-scarcity-adaptive co-training default + dormant-module revival (2026-06-01)
-
-`symbolic_weight="adaptive"` is the **default** for `OmniMercuryEngine.fit_fusion`.
-A *fixed* `λ` was quarantined (no full-data win), but the label-scarcity
-`ScarcityWeightSchedule` (`lambda_eff(n_pos) = lam_max·exp(-n_pos / n0)`,
-defaults `lam_max=0.1, n0=25, floor=1e-3`) cleared a pre-registered dominance
-bar on real ADBench labels, so the `SymbolicConstraintModule` co-trains when
-positive labels are scarce and decays to the purely-neural path once they are
-abundant (de-quarantining the genuine, co-trained LTN).  Companion
-dormant-module revival survey (`benchmarks/dormant_module_revival.py`,
-`docs/DORMANCY_LEDGER.md`) measures each archived module against real held-out
-labels under the repo's fail-closed ablation discipline and records the
-keep / cut / quarantine verdict per module.
-
-### Neuro-symbolic — genuine co-training, conformal uncertainty, fail-closed AMA/PQC (2026-05-31)
-
-* **Genuine neuro-symbolic co-training.** `ml/symbolic_constraint.py::SymbolicConstraintModule`
-  — a differentiable fuzzy-logic constraint (product / Reichenbach /
-  Łukasiewicz / Gödel semantics) over a consensus rule graph — is co-trained
-  with the fusion network in `fit_fusion` when `symbolic_weight > 0`
-  (`loss += λ · (1 − satisfaction)`), with gradients flowing to both the
-  fusion model and the learnable rule confidences.  Pinned by
-  `tests/ml/test_symbolic_constraint.py` and `tests/test_fusion_symbolic_cotraining.py`.
-* **Conformal uncertainty on the serve path.** `BinaryConformalClassifier`
-  with `calibrate_fusion_conformal` / `score_fusion_conformal` adds
-  distribution-free prediction sets with a coverage guarantee on top of the
-  temperature-calibrated fusion probability; a misconfigured conformal
-  predictor raises `ConformalMisconfigurationError` instead of silently
-  returning `confidence_intervals=None`.  Pinned by `tests/test_fusion_conformal.py`
-  and `tests/federated/test_no_silent_failure.py`.
-* **Fail-closed AMA / PQC.** AMA Cryptography native PQC is mandatory at
-  package import regardless of `MERCURY_ENV`; Mercury fails closed (refuses to
-  import) without the validated `ama-cryptography` backend.  Pinned by
-  `tests/test_pqc_startup_gate.py` / `tests/security/test_pqc_gate_real_ama.py`.
-
-### USGS Geochemistry — real NURE-HSSR downloader (2026-05-23)
-
-`USGSGeochemistryLoader._download_from_usgs` was previously a literal
-stub that returned `False` immediately and fell through to the
-synthetic-distribution generator.  It now downloads and parses the
-USGS NURE-HSSR (National Uranium Resource Evaluation Hydrogeochemical
-and Stream Sediment Reconnaissance) bulk CSV from
-`https://mrdata.usgs.gov/nure/sediment/nuresed-csv.zip` — a 39 MB
-zipped CSV containing ~397K stream-sediment samples collected
-across the continental US between 1973 and 1984, with per-sample
-geochemistry for ~50 elements.  Public domain (US Government).
-
-The new `_parse_nure_csv_zip` helper:
-
-* materialises only the eleven columns the loader's `FEATURE_NAMES`
-  schema exposes (lat/lon + EPA-screening metals + Fe/Ca/pH), so the
-  235 MB expanded CSV is streamed without buffering the unused 134
-  columns,
-* stops once `max_samples` rows pass the configured region filter,
-* applies the USGS-recommended below-detection-limit convention
-  (NURE encodes "below threshold" as `-threshold`; the parser
-  substitutes `threshold / 2` per Open-File Report 97-492),
-* clamps invalid pH measurements (`<= 0` or `> 14`) to `0`,
-* tags rows with the same EPA-screening-level anomaly labels the
-  synthetic path used, so downstream detectors see a consistent
-  feature/label contract whether real or synthetic data is in use.
-
-Coverage:
-
-* `tests/datasets/test_usgs_geochemistry.py` — 13 new unit tests
-  exercising the happy path, below-detection handling, region
-  filtering, max-samples cap, EPA-screening labels, pH clamping,
-  schema-drift detection (missing required column raises),
-  empty-zip rejection, cached-skip behaviour, and the two
-  synthetic-fallback policy paths.  Tests are offline-only;
-  the live network probe is the existing
-  `tests/datasets/test_unreachable_loaders_network.py` USGS row
-  which now exercises the real download() path end-to-end when
-  `MERCURY_NETWORK_TESTS=1`.
-* `src/omni_mercury_engine/security/input_validation.py` —
-  `TrustedEndpoints.USGS_NURE_SEDIMENT_CSV` added.  The host
-  `mrdata.usgs.gov` was already in `TRUSTED_DOMAINS`, so no SSRF
-  allowlist surface change.
-
-`USGSGeochemistry` remains in the reachability-harness watch list
-(the harness exists to catch *upstream-provider* outages on top of
-loader-code regressions; a working downloader does not retire the
-provider-availability concern).  The benchmark "Empirical Benchmark
-Results" headline still cites 64/75 because the next benchmark
-refresh hasn't run yet — but `USGSGeochemistryLoader.is_real_data`
-now returns `True` when the NURE CSV is reachable.
-
-### Documentation / `docs/SECURITY.md` retired (2026-05-22)
-
-`docs/SECURITY.md` was retired (commit 807b9c0) per owner directive
-because the supply-chain posture it tracked is now covered by:
-
-* `SECURITY.md` (the top-level public security policy, including the
-  Two-Tier Dependency-CVE Coverage table that previously linked here);
-* `.safety-policy.yml` (machine-readable v3 acceptance policy for the
-  Safety CLI scanner — currently zero acceptances, OS-level only);
-* the accepted-risk table in `SECURITY.md` plus the Trivy
-  `ignore-unfixed` / `skip-files` gate configuration in
-  `.github/workflows/{ci,security}.yml` (per-CVE acceptances for the
-  deployment-image gate);
-* dated security entries in this CHANGELOG (the per-PR rationale for
-  remediations and risk acceptances).
-
-Cross-references in `SECURITY.md`, `.safety-policy.yml`,
-`.safety-policy-v2.yml`, `pyproject.toml`, and
-`.github/workflows/ci.yml` were updated to point at the
-surviving sources of truth.  No supply-chain posture changed; only
-the location of the per-CVE documentation moved.
-
-### ISO Hardening / Load Tests cold-start fix (2026-05-22)
-
-The ISO Hardening Load Tests smoke job failed intermittently because
-the first POST against `/api/v1/detect/univariate` paid a one-time
-cold-start cost (Pydantic v2 model JIT compile + numpy SIMD dispatch
-resolution + validator graph load) that pushed the smoke run's `p99`
-HTTP duration above the production SLO threshold.  Real production
-deployments would observe the same cold-start tail on the first
-request after a worker spin-up.
-
-The fix has three layers:
-
-- `src/omni_mercury_engine/api/server.py` now wires a FastAPI
-  `lifespan` async context manager that drives 3 in-process detection
-  round-trips (univariate + multivariate + health) before uvicorn
-  signals ready.  This means `/health` returns 200 only after
-  Pydantic + numpy + the validator are warm, which is the correct
-  posture for every deployment (k8s liveness probes also benefit
-  because traffic is not routed until warmup completes).  Warmup
-  failures propagate out of the lifespan hook and crash the worker
-  so the orchestrator marks the deployment unhealthy — silently
-  swallowing a warmup exception would let a broken detection path
-  serve traffic to real callers, which is worse than a worker
-  crashloop on a real regression.
-- `.github/workflows/iso-hardening.yml` adds an explicit warmup loop
-  (5× `/health` + 5× `/api/v1/detect/univariate`) between API
-  readiness and k6 invocation, as defence-in-depth in case the
-  lifespan hook is bypassed (e.g. a future env var or test override).
-- `tests/load/k6_load_test.js` raises the `/health` `p(99)` ceiling
-  from 50 ms to 150 ms.  Production health-check latency is observed
-  at 5–20 ms; the 50 ms floor is achievable only on dedicated
-  hardware and was the root cause of GHA-runner-jitter false
-  positives.  Real regressions (p99 in the 200+ ms range) are still
-  caught by the 150 ms threshold.
-
-`tests/api/test_server_comprehensive.py::TestLifespanWarmup` (4 new
-tests) pins the lifespan invariants: wiring, success path,
-internal-failure propagation (the fail-fast contract above), and
-TestClient context-manager exercise.
-
-### Security / AMA-routed JWT HMAC signatures (HS256 + HS512) (2026-05-20)
-
-Mercury's `native_jwt` signing primitive now routes `HS256` and
-`HS512` through AMA Cryptography's ACVP-validated, constant-time,
-zero-third-party-dep C HMAC backend when AMA Cryptography v3.2.0+ is
-installed, falling back transparently to stdlib `hmac` over
-`hashlib` otherwise.  This puts the JWT signing path on the same
-crypto backend that already serves Mercury's PQC and HKDF stack
-(matching AMA's INVARIANT-1 posture) and removes OpenSSL-backed
-stdlib HMAC from the production auth path on AMA-enabled
-deployments.
-
-- **`pyproject.toml [pqc]`** pin bumped
-  `ama-cryptography @ v3.1.0` → `@ v3.2.0`.  v3.2.0 exposes the
-  Python bindings `native_hmac_sha256`, `native_hmac_sha256_2`
-  (two-segment, concat-avoiding for JWT signing input), and
-  `_HMAC_SHA256_NATIVE_AVAILABLE` over the ACVP-validated C symbol
-  `ama_hmac_sha256` (150/150 vectors per
-  `AMA-Cryptography/docs/compliance/ACVP_SELF_ATTESTATION.md`).  CI
-  workflows `.github/workflows/ci.yml` and
-  `.github/workflows/pqc-production-check.yml` updated to
-  `AMA_REF: v3.2.0` in lockstep.
-- **`src/omni_mercury_engine/security/ama_hmac.py`** (new, ~225
-  lines): Mercury-side adapter that surfaces AMA's HMAC bindings
-  with explicit availability flags (`HAS_AMA_HMAC_SHA256`,
-  `HAS_AMA_HMAC_SHA512`), a public `available()` diagnostic helper
-  for `/health` endpoints + audit logs, and a test-only
-  `_reinitialize_for_tests` escape hatch.  Fail-closed semantics:
-  the wrappers raise `RuntimeError` rather than silently falling
-  back, so the routing decision is always explicit in
-  `native_jwt._sign`.
-- **`src/omni_mercury_engine/security/native_jwt.py`** refactored:
-  `_sign()` now threads `(header_segment, payload_segment)`
-  separately rather than the materialised concat, so the HS256 path
-  can use AMA's `native_hmac_sha256_2(key, header || ".", payload)`
-  fast path without ever copying the payload bytes in Python.  HS512
-  routes through `ama_hmac_sha512` (one-segment; AMA does not yet
-  ship a two-segment HMAC-SHA-512 variant).  HS384 stays on stdlib
-  because AMA does not bind HMAC-SHA-384 in v3.2.0 (tracked in
-  `docs/ROADMAP.md`).  A new public helper `get_signing_backend(alg)`
-  returns `"ama"` or `"stdlib"` for diagnostic surfaces.
-- **`tests/security/test_native_jwt_ama_routing.py`** (new, 17
-  tests) locks four invariants:
-  1. **RFC 4231 KAT.**  AMA's HMAC-SHA-256 and HMAC-SHA-512 output
-     matches the canonical Test Case 1 and Test Case 7
-     (oversized-key) vectors from RFC 4231 §4.2 / §4.7.
-  2. **Stdlib byte-equivalence at the `_sign()` boundary.**  AMA-
-     routed and stdlib-routed signatures are bit-identical for the
-     same `(header, payload, key, alg)` triple (FIPS 198-1 /
-     RFC 2104 invariant).
-  3. **Fallback path.**  Monkeypatching
-     `ama_hmac.HAS_AMA_HMAC_SHA256 = False` cleanly demotes the
-     `_sign()` decision to stdlib and the JWT encode/decode round-
-     trip still succeeds.
-  4. **Cross-path interoperability.**  A token signed with AMA
-     enabled verifies with AMA disabled, and vice versa — the
-     routing decision is performance / hardening only, never a
-     wire-format change.
-
-  All 17 tests pass; the 92 existing native-JWT / auth contract
-  tests in `tests/security/test_native_jwt.py`,
-  `tests/security/test_jwt_auth.py`, and
-  `tests/api/test_auth_comprehensive.py` remain green with no
-  semantic change.
-
-### Security / Permanent supply-chain remediation: native JWT + joblib removal (2026-05-20)
-
-Three upstream-disputed advisories — `PYSEC-2024-277` /
-`CVE-2024-34997` (joblib), `PYSEC-2026-97` / `CVE-2026-0846`
-(nltk), and `PYSEC-2025-183` / `CVE-2025-45768` (pyjwt) — were
-**permanently retired** from Mercury-Agent's audited supply chain
-by removing the affected dependencies rather than ignoring the
-advisories or accepting risk.
-
-- **`pyjwt` removed.** Replaced by
-  `src/omni_mercury_engine/security/native_jwt.py`, a pure-stdlib
-  HS256 JWT module built on `hmac` + `hashlib` + `base64` + `json`
-  with constant-time signature verification (via
-  `security/constant_time.py`) and `alg: none` rejected by
-  construction (HS256-only encoder; decoder whitelists algorithms
-  before any HMAC work).  29 unit tests in
-  `tests/security/test_native_jwt.py`; 14 contract tests in
-  `tests/security/test_jwt_auth.py` and
-  `tests/api/test_auth_comprehensive.py` adapted to the new module
-  with no semantic change.  `api/auth.py` now imports
-  `omni_mercury_engine.security.native_jwt as jwt`, so call sites
-  and exception types (`InvalidTokenError`, `ExpiredSignatureError`,
-  …) are preserved unchanged.
-
-- **`joblib` removed.** `ParallelExecutor` in
-  `src/omni_mercury_engine/ml/optimization.py` is rewritten on
-  `concurrent.futures.{ProcessPoolExecutor, ThreadPoolExecutor}`.
-  The legacy `enable_joblib` / `joblib_backend` config field names
-  are preserved as compatibility aliases — `loky` /
-  `multiprocessing` map to the process pool and `threading` to the
-  thread pool — so downstream config files keep working unchanged.
-  Locked by `tests/ml/test_new_modules.py::test_parallel_executor_no_joblib_import`.
-
-- **`nltk` was never a Mercury dependency** — it appeared in the
-  audit scope only because `safety` itself depends on it.  The CI
-  audits (`ci.yml` and `security.yml`) now install Mercury into an
-  isolated venv (`/tmp/mercury-audit-env`) and scan only that
-  install, so auditor-internal transitives are excluded by
-  construction.
-
-- **`pyproject.toml`** drops `pyjwt>=2.12.0` from `[api]`,
-  `joblib>=1.3.0` from `[optimization]` and `[benchmark]`, and the
-  `jwt` / `joblib` mypy override entries from
-  `[[tool.mypy.overrides]]`.
-
-- **`docs/SECURITY.md`** (the supply-chain posture ledger) deletes
-  the three IGNORE rows and replaces them with a "Permanent
-  supply-chain remediations" section documenting each removal, the
-  in-tree replacement, the commit, and the test that locks the
-  remediation.
-
-Verification on the isolated Mercury [api] install (42 packages,
-Python 3.12, 2026-05-20):
-
-```
-safety check  → 0 vulnerabilities reported, 0 vulnerabilities ignored
-pip-audit     → No known vulnerabilities found  (exit 0)
-```
-
-No `--ignore-vuln` / `--ignore` flags are wired into either
-workflow.  The audit-ledger posture is now "zero risk acceptance":
-findings are remediated by upgrade, isolation, or native re-
-implementation — never by suppression.
-
-### Security / Synthetic-data policy-gate bypass closure (2026-05-20)
-
-The validation-pipeline loaders
-(`omni_mercury_engine.validation.data_loaders`) exposed a
-`use_synthetic: bool = False` argument on every concrete loader
-(`NSLKDDLoader`, `USGSEarthquakeLoader`, `MIMICLoader`,
-`NOAASpaceWeatherLoader`, `NOAAHurricaneLoader`, `NOAAOceanLoader`).
-When set to `True`, the loader returned synthetic data unconditionally
-— **bypassing the deployment-level `MERCURY_ALLOW_SYNTHETIC` policy**
-enforced by
-`omni_mercury_engine.datasets.exceptions.check_synthetic_allowed`.
-
-This was a latent integrity hole: a benchmark, downstream notebook, or
-operator script could request synthetic data via the keyword argument
-and receive it even on a deployment that had explicitly forbidden
-synthetic fallback (`MERCURY_ALLOW_SYNTHETIC=0` or unset).  For a
-humanitarian crisis-response and missing-persons platform, silently
-delivering simulated data when policy forbids it is far worse than
-raising — operators can act on synthetic output without realising the
-real source was never reached.
-
-The fix is surgical and additive:
-
-- Every `if use_synthetic:` branch in `validation/data_loaders.py`
-  now calls `check_synthetic_allowed(loader_name, "Caller passed
-  use_synthetic=True")` immediately before invoking
-  `_generate_synthetic(...)`.  When the env var is not set, the call
-  raises `DataSourceUnavailableError`; when it is set, the legacy
-  contract (caller-flag honoured) holds.
-- `MIMICLoader` (which is *only* available as a synthetic simulation
-  because real MIMIC-III requires PhysioNet credentialing) was
-  rewritten from a tangled `if not use_synthetic and not
-  ALLOW_SYNTHETIC: raise` / `if not use_synthetic:
-  check_synthetic_allowed` two-branch pattern to a single
-  unconditional `check_synthetic_allowed(...)` call.  Both the
-  explicit caller request (`use_synthetic=True`) and the implicit
-  fallback (`use_synthetic=False`) now flow through the same gate,
-  with the documentation pointing operators at the real PhysioNet
-  download URL.
-- `tests/validation/test_synthetic_policy_gate.py` is the regression
-  lock: six tests prove the gate fires for each loader when policy is
-  off, plus a seventh forward-compatibility test confirms the
-  legacy contract (caller flag honoured under `MERCURY_ALLOW_SYNTHETIC=1`).
-
-The closure is additive — no existing test or documented contract is
-broken.  `tests/conftest.py` continues to set
-`MERCURY_ALLOW_SYNTHETIC=1` by default for the test suite, so all 44
-existing `tests/validation/test_validation_pipeline.py` tests still
-pass without modification.  The fallback chain documented in
-`docs/ROUTING_GUIDE.md` still works under the documented contract
-(`MERCURY_ALLOW_SYNTHETIC=1`); without the env var set, the chain
-fails closed at the synthetic step rather than silently degrading.
-
-### Security / σ_Immutable Wave B Vector 2 + 4 closure (2026-05-20)
-
-Closes two of the remaining σ_Immutable bypass vectors identified in the
-v1.7 audit:
-
-- **Vector 2 — engine boundary.** `engine._enforce_ethics_at_boundary`
-  now routes the caller-supplied `domain` through a canonical
-  `sanitize_domain()` helper instead of the prior bare
-  `isinstance(domain, str)` check.  Hostile values such as
-  `"damage_control"` or `"audit track"` are collapsed to the
-  `"general"` sentinel before reaching the `BenevolenceScorer`, so a
-  caller cannot inject harm/positive keywords into the action string
-  to bias the scorer.
-- **Vector 4 — neuro-symbolic hub.** `NeuroSymbolicHub.__init__` now
-  sanitises the `domain` constructor argument before storing it on
-  the audit surface (`self.domain` interpolated into σ_Immutable
-  `details` payloads); the downstream feature-dispatch components
-  (`FibringComposer`, `DomainFeatureExtractorFactory`,
-  `GOSNN3RIntegration`) still see the raw caller value for legacy
-  compatibility.  `NeuroSymbolicHub.predict` now pre-flights the
-  σ_Immutable gate on `n_samples == 0` batches; previously an empty
-  input would return `[]` immediately without ever firing the per-
-  sample enforcement loop, giving callers a silent no-op bypass.
-- **Canonical sanitiser** lifted into
-  `omni_mercury_engine.cognitive.ethical_bounding.sanitize_domain`
-  with a deferred `EnvironmentDomain` import to preserve
-  `ethical_bounding`'s zero-cost import contract.
-  `cognitive/orchestrator.py` now delegates to the same helper
-  instead of carrying a local copy of the whitelist.
-- **Regression**: `tests/ethical/test_hard_enforcement.py` grows
-  `TestSanitizeDomainHelper` (4 cases) and
-  `TestNeuroSymbolicHubEmptyBatchClosure` (2 cases) — the empty-batch
-  closure is locked with a `monkeypatch` spy that asserts the gate
-  fires with `details["empty_batch"] is True` and a sanitised
-  `details["domain"] == "general"`.
-- **Wave B Vector 3** (`CognitiveOrchestrator.analyze`) was already
-  enforced in v1.6 and remains in place.  Vectors 5 (narrative voice)
-  and 6 (federation aggregator + federated_learning server) are
-  deferred to a Wave C follow-up: those subsystems do not currently
-  carry σ_Immutable wiring, and adding it without breaking the
-  existing calling contract requires a careful interface review that
-  is out of scope for the v1.7.0 release cut.  The deferral is
-  tracked in `docs/ROADMAP.md`.
-
-### Security / CVE-2026-6357 regression guard (2026-05-20)
-
-CVE-2026-6357 lets a malicious wheel hijack the install process on
-`pip` versions earlier than 26.1.  Every Dockerfile stage, every CI
-workflow that runs `pip install`, and every devcontainer / dev-tooling
-script already floors `pip>=26.1` in the v1.7 baseline; this commit
-adds a regression guard that makes the contract durable:
-
-- `scripts/check_workflow_hardening.py` grows a
-  `_check_pip_cve_2026_6357` step.  It walks every workflow YAML,
-  groups lines by job (since runner site-packages is shared across
-  all steps in a job), and fails the `Workflow Hardening` CI gate if
-  any `pip install` (or `python -m pip install`) appears in a job
-  without a prior `pip install --upgrade "pip>=26.1"`.  Documentation-
-  emission lines that *write* the literal string `pip install` into
-  a file (`echo`, `printf`, `>>` / `<<` redirection) are exempt and
-  so are inline comments.
-- `.github/workflows/format.yml` and `.github/workflows/network-tests.yml`
-  were updated to floor pip explicitly (previously the `format` job
-  installed Black without pinning pip first; `network-tests` issued a
-  bare `python -m pip install --upgrade pip`).
-- `tests/security/test_cve_2026_6357_regression.py` is the *gate on
-  the gate*: it directly exercises the hardening checker plus the
-  real workflow / Dockerfile inventory so a future drift — a new
-  workflow that forgets the floor, a Dockerfile that re-introduces
-  an unpinned `pip install`, or a regression in the checker itself —
-  is caught by `pytest` long before it can land in a release branch.
-
-## [1.7.0] - 2026-05-20
-
-### Documentation refresh (2026-05-19)
-
-Comprehensive documentation update covering the v1.7 development cycle.
-Every doc surface dated 3+ months stale has been refreshed, and three
-new docs were added for modules that had no operator-facing
-documentation:
-
-- **New: `docs/COMPLIANCE.md`** — first-party reference for the
-  `omni_mercury_engine.compliance` package (NIST CSF 2.0 integrator,
-  OSHA / eCFR detector with NWS Rothfusz heat-index regression, TLP
-  2.0 handler with the full five-colour ladder including
-  `AMBER+STRICT`).
-- **New: `docs/PROFILING.md`** — operator reference for the
-  `omni_mercury_engine.utils.profiling` toolkit (six decorators +
-  `PerformanceBenchmark` + `benchmark_function`, gated by
-  `set_profiling_enabled(...)`).
-- **New: `docs/drone/SETUP.md`** — operator setup guide for the
-  drone anomaly detector (referenced from the detector module
-  docstring; `DroneState` contract, PX4 ULog / MAVLink ingest
-  examples, three upstream-defect fixes recorded).
-- **Updated: `ARCHITECTURE.md` (root)** — new sections covering the
-  v1.7 governance framework modules, medical decision-support
-  modules, drone detector, and profiling toolkit.
-- **Updated: `DEPRECATION.md`** — new §6 "v1.7 Removals
-  (security/correctness exceptions)" enumerating the four surfaces
-  removed under the preservation policy override criteria
-  (`SafeHTTPClient(..., allow_untrusted=True)`, silent
-  `MockLLMAdapter` fallback, `strict_ethics=False`,
-  `gosnn_metadata.fallback_mode=True`) and the one relocation
-  (`tlp_handler` from `security/` to `compliance/`).
-- **Updated: `SECURITY.md`** — v1.7 hard-gate boundary contract,
-  `MERCURY_ENV` production-mode primitive, two-tier dependency-CVE
-  coverage table, governance-framework cross-references.
-- **Updated: `CONTRIBUTING.md`** (v2.5) — v1.7 do-not-restore
-  items, medical / drone / compliance integration-ready
-  contribution channels.
-- **Updated: `docs/INSTALLATION.md`, `docs/DEPLOYMENT.md`** —
-  `MERCURY_ENV` + `AMA_REQUIRE_REAL_PQC` production-mode primitives,
-  `[compliance]` and `[pqc]` extras, v1.7 module installation notes.
-- **Updated: `docs/API_REFERENCE.md`** — module-index table, quick-
-  import blocks for compliance / medical / drone / profiling
-  surfaces, decision-boundary contract banner.
-- **Updated: `docs/index.md`** — `MERCURY_ENV` and compliance
-  primitives in the "What you should know first" block; toctree
-  entries for the new docs.
-- **Updated: `docs/ROADMAP.md`** — capability-status table refreshed
-  to 2026-05-19 with seven new "Functional" rows (NIST CSF 2.0
-  integrator, TLP 2.0 handler, OSHA / eCFR detector, drone anomaly
-  detector, endocrinology detector, anesthesiology predictor,
-  performance profiling toolkit).
-- **Updated: `docs/DATASOURCES.md`** — "Last verified" bumped to
-  2026-05-19; v1.7 reachability harness and the 65/65 / 64/75 /
-  51/55 benchmark trajectory reconciled.
-- **Updated: `docs/SECURITY.md`** (renamed from
-  `docs/PYTHON_DEP_CVE_AUDIT.md`) — audit date / next-review bumped
-  (2026-05-19 → 2026-08-19); v1.7 dependency surface (`openpyxl` for
-  the `compliance` extra, exact `v3.2.0`
-  pin for the `pqc` extra) documented.
-- **Updated: `docs/medical/SETUP.md`, `docs/BENCHMARKS.md`,
-  `docs/ROUTING_GUIDE.md`, `docs/MATH_SPEC.md`,
-  `docs/LIVE_DATA_VALIDATION.md`, `docs/ORACLE_NOISE_COLOR.md`,
-  `docs/DOMAIN_PERFORMANCE.md`, `benchmarks/DATASETS.md`** —
-  date-stamped to 2026-05-19 with v1.7 context where applicable.
-- **Updated: `rust_crypto/README.md`** — clarified scope (classical
-  crypto, **not** PQC); pointed PQC use cases at
-  AMA Cryptography v3.2.0 and the `[pqc]` extra.
-- **Updated: `CODE_OF_CONDUCT.md`** — added document-version
-  metadata table and a Mercury-specific note tying the Code of
-  Conduct to the dual hard ethical gates encoded in the software.
-
-No source code or behaviour changed in this entry; the
-documentation refresh is text-only.
-
-### Omni-AXA → Mercury port, PR 1: infrastructure & stdlib-only modules
-
-Three first-party modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
-(GPL-3.0+) into Mercury Agent.  The runtime dependency surface added by
-these ports is `numpy` (already required by Mercury Agent core),
-`requests` (existing Mercury dependency, used by the NIST CSF live
-fetcher), and `openpyxl` (new, gated behind the `compliance` extra in
-`pyproject.toml` and only required when parsing the live NIST CSF
-reference XLSX).  No new mandatory dependencies were introduced.  All
-three ported modules are fully typed for `mypy --strict` and have no
-overlap with existing Mercury code.
-
-- **`omni_mercury_engine.utils.profiling`** (411 LOC source → 652 LOC port).
-  Six public entry points: `@profile_func`, `@profile_memory`,
-  `@profile_time`, `@profile_time_async`, `@profile_complete`,
-  `PerformanceBenchmark` context manager, and `benchmark_function`.
-  Mercury delta: added `@profile_time_async` for Mercury's asyncio
-  paths and added an opt-in global enable flag exposed via
-  `set_profiling_enabled(...)` / `is_profiling_enabled()` in
-  `omni_mercury_engine.utils.profiling`.  Locked by
-  `tests/test_profiling.py` (32 tests).
-
-- **`omni_mercury_engine.compliance.nist_csf_integrator`**
-  (578 LOC source → 1,349 LOC port).  Implements NIST CSF 2.0
-  end-to-end: the six core functions (GOVERN, IDENTIFY, PROTECT,
-  DETECT, RESPOND, RECOVER), 22 categories, and 106+ subcategories
-  with implementation tier scoring (PARTIAL → ADAPTIVE),
-  organisational profiles, gap analysis, supply-chain anomaly
-  detection, continuous-monitoring deltas, and JSON-serialisable
-  compliance reports.  Mercury delta: a new
-  `NISTCSFReferenceFetcher` hits the live NIST CSF 2.0 Reference
-  Tool at
-  `https://csrc.nist.gov/extensions/nudp/services/json/csf/download?olirids=all`
-  (XLSX, ~143 KB) with a 7-day on-disk cache under
-  `$XDG_CACHE_HOME/mercury-agent/nist_csf` so callers see the
-  authoritative subcategory tree rather than a hard-coded
-  snapshot.  Locked by `tests/test_nist_csf_integrator.py`
-  (29 unit + 2 `@pytest.mark.network` integration tests against
-  csrc.nist.gov).
-
-- **`omni_mercury_engine.compliance.tlp_handler`**
-  (313 LOC source → 603 LOC port).  Implements FIRST.org / CISA
-  TLP 2.0 classification with the full five-colour ladder
-  (CLEAR / GREEN / AMBER / AMBER+STRICT / RED), single-anomaly and
-  batch classification, per-colour statistics, watermark
-  generation, and a JSON-serialisable export-metadata block.
-  **Behavioural delta (known-issue fix):** the upstream module
-  shipped only the four legacy TLP 1.0 colours; `AMBER+STRICT` has
-  been added end-to-end (classification, reasoning, sharing
-  guidelines, ethical considerations, watermark, export metadata)
-  so Mercury is TLP-2.0 compliant out of the box.  Sharing
-  guidelines are verbatim from FIRST.org TLP 2.0; bare
-  `except:` clauses present in the upstream module were replaced
-  with explicit `TLPValidationError` paths.  **Location delta:**
-  the module lives in `omni_mercury_engine.compliance` alongside
-  `nist_csf_integrator` and `osha_anomaly` rather than in
-  `omni_mercury_engine.security`.  Mercury's `security/` package
-  is reserved for implementation primitives (crypto, PQC, threat
-  detection, audit logging); governance frameworks live in
-  `compliance/`.  The upstream location was
-  `domains/ciad/compliance/`, so this restores upstream intent.
-  Internal callers (`utils.report_generator`,
-  `tests.test_report_generator`, `tests.test_tlp_handler`) were
-  updated to the new import path; a repository-wide
-  `git grep` confirmed no other call sites, so no
-  backwards-compatibility shim was added in `security/`.  Locked
-  by `tests/test_tlp_handler.py` (45 tests covering every public
-  surface including AMBER+STRICT escalation, watermark integrity,
-  and export-metadata schema).
-
-### `ReportGenerator` — first-class TLP 2.0 wiring
-
-- **`ReportGenerator.apply_tlp_classification(...)`** is the canonical
-  choke-point for tagging Mercury reports with a Traffic Light
-  Protocol classification.  Callers either pass a pre-computed
-  `TLPClassification` (preferred when the colour was decided at an
-  earlier choke-point) or supply an `anomaly_score` and let the
-  handler classify here.  The classification is rendered into
-  every output format produced by `generate()`:
-  - JSON output gains a top-level `"tlp"` block containing the
-    canonical `tlp_label` / `tlp_color` / `tlp_rank` /
-    `tlp_confidence` / `tlp_reasoning`, the FIRST.org
-    sharing-guideline text, the ethical considerations list, and a
-    watermark string.
-  - HTML output renders a sanitised `<div class="tlp-banner">`
-    above the report title with the watermark and sharing
-    guidelines (HTML escaping is preserved end-to-end; sensitive
-    output never bypasses the existing XSS protection).
-  - Markdown output renders a `> **TLP:…**` blockquote at the
-    top of the document.
-  Default behaviour is unchanged when callers do not opt in,
-  so existing report consumers are not affected.  Locked by
-  `tests/test_report_generator.py::TestReportTLPIntegration`
-  (10 tests including the no-classification baseline, the
-  pre-computed path, the score-driven path, validation errors,
-  per-format rendering checks, and the strict-sharing escalation
-  path).
-
-### Omni-AXA → Mercury port, PR 2: domain modules with external dependencies
-
-Four domain modules ported from `Steel-SecAdv-LLC/Omni-AXA-Engine`
-(GPL-3.0+) into Mercury Agent.  All known issues from the verdict table
-are resolved in-PR; no follow-ups.  Compliance and drone modules are
-wired to live public data sources (eCFR, PX4 / MAVLink).  The medical
-modules ship **integration-ready, not pre-integrated**: real adapter
-ABCs (`CGMDataSource`, `VitalsDataSource`), a reference Dexcom v3
-OAuth2 adapter, and a reference HL7 FHIR R4 Observation adapter.
-Mercury Agent never carries vendor medical credentials; the platform
-refuses to start a misconfigured medical integration via
-`ConfigurationError`.  See `docs/medical/SETUP.md` for the operator
-runbook.
-
-- **`omni_mercury_engine.compliance.osha_anomaly`**
-  (666 LOC source → 1,003 LOC port).  Multi-sector OSHA compliance
-  detector covering 12 hazard categories × 6 industry sectors with
-  real CFR citations.  **Known-issue fix (heat-index regression):**
-  the original implementation used the linear heuristic
-  ``HI = T + 0.5 * RH``.  At ``T=95 °F, RH=70 %`` this returned
-  ``130 °F``, materially over-reporting heat stress.  The port
-  replaces this with the **National Weather Service Rothfusz
-  regression**:
-  ```
-  HI = -42.379 + 2.04901523·T + 10.14333127·RH
-       − 0.22475541·T·RH      − 0.00683783·T²
-       − 0.05481717·RH²       + 0.00122874·T²·RH
-       + 0.00085282·T·RH²     − 0.00000199·T²·RH²
-  ```
-  plus the two standard adjustments — low-humidity
-  (``RH < 13 %`` and ``80 ≤ T ≤ 112 °F``) and
-  low-temperature/high-humidity (``RH > 85 %`` and
-  ``80 ≤ T ≤ 87 °F``).  Numeric NWS reference point at
-  ``T=96 °F, RH=65 %`` now returns ``≈121 °F`` (verified against
-  the published WPC table) instead of ``128 °F`` under the
-  heuristic.  Citations may optionally be validated against the
-  live **eCFR API** (`https://www.ecfr.gov/api/versioner/v1/`,
-  60 req/min, no auth) via the new ``ECFRClient`` helper, which
-  caches verifications in-process.  Locked by
-  `tests/test_osha_anomaly.py` (28 tests covering every
-  sector × hazard combination, the Rothfusz regression and both
-  adjustments, eCFR parsing/caching/error paths, training
-  recommendations, and the compliance report).
-
-- **`omni_mercury_engine.anomaly.drone_detector`**
-  (632 LOC source → 905 LOC port).  Multi-source drone anomaly
-  detector combining rule-based RADD, an ML ensemble, and
-  log-based DronLomaly.  **Three known-issue fixes in-PR:**
-  1. **Missing DroneState fields.**  The upstream detection
-     rules referenced ``altitude_rate``, ``horizontal_velocity``,
-     ``vertical_velocity``, and ``distance_to_home`` but the
-     ``DroneState`` dataclass did not have them, so every rule
-     that gated on those fields silently no-op'd.  The port adds
-     the four fields with explicit ``Optional[float]`` types and
-     a ``__post_init__`` that derives them from
-     ``velocity`` / ``position`` / ``home_position`` when not
-     explicitly supplied.  Regression tests in
-     ``tests/test_drone_detector.py`` exercise the previously
-     silent rules end-to-end.
-  2. **Mercury in-house anomaly ensemble.**  The hand-coded z-score
-     "ensemble" was first replaced with three scikit-learn estimators
-     (``IsolationForest``, ``EllipticEnvelope``, ``LocalOutlierFactor``)
-     during the initial port.  That implementation is itself superseded
-     here by Mercury Agent's own first-class anomaly ensemble,
-     :class:`~omni_mercury_engine.detectors.statistical.MercuryAnomalyDetector`,
-     which combines three deterministic ``numpy``/``scipy`` scorers —
-     **Resonance** (40 %; FFT-based harmonic spectral anomaly),
-     **Kinematic** (30 %; physics-based jerk / curvature dynamics) and
-     **InfoGeometry** (30 %; Fisher Information Matrix OOD detection).
-     The previous default ensemble weights (``isolation_forest=0.40``,
-     ``elliptic_envelope=0.25``, ``lof=0.35``) are replaced with
-     ``resonance=0.40``, ``kinematic=0.30``, ``info_geometry=0.30``,
-     matching the published MercuryAnomalyDetector ratio.  The
-     ``DroneAnomalyDetector(ensemble_weights=...)`` keyword still
-     accepts a custom override; callers must now key it on the three
-     new component names.  scikit-learn is **removed from the drone
-     detector's runtime dependency surface** — it survives only in the
-     ``benchmark-comparison`` optional extra (per ``pyproject.toml``),
-     where it is used to score Mercury against external baselines
-     rather than to power Mercury itself.  The Mahalanobis fallback
-     path and its ``_SKLEARN_AVAILABLE`` flag are removed; the
-     in-house ensemble is deterministic after fit and has no optional
-     dependency.  Locked by ``TestMercuryEnsemble`` in
-     ``tests/test_drone_detector.py``, which asserts the absence of
-     every previously-exported sklearn symbol on the module and
-     verifies the three Mercury components are produced with scores
-     in ``[0, 1]``.
-  3. **Unvalidated 93.84 % recall claim removed.**  The
-     upstream docstrings cited a 93.84 % recall number with no
-     reproducible benchmark.  The claim is removed and a
-     ``test_no_recall_claim_in_docstrings`` regression test
-     pins the docstrings against re-introduction.
-  Live data: integrates with PX4 / MAVLink telemetry via the
-  detector's ``detect_faults(state, logs)`` entry point —
-  callers translate their MAVLink / pyulog stream into the
-  ``DroneState`` dataclass.  Locked by
-  `tests/test_drone_detector.py` (27 tests covering all three
-  known-issue fixes, every mission-phase rule that previously
-  silent-no-op'd, the Mercury in-house ensemble component layout,
-  degenerate-window robustness, log-based fault detection,
-  flight-report aggregation, and per-fault recommendation lists).
-
-  **Deviations from the original (drone_anomaly_detector.py):**
-  - Ensemble vendor: the upstream module imports
-    ``sklearn.ensemble.IsolationForest``,
-    ``sklearn.covariance.EllipticEnvelope`` and
-    ``sklearn.neighbors.LocalOutlierFactor`` directly and falls back
-    to a hand-coded Mahalanobis scorer when sklearn is missing.  The
-    port replaces both branches with Mercury Agent's in-house
-    ``MercuryAnomalyDetector`` (Resonance / Kinematic / InfoGeometry).
-    scikit-learn is no longer imported at runtime by this module; it
-    remains available only via the ``benchmark-comparison`` optional
-    extra for external baseline comparisons.
-  - ``ensemble_weights`` keys: ``{"isolation_forest", "elliptic_envelope",
-    "lof"}`` → ``{"resonance", "kinematic", "info_geometry"}``.  The
-    weights themselves continue to be normalised to sum to ``1.0``.
-  - ``random_state`` constructor argument is retained for API stability
-    but is now a no-op; ``MercuryAnomalyDetector`` is deterministic
-    after ``fit()`` and consumes no RNG seed.
-  - ``_compute_sklearn_scores`` and ``_compute_fallback_scores`` are
-    removed; the single ``_compute_ensemble_scores`` path now
-    delegates to ``MercuryAnomalyDetector.fit`` /
-    ``MercuryAnomalyDetector.detect`` and returns an empty dict on
-    fit/detect failure rather than zero-filling components.
-
-- **`omni_mercury_engine.medical.anesthesiology_predictor`**
-  (541 LOC source → 741 LOC port).  Integrated anesthesiology
-  prediction combining a Bi-LSTM TIVA monitor, a discrete-time
-  PID infusion controller, and a hemodynamic monitor:
-  - **TIVA Bi-LSTM** (``input_dim=8``, ``hidden_dim=64``,
-    ``num_layers=2``, bidirectional, additive attention,
-    164,066 parameters — matches the verified Omni-AXA
-    parameter count).
-  - **PID infusion controller** with the verified upstream
-    gains ``kp=0.5 / ki=0.1 / kd=0.2``, target BIS 50, safe
-    window ``[40, 60]``.  Decision support only; the controller
-    refuses to run with ``dt ≤ 0`` and clamps outputs to
-    documented propofol / remifentanil limits.
-  - **Hemodynamic monitor** with the ASA-aligned ranges
-    MAP 65–110 mmHg, HR 50–100 bpm, SpO₂ ≥ 92 %,
-    EtCO₂ 30–45 mmHg.
-  Integration: the predictor now requires a
-  ``VitalsDataSource`` adapter at construction time when
-  ``enable_hemodynamics`` is true (the default); without one the
-  constructor raises ``ConfigurationError``.  A reference
-  ``FHIRObservationVitalsSource`` ships in
-  ``omni_mercury_engine.medical.data_sources`` and speaks HL7
-  FHIR R4 ``Observation`` search with ``category=vital-signs`` —
-  spec-compliant against Epic, Oracle/Cerner, MEDITECH, and the
-  SMART-on-FHIR sandbox.  LOINC codes recognised: 8867-4 HR,
-  8480-6 / 8462-4 SBP/DBP (MAP computed when absent), 8478-0 MAP
-  direct, 2708-6 / 59408-5 SpO₂, 19911-5 EtCO₂.  Synthetic
-  generators and the old ``VitalDBClient`` have been removed
-  from production paths; integrators wire their own vendor
-  adapter (Philips IntelliVue, GE CARESCAPE, Mindray, custom HL7
-  v2 / FHIR endpoint) by subclassing ``VitalsDataSource``.
-  Locked by `tests/test_anesthesiology_predictor.py` (rule-engine
-  and integration tests against an in-process
-  ``VitalsDataSource``) and `tests/test_medical_data_sources.py`
-  (FHIR adapter end-to-end against sanitized fixtures).
-
-- **`omni_mercury_engine.medical.endocrinology_detector`**
-  (521 LOC source → 660 LOC port).  Integrated endocrine anomaly
-  detection with CGM Bi-LSTM analysis and three FDA-aligned
-  rules:
-  - **CGM Bi-LSTM** (``input_dim=1``, ``hidden_dim=64``,
-    ``num_layers=2``, bidirectional, additive attention) for
-    glycemic-state classification (normal / hypo / hyper /
-    severe-hypo / DKA) plus a scalar trend predictor.
-  - **Afrezza FEV1 contraindication.**  Inhaled insulin is
-    flagged inappropriate when ``FEV1 < 70 %``.  The threshold
-    is strict-less-than, so ``FEV1 = 69.9 %`` is flagged and
-    ``FEV1 = 70.0 %`` is permitted; the boundary case is locked
-    by `TestInhaledInsulinMonitor::test_fev1_threshold`.
-  - **GLP-1 pancreatitis discontinuation.**  Any occurrence of
-    "pancreatitis" (case-insensitive) in the side-effect list
-    sets ``continue_therapy=False`` and emits the FDA-aligned
-    discontinuation recommendation.
-  - **Dose-stacking guard.**  Rapid-acting insulin doses spaced
-    less than ``min_dose_interval_hours = 2.0`` apart trip the
-    smart-pen alert and require glucose verification before
-    additional dosing.
-  Integration: the detector now requires a ``CGMDataSource``
-  adapter at construction time when ``enable_cgm`` is true (the
-  default); without one the constructor raises
-  ``ConfigurationError``.  A reference ``DexcomV3DataSource``
-  ships in ``omni_mercury_engine.medical.data_sources`` and
-  speaks the Dexcom Developer API v3 over OAuth2 refresh-token
-  flow (``api.dexcom.com/v2/oauth2/token`` →
-  ``/v3/users/self/egvs``).  Required environment variables:
-  ``DEXCOM_CLIENT_ID``, ``DEXCOM_CLIENT_SECRET``,
-  ``DEXCOM_REFRESH_TOKEN``, ``DEXCOM_REDIRECT_URI``;
-  ``DEXCOM_BASE_URL`` defaults to production with sandbox
-  override available.  Synthetic generators and the old
-  ``TidepoolClient`` / ``DexcomCredentials`` helpers have been
-  removed from production paths; integrators wire their own
-  vendor adapter (Abbott LibreView, Medtronic CareLink, custom
-  cloud bridge) by subclassing ``CGMDataSource``.  Locked by
-  `tests/test_endocrinology_detector.py` (rule-engine and
-  integration tests against an in-process ``CGMDataSource``)
-  and `tests/test_medical_data_sources.py` (Dexcom v3 adapter
-  end-to-end against sanitized fixtures, including OAuth token
-  caching and HTTP error wrapping).
-
-- **`omni_mercury_engine.medical.data_sources`** (new, 800 LOC).
-  Common medical-data infrastructure:
-  ``CGMDataSource`` / ``VitalsDataSource`` ABCs,
-  ``CGMReading`` / ``VitalsReading`` dataclasses,
-  ``ConfigurationError`` / ``DataSourceError`` typed exceptions,
-  reference ``DexcomV3DataSource`` (OAuth2 refresh) and
-  ``FHIRObservationVitalsSource`` (HL7 FHIR R4 Observation
-  search), plus module-level
-  ``parse_dexcom_egvs_payload`` / ``parse_fhir_observation_bundle``
-  helpers so integrators can unit-test their own payloads
-  against the same parsers Mercury uses internally.  See
-  `docs/medical/SETUP.md` for the full operator runbook.
-
-**Provenance.**  All four modules originate from
-``Steel-SecAdv-LLC/Omni-AXA-Engine`` (private; GPL-3.0+).  The
-upstream license matches Mercury's, and the user has full legal
-standing to relicense across both repositories.
-
-### Omni-AXA → Mercury port, refinements
-
-Refinement pass closing twelve static-analysis findings on the port.
-Every finding is addressed in-code; no `# noqa`, no
-`# type: ignore`, no `pragma: no cover`, no broad except, and no
-coverage-threshold lowering.  The changes harden SSRF / DNS-rebinding
-posture on every outbound HTTP call made by the ported modules,
-upgrade the DroneState input contract with explicit shape validation,
-and reconcile the medical module top-level docstrings with the
-deviations already documented under the per-module
-*"Deviations from the original"* subsections below.
-
-- **SSRF / DNS-rebinding gate on every medical and compliance HTTP
-  call.**  `DexcomV3DataSource._refresh_access_token`,
-  `DexcomV3DataSource.fetch_recent_readings`,
-  `FHIRObservationVitalsSource.fetch_recent_vitals`, and
-  `ECFRClient.verify_citation` all previously bypassed Mercury's
-  central HTTP egress gate by going through
-  `urllib.request.urlopen` directly.  The four methods now route
-  through `omni_mercury_engine.security.safe_http.SafeHTTPClient`,
-  picking up the scheme allowlist (HTTPS), private-network / IMDS
-  block, DNS-rebinding pinning, and redirect refusal for free.
-  `SafeHTTPClient.post_form` is a new helper added for the OAuth2
-  token endpoint; it mirrors `post_json` but emits a
-  form-urlencoded body and validates the response as JSON.
-  `requests.HTTPError` raised by `raise_for_status()` is mapped to
-  the adapter-specific `DataSourceError` / `ECFRClientError`
-  semantics so the public contract is unchanged.
-- **Hard URL allowlists for operator-supplied endpoints.**
-  `DexcomConfig.__post_init__` now validates `base_url` against
-  the two published Dexcom hosts (`https://api.dexcom.com`,
-  `https://sandbox-api.dexcom.com`) and raises
-  `ConfigurationError` on anything else.  `ECFRClient.__init__`
-  similarly restricts `base_url` to
-  `https://www.ecfr.gov` via the new
-  `ECFRClient.ALLOWED_BASE_URLS` class constant.  Both fixes turn
-  a hostile environment variable or operator typo into a hard,
-  visible failure at construction time instead of a silent
-  redirect of regulatory or PHI traffic.
-- **HTTPS-by-default for FHIR PHI traffic.**  `FHIRConfig` rejects
-  any non-HTTPS `base_url` unless the operator explicitly sets
-  `allow_http=True` (or `FHIR_ALLOW_HTTP=1` in the environment).
-  The opt-in is intended exclusively for documented local /
-  development FHIR servers; vital-signs observations are PHI and
-  must traverse TLS in production.  The flag is forwarded to
-  `SafeHTTPClient.get_json`'s `allow_http` parameter and tested
-  end-to-end in
-  `tests/test_medical_data_sources.py::TestFHIRConfigHttpsPolicy`.
-- **`DroneState.__post_init__` shape validation.**  The dataclass
-  now rejects malformed `position` / `velocity` / `attitude`
-  (3-vectors), `motor_speeds` (4-vector), and `home_position`
-  (3-vector when supplied) with a clear `ValueError`.  RADD's
-  invariant rules index those positions directly; a mis-shaped
-  feed previously bubbled up as an obscure `IndexError` deep in
-  the rule loop, which is the exact silent-failure class this
-  port was commissioned to eliminate.  Pinned by
-  `tests/test_drone_detector.py::TestDroneStateShapeValidation`
-  (five cases covering each vector and the optional
-  `home_position`).
-- **Drone detector module-docstring correction.**  The previous
-  module docstring referenced `omni_mercury_engine.anomaly.drone_telemetry`
-  as the live-telemetry adapter module; that module does not
-  exist in the Mercury tree.  The docstring now states the
-  correct contract: the detector is transport-agnostic, callers
-  populate `DroneState` from their ingest layer of choice
-  (`pyulog.ULog`, `pymavlink`, custom feed), and an integration
-  example lives in `docs/drone/SETUP.md`.
-- **Medical detector top-level docstrings reconciled with documented
-  deviations.**  Two of the medical modules previously claimed
-  upstream architectural parity that the earlier deviations section
-  had already retracted:
-  - `endocrinology_detector.py` no longer claims the neural
-    architecture "matches the original verified implementation".
-    The module docstring now references the `CGMAnalyzer`
-    trend-head widening and the additive
-    `GLP1TherapyMonitor` / `InhaledInsulinMonitor` rules under
-    *"Deviations from the original"* explicitly.
-  - `anesthesiology_predictor.py` similarly defers to the
-    documented deviations for `HemodynamicMonitor`'s explicit
-    SpO2 guard and `SmartInfusionController`'s test-introspection
-    surface.  The PID controller gains and clinical vital ranges
-    remain preserved verbatim, with their ASA / AARC citations
-    intact.
-- **Test plumbing.**  `tests/test_medical_data_sources.py` and
-  `tests/test_osha_anomaly.py` now mock at the `SafeHTTPClient`
-  public surface rather than at `urllib.request.urlopen`.  A
-  reusable `_build_http_error` helper in the medical tests keeps
-  the failure shape consistent with how `SafeHTTPClient` propagates
-  `raise_for_status()` failures.  `tests/test_drone_detector.py`
-  uses `pytest.importorskip("sklearn")` so the ensemble test
-  module is gracefully skipped when the `benchmark-comparison`
-  extra is not installed; the sklearn-unavailable fallback path is
-  separately covered by
-  `TestSklearnEnsemble.test_fallback_when_sklearn_unavailable`.
-
-### Omni-AXA → Mercury port, PR 2 refinements (hard-guardrail review)
-
-Round-2 refinement pass over the four ported domain modules driven by
-the repo owner's explicit "no debt-for-debt trade" guardrails.  Every
-removed rule from the upstream that the initial port had quietly
-dropped is documented here under explicit "Deviations from the
-original" subsections per module; every restored rule is pinned by a
-named regression test; every cited threshold is re-anchored to a
-module-level constant via the new clinical rule-pin harness.
-
-#### Architectural reorganisation
-
-- **`omni_mercury_engine.detectors.drone`** (new subpackage).  The
-  ported drone detector now lives in
-  `src/omni_mercury_engine/detectors/drone/detector.py` alongside
-  Mercury's existing single-domain detector subpackages
-  (`marine/`, `economic/`, `energy/`, `geological/`, …).  The
-  `omni_mercury_engine.anomaly` package is **retained** (with a
-  policy docstring) for future multi-modal anomaly detectors that
-  fuse two or more `detectors/<domain>/` outputs into a single
-  decision-support stream; no such detector ships.  All
-  existing imports continue to work via the new
-  `omni_mercury_engine.detectors.drone` package's `__init__.py`,
-  which re-exports the public API
-  (`DroneAnomalyDetector`, `DroneFault`, `DroneState`, `FaultType`,
-  `MissionPhase`, `get_drone_detector`).  Test imports in
-  `tests/test_drone_detector.py` were updated to the new path.
-
-#### `omni_mercury_engine.medical.endocrinology_detector` — Deviations from the original
-
-The initial port dropped three rule groups from the upstream
-`endocrinology_detector.py` without CHANGELOG documentation.  All three
-groups are restored in this pass with citation-pinned class constants
-and regression tests:
-
-- **`SmartInsulinPenMonitor` — large-bolus and daily-total guards (restored).**
-  - `MAX_BOLUS_UNITS: Final[float] = 15.0` — fires
-    `"Verify dose - risk of hypoglycemia"` and
-    `"Consider splitting dose if meal is large"` when
-    `dose_units > MAX_BOLUS_UNITS` **and**
-    `insulin_type == "rapid_acting"`.  Citation: ADA Standards of
-    Care; FDA insulin labeling — large rapid-acting boluses without
-    sensitivity verification are a documented hypoglycemia risk.
-  - `MAX_DAILY_INSULIN_UNITS: Final[float] = 50.0` — fires
-    `"Review insulin sensitivity and dosing regimen"` when
-    `daily_total_units > MAX_DAILY_INSULIN_UNITS`.  Citation: ADA
-    Standards of Care — total daily insulin above ~50 U warrants a
-    sensitivity / regimen review.
-  - Both checks accept their inputs as **optional** parameters on
-    `monitor_insulin_delivery()` so legacy callers that supplied
-    only `recent_doses` / `adherence_rate` / `patient_glucose`
-    continue to work unchanged.  Locked by four new tests in
-    `TestSmartInsulinPenMonitor`
-    (`test_smart_pen_large_bolus_alert_fires_above_15u_rapid_acting`,
-    `test_smart_pen_large_bolus_does_not_fire_for_basal`,
-    `test_smart_pen_daily_total_alert_fires_above_50u`,
-    `test_smart_pen_no_alert_when_fields_omitted`).
-- **`InhaledInsulinMonitor` — dose ceiling and technique guards (restored).**
-  - `MAX_DOSE_UNITS: Final[int] = 12` — fires
-    `"Consider subcutaneous insulin for large doses"` when
-    `dose_units > MAX_DOSE_UNITS`.  Citation: FDA Afrezza label,
-    Section 5 (Warnings and Precautions).
-  - `MIN_TECHNIQUE_SCORE: Final[float] = 0.7` — fires
-    `"Retrain on proper inhaler use"` and
-    `"May result in suboptimal absorption"` when
-    `inhalation_technique_score < MIN_TECHNIQUE_SCORE`.  Citation:
-    AARC inhaler-technique guidance.
-  - Inputs are optional on `monitor_inhaled_insulin()`; the FEV1
-    contraindication still dominates the result when all three
-    alerts fire concurrently.  Locked by three new tests in
-    `TestInhaledInsulinMonitor`
-    (`test_inhaled_dose_ceiling_alert_fires_above_12u`,
-    `test_inhaled_technique_alert_fires_below_0_7`,
-    `test_inhaled_contraindication_still_dominates`).
-- **`GLP1TherapyMonitor` — duration-aware titration and GI handling (restored).**
-  - `A1C_ESCALATION_WEEK: Final[int] = 12` /
-    `A1C_INADEQUATE_DROP_PERCENT: Final[float] = -0.5` — when
-    `a1c_change_percent > -0.5` **and** `duration_weeks >= 12`, the
-    monitor recommends dose escalation.  Citation: ADA
-    pharmacological guidance; FDA semaglutide / liraglutide
-    labeling.
-  - `WEIGHT_LOSS_REVIEW_WEEK: Final[int] = 16` /
-    `WEIGHT_LOSS_TARGET_KG: Final[float] = 2.5` — when
-    `abs(weight_loss_kg) < 2.5` **and** `duration_weeks >= 16`, the
-    monitor recommends a diet / exercise review and dose escalation
-    if tolerated.
-  - GI side-effects: when `side_effects` contains `"nausea"` or
-    `"vomiting"` (case-insensitive), the monitor emits
-    `"Take with food, slower dose titration; consider antiemetics
-    if severe"`.
-  - `duration_weeks` is an **optional** parameter (default `0`).
-    The pancreatitis discontinuation rule still dominates the
-    `continue_therapy` flag when any of the new rules fire.  Locked
-    by four new tests in `TestGLP1TherapyMonitor`
-    (`test_glp1_dose_escalation_recommended_at_week_12_inadequate_a1c`,
-    `test_glp1_no_escalation_before_week_12`,
-    `test_glp1_gi_side_effects_trigger_titration_advice`,
-    `test_glp1_pancreatitis_still_dominates`).
-- **`CGMAnalyzer` — trend-head width (kept widened, docstring
-  corrected).**  The upstream architecture has the trend head at
-  `hidden_dim * 2 -> 32 -> 1`; Mercury's port widens it to
-  `hidden_dim * 2 -> 64 -> 1` to match the glycemic classifier's
-  hidden width.  Parameter count is approximately equal (~155K) but
-  the resulting weights are **not interchangeable** with upstream
-  checkpoints — any prior pretrained weights would need to be
-  re-trained for this layout.  The class docstring has been updated
-  to drop the previous "matches the verified Omni-AXA
-  implementation" wording, which was directionally wrong.  Locked
-  by the new
-  `test_cgm_analyzer_parameter_count_is_approximately_155k` guard
-  (asserts `145_000 <= count_cgm_parameters() <= 165_000`).
-- **`SmartInsulinPenMonitor` — adherence scalar (intentionally
-  simplified).**  Mercury accepts a single
-  `adherence_rate ∈ [0, 1]` scalar rather than the upstream's
-  `doses_taken / doses_prescribed` ratio because the
-  `CGMDataSource` / vendor-adapter contract returns this as a
-  pre-computed daily fraction; recomputing it inside the monitor
-  would invite a divide-by-zero on partially-reported days.  The
-  low-adherence alert still fires below `0.8`.
-
-#### `omni_mercury_engine.medical.anesthesiology_predictor` — Deviations from the original
-
-- **`HemodynamicMonitor.spo2_threshold` (kept explicit guard).**  The
-  port keeps the explicit
-  `intervention_needed = overall_risk > 0.6 or spo2 < spo2_threshold`
-  short-circuit so that any sub-92 % SpO₂ reading triggers
-  intervention even when the per-vital risk weights happen to
-  average out below 0.6.  Citation: ASA standards for basic
-  anesthetic monitoring.
-- **`HemodynamicMonitor` bradycardia threshold (kept tightened at
-  ≥ 0.5).**  Sub-50 bpm HR contributes `0.5 * (50 - hr) / 50`
-  capped at `1.0`, so a reading of 45 bpm contributes 0.05 of risk
-  rather than the upstream's 0.10 — the upstream value risked
-  overcounting routine athletes-at-rest readings while the OR is
-  otherwise stable.  Locked by
-  `tests/test_anesthesiology_predictor.py::TestHemodynamicMonitor::test_bradycardia_contributes_to_risk`.
-- **Synthetic vitals generator removed from production paths.**  The
-  upstream module included a `VitalDBClient` synthetic-data
-  generator that emitted fabricated MAP / HR / SpO₂ traces.  Mercury
-  refuses to operate on synthetic vitals in production: the
-  predictor raises `ConfigurationError` when
-  `enable_hemodynamics=True` and no `VitalsDataSource` adapter is
-  supplied.  Tests use sanitized FHIR-R4 `Observation` fixtures
-  (`tests/fixtures/medical/fhir_observation_vitals.json`).
-
-#### `omni_mercury_engine.compliance.osha_anomaly` — Deviations from the original
-
-- **Heat-index regression direction (docstring correction).**  The
-  initial port's module-level docstring claimed the simplified
-  `T + 0.5*RH` heuristic "under-reported heat stress at high
-  humidity."  The worked example actually shows **over**-reporting
-  (the heuristic returns ~130 °F at T=95 °F / RH=70 % while the
-  Rothfusz regression returns ~122 °F, an 8 °F over-report).  The
-  docstring has been rewritten to capture both directions: high-RH
-  over-reporting and low-RH under-reporting.  Three new NWS
-  reference-point tests
-  (`test_heat_index_known_values[80F/40%RH]`,
-  `[95F/70%RH]`, `[100F/10%RH]`) pin the Steadman branch, the
-  unadjusted Rothfusz branch, and the low-humidity adjustment
-  branch respectively.
-- **`OSHAComplianceAnomaly` legacy alias removed.**  The upstream
-  module ended with
-  `OSHAComplianceAnomaly = OSHAComplianceDetector`.  A repository-wide
-  `git grep OSHAComplianceAnomaly` confirmed that the only external
-  reference lives in the upstream Omni-AXA tree and Mercury's own
-  `docs/ARCHITECTURE.md`; no Mercury runtime code, tests, or
-  downstream callers depend on the alias.  The alias is **removed
-  without replacement** in the Mercury port.  Importers that hit
-  the missing name will get a clear `ImportError`; integrators
-  should import `OSHAComplianceDetector` directly.
-- **`ECFRClient` rate-limit handling (clarified, not enforced).**  The
-  class docstring previously implied the client enforced the
-  published 60 req/min/IP guidance; in fact it only caches.  The
-  docstring has been rewritten to state explicitly that the client
-  does **not** enforce the limit programmatically — operators
-  running batch audits should cap concurrency at the call site
-  (e.g. a thread / asyncio semaphore around `verify_citation()`).
-  The in-process cache reduces duplicate lookups during a single
-  audit run and is the primary mechanism by which Mercury stays
-  under the published limit.
-
-#### `omni_mercury_engine.detectors.drone.detector` — Deviations from the original
-
-- **`_analyze_log_entry` keyword scoring (extended, not narrowed).**
-  The upstream scored only mechanical-fault keywords
-  (`critical`, `error`, `warning`, level guards, `timeout`,
-  `connection lost`).  Mercury extends this with three
-  Mercury-specific signals, weights tuned so operationally-noisy
-  lines (routine "signal weak" advisories, expected
-  `intrusion_detection` self-tests, transient thermal notes) stay
-  below the `score > 0.75` fault gate while genuinely anomalous
-  lines cross it:
-  - `+0.55` for `attack | intrusion | unauthorized` (security).
-  - `+0.40` for `overheat[ing]` (thermal).
-  - `+0.35` for `signal lost` (telemetry loss).
-  Pinned by
-  `tests/test_drone_detector.py::TestDronLomalyLogs::test_log_keyword_scoring_does_not_overflag_routine_lines`,
-  which feeds three benign-but-noisy lines and three genuinely
-  anomalous lines and asserts each side of the threshold.
-
-#### Testing
-
-- **`tests/test_clinical_rule_pins.py`** (new, rule-vs-citation
-  harness).  Pins every cited FDA / ADA / NWS / ASA / AARC
-  threshold against the module-level constant the citation refers
-  to via a parametrised pin table.  Regressions that change a
-  comparison operator (e.g. `<` → `<=`) or threshold value
-  (e.g. `70.0` → `70`) surface immediately with the citation URL
-  alongside the failing assertion.  A second test prints the live
-  pin table during `pytest -v` so the mapping is visible per run.
-  Initial coverage: nine pins across
-  `endocrinology_detector` (seven), `anesthesiology_predictor`
-  (one), and `osha_anomaly` (one).
-- **Weekly network-test cadence.**  `@pytest.mark.network`-marked
-  tests now run weekly via
-  `.github/workflows/network-tests.yml` (Mondays 13:00 UTC, plus
-  `workflow_dispatch`).  Failures surface as a separate CI signal
-  so external-endpoint schema drift (Dexcom v3, FHIR R4
-  `Observation`, eCFR Title 29, NIST CSF Reference Tool) is caught
-  within seven days even though those tests auto-skip on every
-  per-PR run.
-
-### FEMA Disaster loader — label-polarity correction (closes "known-broken" footnote item)
-
-- **`FEMADisasterLoader._select_anomaly_polarity`** enforces the
-  minority-as-anomaly convention used everywhere else in Mercury.
-  Historical OpenFEMA records make "DR + multi-program" the
-  *majority* class on most slices (major hurricanes / floods
-  routinely activate IA, PA, and HM together), so handing those
-  records label==1 inverted the anomaly detector and AUC drifted
-  below 0.5.  The loader now logs a loud `INFO` line when the
-  polarity flip kicks in and exposes the result via the new
-  `loader.labels_inverted` property so benchmark reporters can
-  surface the flip alongside their AUC numbers.  Behaviour is
-  identical on the synthetic-fallback path so CI runs (which lack
-  network access to the OpenFEMA API) exercise the same code
-  path as production.  Locked by
-  `tests/datasets/test_disaster.py::TestFEMAInvertedScoresCorrection`
-  (5 regression tests covering majority-inversion, minority-no-op,
-  empty mask, initial property state, and the real-data-shape
-  processing pipeline).
-
-### Dataset reachability harness — two lanes for the unreachable-11
-
-- **`tests/datasets/test_unreachable_loaders_offline.py`** — runs
-  in every CI lane.  Parametrised across all 11 historically-
-  unreachable loaders (SMAP, MSL, CICIDS-2017, MIT-BIH, UCR, SWaT,
-  WADI, USGS Geochemistry, NOAA StormEvents, NOAA ERDDAP, FEMA
-  HazardMitigation), it asserts each loader (a) constructs against
-  a valid `DatasetConfig`, (b) populates the metadata contract
-  (`DATASET_NAME` / `DATASET_URL` / `LICENSE` / `CITATION`),
-  (c) fails *loudly* (`DataSourceUnavailableError` /
-  `ConnectionError` / `OSError`) when every HTTP surface is
-  monkeypatched to simulate an upstream outage — never with a
-  silent `False` return.  This is the regression contract that
-  upgrades the loaders from "untested under outage" to "tested to
-  fail loudly under outage".
-- **`tests/datasets/test_unreachable_loaders_network.py`** —
-  marked `@pytest.mark.network` and auto-skipped by
-  `tests/conftest.py` unless `MERCURY_NETWORK_TESTS=1` is set.
-  Calls the real `download()` against the upstream provider.  Run
-  nightly via the new `.github/workflows/dataset-reachability.yml`
-  workflow (04:17 UTC) with `MERCURY_ALLOW_SYNTHETIC=0` and
-  `MERCURY_NETWORK_TESTS=1` so the synthetic fallback cannot mask an
-  outage.
-- **Coverage-drift gate.**  Both files include a
-  `test_harness_covers_*_loaders` assertion that pins the matrix
-  to exactly 11 entries.  Adding or removing a loader from the
-  unreachable set fails the build unless `CHANGELOG.md`,
-  `docs/DATASOURCES.md`, and both harness files are updated in
-  the same commit.
-
-### DATASOURCES.md — SafeHTTP DNS-fails-closed discoverability (§6 P1)
-
-- **New `Operating the SafeHTTP gate` section in
-  `docs/DATASOURCES.md`.**  Documents the intentional
-  DNS-resolution-fails-closed behaviour of
-  `SafeHTTPClient.validate_url(..., user_configured=True)` —
-  previously memory-only knowledge that operators kept
-  re-discovering when an internal mirror's hostname couldn't be
-  resolved by the container's stub resolver.  Section names the
-  supported remediations in preference order (fix the resolver / use
-  an already-plumbed `SafeHTTPClient(..., allow_private=True)` call
-  path / prefer `local_path` where a loader exposes it) and points at
-  the regression test that locks the
-  behaviour (`tests/loaders/test_base_loader.py:99`).  Cross-
-  references `docs/MIGRATION-1.6-to-1.7.md` §1 so operators
-  trying to re-enable the v1.6 `allow_untrusted=True` workaround
-  see the migration path immediately.
-
-### Production-mode primitive — `MERCURY_ENV` (new in v1.7.0)
-
-- **New module `omni_mercury_engine._env`.**  Introduces a single
-  canonical environment-mode flag, `MERCURY_ENV` (`development`
-  default, `production`), and a shared fail-closed helper API
-  (`get_mercury_env`, `is_production`, `require_real_component`,
-  `MercuryProductionConfigError`).  Modules that historically had
-  development-friendly stub fallbacks now have a single, uniform
-  place to refuse to silently degrade when an operator opts into
-  production mode.  The PQC import gate
-  (`_pqc_gate._enforce_pqc_production_gate`) stays orthogonal — it
-  has its own hard-required-build contract independent of the
-  development/production distinction — so production deployments
-  typically set **both** `MERCURY_ENV=production` and
-  `AMA_REQUIRE_REAL_PQC=true`.  An unknown value such as
-  `MERCURY_ENV=prod` raises `MercuryProductionConfigError` rather
-  than silently falling through to development mode, so deployment
-  typos are loud.  Locked by `tests/test_env.py`.
-
-### Narrative voice — `MercuryVoice` LLM initialisation fixed
-
-- **`narrative/voice.py:_init_llm` no longer crashes on
-  `MercuryVoice(enable_llm=True)`.**  The pre-1.7.0 implementation
-  unconditionally instantiated `MockLLMAdapter`, which started
-  hard-failing at construction once the Phase 2 audit cure landed.
-  The surrounding `except ImportError` did not catch the resulting
-  `NotImplementedError`, so any caller that asked for LLM-enhanced
-  narration got an unhandled exception.  v1.7.0 wires the real
-  provider selection that was always intended via a new
-  `llm_provider=` / `llm_model_name=` / `llm_revision=` /
-  `llm_api_key=` / `llm_base_url=` parameter set on `MercuryVoice` and
-  `create_mercury_voice`.  Behaviour matrix:
-  - `enable_llm=False`: unchanged pure-template fast path.
-  - `enable_llm=True, llm_provider="<supported>"`: delegates to
-    `models.foundation.llm_adapter.create_llm_detector` and stores
-    the underlying adapter on `self._llm_adapter`.
-  - `enable_llm=True` with no provider, `MERCURY_ENV=production`:
-    raises `MercuryProductionConfigError` with a remediation hint.
-  - `enable_llm=True` with no provider, `MERCURY_ENV=development`:
-    logs a WARNING and downgrades to template-only narration
-    (`self._llm_adapter = None`).
-  - `llm_provider="mock"`: always raises
-    `MercuryProductionConfigError` — `MockLLMAdapter` hard-fails at
-    construction by design and the rejection is now at the
-    `MercuryVoice` call site rather than two frames away.
-  - Unknown `llm_provider` value: raises a clean `ValueError`
-    naming every supported provider, instead of routing through
-    `create_llm_detector`'s legacy "unknown → mock" fallback and
-    blowing up on `NotImplementedError` later.
-  - HuggingFace requires an explicit `llm_model_name`; remote
-    HuggingFace IDs also require `llm_revision=<40-char SHA>` so
-    `SafeHFLoader` can enforce reproducible model loading.
-  Locked by `tests/narrative/test_voice_llm.py`; full
-  `tests/narrative/` suite (92 tests) is green.
-
-### Migration guide — `docs/MIGRATION-1.6-to-1.7.md`
-
-- Consolidated migration notes for v1.6.x → v1.7.0: the
-  `allow_untrusted=True` removal, σ_Immutable hard-gate semantics
-  (already shipped at every boundary surface; documentation
-  reconciled with code reality), the new `MERCURY_ENV` primitive,
-  and the explicit `llm_provider=` requirement on `MercuryVoice`.
-  Each section names the regression test that locks the new
-  behaviour.
-
-### Documentation reconciliation
-
-- **`docs/ROADMAP.md`.**  Capability-table row #2 (Biometric
-  Modalities) and the §2 "Status" block updated to reflect the
-  narrative-voice fix.  The "Ethics enforcement" cross-cutting row
-  updated to reflect that σ_Immutable hard-gate promotion is
-  complete at every boundary surface (the previous "deferred to a
-  follow-up PR" wording was stale — `OmniMercuryEngine`,
-  `CognitiveOrchestrator`, and `NeuroSymbolicHub` all raise
-  `check="sigma_immutable"` / `check="gosnn_unavailable"` today,
-  with regression coverage in `tests/ethical/test_hard_enforcement.py`).
-
-### Security — HTTP escape hatch removed
-
-- **`allow_untrusted=True` is removed from every `SafeHTTPClient` method**
-  (`validate_url`, `_request`, `get`, `get_bytes`, `get_json`, `get_text`,
-  `post_json`) and from the dataset/loader helpers that wrap it
-  (`datasets.base.http_get_with_retry`, `loaders.base.BaseDomainLoader._fetch_url`).
-  The kwarg had no production caller; it was a per-call bypass of the
-  `TrustedEndpoints.TRUSTED_DOMAINS` allowlist that could be misused
-  to pivot through an off-allowlist host while staying inside the
-  hardened transport. This release deletes it from the public API and
-  asserts the removal via signature tests.
-- **Migration path for operators who were using it:** call
-  `SafeHTTPClient` directly with `user_configured=True` so the
-  private-network / IMDS gate fires explicitly. For RFC1918
-  destinations on a private VPC, additionally pass `allow_private=True`
-  at the `SafeHTTPClient` call site; dataset loaders do not accept a
-  generic `allow_private` preprocessing key unless a specific loader
-  explicitly documents one. The IMDS / loopback / multicast /
-  reserved / CGNAT ranges remain in the always-blocked set even then. See
-  `tests/security/test_safe_http.py::TestMigrationFromAllowUntrusted`
-  for the documented replacement.
-- **Loader retry-exhaustion now chains the underlying exception.**
-  `BaseDomainLoader._fetch_url` wraps a final failure as
-  `ConnectionError(...) from last_exc` so the operator-facing
-  traceback names the real cause (timeout, refused connection, 5xx)
-  rather than burying it.
-- **Test coverage added** for the migration path, the obsolete-kwarg
-  removal at every public wrapper, the IPv6 always-blocked set
-  (`::1`, `fe80::/10`, `ff00::/8`, `::`), the multi-IP failover path
-  in `_request`, the `allow_redirects=False` transport contract, the
-  `validate_url` DNS short-circuit for trusted https URLs, and the
-  IP-literal short-circuit in `_resolve_ips`.
-
-### Benchmark refresh (source SHA `0f584529`)
-
-- Mean ROC-AUC `0.8440` → `0.8464`; median ROC-AUC `0.9097` → `0.9100`;
-  mean Oracle F1 `0.6383` → `0.6441`; datasets successful / total
-  `64/64` → `65/65`. Computed on commit `ffafd17` (run timestamp
-  `2026-05-14T22:14:04Z`). Regression gates unchanged: AUC ≥ 0.68 and
-  F1 ≥ 0.50.
-
-
-### v1.6.0 corrective stack
-
-- **Corrective sweep** — PQC gate, FallbackChain ethical re-raise, RNG cure
-  (138 sites across federated/climate/disaster/security), type-redef
-  elimination (7 files), documentation refresh.
-- **Tracked-debt sweep** — remaining 17 type-redef suppressions eliminated
-  across 8 files, 62 unseeded `np.random` sites cured in cognitive/ and
-  models/ modules, 25-test RNG reproducibility regression suite added.
-  `DifferentialPrivacy` dual-API (`rng=` / `seed=`) bridge.
-- **Dataset loader hardening** — FEMA OData ISO-8601, NOAA Storm filename
-  discovery, ERDDAP date offsets, EPA/GSOD year fallback,
-  NSL-KDD/CICIDS/MITRE mirror failover. `http_get_with_retry` shared helper
-  with SSRF default-deny. `_ConstReplacer` type-narrowing fix in
-  `core/three_r_mechanism.py`.
-
-### Wave B — σ_Immutable promoted to hard gate
-
-- **σ_Immutable is now the second mandatory hard ethical gate** at every
-  engine / hub / orchestrator decision boundary.  The Wave A landing
-  reserved `check="sigma_immutable"` and `check="gosnn_unavailable"` in
-  `EthicalConstraintViolationError`'s schema but did not raise them
-  from any code path; Wave B flips the contract:
-  - `OmniMercuryEngine._enforce_ethics_at_boundary` now runs both
-    `BenevolenceScorer.enforce` *and* `SigmaImmutableGate.enforce`
-    using a benevolence→σ-band projection helper
-    (`security.sigma_immutable_gate.project_benevolence_to_sigma_band`).
-  - `OmniMercuryEngine.detect_with_fusion` raises
-    `EthicalConstraintViolationError(check="sigma_immutable")` when
-    the trained σ_Immutable network scores below threshold for the
-    full GOSNN scalar state, and
-    `EthicalConstraintViolationError(check="gosnn_unavailable")` when
-    GOSNN itself cannot run.  The previous
-    "fall back to `gosnn_metadata.fallback_mode=True`" path is gone.
-  - The `enable_gosnn` parameter on `detect_with_fusion` and
-    `detect_with_fusion_calibrated` is renamed to the private
-    `_enable_gosnn` so production callers can no longer skip the
-    σ_Immutable gate.  Unit tests that need to bypass GOSNN must
-    additionally set the auditable module-level flag
-    `omni_mercury_engine.engine._GOSNN_TESTING_BYPASS`.
-  - `NeuroSymbolicHub.predict` and `CognitiveOrchestrator.analyze`
-    already wired σ_Immutable in Wave A; their σ-vector builders now
-    source the layout from a single source of truth.
-- **Single source of truth for the σ_Immutable layout.**
-  `security.sigma_immutable_gate` exports
-  `SIGMA_IMMUTABLE_DIM` (256), `SIGMA_ETHICAL_BAND_END` (27),
-  `SIGMA_USED_BAND_END` (180) and the public alias `CORPUS_USED_DIM`.
-  The corpus, the trainer, the orchestrator, the neurosymbolic hub,
-  and the KAT regression test all import from this single location;
-  the previous duplicate hard-coded ``180`` literals are gone.
-- **σ_Immutable hard-gate regression suite.** The Wave A
-  `tests/ethical/test_hard_enforcement.py::TestReservedChecksWaveB`
-  block already pinned the post-Wave-B contract; they were
-  `@pytest.mark.xfail(strict=True)` in Wave A and are positive tests
-  here.  No additional xfail markers ship in Wave B.
-- **Decision-boundary contract documented** in
-  `src/omni_mercury_engine/ethical/__init__.py` and
-  `ARCHITECTURE.md`: every public detect / analyze / predict surface
-  must run BenevolenceScorer **and** σ_Immutable in order, or fail
-  closed with the matching `check=…` value.
-
-### Documentation
-
-- **Project-wide documentation refresh (2026-05-05).** All 29 markdown
-  files audited against current code state at v1.6.0; corrective
-  edits landed in a single sweep:
-  - `SECURITY.md` — Supported-Versions table rewritten (was listing
-    1.5.x as current with no v1.6.x entry); now declares 1.6.x as
-    current, 1.5.x as previous (critical-CVE only), <1.5 EOL.
-    `Last Updated` refreshed.
-  - `README.md` — GOSNN section's "Ethical Gating" key-feature
-    bullet rewritten to document the Wave B σ_Immutable hard-gate
-    contract (was describing the old `≥0.93 with configurable
-    fallback for medical domains` and a now-deleted `gosnn_metadata.fallback_mode=True`
-    silent-fallback path). New decision-boundary contract callout
-    added under the Status banner. Header date and footer
-    `Last updated` refreshed.
-  - `docs/MATH_SPEC.md` — new §2.1.5 "σ_Immutable Hard Gate (Wave B)"
-    added: boundary-contract piecewise definition, σ
-    vector layout (`SIGMA_IMMUTABLE_DIM=256`,
-    `SIGMA_ETHICAL_BAND_END=27`, `SIGMA_USED_BAND_END=180`),
-    threshold provenance, test-only bypass note, composition with
-    the sigmoid benevolence gate. Date refreshed.
-  - `docs/index.md` — landing page rewritten to surface the dual-gate
-    ethical contract, AMA Cryptography sole-backend hard-require,
-    transparent-benchmark framing (64/75), and pickle-removal up front.
-  - `docs/ROUTING_GUIDE.md` — top-of-file callout that hard ethical
-    gates run *inside* the prediction call and **must not** be
-    masked by fallback handlers. "Fallback only applies to
-    data-source / connectivity / latency failures" clarification
-    added to the Overview.
-  - `docs/BENCHMARKS.md`, `docs/DATASOURCES.md`,
-    `docs/LIVE_DATA_VALIDATION.md` — reconciled the local 51/55
-    figure with the canonical 64/75 reproducibility set as **two
-    distinct measured baselines**: 64/75 = Mean AUC **0.8285** /
-    Mean Oracle F1 **0.6370** (current README headline after the
-    Oracle pipeline fix and dataset expansion); 51/55 = Mean AUC
-    **0.8030** / Mean Oracle F1 **0.5886** (legacy CI
-    regression-gate floor that the 64/75 run improved on).
-  - `docs/INSTALLATION.md` — added "Post-Quantum Cryptography
-    backend" section documenting the AMA Cryptography hard-require
-    (`AMA_REQUIRE_REAL_PQC=true`); added C-toolchain / CMake
-    requirements.
-  - `docs/DEPLOYMENT.md` — Ethics-audit-failures-in-CI subsection
-    rewritten: the gate is non-advisory; added remediation guidance
-    for `check="sigma_immutable"` and `check="gosnn_unavailable"`
-    failures.
-  - `CONTRIBUTING.md` — "What NOT to Contribute" tightened to
-    explicitly forbid weakening the Wave B dual-gate contract,
-    reintroducing `pickle`, or adding a non-AMA Cryptography PQC
-    backend. Document Version → 2.4, `Last Updated` refreshed,
-    `Applies to` row added.
-  - `ARCHITECTURE.md` — "System Scale" footer block re-derived from
-    the current tree (42 subpackages verified, 276 test files /
-    6,300+ tests, ~280,950 LOC); replaced unverifiable
-    "85%+ coverage" with "measured per release".
-
-### Code Quality
-
-- **CI coverage floor raised from 10% to 15% / 35% (2026-05-05).**
-  The previous 10% / 10% (`COVERAGE_THRESHOLD_CORE` /
-  `COVERAGE_THRESHOLD_FULL`) floor in `.github/workflows/ci.yml`
-  was scaffolding from the era when MyPy strict-mode churn was
-  repeatedly breaking CI; that churn has been resolved (strict mode
-  is on for `omni_mercury_engine.*` and the 569 surviving
-  suppressions are `[unused-ignore]`-paired so they auto-clear as
-  third-party stubs improve). An interim CI run
-  measured the actual full-suite line coverage at **36.03%**, so
-  the transparent CI floor is set just below that — 35 — to defend the
-  measured baseline without immediately failing CI for unrelated
-  reasons. CORE is set to 15 since the core job runs a strictly
-  smaller subset of tests against the full source tree. The 85
-  `pyproject.toml [tool.coverage.report] fail_under` target stays
-  in place as the strict aspirational nightly bar; a dedicated
-  coverage push is planned to close the 36 → 85 gap. `.coveragerc`
-  no longer sets `fail_under` at all (it used to, at the same
-  value as the full-suite job, but that made every `pytest --cov`
-  invocation across the repo silently inherit the same floor —
-  including partial-suite jobs like `neuro-symbolic-tests` whose
-  coverage shape is different); per-job CI floors are configured
-  via `--cov-fail-under=${{ env.COVERAGE_THRESHOLD_* }}` flags in
-  `.github/workflows/ci.yml` so they apply only to the jobs that
-  explicitly opt in.
-- **Differential-privacy noise no longer draws from global `np.random`.**
-  `federation/privacy.py::DifferentialPrivacy` now owns a per-instance
-  `np.random.Generator` (constructed with `default_rng(rng_or_None)`)
-  and routes every noise draw — vector statistics, the symmetric
-  precision-matrix perturbation, the log-determinant scalar — through
-  it.  Callers can pass an explicit `rng` for audited / reproducible
-  deployments; the legacy `np.random.normal(...)` global-state path
-  is removed entirely.  This was a real DP-guarantee defect: a caller
-  that called `np.random.seed(...)` elsewhere in the same process
-  could de-randomise the privacy noise without touching this module.
-- **Federated learning RNG plumbed through.** `federated_learning`:
-  - `SGDTrainer` and `FedProxTrainer` now accept `seed: int | None`
-    and shuffle minibatches via a per-instance `Generator`
-    (`np.random.permutation` global-state calls removed).
-  - `ClientManager` accepts `seed`; `random` and `weighted` selection
-    strategies now use `self._rng.choice(...)` (`np.random.choice`
-    global-state calls removed). Cross-organisational federated
-    rounds can now be reconciled deterministically by passing the
-    same seed to every participant.
-  - `FederatedAnomalyDetector` accepts `seed` and draws the initial
-    server weight vector via `self._rng.standard_normal(...)`
-    (was `np.random.randn(...) * 0.01`).
-- **`MercuryEquationEngine` (`core/double_helix_engine.py`) RNG
-  plumbed through.**  The ethical-matrix initialisation, Hamiltonian
-  symmetric matrix, Boltzmann-sampling noise, simulated-annealing
-  exploration and Lyapunov-chaos perturbation all now draw from a
-  per-instance `np.random.Generator` (constructor `seed: int | None`).
-- **Tests:**
-  - `tests/test_vlm_detectors.py::test_anyanomaly_detect_mock`
-    deleted. `MockLVLMBackend` is intentionally a hard-fail by
-    design (Phase 2 audit cure: silent mock degradation is not
-    permitted in production), so any test that exercises it would
-    have to fight that design. The dead `backend` field on
-    `AnyAnomalyConfig` is also removed; backend selection has
-    always been driven by the inherited `VLMConfig.model_type`
-    field, which the factory in `lvlm_backends.get_lvlm_backend`
-    consumes.
-  - `tests/detectors/test_enhanced_geological_detectors.py` —
-    `test_recursion_synapse_integration`,
-    `test_resonance_synapse_integration`, and
-    `test_refactoring_synapse_integration` previously skipped on
-    `if not detector.enable_X` even though their fixtures explicitly
-    construct the detector with that flag set, so the skip path was
-    hiding an integration test that should have always been running.
-    Replaced the `pytest.skip(...)` with an `assert` that surfaces
-    the integration coverage instead of silently masking it.
-- **Type-redefinition suppressions eliminated (7 files).**
-  Function-stub fallbacks (`def Foo(*args): raise ImportError`) replaced
-  with proper stub classes that preserve type identity, and optional-dep
-  import guards restructured to `if TYPE_CHECKING: ... else: try: ...`
-  so mypy sees the real types without runtime cost.  Files refactored:
-  `detectors/acceleration_dynamics.py`,
-  `detectors/dimensional.py`,
-  `detectors/geological/disaster_detectors.py`,
-  `integrations/mercury_amacrypto.py` (8 suppressions — the heaviest
-  single file), `medical/abms_disciplines.py`,
-  `ml/harmonic_encoder.py`, `safeguards/nano_safeguards.py`.
-- **RNG cure extended to dataset generators.**
-  Synthetic fallback generators in `datasets/disaster.py` (FEMA
-  declarations, hazard mitigation) and `datasets/security.py` (NSL-KDD,
-  CICIDS, MITRE ATT&CK) converted from `np.random.seed()` +
-  `np.random.*()` global-state draws to per-method
-  `np.random.default_rng(seed)` instances. CICIDS flow generators
-  (`_generate_benign_flow`, `_generate_dos_flow`,
-  `_generate_portscan_flow`, `_generate_attack_flow`) now accept an
-  explicit `rng` parameter threaded from the caller.  All
-  `max_samples` down-sampling sites also converted.
-- **Tracked debt (partially resolved):** The original 35 unpaired
-  `# type: ignore[no-redef]` suppressions are now reduced to
-  ~28 across **8** remaining files:
-  `core/adaptive_fusion.py`, `core/base.py`, `core/config.py`,
-  `core/fusion.py`, `core/three_r_mechanism.py`,
-  `security/crypto_api.py`, `security/cyber_fortress.py`,
-  `utils/resilience.py`.  These should be refactored to a
-  Protocol-or-inheritance pattern in a focused follow-up PR.
-  ~250 unseeded `np.random` call sites remain in cognitive,
-  model, and remaining dataset modules; tracked for a dedicated
-  RNG-cure follow-up.
-
-### Tooling
-
-- **`benchmark.yml` push paths filter removed; auto-commit ordering
-  reorganised; root-cause of broken auto-commit identified
-  (2026-05-05).** Three findings:
-  - The `on.push.paths` filter on the benchmark workflow restricted
-    triggers to `benchmarks/**` or `src/omni_mercury_engine/**`
-    only.  Recent merges to `main` (a dependency consolidation touching
-    only helm/Dockerfile/workflows) didn't touch
-    those paths, so the workflow never ran on those pushes and the
-    auto-commit step never had a chance to fire.  Filter removed:
-    every push to `main` / `develop` now triggers the benchmark
-    workflow regardless of which paths changed.
-  - The "Update README" + "Commit and push" steps were moved to
-    run immediately after the gating mercury benchmark step (and
-    its artifact upload), before the supplementary empirical and
-    seven-axis steps.  This is a structural cleanup: when the push
-    issue below is resolved, mercury+README will commit in a
-    focused single commit with the canonical
-    `ci(benchmark): persist latest run` subject, and seven-axis
-    will commit as a follow-up.
-  - **Root cause of "Latest Benchmark Results" never updating
-    on `main`:** the bot's `git push origin HEAD:main` is rejected
-    by `main`'s branch protection ruleset (verified from run #660
-    log).  The four blocking rules: "Changes must be made through
-    a pull request", "22 of 22 required status checks", "Code
-    scanning is waiting for results from CodeQL", and "Commits
-    must have verified signatures" (the latter found 1 violation:
-    the unsigned `github-actions[bot]` commit).  Every prior
-    auto-commit attempt has been rejected for the same reasons,
-    which is why `benchmarks/mercury_benchmark_results.json` has
-    never appeared on `main` and the README "Latest Benchmark
-    Results" block stays in `_pending first auto-commit_` state.
-- **Benchmark auto-commit replaced with PR-based API flow
-  (Option A).** New `scripts/persist_benchmark_to_pr.py` uses the
-  GitHub Git Database API directly (`/git/blobs`, `/git/trees`,
-  `/git/commits`, `/git/refs`) to commit on the
-  `ci/benchmark-results` feature branch. The script itself does
-  **not** supply a detached `signature` field in the
-  `POST /git/commits` payload; rule 4 (*commits must have verified
-  signatures*) is satisfied externally — GitHub auto-signs commits
-  made via the Git Database API on behalf of `github-actions[bot]`
-  with its web-flow signing key, but **only when the call is
-  authenticated with the workflow's `GITHUB_TOKEN`** (or a GitHub
-  App installation token that is allowed to act as the bot).  If
-  the workflow is reconfigured to use a Personal Access Token via
-  `BENCHMARK_BOT_TOKEN`, those commits will land **unverified**;
-  the alternative is to extend the persister to compute and submit
-  a detached PGP/SSH signature (out of scope here).  The
-  script then opens
-  a PR into `main` (satisfies rule 1, *Changes must be made
-  through a pull request*).  The 22 required status checks (rule
-  2) run on the PR.  Both the mercury+README commit and the
-  follow-up seven-axis commit re-use the same feature branch — the
-  script force-updates the ref, so a single PR collects both
-  changes rather than opening two PRs.
-  - **Caveat — initial CI on the bot PR is pending:** GitHub
-    deliberately does not trigger downstream workflows from events
-    caused by the default `GITHUB_TOKEN`, so the 22 required
-    checks land **pending** on the bot PR.  Unblock by re-running
-    the CI workflow manually on the PR head, or by pushing an
-    empty commit on the persistence branch as a maintainer.  Do
-    **not** swap `GITHUB_TOKEN` for a Personal Access Token to
-    break the loop-prevention: the persister does not submit a
-    detached commit signature, and PAT-authenticated Git Database
-    commits are not auto-signed by GitHub — they land `Unverified`
-    and fail rule 4 of the protection ruleset.  The persister
-    steps in `.github/workflows/benchmark.yml` therefore export
-    `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}` unconditionally.
-    An earlier iteration of the workflow used a
-    `secrets.BENCHMARK_BOT_TOKEN || secrets.GITHUB_TOKEN`
-    expression to leave room for a future GitHub App installation
-    token, but the expression cannot distinguish a PAT from an
-    App token by secret name; the fallback was removed in this
-    branch.  Wiring an installation token requires a separately
-    named secret (e.g. `BENCHMARK_BOT_APP_TOKEN`) and is a
-    focused-PR job.
-  - **Auto-merge is not enabled by default.**  The persister
-    script accepts `--enable-automerge --merge-method squash` for
-    deployments that want the PR to merge as soon as required
-    checks pass; the workflow does not pass that flag yet — that
-    is an explicit maintainer policy decision.
-- **`scripts/update_readme_benchmarks.py` reads canonical metadata**
-  (`data["metadata"]["git_commit"]` / `data["metadata"]["timestamp"]`)
-  before falling back to the older flat `data["commit"]` /
-  `data["timestamp"]` keys, so the README block now renders the
-  correct provenance for runs produced by `benchmarks/mercury_benchmark.py`.
-  Regression: `tests/scripts/test_update_readme_benchmarks.py`.
-- **Benchmark workflow self-trigger guard.**
-  `.github/workflows/benchmark.yml` adds a defence-in-depth job-level
-  ``if:`` that refuses to run when the head commit was written by the
-  workflow's own auto-commit step (subject prefix
-  ``ci(benchmark): persist latest run`` and the ``[skip benchmark]``
-  marker).  GitHub's ``[skip ci]`` marker is still emitted as the
-  primary skip mechanism.
-
-### Anomaly Detection
-
-- **21-probe Anomaly Math Arrest is the dominant path** (Phase 2 ITEM
-  2). End-to-end audit confirms `AnomalyMathArrest` registers all 21
-  mathematically-independent probes and discriminates injected
-  anomalies across `earthquake` / `tsunami` / `pandemic` / `marine` /
-  `geomagnetic` / `default` domain-affinity orderings. No live
-  `IsolationForest` import or instantiation remains in `src/` — the
-  only references are documentation strings explaining what the
-  ensemble replaced. Regression suite:
-  `tests/detectors/test_math_arrest_dominant_path.py` (11 tests).
-  ROADMAP cross-cutting "21-probe Anomaly Math Arrest ensemble" row
-  flips to Functional.
-
-### GOSNN Placeholders
-
-- **`gosnn_optimizer.optimize` no longer fabricates random attention
-  tensors** (Phase 2 ITEM 3). The previous `rng.standard_normal((32,
-  16, 16))` fallback is deleted. When no `AttentionProvider` is
-  configured (or the configured one raises), the attention-overhead
-  metric is *skipped* and that fact is surfaced in
-  `OptimizationResult.recommendations`. Real tensors flow only via
-  `AttentionProvider.get_attention`.
-- **Conformal-prediction failures propagate** in
-  `GOSNNIntegration.detect`. The blanket
-  `except (ValueError, RuntimeError, AttributeError)` that left
-  `confidence_intervals=None` is gone — callers now see the underlying
-  exception. Regression: `tests/core/test_gosnn_placeholder_cures.py`.
-
-### Distributed Processing
-
-- **Native pure-stdlib TCP MessageTransport for Raft** (Phase 2 ITEM
-  4). New `omni_mercury_engine.distributed.tcp_transport`:
-  `asyncio.start_server` + length-prefixed binary frames + per-message
-  Ed25519 signatures via Mercury's own AMA Cryptography surface. No
-  third-party RPC framework, no protobuf, no msgpack, no zeromq — the
-  wire format is Mercury's own. The five `NotImplementedError` sites
-  in `raft_consensus.py` are gone; `RaftCluster(use_in_memory_transport=False)`
-  now constructs real network nodes. Integration test
-  `tests/distributed/test_tcp_transport.py::test_three_node_cluster_elects_and_re_elects`
-  spins up 3 nodes on 3 TCP ports, elects a leader, kills it, and
-  confirms re-election. ROADMAP "Distributed Processing" row flips to
-  Functional.
-
-### Cryptography
-
-- **AMA Cryptography Known-Answer Tests + measured coverage** (Phase
-  2 ITEM 5). New `tests/security/test_ama_kat.py` pins:
-  - Ed25519 RFC 8032 §7.1 vectors bit-for-bit (always run).
-  - ML-DSA-65 / Kyber-1024 / SPHINCS+ round-trips and ML-DSA
-    deterministic-signing reproducibility (run when AMA's PQC
-    backend is installed; skip — never silently pass — otherwise).
-  The `pqc-production-check.yml` workflow runs the KATs on every PR
-  and publishes a coverage XML for `crypto_api.py` + `pqc_backends.py`
-  + `pqc_guards.py` as the `pqc-coverage` artifact. README PQC
-  section now cites the in-repo evidence rather than external-audit
-  framing.
-
-### TODO / FIXME Discipline
-
-- **Inline markers restored** for unresolved findings from the
-  2026-03 in-tree audit (ITEM 6). High-impact cited lines now carry
-  `# TODO(audit-2026-03, severity=critical|high|medium|low):` markers
-  at the cited locations
-  (`core/ai_ethics.py:139,141`, `core/ethical_governor.py:209-210`,
-  `core/three_r/fusion.py:91`). Findings closed in the same cycle
-  (GOSNN attention placeholder, GOSNN dead `_fusion`, conformal
-  silent failure, ethics-decision-boundary advisory mode) are marked
-  with citations to the regression suites in their respective source
-  files. `CONTRIBUTING.md` codifies the rule going forward: every
-  new `TODO` / `FIXME` MUST include a severity tag and a citing
-  reference.
-
-### Ethics
-
-- **Hard ethics enforcement at the decision boundary** (Phase 2 audit
-  cure, May 2026). Every top-level inference path now raises
-  `EthicalViolation` (re-exported from
-  `omni_mercury_engine.cognitive.ethical_bounding.EthicalConstraintViolationError`)
-  on benevolence-threshold violation, replacing the prior
-  logger.warning / `ethical_violations`-list / `strict_ethics`-flag
-  advisory paths. Boundary surfaces:
-  - `CognitiveOrchestrator.analyze` raises with `check="benevolence"`
-    when the per-analysis benevolence score falls below the scorer's
-    threshold. The `strict_ethics=False` constructor argument is
-    deprecated and ignored — passing `False` emits a
-    `DeprecationWarning` and the gate still fires.
-  - `NeuroSymbolicHub.predict` raises with `check="benevolence"` for
-    any sample whose computed benevolence is below
-    `benevolence_threshold` (replaces the prior
-    `result.ethical_compliant=False` advisory return).
-  - `OmniMercuryEngine.detect_with_fusion` (and the `_calibrated`
-    variant) raises with `check="benevolence"` via a per-engine
-    `BenevolenceScorer.enforce` call against an action description
-    rich in defensive-purpose keywords.  The boundary scorer is
-    constructed eagerly at engine init so the first concurrent call
-    cannot race the gate.  σ_Immutable is now trained (weights persisted at
-    `src/omni_mercury_engine/security/sigma_immutable_weights.pt`)
-    and `EthicalGate.evaluate` gates its torch path on
-    `self._trained`.  At the engine boundary σ_Immutable remains
-    *informational* in `result["gosnn_metadata"]` — the only hard
-    enforcement gate is `BenevolenceScorer.enforce`.  Promotion of
-    σ_Immutable to a second hard gate (and raising of
-    `EthicalConstraintViolationError` with `check="sigma_immutable"`
-    or `check="gosnn_unavailable"`) is deferred to a follow-up PR;
-    those `check` field values are reserved in the exception schema
-    but are not raised by any code path on the merge tip.  The
-    previous "fall back to `ethical_gate_passed=True` if GOSNN
-    errors" path is deleted.
-  Decision-boundary contract documented in
-  `src/omni_mercury_engine/ethical/__init__.py`. New regression
-  suite at `tests/ethical/test_hard_enforcement.py` (13 tests, wired
-  into the `Neuro-Symbolic Tests` CI job) makes a benevolence-threshold
-  regression a build-time failure. ROADMAP cross-cutting "Ethics
-  enforcement" row flips from Stubbed to Functional.
-### Added (Wave A — post-PR-167 punch list, items 3, 4, 6, 7, 9)
-
-- **Federated silent-failure gaps closed (item 9).** Two distinct gaps the
-  2026-03 in-tree audit flagged on the federated/GOSNN path are now
-  closed:
-  1. `core/gosnn_integration.py::GOSNNIntegration.detect()` no longer
-     swallows conformal failures into `confidence_intervals=None`. New
-     exception `ConformalMisconfigurationError` is raised on any
-     `(ValueError, RuntimeError, AttributeError)` from the conformal
-     predictor when `use_conformal=True`. Callers who want no intervals
-     must opt out explicitly with `use_conformal=False`.
-  2. New module `federated_learning/gosnn_coupling.py` provides
-     bidirectional GOSNN scalar coupling (`GOSNNCouplingServer` +
-     `GOSNNCouplingClient` + `GOSNNUpdate` / `GOSNNGlobalState` payloads)
-     with FedAvg-weighted aggregation and SHA3-256 digest checks on every
-     leg (anchored to AMA Cryptography's
-     ``CryptoPackageConfig.hash_algorithm`` standard), replacing the prior
-     one-way (server → client) integration.
-  Suite `tests/federated/test_no_silent_failure.py` (12 tests) pins
-  conformal-misconfig raising for each flavour of upstream failure, the
-  explicit-opt-out path returning `confidence_intervals=None`, full
-  client → server → client round-trips, FedAvg correctness, multi-round
-  state convergence, and rejection of shape / round / digest mismatches.
-- **Seven-axis evaluation matrix.** New runner
-  `benchmarks/seven_axis_runner.py` produces a deterministic JSON + markdown
-  report across the seven NSAI evaluation axes (Generalization, Scalability,
-  Data Efficiency, Reasoning, Robustness, Transferability, Interpretability)
-  using only NumPy and the existing Mercury fusion primitives. The benchmark
-  CI workflow (`.github/workflows/benchmark.yml`) runs the runner and uploads
-  `benchmarks/seven_axis_results.json` as an artifact. The corresponding
-  section in `docs/BENCHMARKS.md` is regenerated from the runner's output
-  via `python -m benchmarks.seven_axis_runner --regenerate-docs` (delimited
-  by `## Seven-Axis Evaluation Matrix` … `<!-- end seven-axis-section -->`,
-  so it cannot be hand-edited without the next regeneration overwriting
-  it). Suite `tests/benchmarks/test_seven_axis_runner.py` (9 tests) pins the
-  axis names, score bounds, JSON round-trip, idempotent docs regeneration,
-  in-place section replacement, and per-axis determinism (with a documented
-  tolerance for the wall-clock-based Scalability axis).
-- **Benevolence-decision cache (`CachedBenevolenceScorer`).** New
-  `cognitive/benevolence_cache.py` provides a thread-safe LRU wrapper around
-  `BenevolenceScorer.enforce`. Cache keys are prefixed with
-  `ETHICAL.RULESET_VERSION` (new constant in `core/centralized_constants.py`)
-  so bumping the ruleset atomically purges every stale entry. **Violations
-  are never cached** — `EthicalConstraintViolationError` propagates without
-  insertion, so positive cases always recompute. Suite
-  `tests/ethical/test_benevolence_cache.py` (12 tests) pins ruleset-version
-  invalidation, identical-input cache hits, never-cache-violations, LRU
-  eviction at capacity, dict-order canonicalisation, and recovery-after-
-  violation behaviour.
-- **Cooperative convergence loop in `AdaptiveDomainThresholdManager`.** New
-  `calibrate_iterative()` and `_cooperative_refine_threshold()` methods perform
-  a 1-D EM-style mean-shift between the two soft score-mode centroids, with a
-  bounded budget (default `max_iterations=4`, `epsilon=1e-3`). Returns full
-  convergence diagnostics (`iterations`, `converged`, `threshold_path`).
-  Regression suite `tests/core/test_adaptive_threshold_convergence.py` (8 tests)
-  pins (a) convergence within the 4-iteration / ε=1e-3 budget on synthetic
-  drift, (b) wall-clock cost ≤ 1.3× the one-shot path, (c) no oscillation on
-  stationary input (≤1 sign-change in the threshold path), and (d) the loop
-  is idempotent at its fixed point.
-- **`FusionMode.FIBRING` is the named default top-level fusion mode.** Composes
-  three already-present primitives — Phi-weighted base, correlation-aware
-  decorrelation (sliding window), and per-domain affinity bias — in a single
-  NSAI-taxonomy-faithful mode. New module `core/fibring_fusion.py` (`FibringComposer`,
-  `FibringWeights`, `DOMAIN_AFFINITY_BIAS`). `NeuroSymbolicHub.__init__` and
-  `create_neurosymbolic_hub` now default to `FusionMode.FIBRING` /
-  `fusion_mode="fibring"`. `create_fusion_ensemble` defaults to `method="fibring"`,
-  which returns an `EthicallyConstrainedFusion` with phi-weighted base. New
-  regression suite `tests/core/test_fibring_default.py` (13 tests) pins the
-  default routing, the composer's phi-baseline / decorrelation / affinity behaviour,
-  and an ablation against BALANCED on a deterministic channel-symmetric synthetic
-  workload (no AUROC or Brier regression). See `docs/ARCHITECTURE.md` §
-  "Neuro-Symbolic Fusion (NSAI Taxonomy)".
-
-### Security
-
-- **CVE-2026-6357 remediated in Docker image (pip arbitrary code injection).**
-  The `python:3.12-slim-bookworm` base image ships pip 25.0.1, which is
-  vulnerable to arbitrary code execution via the self-update check logic
-  when installing a malicious wheel package. Both Dockerfile builder and
-  runtime stages now pin `pip>=26.1` (was `>=26.0`), eliminating
-  CVE-2026-6357, CVE-2025-8869, and CVE-2026-1703 in a single version bump.
-  The accepted-risk ledger in `SECURITY.md` records the CVE-2026-6357 entry.
-- **Trivy CI scan hardened with `limit-severities-for-sarif: true`.**
-  The `aquasecurity/trivy-action` SARIF format mode was dropping the severity
-  filter, causing MEDIUM-severity pip CVEs to trigger the CRITICAL/HIGH
-  blocking gate. Adding `limit-severities-for-sarif: true` ensures the SARIF
-  report and exit-code respect the `severity: CRITICAL,HIGH` policy.
-- **Pickle code path removed from training pipeline.** The legacy
-  `.pkl` / `.pickle` branch in `OmniMercuryEngine.train_fusion_model`
-  has been deleted. Pickle is structurally a code-execution format and
-  the existing whitelist was both functionally broken under numpy 2.x
-  (production whitelist used `numpy.core.multiarray` while numpy 2.x
-  emits `numpy._core.multiarray`) and incomplete (rejected `bool_`,
-  `uint8`, `float16`). Replacement: `omni_mercury_engine.security.safe_load`
-  module exposing `safe_load_training_data`, optional HMAC-SHA-256
-  provenance via `sign_npz` / `verify_npz_signature`, and a
-  one-shot operator migration tool at
-  `python -m omni_mercury_engine.tools.migrate_pkl` that runs in a
-  separate hardened subprocess.
-- **Zip-bomb defense in `safe_load`.** `_validate_zip_central_directory`
-  inspects the `.npz` central directory before any decompression and
-  rejects: corrupt zips, archives with more than 256 entries, per-entry
-  uncompressed sizes above 1 GiB, cumulative uncompressed size above
-  1 GiB, per-entry compression ratio above 1000:1 (zip-bomb signature),
-  and entry names containing path-traversal components (`..`, leading
-  `/`, drive letters, or backslashes — backslash is rejected outright
-  because POSIX path parsing keeps `\\` as a literal character and a
-  Windows extractor would interpret it as a directory separator).
-- **`migrate_pkl` invocation.** The tool runs the conversion when
-  invoked. There is no `--i-trust-this-file` / consent flag; it would
-  have been theatre on top of real defenses (subprocess isolation,
-  scrubbed env, pre-write object-dtype rejection). Optional
-  `--sign-key-hex` and `--max-bytes` retained.
-- **43 new tests** in `tests/security/test_safe_load.py` and
-  `tests/security/test_migrate_pkl.py` pin: pickle path is gone;
-  loader rejects wrong magic bytes, oversized files, object dtypes,
-  pickle-disguised-as-`.npz`, zip-bombs (compression-ratio guard),
-  too-many-entries, corrupt zips, path-traversal entries (forward
-  slash, ``..``, backslash, drive-letter), tightened uncompressed-size
-  caps; HMAC roundtrip and tamper detection work; migration tool
-  relaunches itself in a hardened subprocess and refuses to overwrite
-  existing outputs.
-
-## [1.6.0] - 2026-05-01
-
-### Security (Dependency CVE Remediation)
-
-- **cryptography** `>=43.0.1` → `>=46.0.7`: CVE-2026-26007, CVE-2026-34073, CVE-2026-39892
-- **pillow** `>=10.4.0` → `>=12.2.0`: CVE-2026-25990, CVE-2026-40192
-- **requests** `>=2.32.0` → `>=2.33.0`: CVE-2026-25645
-- **aiohttp** `>=3.9.0` → `>=3.13.4`: CVE-2026-34513 through CVE-2026-34525 (18 CVEs)
-- **pytest** (dev) `>=7.4.0` → `>=9.0.3`: CVE-2025-71176
-- **black** (dev) `>=24.0.0,<26.0.0` → `>=26.3.1,<27.0.0`: CVE-2026-32274
-
-### AMA Cryptography Migration
-
-- **AMA Cryptography Integration**: Migrated primary PQC backend from `ava-guardian` to
-  `ama-cryptography`. The new `mercury_amacrypto.py` module is the canonical integration
-  adapter, with `mercury_guardian.py` kept as a backward-compatibility re-export shim.
-- **New `AMA_CRYPTOGRAPHY_AVAILABLE` flag**: Primary availability flag in
-  `pqc_backends.py`, `pqc_guards.py`, `_compat.py`, and the integration adapter.
-  `AVA_GUARDIAN_AVAILABLE` and `HAS_AVA_GUARDIAN` kept as aliases.
-- **Updated GOSNN component name**: `ava_guardian_crypto` → `ama_cryptography_pqc` in
-  the GOSNN synapse registration.
-- **New `create_ama_cryptography_adapter()` factory**: Canonical factory function;
-  `create_mercury_guardian_adapter()` kept as alias.
-- **Env var updates**: `AMA_REQUIRE_REAL_PQC` and `AMA_REQUIRE_CONSTANT_TIME` are now
-  the primary env vars; legacy `AVA_REQUIRE_*` names still accepted.
-- **PQC Production Check CI**: Updated workflow triggers to also watch
-  `mercury_amacrypto.py` and uses the new `AMA_CRYPTOGRAPHY_AVAILABLE` check.
-
-### Added (Anomaly Math Arrest — 21-Probe Ensemble)
-
-- **Anomaly Math Arrest**: 21-probe mathematically-independent equation ensemble
-  replacing IsolationForest in the detection path. Each probe detects a different
-  anomaly geometry using fundamentally different mathematical frameworks.
-- **Probes 1-8**: Additive, HarmonicOscillator, Momentum, VarianceAdapted,
-  EthicalConstrained, CatalanOptimized, ExponentialDecay, HelixMultiplicative.
-- **Probes 9-21**: R3RecursionResonance, SVDProjection, LyapunovChaos,
-  TopologyHomology, FractalSelfSimilarity, ZetaHarmonic, WavePropagation,
-  QuantumSuperposition, EnergyMinimization, QuantumAnnealing,
-  BoltzmannCoupling, IQRRobust, ModifiedZScore.
-- **PhiWeightedFusion**: Golden-ratio-derived weight fusion with confidence
-  modulation and domain affinity reordering.
-- **CorrelationAwareDecorrelator**: Pairwise Pearson correlation audit with BFS
-  connected component detection to prevent redundant probe clusters from
-  over-weighting. Calibrated automatically during `fit()`.
-- **Domain affinity maps**: 7 domains (earthquake, tsunami, pandemic, marine,
-  geomagnetic, conflict, default) with per-domain probe ranking.
-- **calibrate_decorrelator()**: Explicit correlation audit API.
-- **get_correlation_report()**: Full transparency into redundant pairs, weight
-  multipliers, and effective probe count.
-- **83 new tests**: Core (34), Extended probes 9-21 (43), Fusion + decorrelator (6).
-
-### Removed
-
-- **IsolationForest**: Removed from the primary detection path. Mercury Agent now
-  stands on its own transparent, auditable math via the Anomaly Math Arrest.
-
-### Fixed (Test Suite Stabilization — 100+ Failures Resolved)
-
-- **FastAPI dependency chain**: API auth module (`api/auth.py` line 45) imports
-  FastAPI at module level, causing `ModuleNotFoundError` cascading through
-  `api.server`, `test_correlation_id.py` (4 tests), `test_audit_improvements.py`
-  (6 tests), and `test_jwt_auth.py` (12 tests). Added FastAPI to test
-  dependencies.
-- **Federation `to_detector()` missing Oracle init**: `FederatedAggregator.to_detector()`
-  (aggregator.py lines 203-221) did not initialize `_oracle_detector` or
-  `_oracle_metadata` attributes, causing `AttributeError` when reconstructed
-  detector called `detect()` at `statistical.py` line 1886. Added initialization
-  matching `from_statistics()` classmethod pattern.
-- **Solar synthetic data zero labels**: `_create_synthetic_solar()` (space.py
-  lines 635-642) generated `xray_short` via `np.random.exponential(1e-7)` but
-  tested against threshold `1e-5`, producing all-zero labels. Lowered threshold
-  to `5e-8` to match the exponential distribution's tail.
-- **Oracle config type mismatch**: Fixed `SpectralDomainOracleConfig` type
-  handling when passed through detector initialization pipeline.
-- **Oracle influence pipeline**: Wired spectral influence multiplier end-to-end
-  through `detect()` return path, enabling Oracle-augmented scoring across all
-  75 benchmark datasets.
-
-### Added (F1 Precision Directive — Phases 1-10)
-
-- **Phase 1**: Renamed "Superintelligence Bootstrap" → "Cognitive Evolution Engine"
-- **Phase 2**: Added pairwise Spearman inversion guard (ρ < -0.2) and unsupervised ensemble flip (median > 0.80)
-- **Phase 3**: Created domain-adaptive weight presets (14 domains, 60/40 data-driven/prior blend)
-- **Phase 4**: Implemented noise color estimation via log-log PSD regression (white/pink/brown detection)
-- **Phase 5**: Added adaptive significance alpha based on window size and noise model confidence
-- **Phase 6**: Applied asymmetric influence bias (1.5x amplification boost, 0.8x attenuation suppression)
-- **Phase 7**: Added residual frequency filter via FFT bandpass (70/30 blend ratio)
-- **Phase 8**: Upgraded to multi-strategy threshold selection (percentile, MAD, contamination-aware, linear sweep)
-- **Phase 9**: Added DOMAIN_ANOMALY_SPECTRAL_HINTS and dynamic Oracle sensitivity based on initial severity
-- **Phase 10**: Added 30+ tests for all F1 precision improvements, ORACLE_NOISE_COLOR.md documentation
-
-### Changed (Benchmark Expansion)
-
-- **Benchmark coverage**: Expanded from 51 to 75 total datasets (47 ADBench +
-  28 domain loaders across 12 domains).
-- **Mean AUC**: Improved from 0.8030 to **0.8379** after Oracle pipeline fix.
-- **Median AUC**: Improved from 0.8852 to **0.9090**.
-- **SpectralDomainOracle**: Auto-activated on 39 of 64 successful datasets
-  for temporal/spectral domain augmentation.
-- **README.md**: Updated all benchmark tables, added domain-level performance
-  matrix, added quality improvements section, updated dataset counts and dates.
-
-### Added (Mercury System Activation)
-
-- **Oracle wired into MercuryAnomalyDetector**: SpectralDomainOracle now
-  integrated into the primary detection pipeline (`statistical.py`). Oracle
-  initialises during `fit()` for temporal data and applies spectral influence
-  multiplier during `detect()`. Oracle metadata included in return dict.
-- **20 new dataset loaders activated**: Environmental (USGS Earthquake, NOAA
-  Weather, Wildfire, USGS Geochemistry), Ocean (NOAA Buoy), Climate (NOAA
-  StormEvents, GSOD, ERDDAP), Air Quality (EPA), Disaster (FEMA x2), Space
-  (NASA Exoplanet, SolarDynamics), Academic (UCR, CWRU Bearing, MSDS),
-  Security (ThreatIntel), General (ADRepository), Industrial (SWaT, WADI).
-  Total benchmark datasets: 75 (47 ADBench + 28 domain).
-- **Domain-level benchmark summary**: Per-domain AUC/F1 aggregation,
-  component performance analysis, Oracle activation tracking. Added to
-  `mercury_benchmark_results.json` as `domain_summary`.
-- **Benchmark CLI flags**: `--live-only` skips ADBench; `--domain <name>`
-  filters by category.
-- **Cross-domain frequency correlation module**: New
-  `CrossDomainFrequencyCorrelator` detects overlapping significant frequency
-  bands across concurrent Oracle instances. Outputs correlation only —
-  always states "requires human assessment."
-- **Oracle domain auto-selection**: `_infer_oracle_domain()` uses sample
-  rate estimation, dominant FFT frequency, and feature count heuristics
-  to select appropriate Oracle domain. User-specified domain overrides.
-- **Federation Oracle serialization**: `get_oracle_statistics()` exports
-  Oracle reference state; `from_statistics()` accepts `oracle_ref_stats`
-  for federated Oracle round-trip.
-- **Domain-specific cache TTL**: environmental=300s, security=60s,
-  climate=3600s, default=600s. Added `get_domain_ttl()` to cache stub.
-- **Structured per-dataset output**: `per_dataset_results.json` now
-  includes `run_metadata` (run_id, timestamp, git_sha, branch,
-  python_version), domain_summary, and expanded per-dataset diagnostics
-  (adaptive_weights, weight_source, data_type, oracle_metadata).
-- **Dataset catalog**: `benchmarks/DATASETS.md` documents all 75 active
-  datasets with source, auth, samples, features, anomaly ratio, license.
-
-### Changed (Mercury System Activation)
-
-- **README Phase 7**: Renamed "Superintelligence Bootstrap" to "Cognitive
-  Evolution Engine".
-- **BaseDetector.extract_features()**: Signature updated to accept
-  `dict[str, Any]` input and return `np.ndarray | torch.Tensor`.
-  `_extract_combined_features()` normalises both return types.
-- **validation/data_loaders.py**: Deprecated with module-level warning.
-  Directs users to `datasets/` module. Will be removed in v2.0.
-- **generate_docs_images.py**: Updated performance dashboard to show
-  domain-level AUC/F1 bars, component AUC heatmap, and Oracle status.
-  All data sourced from `mercury_benchmark_results.json`.
-
-### Cherry-picked
-
-- 10 commits salvaged from a superseded strategic-improvements branch:
-  strategic improvements, FrequencyDomainOracle implementation,
-  SpectralDomainOracle rename, spectral flux/phase coherence/cepstral
-  analysis, selective inference upgrade, and audit fixes.
-- Fabricated README images (4 PNGs with invented performance metrics)
-  discarded; original dark-themed images restored from master.
-
-### Fixed
-- **Oracle `extract_features()` type contract**: Now returns `torch.Tensor`
-  per `BaseDetector` contract, eliminating runtime crash risk in 5 generic
-  callers (detector_registry, gosnn_integration, metrics, gwo_ensemble).
-  Removed all `# type: ignore` suppressions.
-- **Selective Inference upgrade**: Replaced naive z-test with truncated
-  normal conditioning (Lee et al., 2016). Guarantees Type I error control
-  at declared α. SI p-values are 3-10× more conservative, eliminating
-  false amplification from selection bias.
-
-### Renamed
-- **SpectralDomainOracle**: Renamed from `FrequencyDomainOracle` to reflect
-  expanded capabilities (spectral flux, phase coherence, cepstral analysis).
-  Backward-compatible aliases preserved (`FrequencyDomainOracle`,
-  `FrequencyDomainOracleConfig`, `create_frequency_oracle`).
-
-### Added
-- **Spectral Flux**: Rate-of-spectral-change detection for slow-onset
-  anomalies (frequency-domain analog of acceleration).
-- **Phase Coherence**: Inter-band phase relationship monitoring via Welch's
-  method cross-spectral estimation (leading indicator — degrades before
-  amplitude changes).
-- **Cepstral Coefficients**: Harmonic structure analysis via inverse FFT of
-  log power spectrum (rotating machinery faults, quefrency-domain peaks).
-- **Five-signal influence multiplier**: φ-weighted geometric mean now
-  incorporates flux and coherence alongside score, entropy, and breadth.
-- **Domain-aware Oracle auto-activation**: Oracle auto-enabled for
-  infrastructure, security, medical; dampened for environmental, space;
-  auto-disabled for financial, humanitarian; overridable via `oracle_mode`.
-- **Per-dataset benchmark output**: `per_dataset_results.json` for
-  individual dataset AUC/F1 verification (separate from aggregate results).
-
-### Documentation Alignment Audit
-- Repository documentation, metadata, and organizational state audited for
-  accuracy against actual code
-- README.md: Updated module count (455), line count (268,000+), test file
-  count (227); removed phantom version reference (v1.4.1); removed reference
-  to nonexistent benchmark results file; updated header and co-architects
-- CHANGELOG.md: Removed orphaned [Unreleased] section whose content was
-  already captured in versioned entries (v1.1.0, v1.2.0)
-- docs/ROADMAP.md: Marked all 7 planned capabilities as implemented
-- CONTRIBUTING.md: Fixed Python version requirement from 3.12 to 3.11+
-- .gitignore: Added coverage for generated report files
-
-
-### Renamed
-- **OAE (Omni-Ava Equation)**: Renamed from "AVA Anomaly Fusion Equation (AAFE)"
-  across 26 files. All old class names (`AnomalyFusionEquation`, `AAFEWeightOptimizer`,
-  `DomainAdaptiveAAFEWeights`) and constants (`AAFE_WEIGHT_R/H/O`) remain functional
-  as backward-compatible aliases per the Preservation Principle (see DEPRECATION.md).
-
-### Calibration Pipeline Integration
-- ThresholdCalibrationPipeline wired into MercuryAnomalyDetector.fit_with_labels()
-  and detect() — adaptive strategy selection (best of Youden's J / F1-optimal)
-- Per-component Mann-Whitney AUC measured during fit; components with inverted
-  signal receive zero weight (replaces fixed 40/30/30 ensemble weighting)
-- 10 real-world domains benchmarked with calibrated F1; results recorded in
-  mercury_benchmark_results.json
-
-### Version Reconciliation
-- All version strings bumped from 1.5.1 → 1.6.0 across 28 files:
-  pyproject.toml, __init__.py, cli.py, api/health.py, api/server.py,
-  crypto/__init__.py, models/sota/__init__.py, .secrets.baseline,
-  README.md, SECURITY.md, Dockerfile, data_sources/base.py,
-  data_sources/earth_science.py, cognitive/anomaly_detection_enhanced.py,
-  infrastructure/observability.py, integrations/cross_platform_hub.py,
-  helm/mercury-agent/Chart.yaml, k8s/base/deployment.yaml,
-  k8s/base/kustomization.yaml, k8s/overlays/distributed/streaming-workers.yaml,
-  docs/MATH_SPEC.md, examples/physics_detectors_demo.py,
-  benchmarks/generate_benchmark_visuals.py, benchmarks/generate_v1_2_visuals.py,
-  benchmarks/live_dataset_benchmark.py, tests/test_cli_smoke.py, tests/test_api.py
-- [Unreleased] section promoted to [1.6.0] — no unreleased content remains
-
----
-
-## [1.5.1] - 2026-02-13
-
-### Changed - Statistical Detector Ensemble Replacement
-
-- **MercuryAnomalyDetector**: Replaced `z-score * 0.4 + IQR * 0.3 + IsolationForest * 0.3`
-  ensemble with three Mercury-original mathematical frameworks:
-  - **ResonanceScore (40%)**: FFT-based harmonic spectral anomaly detection
-  - **KinematicScore (30%)**: Physics-based jerk/curvature dynamics via finite differences
-  - **InfoGeometryScore (30%)**: Fisher Information Matrix OOD detection with Tikhonov
-    regularization and Cholesky-decomposed precision matrix
-- Performance: 49x faster fit (14.8 ms), 4.7x faster inference (13.3 ms) vs prior
-  IsolationForest ensemble on 10,000 x 20 synthetic data
-- Mean AUC 0.992 on synthetic ADBench-style benchmark (8 dataset patterns)
-- 100% backward-compatible `detect()` return dict (all legacy keys preserved)
-
-### Removed
-
-- **sklearn dependency from core detectors**: `MercuryAnomalyDetector`,
-  `DimensionalAnalyzer`, and `SpatialAnomalyDetector` no longer import sklearn.
-  PCA replaced with numpy SVD; LOF replaced with scipy KDTree implementation.
-- All remaining top-level sklearn imports in `src/` converted to lazy imports.
-  sklearn is now a true optional dependency (`pip install mercury-agent-global[ml]`).
-- Deleted stale benchmark PNG artifacts from `benchmarks/`
-
-### Fixed
-
-- Updated stale IsolationForest references across src/, docs/, benchmarks/, and
-  issue templates to reflect the new ensemble architecture
-
----
-
-## [1.5.0] - 2026-02-11
-
-### Added - Mathematical Audit & Parameterization Overhaul
-
-- **PHASE 1 — Equation Inventory** (`docs/equations_inventory.md`): Comprehensive catalog
-  of 47 equations, formulas, constants, thresholds, and mathematical operations across
-  the entire codebase with provenance tracking (EQ-001 through EQ-047)
-
-- **PHASE 2 — Correctness Report** (`docs/correctness_report.md`): Mathematical
-  correctness verification identifying 16 issues (1 critical, 3 high, 8 medium, 4 low)
-  across numerical stability, edge cases, and documentation mismatches
-
-- **PHASE 3 — Parameterization Overhaul**:
-  - **Sigmoid Benevolence Gate**: Replaced hard threshold (≥ 0.99) with smooth sigmoid
-    curve η(b) = 1/(1+exp(-k·(b-b₀))) with domain-specific profiles:
-    Medical (b₀=0.93, k=30), Security (b₀=0.95, k=25), Environmental (b₀=0.90, k=20),
-    Humanitarian (b₀=0.92, k=35), Infrastructure (b₀=0.94, k=25)
-  - **Banach Contraction Recursion**: Added convergence-bounded recursive computation
-    with α constrained via sigmoid (α_max=0.95), error bounds, and runtime contraction
-    monitoring with halt on violation. Provenance: Banach fixed-point theorem (1922)
-  - **Domain-Adaptive Harmonics**: Replaced universal Schumann resonance (7.83 Hz) with
-    domain-specific fundamental frequencies: Medical (HRV bands), Infrastructure (power
-    grid), Space (solar cycle), with adaptive peak detection for unknown domains
-  - **Hierarchical Omni-Scalar Aggregation**: Added 3-level hierarchical aggregation
-    (category grouping → weighted mean → geometric mean) for 180+ omni-scalars organized
-    into safety, fairness, transparency, accountability, and beneficence categories
-  - **Configurable OAE Exponent**: Made ethical scaling exponent configurable (default Φ)
-    to support empirical optimization via parameter sweep
-  - **NaN Guards**: Added NaN propagation prevention to OAE fusion equation
-  - **Parameter Sweep Infrastructure** (`benchmarks/parameter_sweep.py`): Bayesian
-    optimization via Optuna TPE over full parameter space with composite objective
-    (F1 + calibration error + stability)
-
-- **PHASE 3A — Parameter Sweep Execution**: Ran 1,000 Optuna TPE trials with
-  composite objective (F1 + ECE + stability). Best composite: 0.816, Best F1: 0.895.
-  53 Pareto-optimal configurations identified. Results saved to
-  `benchmarks/parameter_sweep_results.json`
-
-- **PHASE 3B — Phi Exponent Validation**: Statistically validated golden ratio exponent
-  (Phi=1.618). Mean F1 near Phi: 0.9045 vs 0.8944 elsewhere (p < 0.001, t=8.05).
-  Phi confirmed as near-optimal with best trial at 1.742
-
-- **PHASE 3B — Domain-Adaptive OAE Weights** (`core/three_r/fusion.py`):
-  `DomainAdaptiveOAEWeights` class that learns per-domain weight profiles from empirical
-  data when cross-domain variance exceeds 10%. Falls back to golden-ratio defaults
-
-- **PHASE 4A — Conformal Prediction Enhancement** (`core/conformal_prediction.py`):
-  - `MondrianConformalPredictor`: Label-conditional coverage guarantees per group
-    (Vovk et al. 2005 Chapter 8). Ensures balanced coverage across subpopulations
-  - `ConformalCalibrationBridge`: Integrates split, adaptive, and Mondrian conformal
-    prediction into the calibration pipeline
-
-- **PHASE 4B — Topological Data Analysis** (`core/topological_analysis.py`):
-  - `VietorisRipsFiltration`: Vietoris-Rips simplicial complex from point clouds
-  - 0D and 1D persistent homology via union-find algorithm
-  - `PersistenceDiagram`: Birth/death pairs, Betti numbers, persistence entropy
-  - `TopologicalAnomalyDetector`: TDA-based anomaly detection with topological
-    feature extraction (Betti numbers, entropy, landscape norms)
-  - Wasserstein and bottleneck distances for persistence diagram comparison
-  - Reference: Edelsbrunner & Harer (2010) "Computational Topology"
-
-- **PHASE 4C — Fisher Information Metric** (`core/info_geometry.py`):
-  - `FisherInformationMatrix`: Gaussian closed-form and empirical FIM computation
-    with Tikhonov regularization for numerical stability
-  - `NaturalGradient`: F^{-1} * g_euclidean with Cholesky decomposition
-  - `FisherRaoAdaptiveThreshold`: Derives thresholds as tau = mu + k*sqrt(tr(F^{-1}))
-    with drift detection and automatic recalibration
-  - `StatisticalManifold`: Riemannian manifold of probability distributions
-  - Reference: IGEOOD (ICLR 2022)
-
-- **PHASE 4D — Riemannian Optimization** (`core/riemannian_optimization.py`):
-  - `SimplexManifold`: Probability simplex with projection (Duchi et al. 2008),
-    exponential/logarithmic maps, geodesic distance
-  - `SPDManifold`: Symmetric positive definite matrices with affine-invariant metric
-  - `RiemannianGradientDescent`: Manifold optimization with Armijo line search
-  - `RiemannianAdam`: Adam optimizer adapted for Riemannian manifolds
-  - `ConstrainedParameterOptimizer`: High-level API for OAE weights on simplex
-    and covariance parameters on SPD manifold
-
-- **PHASE 5 — Calibration Pipeline** (`core/calibration_pipeline.py`): Threshold
-  auto-calibration with Youden's J, F1-optimal, cost-sensitive methods; dataset
-  fingerprinting via SHA-256; distribution drift detection via KS test and KL divergence
-
-- **PHASE 6 — System-Level Coherence** (`core/system_coherence.py`):
-  - `SignalFlowGraph`: Data structure describing signal propagation through the
-    detection pipeline (ingestion -> features -> detection -> fusion -> ethical
-    gating -> calibration -> output) with ASCII rendering
-  - `NormalizationVerifier`: Validates score range compatibility at every stage
-    boundary, detecting normalization handoff mismatches
-  - `LyapunovRuntimeEnforcer`: Runtime guard enforcing V_dot <= -lambda*V at
-    every fusion step with violation logging and optional pipeline halt
-  - `run_coherence_audit()`: Full system coherence audit function
-  - Reference: Khalil (2002) "Nonlinear Systems" Chapter 4
-
-- **Hardcoded Constant Centralization**: Replaced 38+ hardcoded 0.99 benevolence
-  references across 10+ source files with `ETHICAL.BENEVOLENCE_IMMUTABLE` from
-  `centralized_constants.py`. Files updated: benevolence_optimization.py,
-  domain_metrics.py, enhanced_model_domains.py, gosnn_integration.py,
-  gosnn_optimizer.py, engine_config.py, config.py, personality.py, engine.py,
-  learnable_gosnn.py
-
-- **PHASE 7 — Deliverables**:
-  - `docs/MATH_SPEC.md`: Formal mathematical specification with LaTeX equations,
-    parameter justification, convergence proofs, and sensitivity analysis
-  - `docs/math_debt_backlog.md`: 15 prioritized mathematical debt items (3 high,
-    6 medium, 6 low) with resolution recommendations
-  - `docs/equations_inventory.md`: Complete equation catalog
-  - `docs/correctness_report.md`: Correctness verification findings
-
-### Changed
-
-- **OAE Equation** (`core/three_r/fusion.py`): Ethical exponent now configurable
-  (was hardcoded to Φ). Added `domain` and `ethical_exponent` constructor parameters.
-  Added `benevolence_score` parameter to `compute()` for sigmoid gate integration.
-- **Spectral Vibration** (`detectors/spectral_vibration.py`): `_compute_schumann_alignment`
-  now uses domain-adaptive frequencies via `get_domain_fundamentals()`. Added
-  `_detect_spectral_peaks` static method for unknown-domain frequency detection.
-- **Centralized Constants** (`core/centralized_constants.py`): Added
-  `BenevolenceGateConstants`, `DomainHarmonicConstants`, `RecursionConvergenceConstants`
-  dataclasses and `sigmoid_benevolence_gate()`, `get_domain_fundamentals()` functions.
-- **GOSNN** (`core/global_omni_scalar_network.py`): Added `compute_hierarchical_score()`
-  method implementing 3-level hierarchical aggregation with configurable domain weights
-  and geometric/arithmetic/harmonic mean options.
-
-### Testing
-
-- **124 new tests** across `test_phase3_math_audit.py` (78) and
-  `test_phase4_6_math_audit.py` (46) covering all new mathematical infrastructure
-- All 594 existing + new core tests passing
-
-### Mathematical Provenance
-
-- Sigmoid benevolence gate: Logistic function (Verhulst, 1845)
-- Banach contraction recursion: Banach fixed-point theorem (Banach, 1922)
-- Schumann resonance: Schumann (1952)
-- HRV frequency bands: Task Force of ESC/NASPE (1996)
-- Conformal prediction: Vovk et al. (2005)
-- Mondrian conformal prediction: Vovk et al. (2005) Chapter 8
-- Youden's J statistic: Youden (1950)
-- Persistent homology: Edelsbrunner & Harer (2010)
-- Fisher information metric: IGEOOD (ICLR 2022)
-- Riemannian optimization: Absil et al. (2008)
-- Simplex projection: Duchi et al. (2008)
-- Lyapunov stability: Khalil (2002)
-- Bayesian optimization: Bergstra et al. (2011) TPE
-
----
-
-## [1.4.0] - 2026-02-09
-
-### Added - Advanced Cognitive AI & Physics-Inspired Detectors
-
-- **Physics-Inspired Anomaly Detectors**: Spectral vibration analysis, acceleration dynamics,
-  dimensional analysis, spatial anomaly detection, and UI/UX behavioral anomaly detection
-- **Advanced Physics Integration**: GOSNN scalar fusion with physics detector backends,
-  factory functions and registry integration for all new detector types
-- **Comprehensive Strict Type Checking**: MyPy strict mode enabled across entire codebase,
-  resolved 274+ strict-mode errors and removed all `ignore_errors` exclusions
-- **SHA3-256 Cryptographic Alignment**: Aligned cryptographic posture with AMA Cryptography,
-  upgraded hash functions to SHA3-256 for tamper-evident audit trails
-- **CI/CD Pipeline Compliance**: Resolved all blocking lint (Flake8), type (MyPy),
-  security (Bandit), and test (pytest) failures across 408 files
-
-### Changed
-
-- **Codebase Consolidation**: Major refactoring for production readiness, removing
-  all `cast()` workarounds in favor of proper type annotations
-- **Version Alignment**: All deployment manifests, Helm charts, Kubernetes labels,
-  Docker images, User-Agent strings, and documentation updated to v1.4.0
-
-### Security
-
-- Cryptographic hash upgrade from SHA-256 to SHA3-256 across audit trail components
-- Removed type-unsafe `cast()` calls that masked potential runtime errors
-
----
-
-## [1.2.0] - 2026-02-02
-
-### Added - SaaS Infrastructure and Production Hardening
-
-- **Streaming Infrastructure** (`infrastructure/streaming.py`): Production-grade streaming
-  - `StreamProducer`/`StreamConsumer` abstract interfaces
-  - `KafkaStreamProducer`/`KafkaStreamConsumer`: Apache Kafka integration with aiokafka
-  - `RedisStreamProducer`/`RedisStreamConsumer`: Redis Streams for low-latency processing
-  - `InMemoryStreamProducer`/`InMemoryStreamConsumer`: For testing
-  - `CircuitBreaker`: Failure handling with configurable thresholds
-  - `StreamingAnomalyPipeline`: End-to-end streaming anomaly detection
-  - Factory classes for easy backend switching
-
-- **Request Correlation IDs** (`api/server.py`): Distributed tracing support
-  - `CorrelationIDMiddleware`: UUID-based request tracking
-  - Accepts `X-Correlation-ID` or `X-Request-ID` headers
-  - Context variable for access throughout request lifecycle
-  - `X-Request-Duration-Ms` header for latency tracking
-
-- **Load Testing Infrastructure** (`tests/load/`): SLO validation
-  - `locustfile.py`: Locust-based load testing with multiple user classes
-  - `k6_load_test.js`: k6 performance testing with scenarios
-  - SLO thresholds: P50<100ms, P95<500ms, P99<1000ms
-  - Smoke, load, stress, and spike test scenarios
-
-- **Distributed K8s Deployment** (`k8s/overlays/distributed/`): Multi-node production
-  - Strimzi Kafka cluster (3 brokers, 3 ZooKeeper)
-  - Redis cluster with Sentinel failover (3 nodes)
-  - Streaming worker deployment with HPA (2-20 replicas)
-  - Network policies for secure communication
-
-- **Live Dataset Benchmark Suite** (`benchmarks/live_dataset_benchmark.py`): 30+ datasets
-  - 7 categories: Security, Industrial, Time-Series, Climate, Disaster, Environmental, ADRepository
-  - Provenance tracking (live vs synthetic data)
-  - Aggregate metrics and per-dataset results
-  - JSON export for CI/CD integration
-
-- **Benchmark Documentation** (`docs/BENCHMARKS.md`): Comprehensive guide
-  - Dataset catalog with sources and access requirements
-  - Metric definitions and expected performance
-  - Reproducibility instructions
-
-- **API Launcher Script** (`scripts/run_api.py`): Convenient server startup
-  - Development mode with auto-reload
-  - Production mode with multiple workers
-
-- **New Dependencies** (`pyproject.toml`): Streaming and load testing
-  - `[streaming]`: aiokafka, redis for streaming infrastructure
-  - `[loadtest]`: locust for load testing
-
-### Added - Live Oceanographic and Disaster Dataset Integration
-
-- **Climate Dataset Loaders** (`datasets/climate.py`): Advanced marine data integration
-  - `SimonsCMAPLoader`: Ocean biogeochemistry from Simons CMAP (satellite observations, in-situ measurements, model outputs)
-  - `WorldOceanDatabaseLoader`: NCEI World Ocean Database temperature/salinity profiles (20M+ profiles, 1770-present)
-  - `CopernicusSeaLevelLoader`: EU satellite altimetry data (0.25 degree resolution, 1993-present)
-  - All loaders include synthetic fallbacks with realistic oceanographic patterns
-
-- **Disaster Dataset Loaders** (`datasets/disaster.py`): FEMA emergency management data
-  - `FEMADisasterLoader`: US disaster declarations from OpenFEMA API (hurricanes, floods, fires, earthquakes)
-  - `FEMAHazardMitigationLoader`: Hazard mitigation grant program data
-  - Rate limiting (500ms between requests) and SSRF protection via TrustedEndpoints
-  - No API key required - free public access
-
-- **Environmental Loader** (`datasets/environmental.py`): Contamination detection
-  - `USGSGeochemistryLoader`: Heavy metal concentrations (As, Pb, Hg, Cu, Zn) from USGS MRData
-  - EPA Regional Screening Levels for anomaly labeling
-
-- **Trusted Endpoints** (`security/input_validation.py`): SSRF protection for new data sources
-  - New domains: fema.gov, simonscmap.com, cds.climate.copernicus.eu, ncei.noaa.gov, mrdata.usgs.gov
-  - New API endpoints: FEMA_DISASTER_DECLARATIONS, SIMONS_CMAP_API, NCEI_WOD_SELECT, COPERNICUS_CDS_API, USGS_MRDATA_GEOCHEM
-
-- **Comprehensive Tests**: 54+ new tests for climate and disaster loaders
-  - `tests/datasets/test_climate.py`: 26+ tests for oceanographic data quality
-  - `tests/datasets/test_disaster.py`: 28+ tests for FEMA API integration
-
-### Fixed - Exception Handling Improvements
-
-- Replaced 20+ bare `except Exception` with specific exception types
-- Added proper logging with exception type names
-- Files improved: `empirical_benchmark.py`, `benchmarks.py`, `comm.py`, `input_validation.py`, `adaptive_domain_thresholding.py`, `gosnn_integration.py`
-
-### Fixed - PR-AUC Calibration
-
-- Fixed negative PR-AUC values in `datasets/benchmarks.py`
-- Replaced incorrect `np.trapz()` with proper step-function integration
-- Added curve sorting before area calculation
-- Clamped values to [0, 1] range
-
-### Fixed - Engineering Polish
-
-- **JWT Exception Handling** (`api/auth.py`): Specific exception types for better debugging
-  - `ExpiredSignatureError`, `InvalidTokenError` for JWT-specific errors
-  - `KeyError`, `TypeError`, `ValueError` for malformed payload detection
-  - Improved logging with exception type names
-
-- **Input Validation** (`core/adaptive_fusion.py`): Production-safe assertions
-  - Replaced `assert` statements with explicit `if/raise ValueError`
-  - Validation remains active even with Python `-O` optimization
-  - Error messages include actual values for debugging
-
-- **Resource Management** (`infrastructure/observability.py`): FileAuditHandler lifecycle
-  - Added `close()` method for explicit resource cleanup
-  - Context manager protocol (`__enter__`, `__exit__`) for safe usage
-  - `__del__` for GC cleanup with thread-safe `_closed` flag
-  - `RuntimeError` if `emit()` called after close
-
-- **Deprecated API** (`datasets/ocean.py`): Fixed pandas deprecation warning
-  - Changed `delim_whitespace=True` to `sep=r"\s+"` (regex whitespace separator)
-
-## [1.1.2] - 2026-01-17
-
-### Fixed
-- Statistical detector now outputs continuous scores instead of discrete boolean flags
-- Adaptive contamination estimation replaces hardcoded 0.1 default
-- Dynamic projection layers cached in ModuleDict to prevent memory leaks
-- 3D tensor inputs properly handled in fusion model forward pass
-- Soft score normalization preserves ranking information
-- Semi-supervised detector fitting prevents zero-variance score cascade
-
-### Added
-- `fit_fusion()` method for training OmniFusionModel
-- `calibrate_scores()` for isotonic/Platt calibration
-- `tune_hyperparameters()` for Optuna-based optimization
-- `visualize_embeddings()` for t-SNE/UMAP analysis
-- `add_detector()` for runtime detector registration
-- Numba JIT optimization for spatial distance computations
-- 45+ new tests for fusion training and signal integrity
-
-## [1.1.1] - 2026-01-16
-
-### Fixed - Benchmark Regeneration & CodeQL Cleanup
-- **Benchmark Results Regenerated**: Updated `results/latest/benchmark_results.json` with AdaptiveAnomalyDetector
-  - BATADAL F1: 0.0 → 0.333 (major improvement using adaptive dataset profiling)
-  - SMD F1: 0.185 → 0.164
-  - covtype F1: 0.117 (newly added dataset)
-  - breast_cancer F1: 0.061 (newly added dataset)
-- **CodeQL Alerts Resolved**: Added explanatory comments to 26 empty except blocks
-  - `tests/test_resilience.py`: Circuit breaker failure counting comments
-  - `tests/resilience/test_circuit_breakers.py`: Multiple failure testing comments
-- **PEP8 Formatting**: Applied blank line fixes after imports across 28 files
-- **Documentation Updated**: README.md benchmark table updated with regenerated results
-
-## [1.1.0] - 2026-01-09
-
-### Security - v1.1.0 CodeQL Remediation
-- **PBKDF2-HMAC-SHA256 API Key Hashing**: Upgraded from plain SHA256 to PBKDF2-HMAC-SHA256 with 100,000 iterations (`api/auth.py`)
-  - Configurable via `API_KEY_HASH_SALT` and `API_KEY_HASH_ITERATIONS` environment variables
-  - Provides strong protection against brute-force and rainbow table attacks
-- **URL Sanitization**: Fixed incomplete URL substring sanitization with proper `urlparse` validation (`test_dataset_loaders.py`)
-- **Sensitive Data Logging**: Changed 6 locations from `info` to `debug` level with redacted messages
-- **Superclass Attribute Shadowing**: Fixed inheritance issues in `BaseVLMDetector` and `BaseVisualDetector`
-- **Empty Except Blocks**: Added explanatory comments to 25+ empty except blocks
-- **Explicit Exports**: Added TYPE_CHECKING imports for 33 explicit exports in `__init__.py` files
-- **Redundant Assignments**: Removed 3 redundant self-assignments in `global_omni_scalar_network.py`
-- **Illegal Raise**: Fixed by adding validation and using `RuntimeError` (`resilience.py`)
-- **Parameter Name**: Corrected argument name from `significance_level` to `p_value_threshold` (`engine.py`)
-
-### Changed - v1.1.0
-- All documentation updated to v1.1.0 with 2026-01-09 date
-- README.md comprehensively updated with latest benchmarks and features
-- Test coverage increased by 20% (from 58% to 78%+)
-
-## [0.1.0] - 2025-10-14
-
-### Added
-- Initial release of Mercury Agent (formerly Omni-Anomaly-Engine)
-- 13 fused detection engines with neural network fusion
-- 150+ ethical scalars from ancient wisdom and modern principles
-- 17+ infrastructure modules for critical sectors (healthcare, cyber, energy, etc.)
-- 3R mechanism (Recursion-Resonance-Refactoring) for self-optimization
-- Multiverse exploration for scenario analysis
-- CRISPR-inspired self-healing for adaptive immunity
-- Humanitarian extensions: Cyber Fortress, Medical Cure Predictor, Emergent Life Detector
-- 140+ experiments with statistical validation (20-48% gains vs baselines)
-- 730+ tests
-- Graph-based anomaly detection with NetworkX
-- Multimodal fusion with attention mechanisms
-- VAE for unsupervised pattern learning
-- HATCN-AD for multi-scale temporal prediction
-- 5 new civilization modules: Climate Resilience, AgriFood Security, Education Equity, Economic Resilience, Neuroscience
-- 150+ domain-specific ethical scalars
-
-### Changed
-- Renamed from Omni-Anomaly-Engine to Mercury Agent
-- Enhanced CLI with argparse for humanitarian demo
-- Improved documentation with simulation disclaimers
-
-### Security
-- Added Dependabot for dependency scanning
-- Implemented security.yaml workflow for automated scans
-
-### Documentation
-- Added comprehensive CONTRIBUTING.md with AI-assisted guidelines
-- Created CODE_OF_CONDUCT.md using Contributor Covenant
-- Enhanced README with quick-start guide and limitations section
-- Added simulation disclaimers throughout documentation
-
-### Note
-**All benchmarks based on simulated data. Real-world validation recommended before production use.**
-
+## Earlier releases
+
+Releases before 3.0.0 are in
+[`docs/changelog/CHANGELOG-pre-3.0.md`](docs/changelog/CHANGELOG-pre-3.0.md),
+moved there unchanged so this file stays readable.
+
+| Release | Date |
+|---|---|
+| [2.0.0](docs/changelog/CHANGELOG-pre-3.0.md#200---2026-06-17) | 2026-06-17 |
+| [1.7.0](docs/changelog/CHANGELOG-pre-3.0.md#170---2026-05-20) | 2026-05-20 |
+| [1.6.0](docs/changelog/CHANGELOG-pre-3.0.md#160---2026-05-01) | 2026-05-01 |
+| [1.5.1](docs/changelog/CHANGELOG-pre-3.0.md#151---2026-02-13) | 2026-02-13 |
+| [1.5.0](docs/changelog/CHANGELOG-pre-3.0.md#150---2026-02-11) | 2026-02-11 |
+| [1.4.0](docs/changelog/CHANGELOG-pre-3.0.md#140---2026-02-09) | 2026-02-09 |
+| [1.2.0](docs/changelog/CHANGELOG-pre-3.0.md#120---2026-02-02) | 2026-02-02 |
+| [1.1.2](docs/changelog/CHANGELOG-pre-3.0.md#112---2026-01-17) | 2026-01-17 |
+| [1.1.1](docs/changelog/CHANGELOG-pre-3.0.md#111---2026-01-16) | 2026-01-16 |
+| [1.1.0](docs/changelog/CHANGELOG-pre-3.0.md#110---2026-01-09) | 2026-01-09 |
+| [0.1.0](docs/changelog/CHANGELOG-pre-3.0.md#010---2025-10-14) | 2025-10-14 |
+
+[Unreleased]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/2.0.0...v3.0.0
-[2.0.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.7.0...2.0.0
-[1.7.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.6.0...v1.7.0
-[1.6.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.1...v1.6.0
-[1.5.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.5.0...v1.5.1
-[1.5.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.4.0...v1.5.0
-[1.4.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.2.0...v1.4.0
-[1.2.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.2...v1.2.0
-[1.1.2]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.1...v1.1.2
-[1.1.1]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v1.1.0...v1.1.1
-[1.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/compare/v0.1.0...v1.1.0
-[0.1.0]: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/releases/tag/v0.1.0

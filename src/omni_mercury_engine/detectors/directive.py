@@ -328,6 +328,23 @@ class SigmaDirectiveDetector(BaseDetector):
         if self.memory_depth < 1:
             raise ValueError(f"memory_depth must be >= 1, got {self.memory_depth}")
 
+    def __getstate__(self) -> dict[str, Any]:
+        """State for ``copy`` / ``pickle``: everything but the per-thread buffers.
+
+        ``threading.local`` cannot be copied or pickled, so a detector that
+        held one could be neither -- ``copy.deepcopy(detector)`` raised
+        ``TypeError``. The buffers are scratch memory of the threads that
+        used *this* instance; a copy starts with none, like a new thread.
+        """
+        state = self.__dict__.copy()
+        del state["_thread_local"]
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore a copied or unpickled detector with fresh per-thread buffers."""
+        self.__dict__.update(state)
+        self._thread_local = threading.local()
+
     def _get_thread_state(self) -> _ThreadLocalState:
         """Get or create thread-local state.
 

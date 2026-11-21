@@ -315,6 +315,43 @@ class TestDetectionRoutes:
         assert "resonance_score" in result
         assert "is_stable" in result
 
+    def test_three_r_stability_is_measured_or_declared_unmeasured(self, client: Any) -> None:
+        """``is_stable`` reflects a real score trajectory, or says it was not evaluated.
+
+        The route built a fresh equation, computed once and asked it for
+        stability, which needs more than ten scores: ``is_stable`` was False
+        for every request whatever the data held.
+        """
+        rng = np.random.default_rng(0)
+        steps = np.arange(640)
+
+        # A disturbance that gives way to an exactly periodic signal whose
+        # period divides the segment length: every later segment scores the
+        # same, so the trajectory has contracted completely.
+        settling = np.concatenate(
+            [
+                rng.normal(0.0, 2.0, 320) + np.sin(2 * np.pi * steps[:320] / 16.0),
+                np.sin(2 * np.pi * steps[320:] / 16.0),
+            ]
+        )
+        # One that keeps growing: they spread instead (measured lambda -0.092).
+        growing = np.sin(steps * 0.3) + 0.01 * np.exp(steps / 90.0) * rng.normal(size=640)
+
+        def ask(series: np.ndarray) -> dict[str, Any]:
+            response = client.post("/api/v1/detect/three-r", json={"data": series.tolist()})
+            assert response.status_code == 200, response.text
+            return dict(response.json())
+
+        settled, grown = ask(settling), ask(growing)
+        assert settled["stability_evaluated"] is True
+        assert grown["stability_evaluated"] is True
+        assert settled["is_stable"] is True
+        assert grown["is_stable"] is False
+
+        short = ask(np.sin(np.arange(50) * 0.5) + np.arange(50))
+        assert short["stability_evaluated"] is False
+        assert short["is_stable"] is False
+
     def test_three_r_invalid_recursion_depth(self, client: Any) -> None:
         """Test 3R with invalid recursion depth."""
         data = [1.0] * 50
@@ -498,6 +535,8 @@ class TestDetectionRoutes:
             explain: Any,
             gdpr_report: Any = False,
             subject_id: Any = None,
+            reference_scope: Any = None,
+            disclose_reference: Any = True,
         ) -> dict[str, Any]:
             raise EthicalConstraintViolationError(
                 "blocked matrix", 0.10, 0.96, check="sigma_immutable"
@@ -509,7 +548,51 @@ class TestDetectionRoutes:
             json={"data": [[1.0, 2.0], [3.0, 4.0]]},
         )
         assert response.status_code == 403
-        assert "sigma_immutable" in response.json()["detail"]
+        detail = response.json()["detail"]
+        assert "sigma_immutable" in detail["message"]
+        # The refusal explains itself: which check, at what margin, under
+        # which ruleset. It used to be a one-line string naming the check.
+        from omni_mercury_engine.core.centralized_constants import ETHICAL
+
+        ethics = detail["ethics"]
+        assert ethics["check"] == "sigma_immutable"
+        assert ethics["score"] == pytest.approx(0.10)
+        assert ethics["threshold"] == pytest.approx(0.96)
+        assert ethics["ruleset_version"] == ETHICAL.RULESET_VERSION
+        assert isinstance(ethics["details"], dict)
+
+    def test_ethical_refusal_payload_is_bounded_and_json_safe(
+        self, client: Any, monkeypatch: Any
+    ) -> None:
+        """A refusal's structured details are truncated, never echoed at length."""
+        pytest.importorskip("torch")
+        from omni_mercury_engine.api.routes import detection as det
+        from omni_mercury_engine.cognitive.ethical_bounding import (
+            EthicalConstraintViolationError,
+        )
+
+        def _blocked(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            raise EthicalConstraintViolationError(
+                "blocked",
+                0.2,
+                0.93,
+                check="benevolence",
+                details={
+                    "hazard_domain": "x" * 5000,
+                    "signals": list(range(100)),
+                    "numpy_score": np.float64(0.25),
+                    "nested": {"deep": {"deeper": {"deepest": "y" * 500}}},
+                },
+            )
+
+        monkeypatch.setattr(det, "_run_flagship_detection", _blocked)
+        response = client.post("/api/v1/detect/flagship", json={"data": [[1.0, 2.0], [3.0, 4.0]]})
+        assert response.status_code == 403
+        details = response.json()["detail"]["ethics"]["details"]
+        assert len(details["hazard_domain"]) == 240
+        assert len(details["signals"]) == 8
+        assert details["numpy_score"] == pytest.approx(0.25)
+        assert len(str(details["nested"])) < 800
 
     def test_root_cause_localization(self, client: Any) -> None:
         """Graph-based root-cause attribution is reachable over HTTP."""

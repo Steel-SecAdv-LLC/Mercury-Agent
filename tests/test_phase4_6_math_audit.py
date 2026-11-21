@@ -539,11 +539,18 @@ class TestLyapunovRuntimeEnforcer:
     """Tests for runtime Lyapunov stability enforcement."""
 
     def test_stable_sequence_no_violations(self) -> None:
+        # A trajectory decaying EXACTLY at lambda must record no violations.
+        # The old check tested ``v <= (1 - lambda) * v_prev`` (not the
+        # ``v <= v_prev * exp(-lambda)`` its comment claimed), so this
+        # trajectory only "passed" through float-equality with the OR'd
+        # envelope ``epsilon * exp(-lambda * t)``.  The 0.5 scale breaks that
+        # coincidence: the trajectory now passes on the per-step condition
+        # itself, or not at all.
         from omni_mercury_engine.core.system_coherence import LyapunovRuntimeEnforcer
 
         enforcer = LyapunovRuntimeEnforcer(grace_steps=3)
         for t in range(1, 30):
-            v = np.exp(-0.25 * t)
+            v = 0.5 * np.exp(-0.25 * t)
             enforcer.check(v)
         assert enforcer.is_stable
         assert len(enforcer.violations) == 0
@@ -558,6 +565,35 @@ class TestLyapunovRuntimeEnforcer:
         # Inject instability
         enforcer.check(10.0)  # Sudden spike
         assert not enforcer.is_stable
+
+    def test_rising_trajectory_below_envelope_is_a_violation(self) -> None:
+        # The old check OR'd the per-step condition with the absolute envelope
+        # ``v <= epsilon * exp(-lambda * t)``, so a trajectory rising 3000-fold
+        # from 1e-9 recorded ZERO violations as long as it stayed under the
+        # envelope.  A rise is a rise: every rising step must be recorded.
+        from omni_mercury_engine.core.system_coherence import LyapunovRuntimeEnforcer
+
+        enforcer = LyapunovRuntimeEnforcer(grace_steps=0)
+        v = 1e-9
+        checked = 0
+        for _ in range(20):
+            v *= 1.5
+            enforcer.check(v)
+            checked += 1
+        assert not enforcer.is_stable
+        # Every step after the first (which has no predecessor) rises, and
+        # every one of them must be recorded.
+        assert len(enforcer.violations) == checked - 1
+
+    def test_decay_slower_than_lambda_is_a_violation(self) -> None:
+        # Contraction slower than the configured rate is not stability.
+        from omni_mercury_engine.core.system_coherence import LyapunovRuntimeEnforcer
+
+        enforcer = LyapunovRuntimeEnforcer(grace_steps=0)
+        for t in range(1, 20):
+            enforcer.check(0.5 * np.exp(-0.01 * t))
+        assert not enforcer.is_stable
+        assert len(enforcer.violations) == 18
         assert len(enforcer.violations) >= 1
 
     def test_halt_on_violation_raises(self) -> None:

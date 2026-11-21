@@ -422,3 +422,264 @@ class TestUnknownSignalsAreNoOps:
             {**result, "info_geometry_certificate": {"d": {"price": [9.9]}}, "future_key": [1, 2]}
         )
         assert noisy.to_dict() == responder.decide(result).to_dict()
+
+
+class TestAbsentProbabilityAbstains:
+    """Fail-closed restoration: no usable probability means no grounded verdict.
+
+    ``_as_float`` collapses NaN / inf / malformed values to "absent", and the
+    old ``or 0.0`` fallback then handed the threshold-band stage a fabricated
+    0.0 -- which it grounded as CLEAR with confidence 1.0.  The fixed decider
+    abstains with ``UNAVAILABLE`` (the three-state meaning of "decidable in
+    principle, but not produced this run": the input was not fed) and ``DEFER``.
+    """
+
+    @pytest.mark.parametrize(
+        "result",
+        [
+            {},
+            {"anomaly_prob": float("nan")},
+            {"anomaly_prob": None, "is_anomaly": True},
+            {"anomaly_prob": "not-a-number"},
+            {"anomaly_prob": float("inf")},
+        ],
+        ids=["empty", "nan", "none-with-flag", "unfloatable", "inf"],
+    )
+    def test_missing_or_non_finite_probability_abstains(
+        self, responder: DecisionAbstentionResponder, result: dict[str, Any]
+    ) -> None:
+        rec = responder.decide(result)
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+        assert rec.abstained is True
+        assert rec.decision_label is None
+        assert rec.decision_confidence is None
+        assert any("absent or non-finite" in r for r in rec.reasons)
+        # The provenance keeps the truth: the probability was absent.
+        assert rec.signals["anomaly_prob"] is None
+
+    def test_absent_probability_abstains_even_with_a_conformal_block(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        # A certificate is derived from the calibrated probability upstream;
+        # a result carrying a label set but no probability is malformed, and a
+        # malformed result must not ground (strictly more conservative).
+        rec = responder.decide({"anomaly_prob": None, "conformal": _conformal([0])})
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.abstained is True
+
+    def test_ethical_refusal_still_outranks_absent_probability(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(
+            {"anomaly_prob": None, "gosnn_metadata": {"ethical_gate_passed": False}}
+        )
+        assert rec.state is ThreeState.UNDECIDABLE
+        assert rec.disposition is Disposition.HOLD
+
+    def test_genuine_zero_probability_still_grounds_clear(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        # A real 0.0 is a real probability: well below the threshold band, it
+        # grounds a CLEAR exactly as before (absent and 0.0 are distinguished).
+        rec = responder.decide(_result(anomaly_prob=0.0))
+        assert rec.state is ThreeState.GROUNDED
+        assert rec.decision_label == 0
+        assert rec.disposition is Disposition.CLEAR
+
+
+class TestAbsentProbabilityWithAnEmptyCertificateHolds:
+    """A NaN score and an empty conformal set arrive together, and that holds.
+
+    ``BinaryConformalClassifier.predict([nan])`` returns the empty set
+    (``nan <= q`` is false for both labels), so on an engine with a fitted
+    certificate this is the *normal* shape of a NaN score.  It was
+    ``UNDECIDABLE`` / ``HOLD`` / ``fail_closed`` until the absent-probability
+    stage was placed ahead of the conformal stage, which turned it into a
+    resolvable ``UNAVAILABLE`` / ``DEFER`` / ``request_input`` -- a more
+    permissive answer to a less trustworthy input.
+    """
+
+    @pytest.mark.parametrize(
+        "prob",
+        [None, float("nan"), float("inf"), "not-a-number"],
+        ids=["none", "nan", "inf", "str"],
+    )
+    def test_no_probability_and_an_empty_set_is_undecidable_hold(
+        self, responder: DecisionAbstentionResponder, prob: Any
+    ) -> None:
+        rec = responder.decide({"anomaly_prob": prob, "conformal": _conformal([])})
+        assert rec.state is ThreeState.UNDECIDABLE
+        assert rec.disposition is Disposition.HOLD
+        assert rec.abstained is True
+        assert rec.decision_label is None
+        assert rec.decision_confidence is None
+        assert rec.response.action is ResponseAction.HOLD
+        assert rec.response.fail_closed is True
+        assert any("absent or non-finite" in r and "empty" in r for r in rec.reasons)
+
+    def test_the_real_classifier_answers_a_nan_score_with_the_empty_set(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        """End to end through the certificate: NaN in, HOLD out."""
+        np = pytest.importorskip("numpy")
+        from omni_mercury_engine.core.conformal_prediction import BinaryConformalClassifier
+
+        rng = np.random.default_rng(0)
+        probs = np.concatenate([rng.uniform(0.0, 0.2, 60), rng.uniform(0.8, 1.0, 60)])
+        labels = np.concatenate([np.zeros(60, dtype=int), np.ones(60, dtype=int)])
+        sets = (
+            BinaryConformalClassifier(coverage=0.9)
+            .fit(probs, labels)
+            .predict(np.array([float("nan")]))
+        )
+        assert sets.label_sets()[0] == []
+        rec = responder.decide(
+            {
+                "anomaly_prob": float("nan"),
+                "conformal": {
+                    "prediction_set": sets.label_sets()[0],
+                    "set_size": int(sets.set_size[0]),
+                    "abstain": False,
+                    "coverage": 0.9,
+                },
+            }
+        )
+        assert rec.state is ThreeState.UNDECIDABLE
+        assert rec.response.fail_closed is True
+
+    @pytest.mark.parametrize("prob", [None, float("nan")], ids=["none", "nan"])
+    def test_no_probability_and_no_certificate_stays_a_resolvable_deferral(
+        self, responder: DecisionAbstentionResponder, prob: Any
+    ) -> None:
+        rec = responder.decide({"anomaly_prob": prob})
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+        assert rec.response.fail_closed is False
+
+    @pytest.mark.parametrize("labels", [[0], [1], [0, 1]], ids=["{0}", "{1}", "{0,1}"])
+    def test_no_probability_never_grounds_on_a_non_empty_set(
+        self, responder: DecisionAbstentionResponder, labels: list[int]
+    ) -> None:
+        rec = responder.decide({"anomaly_prob": None, "conformal": _conformal(labels)})
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+        assert rec.decision_label is None
+
+    def test_a_policy_that_defers_atypical_points_defers_this_one_too(self) -> None:
+        relaxed = DecisionAbstentionResponder(policy=DecisionPolicy(fail_closed_on_atypical=False))
+        rec = relaxed.decide({"anomaly_prob": None, "conformal": _conformal([])})
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+
+    def test_a_genuine_zero_with_an_empty_set_is_unchanged(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(_result(anomaly_prob=0.0, conformal=_conformal([])))
+        assert rec.state is ThreeState.UNDECIDABLE
+        assert rec.anomaly_prob == 0.0
+
+    def test_the_ethical_refusal_outranks_both_abstentions(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        refused = {"gosnn_metadata": {"ethical_gate_passed": False}}
+        for extra in ({}, {"conformal": _conformal([])}, {"conformal": _conformal([1])}):
+            rec = responder.decide({"anomaly_prob": float("nan"), **refused, **extra})
+            assert rec.state is ThreeState.UNDECIDABLE
+            assert rec.disposition is Disposition.HOLD
+            assert any("ethical gate refused" in r for r in rec.reasons)
+
+
+class TestNoFabricatedScoreLeavesTheRecord:
+    """An abstention with no probability carries ``None``, not a 0.0 placeholder."""
+
+    @pytest.mark.parametrize(
+        "result",
+        [{}, {"anomaly_prob": float("nan")}, {"anomaly_prob": None, "conformal": _conformal([])}],
+        ids=["empty", "nan", "nan-with-empty-set"],
+    )
+    def test_record_explanation_and_wire_form_carry_no_made_up_number(
+        self, responder: DecisionAbstentionResponder, result: dict[str, Any]
+    ) -> None:
+        rec = responder.decide(result)
+        assert rec.anomaly_prob is None
+        text = rec.explain()
+        assert "p=0.000" not in text and "p=nan" not in text
+        assert "no anomaly score was produced" in text
+        wire = json.dumps(rec.to_dict(), allow_nan=False)  # null, never NaN
+        assert json.loads(wire)["anomaly_prob"] is None
+        restored = type(rec).from_dict(json.loads(wire))
+        assert restored.anomaly_prob is None
+        assert restored.to_dict() == rec.to_dict()
+
+    def test_a_real_probability_is_still_reported(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(_result(anomaly_prob=0.0))
+        assert rec.anomaly_prob == 0.0
+        assert "p=0.000" in rec.explain()
+
+
+class TestPartialEvidenceIsNotGrounded:
+    """A trained detector that did not report demotes a grounded verdict."""
+
+    def _skipped(self, trained: bool = True) -> dict[str, Any]:
+        return {"statistical": {"reason": "timeout", "detail": "overran", "trained_group": trained}}
+
+    @pytest.mark.parametrize("labels", [[1], [0]], ids=["act", "clear"])
+    def test_a_certified_singleton_defers_when_a_trained_detector_was_skipped(
+        self, responder: DecisionAbstentionResponder, labels: list[int]
+    ) -> None:
+        grounded = responder.decide(_result(anomaly_prob=0.9, conformal=_conformal(labels)))
+        assert grounded.state is ThreeState.GROUNDED
+        rec = responder.decide(
+            _result(
+                anomaly_prob=0.9, conformal=_conformal(labels), skipped_detectors=self._skipped()
+            )
+        )
+        assert rec.state is ThreeState.UNAVAILABLE
+        assert rec.disposition is Disposition.DEFER
+        assert rec.decision_label is None
+        assert any("partial evidence" in r and "statistical" in r for r in rec.reasons)
+        assert rec.signals["skipped_detectors"] == ["statistical"]
+
+    def test_the_uncalibrated_fallback_defers_too(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(_result(anomaly_prob=0.01, skipped_detectors=self._skipped()))
+        assert rec.state is ThreeState.UNAVAILABLE
+
+    def test_a_skipped_source_the_network_was_not_trained_on_changes_nothing(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(
+            _result(
+                anomaly_prob=0.9,
+                conformal=_conformal([1]),
+                skipped_detectors=self._skipped(trained=False),
+            )
+        )
+        assert rec.state is ThreeState.GROUNDED
+
+    def test_an_unclear_skip_record_is_read_as_trained(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        records: tuple[Any, ...] = (
+            {"statistical": "timeout"},
+            ["statistical"],
+            {"statistical": {}},
+        )
+        for unclear in records:
+            rec = responder.decide(
+                _result(anomaly_prob=0.9, conformal=_conformal([1]), skipped_detectors=unclear)
+            )
+            assert rec.state is ThreeState.UNAVAILABLE, unclear
+
+    def test_fail_closed_states_are_not_softened(
+        self, responder: DecisionAbstentionResponder
+    ) -> None:
+        rec = responder.decide(
+            _result(anomaly_prob=0.9, conformal=_conformal([]), skipped_detectors=self._skipped())
+        )
+        assert rec.state is ThreeState.UNDECIDABLE
+        assert rec.disposition is Disposition.HOLD

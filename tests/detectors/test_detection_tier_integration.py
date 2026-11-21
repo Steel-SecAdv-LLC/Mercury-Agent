@@ -259,10 +259,14 @@ class TestStreamingAdapter:
         for _ in range(20):  # buffer past min_samples (16)
             scorer({"value": float(rng.normal())})
 
-        # NaN is not finite and "tag" is non-numeric -> nothing to score.
+        # NaN is not finite and "tag" is non-numeric -> nothing to score. That
+        # is an abstention with a reason, not an ``is_anomaly: False`` all-clear
+        # for a reading that was never taken.
         result = scorer({"value": float("nan"), "tag": "note"})
         assert result["warmup"] is False
-        assert result["is_anomaly"] is False
+        assert result["is_anomaly"] is None
+        assert result["abstain"] is True
+        assert result["reason"] == "no_finite_numeric_value"
         assert result["anomaly_score"] == 0.0
 
     def test_value_less_message_during_warmup_stays_warmup(self) -> None:

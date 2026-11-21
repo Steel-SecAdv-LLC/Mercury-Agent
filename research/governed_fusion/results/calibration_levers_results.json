@@ -1,80 +1,170 @@
 {
-  "suite": "live headline (real) 23 events",
+  "suite": "live headline (real), 34 events used",
   "default_config": "lambda_ece=1, lambda_nb=0, warm_start=identity",
   "note_d_auroc": "paired (config - identity) per-event AUROC; ~0 confirms the monotone tie",
   "configs": {
     "default(l_ece=1,l_nb=0,identity)": {
-      "brier": 0.08928381778048189,
-      "ece": 0.03874094173992118,
-      "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "brier": 0.10675259358364565,
+      "ece": 0.07532830806754522,
+      "d_auroc_vs_identity": -0.0019958576776758566,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.0
+      },
+      "d_ece_vs_default": {
+        "mean": 0.0,
+        "ci95_low": 0.0,
+        "ci95_high": 0.0
+      }
     },
     "l_ece=0.0": {
-      "brier": 0.08533007177636288,
-      "ece": 0.0468772179411889,
-      "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "brier": 0.11254477246072601,
+      "ece": 0.08410730661894851,
+      "d_auroc_vs_identity": -0.007927688324569561,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.005792178877080368,
+        "ci95_low": -0.0023871967437052396,
+        "ci95_high": 0.01607055668973925
+      },
+      "d_ece_vs_default": {
+        "mean": 0.008778998551403294,
+        "ci95_low": -0.0031442238460563936,
+        "ci95_high": 0.022152085943328136
+      }
     },
     "l_ece=0.5": {
-      "brier": 0.08916254034647829,
-      "ece": 0.047710496926300576,
-      "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "brier": 0.10755310012008225,
+      "ece": 0.07357337627662218,
+      "d_auroc_vs_identity": -0.0018744513062694853,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.0008005065364366036,
+        "ci95_low": -0.0019047053918719466,
+        "ci95_high": 0.004618743651824226
+      },
+      "d_ece_vs_default": {
+        "mean": -0.0017549317909230494,
+        "ci95_low": -0.012699703748864342,
+        "ci95_high": 0.007418874828120623
+      }
     },
     "l_ece=2.0": {
-      "brier": 0.09087799304068882,
-      "ece": 0.04410422051658392,
-      "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "brier": 0.10677024722762954,
+      "ece": 0.0659665119166261,
+      "d_auroc_vs_identity": -0.0009063852813852788,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 1.765364398390443e-05,
+        "ci95_low": -0.002949933348652801,
+        "ci95_high": 0.0029387999937822264
+      },
+      "d_ece_vs_default": {
+        "mean": -0.009361796150919118,
+        "ci95_low": -0.021546268716247256,
+        "ci95_high": -0.00017277041372045534
+      }
     },
     "l_ece=4.0": {
-      "brier": 0.090022791289629,
-      "ece": 0.040803249835779196,
+      "brier": 0.10766612650807236,
+      "ece": 0.061878159904845846,
       "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.0009135329244267153,
+        "ci95_low": -0.0028773842108149234,
+        "ci95_high": 0.004549598120028358
+      },
+      "d_ece_vs_default": {
+        "mean": -0.01345014816269938,
+        "ci95_low": -0.03153599896605936,
+        "ci95_high": 0.0008897383053131932
+      }
     },
     "l_nb=0.5": {
-      "brier": 0.08787506916986541,
-      "ece": 0.043254568846642014,
-      "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "brier": 0.10713060615827444,
+      "ece": 0.0702097033240019,
+      "d_auroc_vs_identity": -0.00087891906073724,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.0003780125746287743,
+        "ci95_low": -0.0030036337893705927,
+        "ci95_high": 0.004653705759615468
+      },
+      "d_ece_vs_default": {
+        "mean": -0.005118604743543327,
+        "ci95_low": -0.0192518539113134,
+        "ci95_high": 0.006492024179625563
+      }
     },
     "l_nb=1.0": {
-      "brier": 0.08845093681826402,
-      "ece": 0.044089527421584604,
-      "d_auroc_vs_identity": 0.0,
-      "n": 20
+      "brier": 0.10640069285113046,
+      "ece": 0.0660606671576047,
+      "d_auroc_vs_identity": -0.0021114230500992853,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": -0.00035190073251520235,
+        "ci95_low": -0.004529683229082277,
+        "ci95_high": 0.0039011080717597404
+      },
+      "d_ece_vs_default": {
+        "mean": -0.009267640909940533,
+        "ci95_low": -0.024682891042340022,
+        "ci95_high": 0.0028970947956852818
+      }
     },
     "warm=mle": {
-      "brier": 0.1645119825910871,
-      "ece": 0.12971445132362017,
-      "d_auroc_vs_identity": -0.023499177551365984,
-      "n": 20
+      "brier": 0.12349274101888759,
+      "ece": 0.08442064826230045,
+      "d_auroc_vs_identity": -0.011488579035440632,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.01674014743524193,
+        "ci95_low": -0.0006740950170074523,
+        "ci95_high": 0.045043513747010606
+      },
+      "d_ece_vs_default": {
+        "mean": 0.00909234019475522,
+        "ci95_low": -0.02131688892688688,
+        "ci95_high": 0.05292865564110438
+      }
     },
     "warm=mle,l_ece=2.0": {
-      "brier": 0.1651970356990835,
-      "ece": 0.12853429361847382,
-      "d_auroc_vs_identity": -0.021402099350858617,
-      "n": 20
+      "brier": 0.12355920038659282,
+      "ece": 0.0839247003286767,
+      "d_auroc_vs_identity": -0.006794753124509455,
+      "n": 34,
+      "d_brier_vs_default": {
+        "mean": 0.016806606802947165,
+        "ci95_low": -0.00024871897160423293,
+        "ci95_high": 0.044375113374081454
+      },
+      "d_ece_vs_default": {
+        "mean": 0.008596392261131475,
+        "ci95_low": -0.022164117629438644,
+        "ci95_high": 0.05376255489562686
+      }
     }
   },
   "accept_gate_tol_sweep": {
     "ece_tol=0.001": {
-      "accept_rate": 1.0,
-      "holdout_brier": 0.08928381813346423,
-      "n": 20
+      "accept_rate": 0.9411764705882353,
+      "holdout_brier": 0.10743673002007428,
+      "n": 34
     },
     "ece_tol=0.01": {
-      "accept_rate": 1.0,
-      "holdout_brier": 0.08928381813346423,
-      "n": 20
+      "accept_rate": 0.9705882352941176,
+      "holdout_brier": 0.107129464533208,
+      "n": 34
     },
     "ece_tol=0.05": {
-      "accept_rate": 1.0,
-      "holdout_brier": 0.08928381813346423,
-      "n": 20
+      "accept_rate": 0.9705882352941176,
+      "holdout_brier": 0.107129464533208,
+      "n": 34
     }
   },
   "land_candidates": [],
-  "verdict": "NEGATIVE: no lever beats the shipped default on held-out Brier AND ECE"
+  "verdict": "NEGATIVE: no lever beats the shipped default on held-out Brier AND ECE (95% paired bootstrap interval over events)"
 }

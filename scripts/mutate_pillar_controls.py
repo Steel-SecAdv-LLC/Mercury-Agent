@@ -92,6 +92,38 @@ MUTATIONS: tuple[Mutation, ...] = (
         selection="tests/pillars/test_non_maleficence.py",
     ),
     Mutation(
+        name="harm gate reads only the first passage of what the caller said",
+        pillar="non-maleficence (nothing is out of the gate's sight)",
+        patch="""
+        import omni_mercury_engine.cognitive.decision_gate as g
+
+        g.DecisionSubject._reading = lambda self: g._Reading(
+            first=self.describe(), lead="", body=None
+        )
+        """,
+        selection="tests/pillars/test_non_maleficence.py",
+    ),
+    Mutation(
+        name="a short request is not put to the rest of the payload",
+        pillar="non-maleficence (what is asked is asked of all of it)",
+        patch="""
+        import omni_mercury_engine.cognitive.decision_gate as g
+
+        g._MAX_VALUE_CHARS = -1
+        """,
+        selection="tests/pillars/test_non_maleficence.py",
+    ),
+    Mutation(
+        name="a hazard term matches as letters inside other words",
+        pillar="non-maleficence (an ordinary request is not refused)",
+        patch="""
+        import omni_mercury_engine.cognitive.harm_normalization as n
+
+        n._occurs = lambda haystack, form: form in haystack
+        """,
+        selection="tests/ethical/test_weapons_gate_word_alignment.py",
+    ),
+    Mutation(
         name="decision boundary swallows its own refusal",
         pillar="non-maleficence (fail-closed)",
         patch="""
@@ -158,7 +190,25 @@ MUTATIONS: tuple[Mutation, ...] = (
         selection="tests/pillars/test_control.py",
     ),
     Mutation(
-        name="governor tripwire becomes reversible",
+        name="governor tripwire is undone by resume",
+        pillar="corrigibility (the halt sticks)",
+        patch="""
+        import omni_mercury_engine.agentic.subagents.governor as gv
+
+        _real_resume = gv.AutonomyGovernor.resume
+
+        def _resume_clears_the_trip(self):
+            _real_resume(self)
+            with self._lock:
+                self._tripped = False
+                self._trip_reasons.clear()
+
+        gv.AutonomyGovernor.resume = _resume_clears_the_trip
+        """,
+        selection="tests/pillars/test_corrigibility.py",
+    ),
+    Mutation(
+        name="governor tripwire never engages",
         pillar="corrigibility",
         patch="""
         import omni_mercury_engine.agentic.subagents.governor as gv

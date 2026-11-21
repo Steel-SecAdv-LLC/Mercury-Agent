@@ -1,0 +1,142 @@
+# Unit tests for rules.yml, run by `promtool test rules`.
+#
+# Each test feeds series to the real rule file and states which alerts fire.
+# A rule that parses but cannot fire (a quantile above the histogram's top
+# bucket, a ratio over a series that does not exist) passes `check rules`
+# and fails here.
+rule_files:
+  - rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # One low-traffic route fails every request while the fleet stays at 98%.
+  # The fleet-wide ratio cannot see it; the per-route alert must.
+  - interval: 1m
+    input_series:
+      - series: 'omni_detection_requests_total{app="mercury-agent", detector_type="route:detect"}'
+        values: '0+98x40'
+      - series: 'omni_detection_success_total{app="mercury-agent", detector_type="route:detect"}'
+        values: '0+98x40'
+      - series: 'omni_detection_requests_total{app="mercury-agent", detector_type="route:rca"}'
+        values: '0+2x40'
+      - series: 'omni_detection_success_total{app="mercury-agent", detector_type="route:rca"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: OmniMercuryDetectorFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: ml
+              detector_type: 'route:rca'
+            exp_annotations:
+              summary: 'Detector route:rca is failing'
+              description: 'route:rca succeeded on 0% of its detections over 10 minutes (threshold: 80%)'
+              runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md
+      - eval_time: 30m
+        alertname: OmniMercuryDetectionSuccessRateDrop
+        exp_alerts: []
+
+  # A route with no success series at all (it has never succeeded) still fires.
+  - interval: 1m
+    input_series:
+      - series: 'omni_detection_requests_total{app="mercury-agent", detector_type="route:tier"}'
+        values: '0+3x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: OmniMercuryDetectorFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: ml
+              detector_type: 'route:tier'
+            exp_annotations:
+              summary: 'Detector route:tier is failing'
+              description: 'route:tier succeeded on 0% of its detections over 10 minutes (threshold: 80%)'
+              runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md
+
+  # Fewer than five requests in ten minutes is not enough to call a route failing,
+  # and a healthy route never fires.
+  - interval: 1m
+    input_series:
+      - series: 'omni_detection_requests_total{app="mercury-agent", detector_type="route:quiet"}'
+        values: '0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'omni_detection_success_total{app="mercury-agent", detector_type="route:quiet"}'
+        values: '0x40'
+      - series: 'omni_detection_requests_total{app="mercury-agent", detector_type="route:ok"}'
+        values: '0+10x40'
+      - series: 'omni_detection_success_total{app="mercury-agent", detector_type="route:ok"}'
+        values: '0+9x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: OmniMercuryDetectorFailing
+        exp_alerts: []
+
+  # Detections taking between 15 and 30 seconds: p95 is above the 10 s
+  # threshold. Before the 15/30/60 s buckets existed the quantile was capped
+  # at the top finite bucket (10 s) and this alert could not fire.
+  - interval: 1m
+    input_series:
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="5"}'
+        values: '0x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="10"}'
+        values: '0x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="15"}'
+        values: '0x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="30"}'
+        values: '0+6x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="60"}'
+        values: '0+6x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="+Inf"}'
+        values: '0+6x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: OmniMercurySlowDetection
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: ml
+              detector_type: 'route:detect'
+            exp_annotations:
+              summary: Slow detection processing
+              description: 'P95 detection time is 29.25s (threshold: 10s)'
+              runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/slow-detection.md
+
+  # Fast detections do not fire it.
+  - interval: 1m
+    input_series:
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="5"}'
+        values: '0+6x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="10"}'
+        values: '0+6x40'
+      - series: 'omni_detection_duration_seconds_bucket{app="mercury-agent", detector_type="route:detect", le="+Inf"}'
+        values: '0+6x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: OmniMercurySlowDetection
+        exp_alerts: []
+
+  # A router that failed to import is reported; one that loaded is not.
+  - interval: 1m
+    input_series:
+      - series: 'omni_mercury_api_router_state{router="accounts", state="unavailable"}'
+        values: '1x10'
+      - series: 'omni_mercury_api_router_state{router="accounts", state="available"}'
+        values: '0x10'
+      - series: 'omni_mercury_api_router_state{router="batch", state="unavailable"}'
+        values: '0x10'
+      - series: 'omni_mercury_api_router_state{router="batch", state="available"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OmniMercuryApiRouterUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              team: platform
+              router: accounts
+            exp_annotations:
+              summary: Mercury-Agent API is running without one of its routers
+              description: Router accounts failed to import at startup; its routes answer 404 while /health reports healthy
+              runbook_url: https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/api-router-unavailable.md

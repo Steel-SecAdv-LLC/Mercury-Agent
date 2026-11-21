@@ -5,6 +5,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Dashboard — Mercury Agent</title>
   <link rel="stylesheet" href="/static/mercury.css">
   <script src="/static/common.js" defer></script>
@@ -12,6 +13,7 @@
   <script src="/static/dashboard.js" defer></script>
 </head>
 <body data-page="dashboard">
+  <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <a class="brand" href="/">Mercury Agent</a>
     <nav aria-label="Account">
@@ -23,7 +25,7 @@
       </span>
     </nav>
   </header>
-  <main>
+  <main id="main" tabindex="-1">
     <h1>Your account</h1>
 
     <div class="grid-2">
@@ -43,12 +45,14 @@
         <h2 id="usage-heading">Usage</h2>
         <p class="hint" id="usage-window"></p>
         <p>Requests</p>
-        <div id="usage-requests-meter" class="meter" role="img" aria-label="Request quota usage">
+        <div id="usage-requests-meter" class="meter" role="progressbar" aria-label="Request quota used"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <span></span>
         </div>
         <p id="usage-requests-text" class="hint"></p>
         <p>Compute</p>
-        <div id="usage-compute-meter" class="meter" role="img" aria-label="Compute quota usage">
+        <div id="usage-compute-meter" class="meter" role="progressbar" aria-label="Compute quota used"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <span></span>
         </div>
         <p id="usage-compute-text" class="hint"></p>
@@ -56,16 +60,123 @@
       </section>
     </div>
 
+    <section class="card" aria-labelledby="watch-heading">
+      <h2 id="watch-heading">Watch alerts</h2>
+      <p class="hint">Mercury's watch reads public hazard sources: earthquakes, river floods,
+        tsunami buoys, volcano alert levels and the National Weather Service's own warnings.
+        Name a place and it emails <strong id="watch-address">your address</strong> when it
+        finds something that concerns that place, with what the responsible agency says to do.
+        <a href="/watch">See what the watch is reading now</a>.</p>
+      <p id="watch-capability" class="status" role="status" aria-live="polite"></p>
+      <ul id="watch-list" class="place-list hidden" aria-label="Places you are told about"
+          tabindex="-1"></ul>
+      <p id="watch-empty" class="hint hidden">You are not being told about any place yet.</p>
+      <form id="watch-form">
+        <div>
+          <label for="watch-place">Name for the place</label>
+          <input id="watch-place" name="watch-place" type="text" maxlength="80"
+                 autocomplete="off" aria-describedby="watch-place-hint" required>
+          <p id="watch-place-hint" class="hint">Home, work, a relative's town. To change a place
+            you already have, use its Change button or name it again.
+            <span id="watch-limit"></span></p>
+        </div>
+        <div class="field-row">
+          <div>
+            <label for="watch-latitude">Latitude</label>
+            <input id="watch-latitude" name="watch-latitude" type="number" inputmode="decimal"
+                   min="-90" max="90" step="any" aria-describedby="watch-latitude-hint" required>
+            <p id="watch-latitude-hint" class="hint">Degrees; south is negative.</p>
+          </div>
+          <div>
+            <label for="watch-longitude">Longitude</label>
+            <input id="watch-longitude" name="watch-longitude" type="number" inputmode="decimal"
+                   min="-180" max="180" step="any" aria-describedby="watch-longitude-hint" required>
+            <p id="watch-longitude-hint" class="hint">Degrees; west is negative.</p>
+          </div>
+          <div>
+            <label for="watch-radius">Within (km)</label>
+            <input id="watch-radius" name="watch-radius" type="number" inputmode="numeric"
+                   min="1" max="2000" step="1" value="200" required>
+          </div>
+          <div>
+            <label for="watch-severity">Tell me about</label>
+            <select id="watch-severity" name="watch-severity">
+              <option value="notable" selected>Anything notable</option>
+              <option value="significant">Significant and severe only</option>
+              <option value="severe">Severe only</option>
+            </select>
+          </div>
+        </div>
+        <figure class="locator">
+          <svg id="watch-locator" viewBox="0 0 360 180" aria-hidden="true" focusable="false"></svg>
+          <figcaption id="watch-readback">Enter a latitude and longitude to see where that is.</figcaption>
+        </figure>
+        <button type="submit">Tell me about this place</button>
+      </form>
+      <p id="watch-status" class="status" role="status" aria-live="polite"></p>
+
+      <h3 id="watch-phone-heading" class="subhead">Text messages</h3>
+      <p class="hint">A text reaches you when email will not: at night, away from a desk. The
+        number is texted only after you type back a code sent to it, and only for findings at
+        or above the severity you choose. Reply STOP to any text to end them.</p>
+      <p id="watch-phone-capability" class="status" role="status" aria-live="polite"></p>
+      <div id="watch-phone-current" class="place-list hidden">
+        <div class="place-row">
+          <div>
+            <span id="watch-phone-number" class="place-name"></span>
+            <span id="watch-phone-detail" class="place-detail"></span>
+          </div>
+          <button id="watch-phone-remove" type="button" class="danger">Remove</button>
+        </div>
+      </div>
+      <form id="watch-phone-form" aria-labelledby="watch-phone-heading">
+        <div class="field-row">
+          <div>
+            <label for="watch-phone-input">Mobile number</label>
+            <input id="watch-phone-input" name="watch-phone-input" type="tel" inputmode="tel"
+                   autocomplete="tel" pattern="\+[1-9][0-9]{6,14}" maxlength="16"
+                   aria-describedby="watch-phone-input-hint" required>
+            <p id="watch-phone-input-hint" class="hint">With its country code and no spaces,
+              like +14155550123.</p>
+          </div>
+          <div>
+            <label for="watch-phone-severity">Text me about</label>
+            <select id="watch-phone-severity" name="watch-phone-severity">
+              <option value="notable">Anything notable</option>
+              <option value="significant" selected>Significant and severe only</option>
+              <option value="severe">Severe only</option>
+            </select>
+          </div>
+        </div>
+        <button type="submit">Text me a code</button>
+      </form>
+      <form id="watch-phone-code-form" class="hidden" aria-label="Verify your number">
+        <div>
+          <label for="watch-phone-code">The 6-digit code we texted you</label>
+          <input id="watch-phone-code" name="watch-phone-code" type="text" inputmode="numeric"
+                 autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+        </div>
+        <button type="submit">Verify number</button>
+      </form>
+      <p id="watch-phone-status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
     <section class="card" aria-labelledby="api-keys-heading">
       <h2 id="api-keys-heading">API keys</h2>
       <p class="hint">Send a key as the <code>X-API-Key</code> header. The raw key is shown
         exactly once at creation and can never be retrieved again.</p>
-      <table>
-        <thead>
-          <tr><th>Name</th><th>Key id</th><th>Permissions</th><th>State</th><th>Created</th><th></th></tr>
-        </thead>
-        <tbody id="api-keys-body"></tbody>
-      </table>
+      <div class="table-wrap" role="region" aria-label="API keys table" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Name</th><th scope="col">Key id</th><th scope="col">Permissions</th>
+              <th scope="col">State</th><th scope="col">Created</th>
+              <th scope="col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="api-keys-body"></tbody>
+        </table>
+      </div>
       <p id="api-keys-empty" class="hint hidden">No API keys yet.</p>
       <form id="api-key-form">
         <div>
@@ -168,7 +279,8 @@
 
     <section class="card" aria-labelledby="delete-heading">
       <h2 id="delete-heading">Delete account</h2>
-      <p class="hint">Deletion is permanent: your account, sessions, and API keys are removed.</p>
+      <p class="hint">Deletion is permanent: your account, sessions, API keys and watch alerts
+        are removed.</p>
       <form id="delete-form">
         <div>
           <label for="delete-confirm-email">Type your account email to confirm</label>

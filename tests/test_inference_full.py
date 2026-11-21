@@ -109,6 +109,41 @@ def test_fusion_inference_return_attention() -> None:
 
     result = engine.predict(features, return_attention=True)
     assert "anomaly_probs" in result
+    assert "detector_importance" in result
+    assert abs(sum(result["detector_importance"].values()) - 1.0) < 1e-5
+
+
+def test_fusion_inference_attention_runs_a_single_forward() -> None:
+    """detector_importance is derived from the one forward pass's attention.
+
+    Previously predict(return_attention=True) ran the model a second time just
+    to fetch get_detector_importance(); the importance now comes from the same
+    call's attention weights.
+    """
+    engine = FusionInference()
+    calls = {"n": 0}
+    original_forward = engine.model.forward
+
+    def counting_forward(
+        detector_features: dict[str, torch.Tensor],
+        detector_scores: dict[str, torch.Tensor] | None = None,
+        return_attention: bool = False,
+    ) -> dict[str, torch.Tensor]:
+        calls["n"] += 1
+        return original_forward(detector_features, detector_scores, return_attention)
+
+    engine.model.forward = counting_forward  # type: ignore[method-assign]
+    try:
+        features = {
+            "statistical": torch.randn(2, 10),
+            "temporal": torch.randn(2, 32),
+        }
+        result = engine.predict(features, return_attention=True)
+    finally:
+        engine.model.forward = original_forward  # type: ignore[method-assign]
+
+    assert calls["n"] == 1
+    assert "detector_importance" in result
 
 
 def test_fusion_inference_multiple_features() -> None:

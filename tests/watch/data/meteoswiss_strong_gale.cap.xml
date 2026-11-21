@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.756.0.CH.261117065158c984b8de9d00cda692d2</identifier>
+  <sender>meteoalarm.cap@meteoswiss.ch</sender>
+  <sent>2026-11-17T06:51:55+01:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <scope>Public</scope>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>Strong gale</event>
+    <responseType>None</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>NinjoWarnTypeId</valueName>
+      <value>500</value>
+    </eventCode>
+    <effective>2026-11-17T05:51:00+00:00</effective>
+    <onset>2026-11-17T07:00:00+00:00</onset>
+    <expires>2026-11-18T08:00:00+00:00</expires>
+    <senderName>MeteoSwiss</senderName>
+    <headline>Strong gale</headline>
+    <description>- Possible impacts: Breaking off of branches, toppling of individual trees. Blowing over of lightly secured, large objects such as tents and scaffolding.
+- Recommendations for action: Avoid forests, tree-lined avenues and areas with a lot of trees. Before a storm: Secure any freestanding objects outdoors, retract any awnings. Watch out for falling objects such as roof tiles, branches or power lines.
+- Highest wind gusts in exposed locations: in the plains 70 - 100 km/h, above 600 m  90-120 km/h, above 1000 m  100-130 km/h
+- Main wind direction: west
+- Peak phase of the event: Tue 08 - Tue 12, Tue 21 - Wed 03
+- Intensifying conditions: -</description>
+    <instruction>Avoid forests, tree-lined avenues and areas with a lot of trees. Before a storm: Secure any freestanding objects outdoors, retract any awnings. Watch out for falling objects such as roof tiles, branches or power lines.</instruction>
+    <web>http://www.meteoswiss.admin.ch</web>
+    <contact>meteoalarm.cap@meteoswiss.ch</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Thalwil-Wetzikon</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>3000.0</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>de</language>
+    <category>Met</category>
+    <event>Starker Sturm</event>
+    <responseType>None</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>NinjoWarnTypeId</valueName>
+      <value>500</value>
+    </eventCode>
+    <effective>2026-11-17T05:51:00+00:00</effective>
+    <onset>2026-11-17T07:00:00+00:00</onset>
+    <expires>2026-11-18T08:00:00+00:00</expires>
+    <senderName>MeteoSwiss</senderName>
+    <headline>Starker Sturm</headline>
+    <description>- Mögliche Auswirkungen: Abbrechen von Ästen, Umstürzen einzelner Bäume. Umstürzen von leicht befestigten, grossflächigen Gegenständen wie Zelten und Baugerüsten.
+- Verhaltensempfehlungen: Wälder, Alleen und baumreiche Gebiete meiden. Vor dem Sturm: Lose Gegenstände im Freien befestigen, Sonnenstoren hochziehen. Auf herabfallende Gegenstände wie Dachziegel, Äste oder Stromleitungen achten.
+- Höchste Windspitzen in exponierten Lagen: in den Niederungen 70 - 100 km/h, oberhalb von 600 m  90-120 km/h, oberhalb von 1000 m  100-130 km/h
+- Hauptwindrichtung: West
+- Stärkste Phase des Ereignisses: Di. 08 Uhr - Di. 12 Uhr, Di. 21 Uhr - Mi. 03 Uhr
+- Verstärkende Faktoren: -</description>
+    <instruction>Wälder, Alleen und baumreiche Gebiete meiden. Vor dem Sturm: Lose Gegenstände im Freien befestigen, Sonnenstoren hochziehen. Auf herabfallende Gegenstände wie Dachziegel, Äste oder Stromleitungen achten.</instruction>
+    <web>http://www.meteoswiss.admin.ch</web>
+    <contact>meteoalarm.cap@meteoswiss.ch</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Thalwil-Wetzikon</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>3000.0</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>fr</language>
+    <category>Met</category>
+    <event>Vents tempétueux</event>
+    <responseType>None</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>NinjoWarnTypeId</valueName>
+      <value>500</value>
+    </eventCode>
+    <effective>2026-11-17T05:51:00+00:00</effective>
+    <onset>2026-11-17T07:00:00+00:00</onset>
+    <expires>2026-11-18T08:00:00+00:00</expires>
+    <senderName>MeteoSwiss</senderName>
+    <headline>Vents tempétueux</headline>
+    <description>- Conséquences possibles : Chutes de branches, chute d'arbres isolés. Renversement d'objets de grande taille mal ou légèrement fixés, tels que des tentes et des échafaudages de chantier.
+- Recommandations sur le comportement à adopter : Éviter les forêts, les allées et les zones très arborées. Avant la tempête : fixer les objets extérieurs, relever les stores. Faire attention aux objets qui tombent, comme les tuiles, les branches ou les lignes électriques.
+- Rafales maximales aux endroits exposés : en plaine 70 - 100 km/h, au-dessus de 600 m  90-120 km/h, au-dessus de 1000 m  100-130 km/h
+- Orientation principale du vent : ouest
+- Période d'intensité maximale : mar. 08 h - mar. 12 h, mar. 21 h - mer. 03 h
+- Facteurs aggravants : -</description>
+    <instruction>Éviter les forêts, les allées et les zones très arborées. Avant la tempête : fixer les objets extérieurs, relever les stores. Faire attention aux objets qui tombent, comme les tuiles, les branches ou les lignes électriques.</instruction>
+    <web>http://www.meteoswiss.admin.ch</web>
+    <contact>meteoalarm.cap@meteoswiss.ch</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Thalwil-Wetzikon</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>3000.0</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>it</language>
+    <category>Met</category>
+    <event>Venti tempestosi</event>
+    <responseType>None</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>NinjoWarnTypeId</valueName>
+      <value>500</value>
+    </eventCode>
+    <effective>2026-11-17T05:51:00+00:00</effective>
+    <onset>2026-11-17T07:00:00+00:00</onset>
+    <expires>2026-11-18T08:00:00+00:00</expires>
+    <senderName>MeteoSwiss</senderName>
+    <headline>Venti tempestosi</headline>
+    <description>- Possibili conseguenze: Rottura di rami, caduta di singoli alberi. Oggetti di grandi dimensioni (p. es. tende o impalcature) non ben fissati possono essere portati via dal vento.
+- Raccomandazioni di comportamento: Evitare boschi, alberi e viali alberati. Prima della tempesta: fissare gli oggetti mobili che si trovano all’aperto e riavvolgere le tende da sole. Prestare attenzione a possibili cadute di oggetti (p. es. tegole, rami, linee elettriche ecc.).
+- Raffiche massime in luoghi esposti: in pianura 70 - 100 km/h, sopra 600 m  90-120 km/h, sopra 1000 m  100-130 km/h
+- Direzione del vento dominante: ovest
+- Fase più intensa dell'evento: mar ore 08 - mar ore 12, mar ore 21 - mer ore 03
+- Fattori aggravanti: -</description>
+    <instruction>Evitare boschi, alberi e viali alberati. Prima della tempesta: fissare gli oggetti mobili che si trovano all’aperto e riavvolgere le tende da sole. Prestare attenzione a possibili cadute di oggetti (p. es. tegole, rami, linee elettriche ecc.).</instruction>
+    <web>http://www.meteoswiss.admin.ch</web>
+    <contact>meteoalarm.cap@meteoswiss.ch</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Thalwil-Wetzikon</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>3000.0</ceiling>
+    </area>
+  </info>
+  <info>
+    <language>rm</language>
+    <category>Met</category>
+    <event>Stemprà ferm</event>
+    <responseType>None</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>NinjoWarnTypeId</valueName>
+      <value>500</value>
+    </eventCode>
+    <effective>2026-11-17T05:51:00+00:00</effective>
+    <onset>2026-11-17T07:00:00+00:00</onset>
+    <expires>2026-11-18T08:00:00+00:00</expires>
+    <senderName>MeteoSwiss</senderName>
+    <headline>Stemprà ferm</headline>
+    <description>- Consequenzas pussaivlas: Roma rumpa giu, singuls bostgs cupitgan. Objects da gronda surfatscha ch'èn francads mo levamain, sco tendas e puntanadas, cupitgan.
+- Recumandaziuns da cumportament: Evitar guauds, bostgs ed aleas. Avant la tempesta: francar objects singuls en il liber u als metter en in lieu protegi. Far attenziun d'objects che crodan giu (quadrels da tetgs, roms, conducts electrics e.u.v.).
+- Vents burascus maximals a lieus exponids: in regiuns bassas 70 - 100 km/h, sur 600 m  90-120 km/h, sur 1000 m  100-130 km/h
+- Direcziun principala dal vent: vest
+- Fasa la pli ferma da l'eveniment: ma 08 - ma 12, ma 21 - me 03
+- Facturs rinforzants: -</description>
+    <instruction>Evitar guauds, bostgs ed aleas. Avant la tempesta: francar objects singuls en il liber u als metter en in lieu protegi. Far attenziun d'objects che crodan giu (quadrels da tetgs, roms, conducts electrics e.u.v.).</instruction>
+    <web>http://www.meteoswiss.admin.ch</web>
+    <contact>meteoalarm.cap@meteoswiss.ch</contact>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <area>
+      <areaDesc>Thalwil-Wetzikon</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>3000.0</ceiling>
+    </area>
+  </info>
+</alert>

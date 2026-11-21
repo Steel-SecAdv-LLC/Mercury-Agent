@@ -132,8 +132,40 @@ class FuzzyOperators:
 
     @staticmethod
     def forall_pmean(x: torch.Tensor, p: float = 2.0, dim: int = -1) -> torch.Tensor:
-        """Pmean aggregator (generalized mean) - smoother gradients."""
-        return torch.pow(torch.mean(torch.pow(x, p), dim=dim), 1 / p)
+        """Smooth universal quantifier: the p-mean-error aggregator (pME).
+
+        Computes ``1 - mean((1 - x)^p)^(1/p)`` (Badreddine et al. 2022,
+        "Logic Tensor Networks", eq. for A_pME). Aggregating the *errors*
+        ``1 - x`` makes the quantifier stricter than the arithmetic mean --
+        a single violated instance pulls the aggregate down -- and puts the
+        largest gradient on the most-violating rows (``(1 - x_i)^(p-1)``),
+        exactly where a universal quantifier should focus learning.
+
+        The previous implementation returned the plain p-mean
+        ``mean(x^p)^(1/p)``, which is *more lenient* than the mean for
+        ``p > 1`` and gives violating rows (``x -> 0``) a vanishing gradient
+        ``x_i^(p-1)`` -- the opposite of forall semantics.
+
+        Args:
+            x: Fuzzy truth values in ``[0, 1]``.
+            p: Aggregator exponent (``>= 1``; higher penalises violations more).
+            dim: Dimension to aggregate over.
+
+        Returns:
+            Aggregated truth value in ``[0, 1]``.
+        """
+        # The p-norm of the errors, computed relative to the largest error so
+        # the root is never taken of a vanishing number. A fixed floor under
+        # ``mean(err^p)`` (it was 1e-12) is harmless at p=2 but saturates for
+        # larger p: 1e-12 ** (1/10) is 0.063, so at p=10 a fully satisfied
+        # batch read 0.937 with zero gradient. Errors are clamped at 0 first,
+        # so a truth value a rounding step above 1 cannot make a fractional
+        # power of a negative number (NaN at p=1.5).
+        err = (1.0 - x).clamp_min(0.0)
+        tiny = torch.finfo(err.dtype).tiny
+        scale = err.detach().amax(dim=dim, keepdim=True).clamp_min(tiny)
+        relative = torch.mean(torch.pow(err / scale, p), dim=dim).clamp_min(tiny)
+        return 1.0 - scale.squeeze(dim) * torch.pow(relative, 1 / p)
 
     @staticmethod
     def exists_product(x: torch.Tensor, dim: int = -1) -> torch.Tensor:

@@ -11,8 +11,10 @@ scikit-learn).
 
 Two clearly-separated event classes (a reviewer must never conflate them):
 
-* **Live headline suite -- 23 real events / 7 domains.**  earthquake 5,
-  pandemic 5, hurricane 4, fema 3, tornado 2, marine 2, network_security 2.
+* **Live headline suite -- 38 real events / 10 domains** (measured
+  2026-11-20 on the corrected loaders; 39 on 2026-11-16).  fema_activity 8,
+  earthquake 5, energy 5, hurricane 4, pandemic 4, fema 3, tsunami 3,
+  marine 2, network_security 2, tornado 2.
   Every figure headlined in ``FINDINGS.md`` is computed on this set.  These
   loaders return genuine live-API payloads (verified: no synthetic-generation
   method is reached -- ``build_suite(kind="real")``).
@@ -33,8 +35,10 @@ the ``loaders/`` package (only by the ``datasets/`` package); the real/reconstru
 split here is therefore made explicit in code (``RECONSTRUCTED_DOMAINS`` /
 ``RECONSTRUCTED_EVENTS``), not delegated to that flag.
 
-As defense-in-depth against a *silent* live->synthetic fallback (``marine`` on an
-empty OBIS response synthesises data tagged ``dataset_id="synthetic"``),
+As defense-in-depth against a live->synthetic fallback (``marine`` on an empty or
+unreachable OBIS used to synthesise silently; it now refuses unless
+``MERCURY_ALLOW_SYNTHETIC=1``, and under that opt-in still tags the stand-in
+``dataset_id="synthetic"``),
 ``_load_event`` additionally refuses to label any event live whose loader returned
 that marker (``_looks_synthesized`` / ``ProvenanceError``).  This is a read-only
 check on an existing column -- it never changes a loader's return contract -- so a
@@ -68,15 +72,20 @@ REACHABLE: dict[str, tuple[str, str, int]] = {
     "tornado": ("tornado_loader", "TornadoLoader", 2),
     "marine": ("marine_loader", "MarineLoader", 2),
     "hurricane": ("hurricane_loader", "HurricaneLoader", 4),
-    "energy": ("energy_loader", "EnergyLoader", 3),
+    "energy": ("energy_loader", "EnergyLoader", 5),
     "fema": ("fema_loader", "FEMALoader", 3),
+    # Declaration surges labelled by NOAA's billion-dollar catalogue: the only
+    # externally labelled domain beside network_security.
+    "fema_activity": ("fema_activity_loader", "FEMAActivityLoader", 8),
     "network_security": ("network_security_loader", "NetworkSecurityLoader", 2),
     "pandemic": ("pandemic_loader", "PandemicLoader", 6),
 }
 
-# Domains whose loaders synthesise the series by design (no live path exists):
-# tsunami reconstructs BPR patterns; energy reconstructs Kp storm profiles.
-RECONSTRUCTED_DOMAINS: frozenset[str] = frozenset({"tsunami", "energy"})
+# Domains whose loaders synthesise the series by design. Empty since
+# 2026-11-16: ``TsunamiLoader`` reads NDBC's DART archive and ``EnergyLoader``
+# reads NASA OMNI2 and EIA-930, so both are live-labelled and take the
+# ``_looks_synthesized`` guard like every other live domain.
+RECONSTRUCTED_DOMAINS: frozenset[str] = frozenset()
 # Individual events that fall back to reconstruction inside an otherwise-live
 # domain (the WHO GHO Ebola series is unavailable, so pandemic/ebola_2014
 # reconstructs the documented 2014 epidemic curve).
@@ -123,6 +132,11 @@ def _looks_synthesized(raw: Any) -> bool:
         True iff ``raw`` exposes a ``dataset_id`` column containing the value
         ``"synthetic"``.
     """
+    # The loaders' own mark (``BaseDomainLoader.mark_synthetic``): the energy,
+    # tsunami, marine and pandemic stand-ins all carry it, which closes the
+    # "synthesises without the marker" residual for those loaders.
+    if bool(getattr(raw, "attrs", {}).get("mercury_synthetic", False)):
+        return True
     columns = getattr(raw, "columns", None)
     if columns is None or "dataset_id" not in columns:
         return False
@@ -207,7 +221,13 @@ def _load_event(domain: str, mod: str, cls: str, event_id: str) -> EventData | N
             "mislabel a silent fallback as live (restore the live source / use "
             "the committed cache, or add it to RECONSTRUCTED_* if reconstructed)."
         )
-    feats = np.asarray(loader.engineer_features(raw), dtype=np.float64)
+    # A grid event (energy/texas_*) is described by the grid's own series;
+    # the loader's default matrix is space weather and says nothing about it.
+    is_grid = getattr(loader, "is_grid_frame", None)
+    if is_grid is not None and is_grid(raw):
+        feats = np.asarray(loader.engineer_grid_features(raw), dtype=np.float64)
+    else:
+        feats = np.asarray(loader.engineer_features(raw), dtype=np.float64)
     y = np.asarray(loader.get_ground_truth(event_id)).astype(int).reshape(-1)
     if feats.ndim == 1:
         feats = feats.reshape(-1, 1)
@@ -273,10 +293,10 @@ def build_suite(*, kind: str = "real", verbose: bool = False) -> list[EventData]
     """Build the reachable suite for the requested event class.
 
     Args:
-        kind: ``"real"`` -> the 23-event / 7-domain live headline suite
-            (default); ``"reconstructed"`` -> the 7-event / 3-domain
-            reconstructed-from-live group (tsunami, energy, ebola_2014);
-            ``"all"`` -> both (30 events).
+        kind: ``"real"`` -> the live headline suite (default; 38 events / 10
+            domains as measured 2026-11-20); ``"reconstructed"`` -> the
+            reconstructed-from-live group (``ebola_2014`` only, and empty
+            unless the synthetic opt-in is set); ``"all"`` -> both.
         verbose: print per-event provenance while building.
 
     Returns:

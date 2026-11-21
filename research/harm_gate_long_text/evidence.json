@@ -1,0 +1,726 @@
+{
+  "source": "en.wikipedia.org, plain-text extracts (text licensed CC BY-SA; not kept here)",
+  "retrieved": "2026-11-18",
+  "articles": [
+    {
+      "group": "general",
+      "title": "Bread",
+      "chars": 24230,
+      "sha256": "0e1fbf689407bd4dbd322d0ee025eb648981ab64caa6968344f8468efd099835",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Weather",
+      "chars": 19392,
+      "sha256": "4076a9caccf71e84d71acf269365597994d9ff1bc0257c8316eaef30dfceacfd",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Plate tectonics",
+      "chars": 59290,
+      "sha256": "fc122b6023e29e2ea56f33e3cf4743f634f555678b0e4cbb7bbcfeff348a8561",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Photosynthesis",
+      "chars": 49740,
+      "sha256": "23cf88c6a54696fff045f324f72dcea2c4b49fa845402b40dfbd023d2885527c",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "escalate"
+    },
+    {
+      "group": "general",
+      "title": "Jazz",
+      "chars": 99275,
+      "sha256": "ad757be85497c32bf4e6612bc3a3e70d29d4fd7b21cb25c902308149987ec18b",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Roman Empire",
+      "chars": 99568,
+      "sha256": "5b9cd16f31b3da4bc74ce3129a7d2a12928044173b0f309b12d590a5154bb371",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Bicycle",
+      "chars": 35774,
+      "sha256": "429b1d30493336afe3e982e58e5382873736ff1586918cdf952baf2fdfdd7556",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Coffee",
+      "chars": 57003,
+      "sha256": "a6652a5af56b8184a40e416a0911f04bbf195e494547283045a52216a3f50461",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "escalate"
+    },
+    {
+      "group": "general",
+      "title": "Volcano",
+      "chars": 49099,
+      "sha256": "04499f7fb7b4eb797699ebd613582a74aa25612fb75624d7299f1606c33e3985",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Honey bee",
+      "chars": 48528,
+      "sha256": "9cd0e243ae3ff224321f8a0bdb1b9ff51ec525c480132f9b50c54cb3c333a9b5",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Chess",
+      "chars": 83219,
+      "sha256": "b6ff8173478b587ffe1498b305ce0fb57b91358a8b71591f3adbc36ff1b9a668",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Internet",
+      "chars": 53747,
+      "sha256": "162b0999dba14f843d9396db3b52ad108caeec4f668720b2544038a9f57e9ff6",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Mount Everest",
+      "chars": 89815,
+      "sha256": "c83330c8aac9625d0674bce81f4d7b7b85ebe83c0727c95c2de482efdc21a941",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Rice",
+      "chars": 29973,
+      "sha256": "26e236016516a27d936dd3dc9813dc3c10f26f83268f9aba90daa673979d4925",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Ocean current",
+      "chars": 21326,
+      "sha256": "d18f4d799e77510cdde4fe428dce1df7bc98d4a4f72bd535ae82bc96d925716f",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "French Revolution",
+      "chars": 85080,
+      "sha256": "fad32920078e3f1dd2df822f7e06cfc873de8a7cd944beddf3c1e0e834173b7c",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "general",
+      "title": "Solar System",
+      "chars": 61616,
+      "sha256": "cb16d1b88ec655f257642a8db226cdb9c7636bd63392c251f550f93c19e8fcf0",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Railway",
+      "chars": 63507,
+      "sha256": "912a68edc16928da1460d4b4ca6b2b1e2148c3552973bbcf62718fdd13048e64",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Shakespeare",
+      "chars": 46119,
+      "sha256": "7c34dfdbc2c46212ec97fee195f53648096cd431c17575e75f36085955f6e19b",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Diabetes",
+      "chars": 49698,
+      "sha256": "a7a9e4f0be604d3ae401a8bebb27eecf6e0d72ba602efbda02e34e81ff277039",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "general",
+      "title": "Earthquake",
+      "chars": 39265,
+      "sha256": "42da3f6283ece65ae4b5f028d6eef7168eae37e59fe28fdb15d57d06f45d3e1b",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "general",
+      "title": "Tsunami",
+      "chars": 35600,
+      "sha256": "bf3cf545462e7e615be807e890afbe16ce1c2f0d33548b983fd1d19b23d9d947",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Hurricane Katrina",
+      "chars": 76747,
+      "sha256": "cf4cd8ee1abe4b669cd84da5d2fb2c64ee40bdf2343a55e1ae819555f628a5df",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Flood",
+      "chars": 37800,
+      "sha256": "8aba1bea8fb74b2b4c7551ee4482121a408c38ffdb73ddcc21dd97d30391fafa",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "general",
+      "title": "Landslide",
+      "chars": 25077,
+      "sha256": "9fb16c761de03938c92b2ef40a03adece38fe6c53d5238ed55306e1bff1c5cfa",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Wildfire",
+      "chars": 73450,
+      "sha256": "5d29784d69979408498e92cbf54a6380ea5bf3207dcf37eb59778291c4ba4e52",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Electrical grid",
+      "chars": 30342,
+      "sha256": "682e1933d28e0094daae12051696b7f0e2af3156bf4e9705c988fc0ff4be4ac9",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Epidemiology",
+      "chars": 43840,
+      "sha256": "61af6f168ab7c3a27a876dfc2fef9d27c6cfddb50b9fbd15b887dbdf7291d309",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "escalate"
+    },
+    {
+      "group": "general",
+      "title": "Machine learning",
+      "chars": 59830,
+      "sha256": "ed52e9bf1cf534edc89cd18e3863ff9f07c7f62a9f03e447e528eb978b8e2565",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Cryptography",
+      "chars": 54317,
+      "sha256": "3e65eae139330a2bc19fa83faf283df9ab8be83ebcb295e93961bc08d32c8416",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "general",
+      "title": "Seismology",
+      "chars": 15243,
+      "sha256": "8e12be6a493c390c8dfb020931597ab948c443ef2699915deabc5cd65bda6465",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Aurora",
+      "chars": 56303,
+      "sha256": "2c6d4dbc28f643133866e6d6a9a43c01df21975be971621f36f54b9e83abc28f",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Geomagnetic storm",
+      "chars": 25271,
+      "sha256": "bf5293335491026ad92080e71e62219016f1a66e2caedf284085cacdfee03fc7",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Tornado",
+      "chars": 48755,
+      "sha256": "0408f19bac4e9227d9e08d8096cc856a422e1c18299c2396a8c652b32d0df52d",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Drought",
+      "chars": 31195,
+      "sha256": "521c25ab45d7eef93f5920ea5578c445ea21561886128990d4d7f4ceca06d365",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Glacier",
+      "chars": 43598,
+      "sha256": "4e63be65ed3dae562b637b4730f741c928185e6fb1fe6d0af5302559569431d7",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "general",
+      "title": "Agriculture",
+      "chars": 72308,
+      "sha256": "56f4fe04394783c1a10a0491858cc772a9420b87ec55a074700bc612616dab43",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "general",
+      "title": "Steel",
+      "chars": 33711,
+      "sha256": "eabe7f3c2509fad94895a477bf32d8502540834d7dde00c2b9ceaf20d41d2ec6",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "general",
+      "title": "Concrete",
+      "chars": 71076,
+      "sha256": "2da703a9f7d227556ff7d0df4668989d459c59a0a15200d84172b702f70428ed",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "escalate"
+    },
+    {
+      "group": "general",
+      "title": "Antibiotic",
+      "chars": 48638,
+      "sha256": "037271ea10006a2331a5e0e22cc7ea4a294d5aac391089383f504c409a68ff47",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Sarin",
+      "chars": 19428,
+      "sha256": "00989dfb1785728ed9dcd85fca50ba2dcebf54a304a571f4715f4aa793cde48f",
+      "first": "allow_provenance",
+      "passages": "refuse_redact",
+      "whole": "escalate"
+    },
+    {
+      "group": "hazard",
+      "title": "Tokyo subway sarin attack",
+      "chars": 56791,
+      "sha256": "3e6c74d0a0aa6a24a4897316215be40e8e89b9bab992e9400c9c6520178878e2",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "hazard",
+      "title": "Nuclear weapon",
+      "chars": 57197,
+      "sha256": "87419b8ca962cbf4f60f50416143d11398d38c32613affb69311a49d20e1bb99",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Anthrax",
+      "chars": 45708,
+      "sha256": "ff8515e1a3ffaa1ac1c290265698792fbffc6bb955df7b02d25328be4df21174",
+      "first": "hard_refuse",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Chlorine",
+      "chars": 58046,
+      "sha256": "4242481157d943bb9e840fc35602eb9d71b05f144b76b413521bcf680ffc0da0",
+      "first": "allow_provenance",
+      "passages": "refuse_redact",
+      "whole": "refuse_redact"
+    },
+    {
+      "group": "hazard",
+      "title": "Explosive",
+      "chars": 46333,
+      "sha256": "d3f04944d18e580f0a8a4a6d9ea3474a794f6335a32d82e285286d008a6aaa30",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Pesticide",
+      "chars": 39783,
+      "sha256": "c6aa414d9f6e49806dafbd964b8d24f706126c6ca1b3db97b737e635fa992f24",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "hazard",
+      "title": "Organophosphate poisoning",
+      "chars": 24476,
+      "sha256": "8799a61dd20267ce3660c22f07f50fa70503c0b8d7c9443e6002e145218a1202",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Chemical Weapons Convention",
+      "chars": 23021,
+      "sha256": "26d0049da39200c0eebf3f82d866767a675d997e760b4b6a33402e0b36641695",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Ionizing radiation",
+      "chars": 35501,
+      "sha256": "a97d311f1b4a0bfeb5918fe3684d5d75db72eeb74cb8811485e3342cdf7e9a90",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Vaccine",
+      "chars": 52069,
+      "sha256": "aa29a1acb39c4abd86954f57fd831806c4644eac2c8e27326217268a542f7342",
+      "first": "allow_log",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "hazard",
+      "title": "Ricin",
+      "chars": 26256,
+      "sha256": "7119de6e25c0d0b6a26a1bdacfa6b69562124e1753a6bc1c57ca5ff3e53d852b",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Botulism",
+      "chars": 39817,
+      "sha256": "706eabd3ff58c932b7cabe5753eb1a5e45a443c3a8580b86947f720840d359a9",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Nerve agent",
+      "chars": 33236,
+      "sha256": "033e27dd0d02c4269664578dd615a4779ea8bd7cef25835808c885ec1ba54526",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Chernobyl disaster",
+      "chars": 73920,
+      "sha256": "d3acf1cabf96427ae4d43bd632ba28d018457ba9c61e8f423955d39e4529db88",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Manhattan Project",
+      "chars": 115084,
+      "sha256": "b2f284b49e76922357fbfc0a6038cac753a5174231565a9294db9a742716f56b",
+      "first": "allow_provenance",
+      "passages": "refuse_redact",
+      "whole": "escalate"
+    },
+    {
+      "group": "hazard",
+      "title": "Smallpox",
+      "chars": 34574,
+      "sha256": "fe1df73e47a6611ad4639a36eb60c7dbf94841b36c6f7ccac83eec4407a0281d",
+      "first": "allow_log",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "hazard",
+      "title": "Biosafety level",
+      "chars": 18804,
+      "sha256": "862d4c371ad8206deeeeeca080c947d25a9fff2749c55182c7aa43d9a2166b71",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Hazardous waste",
+      "chars": 14443,
+      "sha256": "aa63efba50acbcb9da6f7800d9f22c8f950345e6d5db8e1aca4d7ef1295af96b",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "hazard",
+      "title": "Fertilizer",
+      "chars": 49157,
+      "sha256": "ec77cdac68a2a66128487bec760b776b90049961d7ae0e3ac721f62262a3a7f4",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "escalate"
+    },
+    {
+      "group": "hazard",
+      "title": "Ammonium nitrate",
+      "chars": 12044,
+      "sha256": "8613308d36f9109c833d372a5b9de5ee62f39da125717260427f937f5908dbe2",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Uranium",
+      "chars": 54456,
+      "sha256": "8fa1a7025e0d0aa6e44354fe1729801279190ce3fb03c1d61703f8f85942149a",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Plutonium",
+      "chars": 57783,
+      "sha256": "804ab0ba7619a2786aba5236b7806778c0046fb62e2ae7bc60525ae0e8afd860",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Influenza",
+      "chars": 66249,
+      "sha256": "03c989b45ce9a73a9fda433cce454f6ea8f75336c67f4b77c9670585efba1b97",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_log"
+    },
+    {
+      "group": "hazard",
+      "title": "Pandemic",
+      "chars": 30659,
+      "sha256": "e58c8accc32591b2aaed0f852471ce868ae4679295e4353c02d01f41e2152c7b",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Bioterrorism",
+      "chars": 42029,
+      "sha256": "9a68e2a9ea7c0eda5672ed5a7d9397ed339e2258f1e63716f3dcbf4a33b74019",
+      "first": "refuse_redact",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Dirty bomb",
+      "chars": 25469,
+      "sha256": "8d47bd25be0a6d35b3ce7fb7d56d8c1f8750f4c9f7aebe9caa2d9caa4f03a6f2",
+      "first": "hard_refuse",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Mustard gas",
+      "chars": 29563,
+      "sha256": "1418b3e0b55577aacbfc5f2bba387bf11e1af9dfaa79ff4cf1d1e5a1fbd80ddb",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Chemical warfare",
+      "chars": 50975,
+      "sha256": "79d6caa62f6ec6715e8d9b99c9bd9884683245ba4897d14953053e170c21288d",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Radiation therapy",
+      "chars": 63946,
+      "sha256": "5e40ef6ef88e6e81699d3bf5b142c360900491d7eb6ff824175c30db6f673890",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Nuclear power",
+      "chars": 65325,
+      "sha256": "c07b78a40abb833fecc4645b0a108c8a0ddbfd7c0e6b7e6fe5820ed365651af6",
+      "first": "allow_provenance",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Enriched uranium",
+      "chars": 28670,
+      "sha256": "1ea1d9c3cce8687816d763286ea730a06156010c82e0e628e465c7a9df6cea0f",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Toxicology",
+      "chars": 17285,
+      "sha256": "05bee88f66b8aee1347f99a5c7d97f6da1fad517b6c14d5142c712ca07b81b16",
+      "first": "allow",
+      "passages": "allow_provenance",
+      "whole": "allow_provenance"
+    },
+    {
+      "group": "hazard",
+      "title": "Poison",
+      "chars": 24055,
+      "sha256": "2bd3b32b3f9396daaa7231c40dbb43c2681dc1c10a9d539b5aeff83389b8cbbe",
+      "first": "allow",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Firearm",
+      "chars": 76735,
+      "sha256": "4f052d487552ffe87b37c6fdc5ec47a12569d14df6bb7f8ba31c13dfb2b1f2f5",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "hazard",
+      "title": "Gunpowder",
+      "chars": 51356,
+      "sha256": "a26f826f66466451094ecb2aa1fa61388ca81c915ae23d67d6bed7b49daf2502",
+      "first": "allow_provenance",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Malware",
+      "chars": 31065,
+      "sha256": "5def1b704ea671cc0416db332d92cb173fd366a8a5c221de40001fb94cecdb41",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "hard_refuse"
+    },
+    {
+      "group": "hazard",
+      "title": "Computer virus",
+      "chars": 39730,
+      "sha256": "bbf8b6c6d6c0855b8688dbe5ef929e82db58fea946277c9ac36b3fada4f277cf",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "hazard",
+      "title": "Penetration test",
+      "chars": 23411,
+      "sha256": "5d6c52f68088a5040979320583cdb6d5beb6ca27b7be7375386b5aca6f7dc0b9",
+      "first": "allow",
+      "passages": "allow",
+      "whole": "allow"
+    },
+    {
+      "group": "hazard",
+      "title": "Ransomware",
+      "chars": 47430,
+      "sha256": "8381d22675c43aaac32ef6fc29416f48750e8d0d45482a72f1d0367629d7ff8b",
+      "first": "allow",
+      "passages": "hard_refuse",
+      "whole": "hard_refuse"
+    }
+  ]
+}

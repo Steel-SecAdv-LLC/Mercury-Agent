@@ -1,0 +1,50 @@
+# OpenSSF Scorecard: supply-chain posture, measured by the standard tool and
+# published to code scanning. Weekly plus on pushes to main, so the score
+# tracks the default branch rather than a stale snapshot.
+# Copyright (C) 2025 Steel Security Advisors LLC
+
+name: OpenSSF Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Tuesday 03:41 UTC: off the busy Monday/weekend CI windows.
+    - cron: "41 3 * * 2"
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Publish the SARIF results to the repository's code-scanning view.
+      security-events: write
+      # Needed by the action for its (optional) publish_results attestation.
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@56eaeac26fc540dfface1f07f79b9426f1956b4d # v2.6.0
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          # Publishing to the OpenSSF REST API enables the public badge; it
+          # sends only the computed score and check results.
+          publish_results: true
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: scorecard-results.sarif

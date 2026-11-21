@@ -179,7 +179,7 @@ Each has at least one test and a declared ``decision_source``.
 | `GWOEnsembleDetector` | `detectors.advanced.gwo_ensemble` | GWO-Enhanced Ensemble Detector for Anomaly Detection |
 | `MultiScaleTransformerDetector` | `detectors.advanced.multi_scale_transformer` | Multi-Scale Transformer Detector for Time-Series Anomaly Detection |
 | `BLIPVLMDetector` | `detectors.vlm.blip_vlm` | BLIP-based zero-shot anomaly detector |
-| `StatisticalVLMDetector` | `detectors.vlm.statistical_vlm` | Offline, deterministic concrete VLM detector (no network, no weights) |
+| `StatisticalVLMDetector` | `detectors.vlm.statistical_vlm` | Offline, deterministic statistical texture heuristic (not a language model) |
 | `EmergentLifeDetector` | `emergent.emergent_life_detector` | Unified emergent life detector integrating SETI, biosignatures, and contact protocol |
 | `ChemicalNuclearDetector` | `infrastructure.chemical_nuclear` | Anomaly detection for CISA Chemical and Nuclear critical infrastructure |
 | `CommunicationsITDetector` | `infrastructure.communications_it` | Anomaly detection for CISA Communications and Information Technology sectors |

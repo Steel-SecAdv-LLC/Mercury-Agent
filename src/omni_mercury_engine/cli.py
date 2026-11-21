@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -123,7 +124,7 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
             param_hint="'--detector' / '-d'",
         )
 
-    data = _load_data(input)
+    data = _load_input(input, "--input")
 
     if detector == "fusion":
         # Load the shipped default fusion checkpoint so detection runs with a
@@ -139,11 +140,21 @@ def detect(input: str, detector: str, output: str, threshold: float | None) -> N
             )
         # Deployment posture (mirrors /detect/flagship and the MCP server):
         # served fusion detections close the loop with a ``decision`` record.
-        # Additive key in the JSON output; the core engine default stays
-        # opt-in.
+        # Additive key in the JSON output. The engine constructor already
+        # builds a default responder; this explicit call keeps the serving
+        # posture stated at the entry point.
         engine.enable_decision_layer()
+        # Cognitive self-critique, same switch and default as /detect/flagship
+        # (the "mirrors" claim above was false for this piece: the route ran
+        # the critique and the CLI did not, so `-d fusion` records carried
+        # signals.cognitive = None).
+        from omni_mercury_engine._env import flagship_cognitive_enabled
+
+        if flagship_cognitive_enabled():
+            engine.enable_cognitive_analysis(enable_curiosity=True)
         from omni_mercury_engine.core.exceptions import FeatureWidthMismatchError
 
+        data = _one_sample_if_feature_vector(engine, data)
         try:
             results = engine.detect_with_fusion(data)
         except FeatureWidthMismatchError as exc:
@@ -278,24 +289,44 @@ def tier_detect(
     """
     from omni_mercury_engine.detectors.detection_tier import run_tier_ensemble
 
-    series = np.asarray(_load_data(input), dtype=float).ravel()
-    y = _load_labels(labels) if labels else None
-    ref = np.asarray(_load_data(reference), dtype=float).ravel() if reference else None
+    if method == "stacking" and labels is None:
+        # The stacking combiner is a classifier fitted on the labels. Without
+        # them StreamingScoreEnsemble.fit raised "stacking requires per-point
+        # labels" mid-run, which reached the terminal as a traceback.
+        raise click.UsageError(
+            "--method stacking is trained on per-point labels: pass --labels/-l with a "
+            "0/1 labels file, or use a label-free combiner (-m average or -m consensus)"
+        )
+    # ``_single_series``, not ``ravel``: a ``t,value`` table was flattened row
+    # by row into a 2N-point series of alternating timestamps and values, and
+    # the tier flagged the rising timestamps instead of the spike.
+    series = _one_series_input(input, "--input")
+    ref = _one_series_input(reference, "--reference") if reference else None
     subset_names = tuple(s.strip() for s in subset.split(",")) if subset else None
+    try:
+        y = _load_labels(labels) if labels else None
+    except (OSError, ValueError, TypeError) as exc:
+        raise click.ClickException(f"cannot use the --labels file: {exc}") from exc
 
-    result = run_tier_ensemble(
-        series,
-        labels=y,
-        reference=ref,
-        subset=subset_names,
-        method=method,
-        contamination=contamination,
-        conformal_alpha=conformal_alpha,
-        include_attribution=attribution,
-        include_counterfactual=counterfactual,
-        counterfactual_index=cf_index,
-        counterfactual_method=cf_method,
-    )
+    try:
+        result = run_tier_ensemble(
+            series,
+            labels=y,
+            reference=ref,
+            subset=subset_names,
+            method=method,
+            contamination=contamination,
+            conformal_alpha=conformal_alpha,
+            include_attribution=attribution,
+            include_counterfactual=counterfactual,
+            counterfactual_index=cf_index,
+            counterfactual_method=cf_method,
+        )
+    except ValueError as exc:
+        # Every refusal the tier states about its arguments (too few points
+        # for spot_evt, rca with labels, an unknown subset member, a labels
+        # vector of the wrong length) is a ValueError with a usable message.
+        raise click.ClickException(str(exc)) from exc
 
     text = json.dumps(result, indent=2, default=_json_default)
     if output:
@@ -341,14 +372,19 @@ def rca(
     """
     from omni_mercury_engine.detectors.detection_tier import localize_root_cause
 
-    observations = np.asarray(_load_data(input), dtype=float)
-    train_rows = np.asarray(_load_data(train), dtype=float) if train else None
-    adj = np.asarray(_load_data(adjacency), dtype=float) if adjacency else None
+    observations = np.asarray(_load_input(input, "--input"), dtype=float)
+    train_rows = np.asarray(_load_input(train, "--train"), dtype=float) if train else None
+    adj = np.asarray(_load_input(adjacency, "--adjacency"), dtype=float) if adjacency else None
     names = [s.strip() for s in node_names.split(",")] if node_names else None
 
-    result = localize_root_cause(
-        observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
-    )
+    try:
+        result = localize_root_cause(
+            observations, adjacency=adj, train=train_rows, top_k=top_k, node_names=names
+        )
+    except ValueError as exc:
+        # A node-name count or adjacency shape that does not match the
+        # observations is the caller's argument, not a fault to trace.
+        raise click.ClickException(str(exc)) from exc
 
     text = json.dumps(result, indent=2, default=_json_default)
     if output:
@@ -468,7 +504,7 @@ def hazard_viz(
         if data_path is None:
             raise click.UsageError("--detector requires --data with the detector input")
         assert hazard is not None
-        arrays = _load_hazard_arrays(data_path, hazard)
+        arrays = _read_hazard_arrays(data_path, hazard)
         params: dict[str, Any] = {}
         if sampling_rate is not None:
             params["sampling_rate_hz"] = sampling_rate
@@ -544,7 +580,7 @@ def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     if path.suffix == ".csv":
         return {
             PRIMARY_INPUT_ARRAY[hazard]: np.loadtxt(
-                path, delimiter=",", skiprows=_csv_header_rows(path)
+                path, delimiter=",", skiprows=_csv_header_rows(path), encoding=_CSV_ENCODING
             )
         }
     if path.suffix == ".json":
@@ -553,6 +589,31 @@ def _load_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
     raise click.UsageError(
         f"unsupported data file format {path.suffix!r} (use .npz, .npy, .csv, or .json)"
     )
+
+
+def _read_hazard_arrays(data_path: str, hazard: str) -> dict[str, Any]:
+    """Load ``hazard-viz --data`` arrays, or stop with a one-line usage error.
+
+    A missing or non-numeric file used to leave ``hazard-viz`` as a
+    ``FileNotFoundError`` / ``ValueError`` traceback.
+
+    Args:
+        data_path: Input file path.
+        hazard: The hazard the arrays feed.
+
+    Returns:
+        Named arrays for :func:`run_hazard_detector`.
+
+    Raises:
+        click.UsageError: If the file cannot be read as numeric arrays.
+    """
+    try:
+        return _load_hazard_arrays(data_path, hazard)
+    except (OSError, ValueError, TypeError) as exc:
+        raise click.UsageError(
+            f"cannot read the --data file {data_path} ({exc}); check the path and "
+            "that the file holds only numbers"
+        ) from exc
 
 
 @main.command()
@@ -775,10 +836,26 @@ def causal(
         mercury-agent causal -i data.csv --names A,B,C,D
         mercury-agent causal -i series.csv --temporal --seed 0 -o graph.json
     """
+    if not 0.0 < significance < 1.0:
+        # Alpha is the p-value cut of the independence test. Measured: 5 was
+        # accepted and a graph printed with exit 0, though no p-value exceeds 1.
+        raise click.BadParameter(
+            f"the independence-test alpha is a p-value cut-off and must be between 0 and 1 "
+            f"(exclusive); got {significance}. The usual choice is 0.05.",
+            param_hint="'--significance'",
+        )
     try:
         engine = _get_engine(mode="fusion")
         data = _load_data(input)
         var_names = [s.strip() for s in names.split(",")] if names else None
+        if var_names is not None and data.ndim == 2 and len(var_names) != data.shape[1]:
+            # Discovery indexes the names by column, so two names for four
+            # columns raised IndexError inside causal_discovery.discover_structure.
+            raise click.BadParameter(
+                f"{len(var_names)} names given for the {data.shape[1]} columns of {input}; "
+                "list one name per column, comma-separated, or omit --names",
+                param_hint="'--names' / '-n'",
+            )
 
         if temporal:
             graph = engine.discover_temporal_causation(
@@ -833,7 +910,7 @@ def explain(input: str, model: str) -> None:
         if model == "fusion":
             engine.load_default_fusion_checkpoint()
 
-        data = _load_data(input)
+        data = _one_sample_if_feature_vector(engine, _load_data(input))
 
         result = engine.detect_with_fusion(data)
 
@@ -851,9 +928,16 @@ def explain(input: str, model: str) -> None:
         raise SystemExit(1) from e
 
 
+#: CSVs are read as UTF-8 with an optional byte-order mark. Excel and
+#: PowerShell write the mark; read as plain UTF-8 it stays glued to the first
+#: cell, which then fails ``float()``. Measured on a headerless 200-row file:
+#: the first row was taken for a header and 199 rows were scored.
+_CSV_ENCODING = "utf-8-sig"
+
+
 def _csv_header_rows(path: Path) -> int:
     """Return 1 when the first line of a CSV holds column names, else 0."""
-    with open(path, encoding="utf-8") as handle:
+    with open(path, encoding=_CSV_ENCODING) as handle:
         first_line = handle.readline()
     try:
         [float(cell) for cell in first_line.strip().split(",")]
@@ -862,37 +946,215 @@ def _csv_header_rows(path: Path) -> int:
     return 0
 
 
+def _read_csv_matrix(path: Path) -> np.ndarray[Any, Any]:
+    """Read a numeric CSV as a 2-D float64 array, one row per line.
+
+    Args:
+        path: The CSV file; its first line may hold column names.
+
+    Returns:
+        ``(n_lines, n_columns)`` values. ``ndmin=2`` keeps the file's own
+        layout: a column of N numbers is ``(N, 1)`` and one line of M numbers
+        is ``(1, M)``. ``np.loadtxt`` otherwise squeezes both to the same 1-D
+        array, and reading that as a row scored a 300-row series as one sample.
+
+    Raises:
+        ValueError: If a cell below the header is not a number.
+    """
+    with warnings.catch_warnings():
+        # numpy warns "input contained no data" and returns an empty array;
+        # _load_data reports that file as an error, once, with the remedy.
+        warnings.simplefilter("ignore", UserWarning)
+        try:
+            # float64, not float32: a finite float64 cell above the float32
+            # range (~3.4e38) silently becomes +/-inf under a float32 cast,
+            # and the detector then reports "N rows contained non-finite
+            # values; imputed" -- blaming the operator's data for an infinity
+            # the loader created.
+            data = np.loadtxt(
+                path,
+                delimiter=",",
+                dtype=np.float64,
+                skiprows=_csv_header_rows(path),
+                ndmin=2,
+                encoding=_CSV_ENCODING,
+            )
+        except ValueError as exc:
+            raise ValueError(
+                f"{path}: {exc} Every cell below an optional header row must be a "
+                "number; drop the text columns or encode them as numbers."
+            ) from exc
+    return np.asarray(data, dtype=np.float64)
+
+
+def _read_json_array(path: Path) -> np.ndarray[Any, Any]:
+    """Read a JSON document as an array (a non-list document is one element).
+
+    Args:
+        path: The JSON file.
+
+    Returns:
+        The document as numpy lays it out: a flat array is 1-D, an array of
+        arrays is 2-D.
+
+    Raises:
+        ValueError: If the file is not valid JSON; the message names it.
+    """
+    with open(path) as f:
+        try:
+            loaded = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{path} is not valid JSON: {exc}") from exc
+    document = loaded if isinstance(loaded, list) else [loaded]
+    try:
+        array = np.array(document)
+    except ValueError as exc:  # rows of unequal length
+        raise ValueError(f"{path} must hold rows of equal length: {exc}") from exc
+    if array.dtype.kind == "O" and _only_numbers_and_nulls(document):
+        # JSON has no NaN; a missing reading is written ``null``. It is the
+        # gap it stands for, as it was before the numeric check below existed.
+        try:
+            array = np.array(document, dtype=np.float64)
+        except OverflowError as exc:
+            # An integer too large for a float (hundreds of digits) left as
+            # an OverflowError traceback; it is not a usable reading.
+            raise ValueError(f"{path} holds a number too large to read: {exc}") from exc
+    if array.dtype.kind not in "biuf":
+        # Strings and objects ({"data": [...]}, ["a", "b"]) passed through and
+        # failed later, inside a detector, as a TypeError traceback.
+        raise ValueError(
+            f"{path} must hold numbers: a JSON array of numbers (null for a missing "
+            "value), or an array of equal-length arrays of numbers"
+        )
+    return array
+
+
+def _only_numbers_and_nulls(node: Any) -> bool:
+    """Whether a parsed JSON value is numbers and nulls, nested in lists or not."""
+    if isinstance(node, list):
+        return all(_only_numbers_and_nulls(item) for item in node)
+    return node is None or (isinstance(node, (int, float)) and not isinstance(node, bool))
+
+
 def _load_data(filepath: str) -> np.ndarray[Any, Any]:
-    """Load data from file (a CSV may start with a header row)."""
+    """Load a samples-by-features matrix from a CSV, NPY or JSON file.
+
+    Rows are samples and columns are features, however the file spells them:
+    a CSV column of N numbers, a 1-D ``.npy`` and a flat JSON array are all N
+    samples of one feature, ``(N, 1)``. They used to load as ``(1, N)``,
+    ``(1, N)`` and ``(N,)``, so ``detect`` scored a 300-row CSV series as one
+    300-feature sample (``"is_anomaly": [false]``) while the same values as
+    JSON flagged the spike. One sample of M features is one CSV line of M
+    values, or ``[[...]]`` in JSON.
+
+    Args:
+        filepath: Path to a ``.csv`` (optional header row), ``.npy`` or
+            ``.json`` file.
+
+    Returns:
+        The file's numbers as a 2-D array; float64 for CSV and NPY.
+
+    Raises:
+        OSError: If the file is missing or unreadable.
+        ValueError: If the format is unsupported, a cell is not a number, or
+            the file holds no data rows.
+    """
     path = Path(filepath)
+    if not path.is_file():
+        raise FileNotFoundError(f"file not found: {filepath} (check the path)")
 
+    data: np.ndarray[Any, Any]
     if path.suffix == ".json":
-        with open(path) as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                return np.array(data)
-            return np.array([data])
-
+        data = _read_json_array(path)
     elif path.suffix == ".csv":
-        # float64, not float32: a finite float64 cell above the float32 range
-        # (~3.4e38) silently becomes +/-inf under a float32 cast, and the
-        # detector then reports "N rows contained non-finite values; imputed"
-        # -- blaming the operator's data for an infinity the loader created.
-        data = np.loadtxt(path, delimiter=",", dtype=np.float64, skiprows=_csv_header_rows(path))
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        return np.asarray(data)  # type: ignore[no-any-return, unused-ignore]
-
+        data = _read_csv_matrix(path)
     elif path.suffix == ".npy":
-        data = np.load(path, allow_pickle=False)
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        # float64 for the same reason as the CSV path above, and so a .npy
-        # written as float64 round-trips at the precision it was saved with.
-        return np.asarray(data, dtype=np.float64)
-
+        # float64 for the same reason as the CSV path, and so a .npy written
+        # as float64 round-trips at the precision it was saved with.
+        data = np.asarray(np.load(path, allow_pickle=False), dtype=np.float64)
     else:
-        raise ValueError(f"Unsupported file format: {path.suffix}")
+        raise ValueError(f"Unsupported file format: {path.suffix} (use .csv, .npy, or .json)")
+
+    if data.ndim < 2 and data.dtype.kind in "biuf":
+        data = data.reshape(-1, 1)
+    if data.size == 0:
+        raise ValueError(
+            f"{filepath} holds no data rows; it needs at least one row of numbers "
+            "below the optional header"
+        )
+    return data
+
+
+def _load_input(filepath: str, option: str) -> np.ndarray[Any, Any]:
+    """Load the data file given to ``option``, or stop with a one-line error.
+
+    ``detect``, ``tier-detect`` and ``rca`` called :func:`_load_data` bare, so
+    a missing, empty or text-bearing file left the command as a Python
+    traceback. ``explain`` and ``train`` already print ``Error: ...`` and exit
+    1 for the same files; this gives the other commands that behaviour.
+
+    Args:
+        filepath: Path given on the command line.
+        option: The option that named it, for the message (e.g. ``--input``).
+
+    Returns:
+        The loaded samples-by-features matrix.
+
+    Raises:
+        click.ClickException: If the file cannot be read as numeric data.
+    """
+    try:
+        return _load_data(filepath)
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(f"cannot use the {option} file: {exc}") from exc
+
+
+def _one_sample_if_feature_vector(engine: Any, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+    """Read a one-column file as one sample when only that fits the fitted model.
+
+    :func:`_load_data` lays a column of N numbers out as N samples of one
+    feature. A model fitted on N > 1 features cannot score that layout at all
+    (the engine refuses the width), while the same N numbers as one sample is
+    exactly what it scores, and is how a single feature vector saved with
+    ``np.save`` loaded before the samples-by-features convention. That one
+    unambiguous case is read as the sample; the choice is reported on stderr.
+
+    Args:
+        engine: The fusion engine about to score ``data``.
+        data: Matrix from :func:`_load_data`.
+
+    Returns:
+        ``data`` as ``(1, N)`` in the case above, otherwise unchanged.
+    """
+    width = getattr(engine, "fitted_feature_width", None)
+    if isinstance(width, int) and width > 1 and data.ndim == 2 and data.shape == (width, 1):
+        click.echo(
+            f"Read the {width} values as one sample of {width} features: the model "
+            f"is fitted on {width} feature columns.",
+            err=True,
+        )
+        return data.reshape(1, width)
+    return data
+
+
+def _one_series_input(filepath: str, option: str) -> np.ndarray[Any, Any]:
+    """Load the single time series given to ``option``, or stop with a one-line error.
+
+    Args:
+        filepath: Path given on the command line.
+        option: The option that named it, for the message.
+
+    Returns:
+        The series as ``(n_samples,)``.
+
+    Raises:
+        click.ClickException: If the file cannot be read as numeric data or
+            holds a table of several rows and columns.
+    """
+    try:
+        return _single_series(_load_input(filepath, option), option)
+    except (ValueError, TypeError) as exc:
+        raise click.ClickException(f"cannot use the {option} file: {exc}") from exc
 
 
 def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
@@ -901,13 +1163,87 @@ def _load_labels(filepath: str) -> np.ndarray[Any, Any]:
     if path.suffix == ".npy":
         y = np.load(path, allow_pickle=False)
     elif path.suffix == ".csv":
-        y = np.loadtxt(path, delimiter=",", skiprows=_csv_header_rows(path))
+        y = np.loadtxt(path, delimiter=",", skiprows=_csv_header_rows(path), encoding=_CSV_ENCODING)
     elif path.suffix == ".json":
         with open(path) as f:
             y = np.array(json.load(f))
     else:
         raise ValueError(f"Unsupported label file format: {path.suffix} (use .csv, .npy, or .json)")
     return np.asarray(y).reshape(-1)
+
+
+def _single_series(data: np.ndarray[Any, Any], option: str) -> np.ndarray[Any, Any]:
+    """Return the one time series a loaded file holds, as a 1-D array.
+
+    Args:
+        data: Matrix from :func:`_load_data`.
+        option: The option that named the file, for the message.
+
+    Returns:
+        The file's single column, or its single row, as ``(n_samples,)``.
+
+    Raises:
+        ValueError: If the file is a table of several rows and columns.
+            Flattening one interleaves its columns into a series nobody
+            recorded, and picking a column would discard the others unsaid.
+    """
+    matrix = np.asarray(data, dtype=np.float64)
+    if matrix.ndim == 2 and min(matrix.shape) > 1:
+        rows, columns = matrix.shape
+        raise ValueError(
+            f"the {option} file holds {rows} rows x {columns} columns, but this analysis "
+            "takes one series; pass a file with one column (or one row) of samples"
+        )
+    return matrix.ravel()
+
+
+def _axis_series(data: np.ndarray[Any, Any]) -> list[np.ndarray[Any, Any]]:
+    """Split loaded motion data into one 1-D position series per axis.
+
+    Args:
+        data: Matrix from :func:`_load_data`; rows are time steps.
+
+    Returns:
+        One ``(n_samples,)`` series per column. A single column, or a single
+        row of samples, is one series.
+    """
+    matrix = np.asarray(data, dtype=np.float64)
+    if matrix.ndim != 2 or min(matrix.shape) == 1:
+        return [matrix.ravel()]
+    return [np.ascontiguousarray(column) for column in matrix.T]
+
+
+def _integrated_time_series(
+    spectral_input: str | None, dynamics_input: str | None
+) -> np.ndarray[Any, Any] | None:
+    """Load the one time series ``physics integrated`` scores.
+
+    ``PhysicsIntegratedDetector`` scores a single time series with both the
+    spectral and the dynamics detector: its ``"mixed"`` input has one
+    ``"time_series"`` entry and nowhere to put a second recording.
+
+    Args:
+        spectral_input: File given to ``--spectral-input``, if any.
+        dynamics_input: File given to ``--dynamics-input``, if any.
+
+    Returns:
+        The series as ``(n_samples,)``, or ``None`` when neither was given.
+
+    Raises:
+        ValueError: If a file is a table rather than one series, or the two
+            options name different recordings.
+    """
+    named = (("--spectral-input", spectral_input), ("--dynamics-input", dynamics_input))
+    series = [_single_series(_load_data(path), option) for option, path in named if path]
+    # ``equal_nan``: a recording with a gap is still the same recording as
+    # itself; without it the same file passed to both options was refused.
+    if len(series) == 2 and not np.array_equal(series[0], series[1], equal_nan=True):
+        raise ValueError(
+            "-s and -d must name the same recording: the integrated detector scores "
+            "one time series with both the spectral and the dynamics detector. Pass "
+            "the same file to both, or only one of the two"
+        )
+    return series[0] if series else None
 
 
 # =============================================================================
@@ -1057,8 +1393,13 @@ def physics_spectral(
         if reference is not None:
             # A baseline of known-good recordings: a CSV's rows are separate
             # recordings (so the spread comes from between them), a flat
-            # series is one.
-            detector.fit(_load_data(reference))
+            # series is one. _load_data returns a one-column file as (N, 1);
+            # laid out as it stands that is N one-sample recordings, with no
+            # spectrum to fit, so it is turned into the single recording it is.
+            recordings = _load_data(reference)
+            if recordings.ndim == 2 and recordings.shape[1] == 1:
+                recordings = recordings.reshape(1, -1)
+            detector.fit(recordings)
             baseline = "reference"
         else:
             detector.fit(signal)
@@ -1126,6 +1467,13 @@ def physics_dynamics(
         mercury-agent physics dynamics -i trajectory.json --time-step 0.001
         mercury-agent physics dynamics -i sensor.csv --chaos-threshold 0.05 -o results.json
     """
+    if not time_step > 0:
+        # Velocity is dx/dt: a zero step divides by zero, and the detector
+        # then refused its own NaN score ("produced a non-finite anomaly_score").
+        raise click.BadParameter(
+            f"the time step between samples must be greater than 0 seconds; got {time_step}",
+            param_hint="'--time-step'",
+        )
     try:
         from omni_mercury_engine.detectors.acceleration_dynamics import (
             AccelerationDynamicsDetector,
@@ -1138,15 +1486,21 @@ def physics_dynamics(
             "chaos_threshold": chaos_threshold,
         }
 
-        detector = AccelerationDynamicsDetector(config)
-        data = _load_data(input)
+        # The detector differentiates ONE position series (its 2-D form is a
+        # batch of independent series, one per row). A table of x,y,z columns
+        # used to be flattened into x0,y0,z0,x1,...: constant velocity on three
+        # axes became a sawtooth and scored 0.80 (is_anomaly true), where each
+        # column alone scores under 0.001. So every column is fitted and
+        # scored as its own series, exactly as a one-column file of it is.
+        axis_results = []
+        for series in _axis_series(_load_data(input)):
+            detector = AccelerationDynamicsDetector(dict(config))
+            detector.fit(series)
+            axis_results.append(detector.detect(series))
 
-        # Fit on the data
-        signal = data.flatten() if data.ndim > 1 else data
-        detector.fit(signal)
-
-        # Detect anomalies
-        result = detector.detect(signal)
+        # The motion is as anomalous as its worst axis: averaging the axes
+        # would let two steady ones hide a jump on the third.
+        result = max(axis_results, key=lambda axis: float(axis.get("anomaly_score", 0.0)))
 
         # Format output
         output_data = {
@@ -1165,6 +1519,18 @@ def physics_dynamics(
                 "max_jerk": float(result.get("max_jerk", 0.0)),
             },
         }
+        if len(axis_results) > 1:
+            # Per-column verdicts (0-based column index); the fields above
+            # describe the highest-scoring one.
+            output_data["axes"] = [
+                {
+                    "column": index,
+                    "is_anomaly": bool(axis.get("is_anomaly", False)),
+                    "anomaly_score": float(axis.get("anomaly_score", 0.0)),
+                    "motion_state": axis.get("motion_state", "unknown"),
+                }
+                for index, axis in enumerate(axis_results)
+            ]
 
         if output:
             with open(output, "w") as f:
@@ -1343,7 +1709,7 @@ def physics_integrated(
     with golden-ratio weighted fusion aligned with GOSNN ethical governance.
 
     Examples:
-        mercury-agent physics integrated -s vibration.csv -d motion.csv
+        mercury-agent physics integrated -s vibration.csv -d vibration.csv
         mercury-agent physics integrated -s sensor.csv -u interactions.json -o report.json
         mercury-agent physics integrated -s data.csv -d data.csv -u session.json -w 0.5,0.3,0.2
     """
@@ -1388,17 +1754,8 @@ def physics_integrated(
         detector = PhysicsIntegratedDetector(config)
 
         # Load data for each input type
-        spectral_data = None
-        dynamics_data = None
+        time_series = _integrated_time_series(spectral_input, dynamics_input)
         uiux_data = None
-
-        if spectral_input:
-            data = _load_data(spectral_input)
-            spectral_data = data.flatten() if data.ndim > 1 else data
-
-        if dynamics_input:
-            data = _load_data(dynamics_input)
-            dynamics_data = data.flatten() if data.ndim > 1 else data
 
         if uiux_input:
             with open(uiux_input) as f:
@@ -1426,51 +1783,63 @@ def physics_integrated(
                 )
                 uiux_data.append(interaction)
 
-        # Fit the detector
-        fit_data = {
-            "spectral": spectral_data,
-            "dynamics": dynamics_data,
-            "uiux": uiux_data,
-        }
-        detector.fit(fit_data)
+        # The detector's contract for several kinds of input at once is
+        # data_type="mixed": a mapping with "time_series" (scored by the
+        # spectral and dynamics detectors) and "interactions" (UI/UX). This
+        # command passed {"spectral", "dynamics", "uiux"} under the default
+        # data_type="time_series", so fit() treated the dict as an array and
+        # every run ended in "'dict' object has no attribute 'size'".
+        mixed_data: dict[str, Any] = {}
+        if time_series is not None:
+            mixed_data["time_series"] = time_series
+        if uiux_data is not None:
+            mixed_data["interactions"] = uiux_data
 
-        # Detect anomalies
-        detect_data = {
-            "spectral": spectral_data,
-            "dynamics": dynamics_data,
-            "uiux": uiux_data,
-        }
-        result = detector.detect(detect_data)
+        # Fit the detector, then score the same input
+        detector.fit(mixed_data, data_type="mixed")
+        result = detector.detect(mixed_data, data_type="mixed")
 
-        # Format output
-        output_data = {
+        # Format output. The detector returns "anomaly_score", "ethical_scaling",
+        # "recursion_score" and "resonance_score", and a None "<name>_result"
+        # for a detector that did not run. The names read here before
+        # ("fused_anomaly_score", "gosnn_governance", "three_r_alignment") are
+        # not in its result, so they could only ever print 0.0, {} and {}.
+        output_data: dict[str, Any] = {
             "detector": "PhysicsIntegratedDetector",
-            "is_anomaly": result.get("is_anomaly", False),
-            "fused_anomaly_score": float(result.get("fused_anomaly_score", 0.0)),
+            "is_anomaly": bool(result.get("is_anomaly", False)),
+            "fused_anomaly_score": float(result.get("anomaly_score", 0.0)),
             "enabled_detectors": [d.value for d in enabled_detectors],
             "fusion_weights": config["fusion_weights"],
             "detector_results": {},
-            "gosnn_governance": result.get("gosnn_governance", {}),
-            "three_r_alignment": result.get("three_r_alignment", {}),
+            "gosnn_governance": {
+                "ethical_scaling": float(result.get("ethical_scaling", 1.0)),
+            },
+            "three_r_alignment": {
+                "recursion_score": float(result.get("recursion_score", 0.0)),
+                "resonance_score": float(result.get("resonance_score", 0.0)),
+            },
         }
 
         # Add individual detector results
-        if "spectral_result" in result:
+        spectral_result = result.get("spectral_result")
+        if spectral_result is not None:
             output_data["detector_results"]["spectral"] = {
-                "anomaly_score": float(result["spectral_result"].get("anomaly_score", 0.0)),
-                "is_anomaly": result["spectral_result"].get("is_anomaly", False),
+                "anomaly_score": float(spectral_result.get("anomaly_score", 0.0)),
+                "is_anomaly": spectral_result.get("is_anomaly", False),
             }
-        if "dynamics_result" in result:
+        dynamics_result = result.get("dynamics_result")
+        if dynamics_result is not None:
             output_data["detector_results"]["dynamics"] = {
-                "anomaly_score": float(result["dynamics_result"].get("anomaly_score", 0.0)),
-                "is_anomaly": result["dynamics_result"].get("is_anomaly", False),
-                "motion_state": result["dynamics_result"].get("motion_state", "unknown"),
+                "anomaly_score": float(dynamics_result.get("anomaly_score", 0.0)),
+                "is_anomaly": dynamics_result.get("is_anomaly", False),
+                "motion_state": dynamics_result.get("motion_state", "unknown"),
             }
-        if "uiux_result" in result:
+        uiux_result = result.get("uiux_result")
+        if uiux_result is not None:
             output_data["detector_results"]["uiux"] = {
-                "anomaly_score": float(result["uiux_result"].get("anomaly_score", 0.0)),
-                "is_anomaly": result["uiux_result"].get("is_anomaly", False),
-                "behavior_class": result["uiux_result"].get("behavior_class", "unknown"),
+                "anomaly_score": float(uiux_result.get("anomaly_score", 0.0)),
+                "is_anomaly": uiux_result.get("is_anomaly", False),
+                "behavior_class": uiux_result.get("behavior_class", "unknown"),
             }
 
         if output:
@@ -1508,7 +1877,7 @@ def physics_list() -> None:
     click.echo("       • Wavelet multi-scale decomposition")
     click.echo("       • Predictive maintenance signatures")
     click.echo()
-    click.echo("     Command: mercury physics spectral -i <file>")
+    click.echo("     Command: mercury-agent physics spectral -i <file>")
 
     click.echo("\n  2. AccelerationDynamicsDetector")
     click.echo("     ─────────────────────────────────────────────────────")
@@ -1523,7 +1892,7 @@ def physics_list() -> None:
     click.echo("       • Motion state classification")
     click.echo("       • Impulse and momentum tracking")
     click.echo()
-    click.echo("     Command: mercury physics dynamics -i <file>")
+    click.echo("     Command: mercury-agent physics dynamics -i <file>")
 
     click.echo("\n  3. UIUXAnomalyDetector")
     click.echo("     ─────────────────────────────────────────────────────")
@@ -1538,7 +1907,7 @@ def physics_list() -> None:
     click.echo("       • Bot behavior classification")
     click.echo("       • Session engagement scoring")
     click.echo()
-    click.echo("     Command: mercury physics uiux -i <file.json>")
+    click.echo("     Command: mercury-agent physics uiux -i <file.json>")
 
     click.echo("\n  4. PhysicsIntegratedDetector")
     click.echo("     ─────────────────────────────────────────────────────")
@@ -1552,7 +1921,9 @@ def physics_list() -> None:
     click.echo("       • Cross-domain correlation analysis")
     click.echo("       • Adaptive threshold calibration")
     click.echo()
-    click.echo("     Command: mercury physics integrated -s <spectral> -d <dynamics> -u <uiux>")
+    click.echo(
+        "     Command: mercury-agent physics integrated -s <spectral> -d <dynamics> -u <uiux>"
+    )
 
     click.echo("\n" + "=" * 65 + "\n")
 
@@ -1563,6 +1934,49 @@ def physics_list() -> None:
 # =============================================================================
 # API Server Command
 # =============================================================================
+def _serve_endpoints() -> list[tuple[str, str]]:
+    """Return the ``(path, purpose)`` rows the ``serve`` banner lists.
+
+    The browser pages are opt-in, so ``/console`` is listed only when
+    ``MERCURY_FRONTEND_ENABLED=true`` will make the server mount it; the banner
+    never advertises a path that answers 404.
+    """
+    rows = [
+        ("/docs", "Interactive API documentation (Swagger)"),
+        ("/redoc", "ReDoc API documentation"),
+        ("/health", "Health check endpoint"),
+        ("/metrics", "Prometheus metrics, including API router state"),
+        ("/api/v1/...", "API endpoints"),
+    ]
+    try:
+        from omni_mercury_engine.api.frontend import frontend_enabled
+    except ImportError:  # the [api] extra is absent; serve reports that below
+        return rows
+    if frontend_enabled():
+        rows.append(("/console", "Mercury Console (browser front end)"))
+        rows.append(("/login", "Account sign-in and dashboard pages"))
+    return rows
+
+
+def _require_pqc_backend_for_serve() -> None:
+    """Stop ``serve`` before it prints a banner if the AMA backend is missing.
+
+    The API module runs the same gate at import, but uvicorn would reach it
+    only after the banner, and once per worker. Checking here gives one clear
+    refusal with the build instructions and a non-zero exit.
+
+    Raises:
+        SystemExit: With status 1 when the PQC gate refuses.
+    """
+    from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate
+
+    try:
+        _enforce_pqc_production_gate()
+    except RuntimeError as exc:
+        click.echo(f"Error: the API server cannot start.\n\n{exc}", err=True)
+        raise SystemExit(1) from exc
+
+
 @main.command()
 @click.option(
     "--host",
@@ -1592,6 +2006,11 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
         mercury-agent serve --workers 4 --log-level debug
         mercury-agent serve --reload  # Development mode with auto-reload
     """
+    _require_pqc_backend_for_serve()
+    # The server builds account-email links to its own address when no public
+    # URL is configured (api/auth_service.py::public_base_url); tell it the
+    # port this process actually listens on.
+    os.environ["OMNI_API_PORT"] = str(port)
     click.echo("\n" + "=" * 60)
     click.echo("  Mercury Agent API Server")
     click.echo("=" * 60)
@@ -1603,10 +2022,8 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
     click.echo(f"  Log Level: {log_level}")
     click.echo()
     click.echo("  Endpoints:")
-    click.echo("    /docs       - Interactive API documentation (Swagger)")
-    click.echo("    /redoc      - ReDoc API documentation")
-    click.echo("    /health     - Health check endpoint")
-    click.echo("    /api/v1/... - API endpoints")
+    for path, purpose in _serve_endpoints():
+        click.echo(f"    {path:<11} - {purpose}")
     click.echo()
     click.echo("-" * 60)
     click.echo()
@@ -1630,6 +2047,684 @@ def serve(host: str, port: int, workers: int, reload: bool, log_level: str) -> N
     except Exception as e:
         click.echo(f"Error starting server: {e}")
         raise SystemExit(1) from e
+
+
+@main.command()
+@click.option("--once", is_flag=True, help="Read every feed once, say what was seen, and exit.")
+@click.option(
+    "--status", is_flag=True, help="Say what the watch last saw, without reading any feed."
+)
+@click.option(
+    "--feed",
+    "feed_names",
+    multiple=True,
+    help="Watch only this feed (repeatable). Default: every feed.",
+)
+@click.option(
+    "--state-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Where the watch keeps its memory. Default: $MERCURY_WATCH_DIR or ~/.mercury/watch.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Print machine-readable JSON.")
+def watch(
+    once: bool, status: bool, feed_names: tuple[str, ...], state_dir: Path | None, as_json: bool
+) -> None:
+    """Watch the live feeds and say what matters.
+
+    Mercury reads each feed on its own schedule (earthquakes every five
+    minutes, FEMA declarations hourly) and reports a finding only when the
+    source's own scale says it is worth a person's attention. Most reads
+    report nothing, and say so. Each finding is later checked against the
+    record that settles it; --status shows how they turned out.
+
+    Feeds: USGS earthquakes, NOAA geomagnetic activity, NOAA DART tsunami
+    buoys, NWS river gauges, USGS volcano alert levels, National Weather
+    Service warnings, FEMA tropical-cyclone declarations.
+
+    Every finding says what to do and is delivered to the people it concerns;
+    `mercury-agent alerts` manages who that is.
+
+    With no option it keeps watching until interrupted and prints each new
+    finding as it appears. Use --once for a single read of every feed, and
+    --status to see what was last recorded without reading anything.
+    """
+    import json as json_module
+
+    from omni_mercury_engine.watch import FEEDS, Watcher, WatchStore
+    from omni_mercury_engine.watch.voice import brief, finding_text
+
+    unknown = [name for name in feed_names if name not in FEEDS]
+    if unknown:
+        raise click.UsageError(
+            f"no such feed: {', '.join(unknown)}. Feeds: {', '.join(sorted(FEEDS))}"
+        )
+    store = WatchStore(state_dir)
+    chosen = [FEEDS[name]() for name in (feed_names or sorted(FEEDS))]
+
+    def say() -> None:
+        # Everything that stands, then what ended lately. The newest fifty rows
+        # were neither: with 181 standing the first line said "50 findings standing".
+        statuses, findings = store.statuses(), store.overview()
+        if feed_names:
+            statuses = [entry for entry in statuses if entry["feed"] in feed_names]
+            findings = [entry for entry in findings if entry["feed"] in feed_names]
+        if as_json:
+            click.echo(
+                json_module.dumps(
+                    {"feeds": statuses, "findings": findings, "track_record": store.track_record()},
+                    indent=2,
+                )
+            )
+        else:
+            click.echo(brief(statuses, findings, tally=store.track_record()))
+
+    if status:
+        say()
+        return
+
+    def announce(finding: Any) -> None:
+        if not as_json and not once:
+            entry = finding.to_dict() | {"first_seen": None, "ended": None}
+            click.echo("")
+            click.echo(finding_text(entry))
+
+    def heard(entry: dict[str, Any]) -> None:
+        """A finding another watch on this store recorded (the server's, say)."""
+        if not as_json and not once and (not feed_names or entry.get("feed") in feed_names):
+            click.echo("")
+            click.echo(finding_text(entry))
+
+    watcher = Watcher(store, chosen, on_finding=announce, on_announced=heard)
+    watcher.run_once()
+    say()
+    if once:
+        return
+    if not as_json:
+        click.echo("")
+        click.echo(f"Watching {len(chosen)} feeds. New findings appear below. Ctrl-C to stop.")
+    try:
+        watcher.run_forever()
+    except KeyboardInterrupt:
+        if not as_json:
+            click.echo("")
+            click.echo("Stopped. `mercury-agent watch --status` shows what was last seen.")
+
+
+@main.group()
+def alerts() -> None:
+    """Who the watch tells, and where they are.
+
+    The watch delivers each finding to the people it concerns: by email to
+    subscribers (through the SMTP server in MERCURY_SMTP_HOST), to open
+    consoles, and to one webhook (MERCURY_WATCH_WEBHOOK_URL) for a phone-push
+    or chat service. A subscriber with a place is told what happens within
+    their radius of it and every National Weather Service alert in effect
+    there; one without a place is told everything.
+    """
+
+
+def _watch_store(state_dir: Path | None) -> Any:
+    from omni_mercury_engine.watch import WatchStore
+
+    return WatchStore(state_dir)
+
+
+_STATE_DIR = click.option(
+    "--state-dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Where the watch keeps its memory (default: MERCURY_WATCH_DIR or ~/.mercury/watch).",
+)
+_SEVERITIES = {
+    "notable": 1,
+    "significant": 2,
+    "severe": 3,
+}  # watch.model.RANKS, held to it by a test
+
+
+@main.group()
+def forecasts() -> None:
+    """What the watch forecast before the day, and what happened after.
+
+    One forecast: the probability that a UT day holds a geomagnetic storm at
+    NOAA G1 or above, issued the day before from the Kp record alone and
+    written into an append-only ledger that refuses a forecast of a day that
+    has begun. Each is resolved after its day and scored against two
+    forecasts fixed with it: the long-run rate, and persistence.
+    """
+
+
+def _forecast_ledger(state_dir: Path | None, *, writes: bool = False) -> Any:
+    from omni_mercury_engine.watch.ledger import ForecastLedger
+
+    store = _watch_store(state_dir)
+    return ForecastLedger.from_env(store) if writes else ForecastLedger(store)
+
+
+@forecasts.command("show")
+@click.option("--limit", type=click.IntRange(1, 366), default=14, show_default=True)
+@click.option("--json", "as_json", is_flag=True, help="Print machine-readable JSON.")
+@_STATE_DIR
+def forecasts_show(limit: int, as_json: bool, state_dir: Path | None) -> None:
+    """Show the newest forecasts, their outcomes, and the score so far."""
+    from datetime import UTC, datetime
+
+    from omni_mercury_engine.watch.forecast import TARGET
+    from omni_mercury_engine.watch.ledger import score
+
+    ledger = _forecast_ledger(state_dir)
+    entries = ledger.entries()
+    account = score(entries, TARGET, until=datetime.now(UTC).date())
+    newest = list(ledger.state(TARGET).items())[-limit:][::-1]
+    if as_json:
+        click.echo(
+            json.dumps(
+                {
+                    "head": ledger.head(),
+                    "score": account,
+                    "forecasts": [{"forecast": name, **entry} for name, entry in newest],
+                },
+                indent=2,
+            )
+        )
+        return
+    if not newest:
+        click.echo("No forecast has been issued. The watch issues one each day from 12:30 UT.")
+        return
+    for name, entry in newest:
+        outcome = (
+            "not yet resolved"
+            if entry["outcome"] is None
+            else ("a storm day" if entry["outcome"] else "no storm")
+        )
+        click.echo(f"{name}  {entry['probability']:6.1%}  {outcome}")
+    click.echo("")
+    click.echo(
+        f"{account['resolved']} resolved of {account['issued']} issued; "
+        f"{len(account['missed'])} day(s) with no forecast."
+    )
+    if account["brier"] is not None:
+        click.echo(
+            f"Brier score {account['brier']:.4f} (lower is better); storms on "
+            f"{account['observed_rate']:.1%} of resolved days."
+        )
+        for reference, told in account["references"].items():
+            skill = "n/a" if told["skill"] is None else f"{told['skill']:+.1%}"
+            click.echo(f"  against {reference}: its Brier score {told['brier']:.4f}; skill {skill}")
+        if account["resolved"] < 100:
+            click.echo("  Fewer than 100 have resolved: the skill above says little yet.")
+    click.echo(f"Ledger head: {ledger.head()}")
+
+
+@forecasts.command("verify")
+@click.option(
+    "--file",
+    "export",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Verify an exported ledger instead of this deployment's.",
+)
+@click.option("--public-key", default="", help="Hex ML-DSA-65 key every entry must be signed with.")
+@click.option(
+    "--contains",
+    default="",
+    help="A head noted down earlier: the ledger must still hold it, unchanged.",
+)
+@_STATE_DIR
+def forecasts_verify(
+    export: Path | None, public_key: str, contains: str, state_dir: Path | None
+) -> None:
+    """Check that the ledger holds: nothing changed, dropped, or forecast after the fact.
+
+    Exits 1 and says what is wrong if an entry does not hash to what it
+    claims or follow the one before it, if a forecast was issued after its
+    day began or resolved before it ended, or (with --public-key) if an
+    entry is not signed with that key. With --contains, also if a head that
+    was noted down earlier is no longer in the ledger.
+    """
+    from omni_mercury_engine.watch.ledger import GENESIS, verify
+
+    if export is not None:
+        entries = [
+            json.loads(line)
+            for line in export.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    else:
+        entries = _forecast_ledger(state_dir).entries()
+    wrong = verify(entries, public_key=public_key)
+    if contains and contains != GENESIS and contains not in {entry["hash"] for entry in entries}:
+        wrong.append(f"the head {contains} is not in this ledger: it is not the one that was noted")
+    for problem in wrong:
+        click.echo(problem)
+    if wrong:
+        raise click.exceptions.Exit(1)
+    head = entries[-1]["hash"] if entries else GENESIS
+    click.echo(f"{len(entries)} entries hold. Head: {head}")
+
+
+@forecasts.command("export")
+@click.option(
+    "--output",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write here instead of printing.",
+)
+@_STATE_DIR
+def forecasts_export(output: Path | None, state_dir: Path | None) -> None:
+    """Write the ledger out, one entry a line, for someone else to verify and score."""
+    lines = "".join(
+        json.dumps(entry, sort_keys=True) + "\n" for entry in _forecast_ledger(state_dir).entries()
+    )
+    if output is None:
+        click.echo(lines, nl=False)
+    else:
+        output.write_text(lines, encoding="utf-8")
+        click.echo(f"Wrote {len(lines.splitlines())} entries to {output}.")
+
+
+@forecasts.command("run")
+@_STATE_DIR
+def forecasts_run(state_dir: Path | None) -> None:
+    """Issue tomorrow's forecast if it is due, and resolve the ones that are over.
+
+    What the watch does on its own every few minutes; this is for a
+    deployment that runs no watch loop. A forecast can be issued only
+    between 12:30 and 24:00 UT on the day before.
+    """
+    from omni_mercury_engine.watch.forecast import Forecaster
+
+    forecaster = Forecaster(_forecast_ledger(state_dir, writes=True))
+    done = forecaster.run(holder=f"cli:{os.getpid()}")
+    click.echo(f"Issued {done['issued']}, resolved {done['resolved']}.")
+
+
+@alerts.command("add")
+@click.option("--email", required=True, help="Address to tell.")
+@click.option("--place", default="", help='A name for the place ("Home").')
+@click.option("--lat", type=float, default=None, help="Latitude of the place, in degrees.")
+@click.option("--lon", type=float, default=None, help="Longitude of the place, in degrees.")
+@click.option(
+    "--radius-km", type=float, default=200.0, show_default=True,
+    help="How far from the place a finding may be and still be sent.",
+)  # fmt: skip
+@click.option(
+    "--min-severity", type=click.Choice(sorted(_SEVERITIES, key=_SEVERITIES.__getitem__)),
+    default="notable", show_default=True, help="The least severe finding to send.",
+)  # fmt: skip
+@_STATE_DIR
+def alerts_add(
+    email: str, place: str, lat: float | None, lon: float | None, radius_km: float,
+    min_severity: str, state_dir: Path | None,
+) -> None:  # fmt: skip
+    """Subscribe an address, for a place or (with no --lat/--lon) for everything.
+
+    Subscribe only an address whose owner asked for it.
+    """
+    try:
+        _watch_store(state_dir).add_subscriber(
+            email, place=place, latitude=lat, longitude=lon, radius_km=radius_km,
+            min_severity=_SEVERITIES[min_severity],
+        )  # fmt: skip
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
+    where = (
+        f"within {radius_km:g} km of {place or f'{lat}, {lon}'}"
+        if lat is not None
+        else "everywhere"
+    )
+    click.echo(f"{email} will be told of findings {where}, {min_severity} and above.")
+    from omni_mercury_engine.watch.feeds import WarningsFeed
+    from omni_mercury_engine.watch.notify import Notifier
+
+    beyond = len(_watch_store(state_dir).places()) - WarningsFeed.MAX_PLACES
+    if beyond > 0:
+        click.echo(
+            f"{beyond} more distinct place(s) are subscribed than the {WarningsFeed.MAX_PLACES} "
+            "the warnings feed looks up on one read: the most recently added are not checked "
+            "for National Weather Service alerts in effect there.",
+            err=True,
+        )
+    if not Notifier(_watch_store(state_dir)).channels()["email"]:
+        click.echo(
+            "No SMTP server is configured (MERCURY_SMTP_HOST), so no email can be sent yet: "
+            "this subscriber will not be reached until one is.",
+            err=True,
+        )
+
+
+@alerts.command("remove")
+@click.option("--email", required=True, help="Address to stop telling.")
+@click.option("--place", default=None, help="Only this place; default: every subscription.")
+@_STATE_DIR
+def alerts_remove(email: str, place: str | None, state_dir: Path | None) -> None:
+    """Unsubscribe an address."""
+    ended = _watch_store(state_dir).remove_subscriber(email, place)
+    click.echo(f"Ended {ended} subscription{'s' if ended != 1 else ''} for {email}.")
+    if not ended:
+        raise SystemExit(1)
+
+
+@alerts.command("list")
+@click.option("--json", "as_json", is_flag=True, help="Print machine-readable JSON.")
+@_STATE_DIR
+def alerts_list(as_json: bool, state_dir: Path | None) -> None:
+    """Show who is told, how they can be reached, and what has been delivered."""
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    subscribers, channels = store.subscribers(), Notifier(store).channels()
+    counts = store.delivery_counts()
+    if as_json:
+        click.echo(
+            json.dumps(
+                {"subscribers": subscribers, "channels": channels, "deliveries": counts}, indent=2
+            )
+        )
+        return
+    names = {rank: name for name, rank in _SEVERITIES.items()}
+    for entry in subscribers:
+        where = (
+            f"within {entry['radius_km']:g} km of {entry['place']} "
+            f"({entry['latitude']:.2f}, {entry['longitude']:.2f})"
+            if entry["latitude"] is not None
+            else "everywhere"
+        )
+        click.echo(f"{entry['email']}: {where}; {names[entry['min_severity']]} and above")
+    if not subscribers:
+        click.echo("No one is subscribed.")
+    for address in sorted({str(entry["email"]).lower() for entry in subscribers}):
+        held = store.phone_of(address)
+        if held:
+            state = "verified" if held["verified_at"] else "NOT VERIFIED (no text is sent)"
+            click.echo(
+                f"{address}: texts to {held['number']}, {state}; "
+                f"{names[held['min_severity']]} and above"
+            )
+    click.echo(
+        "Email: "
+        + (
+            "through the configured SMTP server"
+            if channels["email"]
+            else "NOT CONFIGURED (set MERCURY_SMTP_HOST); subscribers cannot be reached"
+        )
+        + ". Text messages: "
+        + (
+            "through the configured Twilio account"
+            if channels["sms"]
+            else "not configured (MERCURY_SMS_TWILIO_ACCOUNT_SID and the other MERCURY_SMS_*)"
+        )
+        + ". Webhook: "
+        + ("set" if channels["webhook"] else "not set (MERCURY_WATCH_WEBHOOK_URL)")
+        + f". Delivered: {counts['sent']}; failed: {counts['failed']}."
+    )
+
+
+@alerts.command("phone")
+@click.option("--email", required=True, help="The subscribed address the number belongs to.")
+@click.option("--number", default=None, help="Text a verification code to this number (+1415...).")
+@click.option("--code", default=None, help="Verify the number with the code that was texted.")
+@click.option("--remove", is_flag=True, help="Forget the address's number.")
+@click.option(
+    "--min-severity",
+    type=click.Choice(sorted(_SEVERITIES, key=_SEVERITIES.__getitem__)),
+    default="significant",
+    show_default=True,
+    help="Least severity to text.",
+)
+@_STATE_DIR
+def alerts_phone(
+    email: str, number: str | None, code: str | None, remove: bool, min_severity: str,
+    state_dir: Path | None,
+) -> None:  # fmt: skip
+    """Give a subscriber a phone number for text messages, verified by its owner.
+
+    A number is texted a finding only after a code sent to it has been typed
+    back: `--number` texts the code, `--code` verifies it. With neither, shows
+    what is recorded. Texts need the operator's provider account
+    (MERCURY_SMS_TWILIO_ACCOUNT_SID, MERCURY_SMS_TWILIO_AUTH_TOKEN and
+    MERCURY_SMS_FROM or MERCURY_SMS_TWILIO_MESSAGING_SERVICE_SID).
+    """
+    from omni_mercury_engine.watch.sms import (
+        SmsRefusedError,
+        SmsUnreachableError,
+        build_sms_sender,
+    )
+    from omni_mercury_engine.watch.store import PhoneLimitError
+
+    store = _watch_store(state_dir)
+    if sum((number is not None, code is not None, remove)) > 1:
+        raise click.UsageError("give one of --number, --code or --remove")
+    if remove:
+        click.echo(
+            f"{email}'s number is forgotten." if store.remove_phone(email) else "No number is set."
+        )
+        return
+    if code is not None:
+        if not store.confirm_phone(email, code):
+            raise click.ClickException(
+                "That code is not right, or it has expired. Ask for a new one with --number."
+            )
+        click.echo(f"{store.phone_of(email)['number']} is verified and will be texted.")
+        return
+    if number is None:
+        held = store.phone_of(email)
+        if not held:
+            click.echo(f"No number is set for {email}.")
+        else:
+            state = "verified" if held["verified_at"] else "not verified: no text is sent to it"
+            click.echo(f"{held['number']}: {state}.")
+        return
+    if not store.subscriptions_of(email):
+        raise click.UsageError(f"{email} is not subscribed; add it with `alerts add`.")
+    try:
+        sender = build_sms_sender()
+    except ValueError as exc:
+        raise click.ClickException(f"The text-message settings are not valid: {exc}") from exc
+    if sender is None:
+        raise click.ClickException(
+            "No text-message provider is configured (MERCURY_SMS_TWILIO_ACCOUNT_SID, "
+            "MERCURY_SMS_TWILIO_AUTH_TOKEN): no text can be sent."
+        )
+    try:
+        issued = store.request_phone(email, number, min_severity=_SEVERITIES[min_severity])
+    except PhoneLimitError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except ValueError as exc:
+        raise click.UsageError(str(exc)) from exc
+    if not issued:
+        click.echo(f"{number} is already verified; it is texted {min_severity} and above.")
+        return
+    try:
+        sender.send(
+            to=number,
+            body=f"Mercury watch: your code is {issued}. It is good for 10 minutes. "
+            "If you did not ask for it, ignore this message.",
+        )
+    except SmsUnreachableError as exc:
+        store.release_code_send(email, number)  # nothing was sent: it is not counted
+        raise click.ClickException(f"The code could not be sent: {exc}") from exc
+    except (SmsRefusedError, ValueError) as exc:
+        raise click.ClickException(f"The code could not be sent: {exc}") from exc
+    click.echo(
+        f"A code was texted to {number}. Verify it with: "
+        f"mercury-agent alerts phone --email {email} --code <the code>"
+    )
+
+
+@alerts.command("canary")
+@click.option(
+    "--email", default=None, help="Send the test here (default: MERCURY_WATCH_CANARY_EMAIL)."
+)
+@click.option(
+    "--phone", default=None, help="Text the test here (default: MERCURY_WATCH_CANARY_PHONE)."
+)
+@click.option("--webhook", is_flag=True, help="Send the test to the webhook too.")
+@click.option(
+    "--wait",
+    type=click.IntRange(0, 3600),
+    default=0,
+    show_default=True,
+    help="Seconds to wait for proof that it arrived.",
+)
+@_STATE_DIR
+def alerts_canary(
+    email: str | None, phone: str | None, webhook: bool, wait: int, state_dir: Path | None
+) -> None:
+    """Send a test the way an alert is sent, and learn whether it arrived.
+
+    A mail server or a text provider taking a message is not the message
+    arriving. This sends one through the deployment's own mailer, text
+    sender and webhook, and counts it proven only when something outside the
+    watch says so: the link in it is opened and confirmed (or its code given
+    to `alerts ack`), the carrier reports the text delivered, or the email
+    is found in the mailbox named by MERCURY_WATCH_CANARY_IMAP_HOST,
+    _USERNAME and _PASSWORD. Exits 1 if a channel did not take it, or if
+    --wait was given and one is still unproven when the wait ends.
+    """
+    import time
+    from datetime import timedelta
+
+    from omni_mercury_engine.watch.canary import Canary, proof_of_delivery, targets
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    wanted = targets()
+    email = wanted.email if email is None else email
+    phone = wanted.phone if phone is None else phone
+    webhook = webhook or wanted.webhook
+    if not (email or phone or webhook):
+        raise click.UsageError(
+            "say where the test goes: --email, --phone or --webhook "
+            "(or set MERCURY_WATCH_CANARY_EMAIL / MERCURY_WATCH_CANARY_PHONE)"
+        )
+    canary = Canary(store, Notifier(store))
+    try:
+        sent = canary.send(email=email, phone=phone, webhook=webhook)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    for entry in sent:
+        if entry["error"]:
+            click.echo(f"{entry['channel']}: NOT taken by the channel: {entry['error']}")
+        else:
+            click.echo(
+                f"{entry['channel']}: taken by the channel (test {entry['id']}). "
+                f"By hand: mercury-agent alerts ack {entry['code']}"
+            )
+    mine = {entry["channel"] for entry in sent}
+    deadline = time.monotonic() + wait
+    while True:
+        canary.settle(every=timedelta(0))
+        shown = {
+            channel: state for channel, state in proof_of_delivery(store).items() if channel in mine
+        }
+        if all(state["state"] != "awaiting" for state in shown.values()):
+            break
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(min(5.0, max(deadline - time.monotonic(), 0.0)))
+    for channel, state in shown.items():
+        if state["state"] == "proven":
+            click.echo(f"{channel}: PROVEN ({state['by']}).")
+        elif state["state"] == "awaiting":
+            click.echo(f"{channel}: nothing has yet said it arrived.")
+    failed = any(entry["error"] for entry in sent) or any(
+        state["state"] == "failing" for state in shown.values()
+    )
+    unproven = wait and any(state["state"] != "proven" for state in shown.values())
+    if failed or unproven:
+        raise click.exceptions.Exit(1)
+    if not wait:
+        click.echo("`mercury-agent alerts proof` shows what comes back.")
+
+
+@alerts.command("ack")
+@click.argument("code")
+@_STATE_DIR
+def alerts_ack(code: str, state_dir: Path | None) -> None:
+    """Confirm that a test message arrived, with the code in it."""
+    from datetime import UTC, datetime
+
+    store = _watch_store(state_dir)
+    if not store.prove_canary(code=code, by="acknowledged", now=datetime.now(UTC)):
+        raise click.ClickException(
+            "No test message of the last 24 hours has that code. "
+            "Send another with `alerts canary`."
+        )
+    click.echo("Recorded: that test arrived.")
+
+
+@alerts.command("proof")
+@click.option("--json", "as_json", is_flag=True, help="Print the proof as JSON.")
+@_STATE_DIR
+def alerts_proof(as_json: bool, state_dir: Path | None) -> None:
+    """Show, for each channel, whether its latest test message is known to have arrived.
+
+    Asks the carrier and the mailbox about any test still open first. Exits
+    1 if a channel's latest test failed or went unproven.
+    """
+    from datetime import timedelta
+
+    from omni_mercury_engine.watch.canary import Canary, proof_of_delivery
+    from omni_mercury_engine.watch.notify import Notifier
+
+    store = _watch_store(state_dir)
+    Canary(store, Notifier(store)).settle(every=timedelta(0))
+    shown = proof_of_delivery(store, detail=True)
+    if as_json:
+        click.echo(json.dumps(shown, indent=2))
+    else:
+        for channel, state in shown.items():
+            line = f"{channel:8s} {state['state']}"
+            if state["state"] == "never":
+                line += ": no test has been sent by it"
+            else:
+                line += f": sent {state['sent_at']}"
+                if state["proven_at"]:
+                    line += f", proven {state['proven_at']} ({state['by']})"
+                elif state.get("error"):
+                    line += f", {state['error']}"
+                if state["last_proven_at"] and state["last_proven_at"] != state["proven_at"]:
+                    line += f"; last proven {state['last_proven_at']}"
+            click.echo(line)
+    if any(state["state"] in ("failing", "unproven") for state in shown.values()):
+        raise click.exceptions.Exit(1)
+
+
+@alerts.command("test")
+@click.option("--email", required=True, help="A subscribed address to send a test message to.")
+@_STATE_DIR
+def alerts_test(email: str, state_dir: Path | None) -> None:
+    """Send a test message, to prove a subscriber can be reached before it matters."""
+    from omni_mercury_engine.watch.notify import AUTOMATIC, Notifier
+
+    store = _watch_store(state_dir)
+    # An address is the same address however it is capitalised; the message
+    # goes to it as it was subscribed.
+    held = store.subscriptions_of(email)
+    if not held:
+        raise click.UsageError(f"{email} is not subscribed; add it with `alerts add`.")
+    mailer = Notifier(store).mailer
+    if mailer is None:
+        raise click.ClickException(
+            "No SMTP server is configured (MERCURY_SMTP_HOST): no email can be sent."
+        )
+    try:
+        mailer.send(
+            to=str(held[0]["email"]),
+            headers=AUTOMATIC,
+            subject="[Mercury watch] Test: you can be reached",
+            body=(
+                "This is a test from the Mercury watch. Nothing has happened.\n\n"
+                "You are subscribed, and messages can reach you. When the watch reports "
+                "something that concerns you, it will arrive like this one, with what "
+                "happened, where, and what to do."
+            ),
+        )
+    except Exception as exc:
+        raise click.ClickException(f"The test message could not be sent: {exc}") from exc
+    click.echo(f"Test message sent to {email}.")
 
 
 @main.command()
@@ -3514,6 +4609,207 @@ def decouple_uninstall(
             f'dry run. To execute: mercury-agent decouple uninstall --confirm "{dc.CONFIRM_UNINSTALL}"'
         )
     _emit(plan, as_json, lines)
+
+
+@main.command("replay")
+@click.argument("record", type=click.Path(exists=True, dir_okay=False))
+@click.option(
+    "--data",
+    "-d",
+    default=None,
+    help=(
+        "The window a causal finding was computed on (CSV/NPY/JSON). Its sums "
+        "of squares are recomputed from it; the file must be the same window "
+        "(checked against the recorded digest)."
+    ),
+)
+@click.option(
+    "--reference",
+    "-r",
+    default=None,
+    help=(
+        "A reference of your own, one observation per row (CSV/NPY/JSON). Asks "
+        "whether the recorded observation is novel against it."
+    ),
+)
+@click.option("--json", "as_json", is_flag=True, help="Print the reports as JSON.")
+def replay(record: str, data: str | None, reference: str | None, as_json: bool) -> None:
+    """Replay the discovery artifacts in a decision record: do they still hold?
+
+    RECORD is a JSON file: a decision record, a whole detection result, or
+    the cognitive analysis inside one. Each discovery artifact it carries (a
+    novelty verdict, causal edges, a derived hypothesis) is re-run from the
+    numbers in the record, with the same procedure that produced it, and
+    reported as HOLDS, FAILS or CANNOT_REPLAY. Nothing here touches a model
+    or a server.
+
+    Exit status: 0 when every artifact holds; 1 when any fails; 2 when one
+    could not be replayed or the record carries none.
+    """
+    import json
+
+    from omni_mercury_engine.discovery import CANNOT_REPLAY, FAILS, replay_record
+
+    try:
+        with open(record, encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except (OSError, ValueError) as exc:
+        click.echo(f"Error: cannot read {record} as JSON: {exc}", err=True)
+        raise SystemExit(2) from exc
+    reports = replay_record(
+        loaded,
+        data=_load_input(data, "--data") if data else None,
+        reference=_load_input(reference, "--reference") if reference else None,
+    )
+    statuses = {report["status"] for report in reports}
+    code = 1 if FAILS in statuses else 2 if (not reports or CANNOT_REPLAY in statuses) else 0
+    if as_json:
+        click.echo(json.dumps({"reports": reports, "exit_status": code}, indent=2, default=str))
+        raise SystemExit(code)
+    if not reports:
+        click.echo("No discovery artifact in this record: nothing to replay.")
+        raise SystemExit(code)
+    for report in reports:
+        click.echo(f"{report['status']:14s} {report['kind']}: {report['detail']}")
+        recorded = report.get("recorded") or {}
+        if report["kind"] == "hypothesis" and recorded.get("statement"):
+            click.echo(f"{'':14s} claim: {recorded['statement']}")
+    raise SystemExit(code)
+
+
+@main.command("demo")
+@click.option(
+    "--out",
+    "-o",
+    default="mercury-demo",
+    show_default=True,
+    type=click.Path(file_okay=False),
+    help="Directory to keep decision.json and window.csv in, for the replay command.",
+)
+@click.option(
+    "--json", "as_json", is_flag=True, help="Print the answers, record and challenge as JSON."
+)
+def demo(out: str, as_json: bool) -> None:
+    """Three answers on one real decision, in under a minute, then challenge it.
+
+    A score says a row is unusual. This scores one committed window with the
+    bundled flagship model and shows, beside the complete decision record:
+    WHY THIS ROW (contributions, the lead-lag finding, the hypothesis and its
+    weakest premise), HOW SURE (the conformal certificate and whether its
+    coverage holds here), and THE RECORD (disposition, model digest, the
+    ethical gate's outcome). It then replays the record's findings against
+    the data, shows a tampered copy failing, and ends with the exact command
+    that re-runs the challenge.
+
+    Exit status: 0 when the findings hold and the tampered copy fails; 1
+    otherwise.
+
+    Examples:
+        mercury-agent demo
+        mercury-agent demo --out /tmp/mercury-demo --json
+    """
+    import logging
+    import warnings
+    from pathlib import Path
+
+    from omni_mercury_engine import demo as demonstration
+
+    warnings.simplefilter("ignore")
+    logging.disable(logging.WARNING)
+    try:
+        status, text = demonstration.run(Path(out), as_json=as_json)
+    finally:
+        logging.disable(logging.NOTSET)
+    click.echo(text)
+    raise SystemExit(status)
+
+
+@main.command("review")
+@click.argument("file", type=click.Path(dir_okay=False))
+@click.option(
+    "--kind",
+    type=click.Choice(["document", "image", "audio"]),
+    default=None,
+    help="Require this kind; a file recognised as another is refused.",
+)
+@click.option(
+    "--out",
+    "-o",
+    default=None,
+    type=click.Path(dir_okay=False),
+    help="Also write the whole result (decision record and review) to this JSON file.",
+)
+@click.option("--json", "as_json", is_flag=True, help="Print the whole result as JSON.")
+def review_file(file: str, kind: str | None, out: str | None, as_json: bool) -> None:
+    """Review a document, an image or a recording: is part of it unlike the rest?
+
+    FILE is decoded (text, Markdown, CSV, JSON, HTML, DOCX, PDF; PNG, JPEG,
+    GIF, BMP, WebP, TIFF; WAV), read by the harm-uplift gate, cut into
+    segments measured against the file itself, and scored on the flagship
+    path: fusion network, batch-level conformal certificate, ethical gates,
+    decision layer. Prints why this segment, how sure, and the record, beside
+    the complete DecisionRecord.
+
+    The scope is internal consistency: a flagged segment is unlike the rest
+    of this file. That is not a finding that it was altered.
+
+    Exit status: 0 when the file was reviewed (whatever the decision); 1 when
+    an ethical gate refused it; 2 when it could not be reviewed (format,
+    bounds, or too short to be its own reference).
+
+    Examples:
+        mercury-agent review report.pdf
+        mercury-agent review scan.png --json
+        mercury-agent review call.wav -o call.review.json
+    """
+    import json
+    import logging
+    import shlex
+    import warnings
+    from pathlib import Path
+
+    needs = (
+        "Error: artifact review scores on the fusion engine, which needs the ML extra "
+        "(pip install 'mercury-agent-global[ml]')"
+    )
+    try:
+        from omni_mercury_engine import review
+        from omni_mercury_engine.cognitive.ethical_bounding import EthicalConstraintViolationError
+        from omni_mercury_engine.review import answers
+    except ImportError as exc:  # never review around a gate that could not be imported
+        click.echo(f"{needs}: {exc}", err=True)
+        raise SystemExit(2) from exc
+
+    try:
+        uploaded = Path(file).read_bytes()
+    except OSError as exc:
+        click.echo(f"Error: cannot read {file}: {exc.strerror or exc}", err=True)
+        raise SystemExit(2) from exc
+    warnings.simplefilter("ignore")
+    logging.disable(logging.WARNING)
+    try:
+        result = review.review_bytes(uploaded, Path(file).name, kind=kind)
+    except review.ReviewError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        raise SystemExit(2) from exc
+    except EthicalConstraintViolationError as exc:
+        click.echo(f"Refused by the '{exc.check}' ethical gate: not reviewed.", err=True)
+        raise SystemExit(1) from exc
+    except ImportError as exc:
+        click.echo(f"{needs}: {exc}", err=True)
+        raise SystemExit(2) from exc
+    finally:
+        logging.disable(logging.NOTSET)
+    document = json.dumps(result, indent=2, default=_json_default)
+    if out:
+        Path(out).write_text(document + "\n", encoding="utf-8")
+    if as_json:
+        click.echo(document)
+        return
+    rerun = "mercury-agent review " + shlex.quote(file) + (f" --kind {kind}" if kind else "")
+    click.echo(answers.render(result, rerun=rerun))
+    if out:
+        click.echo(f"\nKept: {out} (the whole result).")
 
 
 if __name__ == "__main__":

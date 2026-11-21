@@ -32,9 +32,20 @@ spec:
         - record: omni_mercury:http_request_duration_seconds:p99
           expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{app="mercury-agent"}[5m])) by (le, service))
 
-        # Error rate
+        # Error rate. A server that has returned no 5xx has no status=~"5.."
+        # series at all, so the plain ratio produced no sample and the Error
+        # Rate panel read "No data" on a healthy service. The numerator falls
+        # back to 0 for a service that has traffic, so the rule reports 0; a
+        # service with no traffic in the window still reports nothing.
         - record: omni_mercury:http_errors:rate5m
-          expr: sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service)
+          expr: |
+            (
+              sum(rate(http_requests_total{app="mercury-agent",status=~"5.."}[5m])) by (service)
+              or
+              sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service) * 0
+            )
+            /
+            (sum(rate(http_requests_total{app="mercury-agent"}[5m])) by (service) > 0)
 
         # Detection processing metrics
         - record: omni_mercury:detections:rate5m
@@ -178,6 +189,18 @@ spec:
             description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
             runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/high-latency.md"
 
+        # API router failed to import: the server is up with part of its surface missing
+        - alert: OmniMercuryApiRouterUnavailable
+          expr: max by (router) (omni_mercury_api_router_state{state="unavailable"}) == 1
+          for: 2m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Mercury-Agent API is running without one of its routers"
+            description: "Router {{ $labels.router }} failed to import at startup; its routes answer 404 while /health reports healthy"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/api-router-unavailable.md"
+
         # Low replica count
         - alert: OmniMercuryLowReplicaCount
           expr: |
@@ -263,6 +286,36 @@ spec:
           annotations:
             summary: "Detection success rate has dropped"
             description: "Detection success rate is {{ $value | humanizePercentage }} (threshold: 95%)"
+            runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md"
+
+        # One component failing. The alert above is a single ratio over
+        # every detector and route, so a component with a small share of the
+        # traffic can fail every request without moving it below 95%: a route
+        # with 4% of requests failing all of them leaves the total at 96%.
+        # This is the same ratio per detector_type. `or ... * 0` supplies a
+        # zero for a component with no success series, and the `and` clause
+        # needs five requests in the window, so one failure on an idle
+        # component does not page.
+        - alert: OmniMercuryDetectorFailing
+          expr: |
+            (
+              (
+                sum by (detector_type) (rate(omni_detection_success_total{app="mercury-agent"}[10m]))
+                or
+                sum by (detector_type) (rate(omni_detection_requests_total{app="mercury-agent"}[10m])) * 0
+              )
+              /
+              sum by (detector_type) (rate(omni_detection_requests_total{app="mercury-agent"}[10m]))
+            ) < 0.80
+            and
+            sum by (detector_type) (increase(omni_detection_requests_total{app="mercury-agent"}[10m])) >= 5
+          for: 10m
+          labels:
+            severity: warning
+            team: ml
+          annotations:
+            summary: "Detector {{ $labels.detector_type }} is failing"
+            description: "{{ $labels.detector_type }} succeeded on {{ $value | humanizePercentage }} of its detections over 10 minutes (threshold: 80%)"
             runbook_url: "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/docs/runbooks/detection-success.md"
 
         # Slow detection processing

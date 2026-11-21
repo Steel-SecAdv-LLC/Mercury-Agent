@@ -153,6 +153,20 @@ jobs:
           echo "$out"
           echo "$out" | grep -q "PHYSICS-INSPIRED DETECTORS"
 
+      - name: Run auditable_decision end-to-end (three answers + challenge)
+        env:
+          AMA_REQUIRE_REAL_PQC: "true"
+        run: |
+          set -euo pipefail
+          # Exit 0 only when the decision's findings HOLD on replay AND the
+          # tampered copy FAILS; the markers pin the three answers.
+          out=$(python examples/auditable_decision.py)
+          echo "$out"
+          echo "$out" | grep -q "1. WHY THIS ROW"
+          echo "$out" | grep -q "2. HOW SURE"
+          echo "$out" | grep -q "3. THE RECORD"
+          echo "$out" | grep -q "the decision's findings HOLD"
+
       - name: Cache DTU AIS training files
         # Keyed on the two pinned SHA-256s; the loader re-hashes each file
         # against its pin before use, so a cached file cannot pass unverified.
@@ -179,7 +193,7 @@ jobs:
           echo "$out" | grep -qF "incl. all 25 abnormal: ROC-AUC 0.8750 "
           echo "$out" | grep -qF "Mercury label-free cross-fit ROC-AUC 0.8739"
           echo "$out" | grep -qF "Thesis Fig. 6.1: fit on 106,728 June-November 2021 tracks: ROC-AUC 0.8934 "
-          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8779 "
+          echo "$out" | grep -qF "JMSE Fig. 12a: fit on 12,591 December 2021 (no 13th) tracks: ROC-AUC 0.8780 "
 
   load-tests:
     name: Load Tests (smoke)

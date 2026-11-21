@@ -445,7 +445,12 @@ def generate_slhdsa_keypair_from_seed(
             "Upgrade to ama-cryptography ≥ 3.1.0 and ensure the native C library is built."
         )
     pk_len, sk_len, _ = _slhdsa_param_sizes(param_set)
-    n = pk_len  # FIPS 205 §10.1: PK.seed length == n
+    # FIPS 205 §9.1: the public key is PK.seed || PK.root, two values of n
+    # bytes, so n is half its length. This took n to be the whole length and
+    # refused every valid seed -- 16 bytes for SHAKE-128s, where it demanded 32
+    # -- so the function could not be called at all. NIST's keyGen vectors
+    # found it (tests/security/test_nist_fips_kat.py).
+    n = pk_len // 2
     if len(sk_seed) != n or len(sk_prf) != n or len(pk_seed) != n:
         raise ValueError(
             f"FIPS 205 SLH-DSA-{param_set} expects sk_seed/sk_prf/pk_seed of {n} bytes; "
@@ -701,12 +706,22 @@ def ed25519_verify(message: bytes, signature: bytes, public_key: bytes) -> bool:
 def get_pqc_capabilities() -> dict[str, Any]:
     """Get current PQC capabilities from AMA Cryptography.
 
+    ``constant_time`` is AMA Cryptography's own statement about its native
+    primitives. Nothing in Mercury measures it, and ``constant_time_verified``
+    says so: a capability report that printed ``True`` and nothing else read
+    as a tested property (``CAPABILITY_MATRIX.md`` has always listed it as
+    asserted, not verified). ``security_level`` names the backend's operating
+    mode; ``independently_audited`` is the answer to the other question.
+
     Returns:
         Dictionary with backend status and available algorithms
     """
     return {
         "backend": get_active_backend().value,
         "constant_time": True,
+        "constant_time_verified": False,
+        "constant_time_basis": "asserted by AMA Cryptography; not measured or independently verified",
+        "independently_audited": False,
         "algorithms": {
             "dilithium": DILITHIUM_AVAILABLE,
             "kyber": KYBER_AVAILABLE,

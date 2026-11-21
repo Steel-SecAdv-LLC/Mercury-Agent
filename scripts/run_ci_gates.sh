@@ -75,6 +75,23 @@ run_gate "benchmark-integrity gate (ci.yml: ROADMAP row 17 offline fallback)" \
 run_gate "torch.load safety gate (ci.yml: no raw torch.load outside safe wrapper)" \
   python scripts/check_torch_load_safety.py
 
+# --- Security Scan job (ci.yml) / Dependency Security Scan (security.yml) ---
+# Both lanes run this exact Bandit command and both block. It was not mirrored
+# here, and Ruff's flake8-bandit rules are not a stand-in for it: a line marked
+# ``# noqa: S608`` passes Ruff and still fails Bandit, which reads only
+# ``# nosec``. That is how a B608 finding reached a pushed head with every
+# local gate green. CI installs Bandit unpinned, so the newest release is used.
+BANDIT_REPORT="$(mktemp)"
+run_gate "bandit, medium and above (ci.yml + security.yml: Run Bandit)" \
+  bash -c 'if command -v bandit >/dev/null; then b=(bandit); else b=(uv tool run --from "bandit[toml]" bandit); fi
+           "${b[@]}" -r src/omni_mercury_engine/ -c pyproject.toml -f json -o "$1" --severity-level medium -q 2>/dev/null && exit 0
+           python -c "import json, sys
+for r in json.load(open(sys.argv[1]))[\"results\"]:
+    print(\"{filename}:{line_number}: {test_id} {issue_severity}: {issue_text}\".format(**r))" "$1" 2>/dev/null ||
+             echo "bandit did not run (install it, or uv, to mirror the Security Scan lane)"
+           exit 1' _ "${BANDIT_REPORT}"
+rm -f "${BANDIT_REPORT}"
+
 # --- Workflow Hardening job (repository script gates) ----------------------
 # actionlint and zizmor need their own toolchains and are not mirrored here.
 run_gate "uv.lock matches pyproject.toml (ci.yml: uv lock --check)" \
@@ -101,12 +118,21 @@ run_gate "Lyapunov λ documentation drift (ci.yml: check_readme_lyapunov)" \
 run_gate "codebase-scale documentation drift (ci.yml: measure_codebase_scale --check)" \
   python scripts/measure_codebase_scale.py --check README.md
 
+run_gate "skip ledger (ci.yml: measure_skip_ledger --check)" \
+  python scripts/measure_skip_ledger.py --check docs/SKIP_LEDGER.md
+
 # --- Other repository drift gates CI runs --------------------------------
 # These ran only in CI (or only inside the pytest lane), so a stale generated
 # file reached a pushed head before anything local flagged it. Each takes a
 # few seconds at most.
 run_gate "capability inventory drift (pytest: test_committed_inventory_is_fresh)" \
   python scripts/generate_capability_inventory.py --check
+
+# The demonstration is the first thing the README shows a newcomer. This runs
+# it for real (bundled model, committed window, ~5 s) and fails if any of the
+# three answers, the complete record, or the closing replay command goes.
+run_gate "three-answers smoke (mercury-agent demo: why this row / how sure / the record)" \
+  python -m pytest tests/test_demo_three_answers.py -q -p no:cacheprovider --timeout=600
 
 run_gate "detector catalog drift (docs/DETECTORS.md vs DETECTOR_MANIFEST)" \
   python scripts/generate_detector_catalog.py --check
@@ -122,6 +148,14 @@ run_gate "weapons-gate corpus drift (ci.yml: ingest_weapons_gate_corpus --check)
 
 run_gate "Prometheus rule render drift (render_prometheus_rules --check)" \
   python scripts/render_prometheus_rules.py --check
+
+# promtool is a system package (apt: prometheus). Where it is absent the gate
+# fails rather than passing unrun: CI installs it, and so should a release host.
+run_gate "Prometheus rules (ci.yml: promtool check + unit tests)" \
+  bash -c 'command -v promtool >/dev/null || { echo "promtool is not installed (apt-get install prometheus)"; exit 1; }
+           promtool check rules monitoring/prometheus/rules.yml &&
+           promtool check config monitoring/prometheus/prometheus.yml &&
+           cd monitoring/prometheus && promtool test rules rules.test.yml'
 
 # --- pqc-production-check job: tests/security without torch ----------------
 # That lane installs only [dev,api]. scripts/no_torch hides torch the way an
@@ -194,6 +228,10 @@ if [[ "${FAST}" -eq 0 ]]; then
     scripts/record_gdacs_fixtures.py \
     scripts/check_lock_downgrades.py \
     scripts/simulate_dependabot_uv.py \
+    scripts/measure_skip_ledger.py \
+    scripts/api_boot_smoke.py \
+    scripts/verify_release.py \
+    scripts/ci_test_partition.py \
     --show-error-codes
 else
   echo ""

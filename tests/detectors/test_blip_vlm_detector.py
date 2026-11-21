@@ -54,7 +54,17 @@ class TestKeywordVote:
         flagged, confidence, _ = _vote("a cup on a table", anomaly_keywords=["fire"])
         assert (flagged, confidence) == (False, 0.5)
 
-    def test_confidence_is_anomaly_matches_over_all_matches_plus_one(self) -> None:
+    def test_anomaly_majority_flags_and_confidence_is_the_evidence_ratio(self) -> None:
+        """Smoke and fire by a calm lake IS an anomaly (B1 audit cure).
+
+        Changed with the B1 fix: this test used to assert the caption was
+        NOT flagged, pinning the old ``total / (total + normal + 1)``
+        formula whose +1 denominator put two anomaly keywords against one
+        normal keyword at exactly 0.5 — below the strict threshold, so
+        'smoke' and 'fire' near a 'calm' lake never alarmed.  Under the
+        fixed vote, confidence is the plain evidence ratio and strictly
+        more anomaly than normal evidence alarms.
+        """
         flagged, confidence, _ = _vote(
             "smoke and fire near a calm lake",
             anomaly_keywords=["fire", "smoke"],
@@ -62,20 +72,29 @@ class TestKeywordVote:
             anomaly_description="",
             confidence_threshold=0.5,
         )
-        assert confidence == pytest.approx(2 / (2 + 1 + 1))
-        assert flagged is False  # 0.5 is not above the threshold 0.5
+        assert confidence == pytest.approx(2 / 3)
+        assert flagged is True
 
-    def test_the_alarm_is_strictly_above_the_threshold(self) -> None:
-        caption = "smoke and fire"
+    def test_one_anomaly_keyword_alone_alarms_and_a_tie_does_not(self) -> None:
         kwargs = {"anomaly_keywords": ["fire", "smoke"], "anomaly_description": ""}
-        assert _vote(caption, confidence_threshold=0.66, **kwargs)[0] is True
-        assert _vote(caption, confidence_threshold=2 / 3, **kwargs)[0] is False
+        assert _vote("smoke and fire", **kwargs)[0] is True
+        flagged, confidence, explanation = _vote(
+            "smoke over a calm lake", normal_keywords=["calm"], **kwargs
+        )
+        assert flagged is False  # 1-vs-1 tie: no majority
+        assert confidence == pytest.approx(0.5)
+        assert "Anomaly evidence: 1" in explanation  # distinguishable from no evidence
+
+    def test_keywords_match_whole_words_only(self) -> None:
+        flagged, confidence, _ = _vote(
+            "an unusual event", anomaly_keywords=["unusual"], normal_keywords=["usual"]
+        )
+        assert flagged is True  # 'usual' must not match inside 'unusual'
+        assert confidence == pytest.approx(1.0)
 
     def test_the_description_words_count_as_anomaly_evidence(self) -> None:
-        flagged, confidence, _ = _vote(
-            "a large cat on a rug", anomaly_description="cat", confidence_threshold=0.4
-        )
-        assert confidence == pytest.approx(1 / 2)
+        flagged, confidence, _ = _vote("a large cat on a rug", anomaly_description="cat")
+        assert confidence == pytest.approx(1.0)
         assert flagged is True
 
 

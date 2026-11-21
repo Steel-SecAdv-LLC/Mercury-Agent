@@ -85,13 +85,17 @@ from omni_mercury_engine._pqc_gate import _enforce_pqc_production_gate as _pqc_e
 _pqc_enforce()
 del _pqc_enforce
 
+import contextvars
 import functools
 import gc
+import hashlib
 import logging
 import os
 import threading
 import time
+from collections import deque
 from contextlib import contextmanager
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 import numpy as np
@@ -142,6 +146,7 @@ from omni_mercury_engine.core.metrics import (
 from omni_mercury_engine.core.parallel_detectors import (
     DEFAULT_MAX_WORKERS,
     DetectorTask,
+    ExecutorSaturatedError,
     OutcomeStatus,
     ParallelDetectorExecutor,
     reraise,
@@ -162,6 +167,13 @@ from omni_mercury_engine.core.parallel_detectors import (
 # (leading underscore) — public callers cannot bypass σ_Immutable.
 # Tests set this module-level flag explicitly via monkeypatch so the
 # bypass is auditable from outside the test file.
+#
+# The flag is a plain module attribute, so nothing but convention kept it
+# out of a deployed process. It is therefore honoured only outside
+# production: with ``MERCURY_ENV=production`` (read through ``_env``, the
+# single source of that distinction) every site that consults the flag
+# ignores it, logs an ERROR naming the site, and runs the gate — see
+# ``_gosnn_testing_bypass_allowed``.
 # ---------------------------------------------------------------------------
 _GOSNN_TESTING_BYPASS: bool = False
 
@@ -207,8 +219,7 @@ from omni_mercury_engine.ml.symbolic_constraint import (
 from omni_mercury_engine.utils.logging import LoggerMixin
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
-    from pathlib import Path
+    from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from omni_mercury_engine.agentic.orchestration import MultiAgentOrchestrator
     from omni_mercury_engine.agentic.subagents.fleet import SubAgentFleet
@@ -395,6 +406,18 @@ def default_fusion_checkpoint_path() -> Path:
     installed = installed_fusion_checkpoint_path()
     if installed.is_file():
         return installed
+    return bundled_fusion_checkpoint_path()
+
+
+def bundled_fusion_checkpoint_path() -> Path:
+    """The synthetic fusion checkpoint shipped inside the package.
+
+    What the serving surfaces fall back to when no model is installed, and
+    what the demonstration (``mercury-agent demo``) always scores with: its
+    committed window belongs to this model, not to an operator's own.
+    """
+    from pathlib import Path
+
     return Path(__file__).resolve().parent / "models" / "checkpoints" / "default_fusion.pt"
 
 
@@ -620,6 +643,115 @@ def __getattr__(name: str) -> Any:
     if name in lazy_models:
         return _lazy_import(name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _gosnn_testing_bypass_allowed(site: str) -> bool:
+    """Whether a set ``_GOSNN_TESTING_BYPASS`` may take effect at ``site``.
+
+    Never in production. The flag skips the σ_Immutable second hard gate; a
+    production process that has it set (a stray import-time assignment, a
+    test helper shipped by mistake) must not lose the gate to it, so the
+    bypass is ignored there and the event is logged at ERROR. An
+    unrecognised ``MERCURY_ENV`` value is read as production: the gate is
+    the fail-closed side of not knowing which environment this is.
+
+    Args:
+        site: The boundary consulting the flag, for the log line.
+
+    Returns:
+        ``True`` only when the process is not a production process.
+    """
+    from omni_mercury_engine._env import MercuryProductionConfigError, is_production
+
+    try:
+        production = is_production()
+    except MercuryProductionConfigError as exc:
+        logger.error(
+            "_GOSNN_TESTING_BYPASS is set and the environment mode is unreadable (%s): "
+            "treating the process as production; the bypass is ignored at %s and the "
+            "σ_Immutable gate runs.",
+            exc,
+            site,
+        )
+        return False
+    if production:
+        logger.error(
+            "_GOSNN_TESTING_BYPASS is set in a production process (MERCURY_ENV=production): "
+            "the bypass is ignored at %s and the σ_Immutable gate runs. The flag is a "
+            "unit-test hook and must never be set in a deployment.",
+            site,
+        )
+        return False
+    return True
+
+
+# Per-call collector for the evidence sources the feature extractors skip
+# (a detector that timed out, was refused by a saturated executor, declined
+# the input or failed). ``detect_with_fusion`` installs a dict for the span
+# of its extraction and reads it back, so the skip list reaches the result
+# and the decision layer; a context variable keeps interleaved calls on
+# other threads from seeing each other's skips, and leaves the extractors'
+# signatures and return shapes as they were. ``None``: nobody is collecting.
+_SKIPPED_EVIDENCE: contextvars.ContextVar[dict[str, dict[str, str]] | None] = (
+    contextvars.ContextVar("mercury_skipped_evidence", default=None)
+)
+
+
+def _record_skipped_evidence(name: str, error: BaseException) -> str:
+    """Classify why an evidence source was skipped and note it for the caller.
+
+    Returns:
+        The reason: ``timeout`` (overran the detector time budget),
+        ``saturated`` (the executor refused parallel work), ``declined`` (the
+        source does not process this input's modality) or ``error``.
+    """
+    if isinstance(error, TimeoutError):
+        reason = "timeout"
+    elif isinstance(error, ExecutorSaturatedError):
+        reason = "saturated"
+    elif isinstance(error, InputModalityError):
+        reason = "declined"
+    else:
+        reason = "error"
+    collector = _SKIPPED_EVIDENCE.get()
+    if collector is not None:
+        collector[name] = {"reason": reason, "detail": f"{type(error).__name__}: {error}"}
+    return reason
+
+
+@contextmanager
+def _scoped_torch_seed(seed: int | None) -> Iterator[torch.Generator | None]:
+    """Run a block under a fixed torch seed and hand the caller's stream back.
+
+    ``fit_fusion`` draws from torch's process-global generator in places it
+    cannot pass a generator to (parameter initialisation, dropout). Inside
+    the block that stream is seeded with ``seed``; on exit the state it had
+    on entry is restored bit-for-bit (CPU and every CUDA device), so a fit
+    neither depends on what the process drew before it nor changes what the
+    caller draws after it. The yielded generator is a separate, local stream
+    for the draws that do take one (the split and the per-epoch shuffle).
+
+    ``seed=None`` is the opt-out: nothing is seeded or restored, ``None`` is
+    yielded, and the ambient stream drives the block as it used to.
+
+    The swap is process-global for the duration of the block, like
+    ``torch.random.fork_rng``: another thread drawing from torch's global
+    stream during a fit reads the seeded stream.
+    """
+    if seed is None:
+        yield None
+        return
+    cpu_state = torch.random.get_rng_state()
+    cuda_states = torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+    generator = torch.Generator()
+    generator.manual_seed(int(seed))
+    torch.manual_seed(int(seed))
+    try:
+        yield generator
+    finally:
+        torch.random.set_rng_state(cpu_state)
+        if cuda_states is not None:
+            torch.cuda.set_rng_state_all(cuda_states)
 
 
 def _is_parallel_safe(component: Any, *, stateful_call: bool = False) -> bool:
@@ -927,6 +1059,38 @@ class MemoryMonitor:
         }
 
 
+def _ledger_record(record: Any, wire: dict[str, Any]) -> Any:
+    """The decision as the ledger keeps it: discovery artifacts without their inputs.
+
+    A discovery artifact's inputs are the caller's own numbers (an
+    observation vector, the sums of squares of their window).  They are
+    returned with the decision; the ledger, which outlives the request and is
+    bounded by count, keeps each artifact's claim and digest only
+    (:func:`omni_mercury_engine.discovery.ledger_form`).  A record without
+    artifacts is kept as it is.
+    """
+    cognitive = (wire.get("signals") or {}).get("cognitive")
+    if not isinstance(cognitive, dict):
+        return record
+    discovery = cognitive.get("discovery")
+    if not isinstance(discovery, dict) or not discovery:
+        return record
+    from omni_mercury_engine.decision.record import DecisionRecord
+    from omni_mercury_engine.discovery import ledger_form
+
+    slim = {
+        **wire,
+        "signals": {
+            **wire["signals"],
+            "cognitive": {
+                **cognitive,
+                "discovery": {kind: ledger_form(item) for kind, item in discovery.items()},
+            },
+        },
+    }
+    return DecisionRecord.from_dict(slim)
+
+
 class OmniMercuryEngine(LoggerMixin):
     """Unified neuro-symbolic detection engine with hybrid fusion.
 
@@ -1001,6 +1165,7 @@ class OmniMercuryEngine(LoggerMixin):
         require_explicit_fit: bool = True,
         cache_ethical_decisions: bool = True,
         decision_layer: bool = True,
+        include_unproven: bool = False,
     ) -> None:
         """Initialize the OmniMercuryEngine.
 
@@ -1011,6 +1176,13 @@ class OmniMercuryEngine(LoggerMixin):
             device: Computation device ('cpu' or 'cuda').
             cache_size: Maximum entries in feature cache. Default 128.
             memory_threshold_mb: Memory threshold for GC in MB. Default 2048.
+            include_unproven: When True, models the Detector Evidence Ledger
+                measures broken on their declared modality (tier T0) take
+                part in detection as they used to. By default they are
+                constructed and reachable at ``models`` exactly as before,
+                but contribute no feature and no score
+                (:meth:`_models_on_the_default_path`); a loaded fusion
+                checkpoint trained with one's feature group keeps that group.
             decision_layer: When True (default), the decision / abstention /
                 response layer is active, so every ``detect_with_fusion``
                 result carries a ``"decision"`` record — a grounded label or an
@@ -1076,6 +1248,15 @@ class OmniMercuryEngine(LoggerMixin):
         # width-8 retrain still carried the shipped checkpoint's width-16
         # rows and every later drift check reported "incomparable".
         self._checkpoint_fit_detectors: set[str] = set()
+        # Detectors whose current fit was made by a training call (fit_fusion,
+        # build_feature_npz) on that call's rows. The next training call on
+        # data replaces such a fit: kept, it left a second fit_fusion scoring
+        # its new rows against the first call's reference, and tune_fusion's
+        # final full-data fit serving detectors fitted on the first trial's
+        # train split. A fit the caller made themselves (detector.fit, or a
+        # pre-fitted detector handed to register_detector) is in none of
+        # these sets and is kept as before.
+        self._training_fit_detectors: set[str] = set()
         # Detectors that declined the training data's modality (raised
         # InputModalityError from fit). A decline is a correct refusal, not a
         # fault: such a detector can never become fitted on this corpus, so
@@ -1093,6 +1274,10 @@ class OmniMercuryEngine(LoggerMixin):
         # only DEFER on drift). None = disabled (exact legacy behaviour).
         self._adaptive_conformal: Any = None
         self._recalibration_warmup: int = 30
+        # The adaptive operating threshold most recently written to the
+        # improvement ledger; None until the warmup first crosses. Used to
+        # record threshold *moves* (>= 0.01) rather than one entry per call.
+        self._last_recorded_adaptive_threshold: float | None = None
         # Bounded sample of the fusion training features, captured by
         # fit_fusion(). Used as the SHAP background for the opt-in GDPR report
         # (detect_with_fusion(gdpr_report=True)); None until a fit has run.
@@ -1184,6 +1369,22 @@ class OmniMercuryEngine(LoggerMixin):
 
         self._init_detectors()
         self._init_models()
+        # What the evidence ledger measures broken stays off the default path.
+        # The models are constructed all the same: the API keeps them, and a
+        # checkpoint trained with one's feature group keeps that group fed.
+        from omni_mercury_engine.core.evidence_tiers import measured_broken
+
+        self.include_unproven = bool(include_unproven)
+        self.excluded_unproven: frozenset[str] = (
+            frozenset() if include_unproven else measured_broken() & set(self.models)
+        )
+        if self.excluded_unproven:
+            logger.info(
+                "models measured broken on their declared modality contribute no feature "
+                "and no score (the Detector Evidence Ledger's T0): %s; "
+                "include_unproven=True restores them",
+                ", ".join(sorted(self.excluded_unproven)),
+            )
         self._init_fusion()
         self._init_resilience()
         self._init_runtime_pipeline()
@@ -1281,6 +1482,9 @@ class OmniMercuryEngine(LoggerMixin):
             )
 
         self.detectors[name] = detector
+        # The bookkeeping described the instance this name held; the caller's
+        # instance (fitted or not) is theirs until a training call fits it.
+        self._training_fit_detectors.discard(name)
 
         trained_groups = (
             self._fusion_feature_groups
@@ -1460,6 +1664,14 @@ class OmniMercuryEngine(LoggerMixin):
             )
             # Track training state - Fix for Issue #1
             self._fusion_trained = False
+            # True while the network is the one this engine constructed and
+            # nothing has trained or loaded it. The first fit of such a
+            # network rebuilds it under the fit's seed (see
+            # _fit_fusion_on_features), so the fitted model does not depend
+            # on what the process had drawn from torch's global RNG by the
+            # time the engine was constructed. A loaded checkpoint or an
+            # earlier fit clears it: those weights are kept and trained on.
+            self._fusion_model_pristine = True
             # Post-hoc temperature calibration (Guo et al. 2017), fit on a
             # held-out val split during fit_fusion. Identity (T=1) until fit.
             self._fusion_calibrator: Any = None
@@ -1502,6 +1714,29 @@ class OmniMercuryEngine(LoggerMixin):
             # by training scripts and persisted in/restored from the checkpoint
             # so a shipped artifact is self-describing for audit. None unless set.
             self._fusion_provenance: dict[str, Any] | None = None
+            # Identity of the checkpoint file the serving weights came from
+            # (basename + sha256, hashed once at load and cached -- never per
+            # call). Both None until load_model(); an in-process fit resets
+            # them so provenance reads "in-memory fit" instead of naming a
+            # file whose weights were since replaced.
+            self._fusion_checkpoint_name: str | None = None
+            self._fusion_checkpoint_sha256: str | None = None
+            # Calibration-set size behind _fusion_conformal; None when the
+            # certificate was restored from a checkpoint (which does not
+            # record it -- the provenance says so rather than inventing one).
+            self._fusion_conformal_n_calibration: int | None = None
+            # What one calibration unit of the certificate was: "per_sample"
+            # (a row; calibrate_fusion_conformal) or "batch_max" (a whole
+            # batch, represented by its most anomalous row;
+            # calibrate_fusion_conformal_batches). The scalar verdict of a
+            # multi-row detection is the batch-max row, so only a batch_max
+            # certificate covers it; a per_sample one says so in the record.
+            self._fusion_conformal_regime: str = "per_sample"
+            # With a batch_max certificate: what the calibration batches looked
+            # like as wholes (summary mean, spread and the distances among
+            # them), so a served batch can be asked whether it is one of that
+            # family before the certificate is claimed for it. None otherwise.
+            self._fusion_batch_family: dict[str, Any] | None = None
             logger.info(
                 "OmniFusionModel initialized (untrained). Call fit_fusion() "
                 "before detection for optimal performance."
@@ -1571,6 +1806,12 @@ class OmniMercuryEngine(LoggerMixin):
         # so a failed derivation (a score_fusion pass over every training row)
         # is not repeated on every detect_with_fusion call.
         self._drift_reference_unavailable: str | None = None
+        # Rolling window of the most recent normal-looking rows from calls
+        # too small to be tested for drift on their own (single-sample
+        # serving above all). Bounded; guarded by its lock, since serving
+        # threads share the engine. See _run_drift_check.
+        self._drift_buffer: deque[np.ndarray[Any, Any]] = deque(maxlen=self._DRIFT_WINDOW_ROWS)
+        self._drift_buffer_lock = threading.Lock()
         self.fairness_auditor: FairnessAuditor | None = None
         self.llm_detector: ZeroShotAnomalyDetector | None = None
         self.cognitive_orchestrator: CognitiveOrchestrator | None = None
@@ -1652,6 +1893,8 @@ class OmniMercuryEngine(LoggerMixin):
         conformal_calibrate: bool = True,
         conformal_split: float = 0.1,
         conformal_coverage: float = 0.9,
+        seed: int | None = 0,
+        refit_detectors: bool = False,
     ) -> dict[str, Any]:
         """Fit the fusion model on training data with semi-supervised learning.
 
@@ -1725,6 +1968,25 @@ class OmniMercuryEngine(LoggerMixin):
                 ``omni_mercury_engine.ml.rule_evolution``; see
                 ``benchmarks/rule_evolution_benchmark.py``). Ignored when the
                 effective weight is 0.
+            seed: Seed of the fit (default ``0``). It drives the
+                train/validation split, the per-epoch shuffle of the training
+                rows, the initial weights of a network this engine has not
+                trained or loaded yet, and dropout, so the same data and seed
+                give the same fitted model whatever the process drew from
+                torch's global RNG beforehand; the caller's global RNG state
+                is restored when the fit returns. ``None`` leaves all of that
+                to the ambient global stream. A network that was already
+                trained or loaded is trained on from its current weights.
+                Reproduction is bit-for-bit on one machine configuration;
+                another thread count or BLAS can round differently, and
+                training amplifies that.
+            refit_detectors: Refit every detector on all of ``X`` once the
+                network is trained (default ``False``; see "Validation
+                hold-out" below). Left off, the detectors stay fitted on the
+                training split, so the served engine is exactly the one the
+                validation rows measured. ``True`` gives the detectors
+                references built from every row, and serves features the
+                network was not trained against.
 
         Returns:
             Dictionary with training metrics including final_loss, best_loss,
@@ -1738,9 +2000,33 @@ class OmniMercuryEngine(LoggerMixin):
             ValueError: If mode is not 'fusion'.
             RuntimeError: If no detector features could be extracted.
 
+        Validation hold-out: the ``validation_split`` rows are drawn first
+        (stratified by ``y`` when it is given and holds both classes), before
+        any detector is fitted. The detectors are fitted on the training
+        rows; with ``y=None`` the consensus pseudo-labels take their
+        contamination estimate and threshold from the training rows; and the
+        validation rows are extracted as a batch of their own, exactly as
+        serving them would. Early stopping, the temperature and the published
+        ``fit_validation`` AUC/F1 (``val_roc_auc`` / ``val_f1``) are therefore
+        measured on rows nothing fitted for training had seen. The engine
+        this method returns serves with those same detectors -- fitted on the
+        training split -- so what validation measured is what is served.
+        ``refit_detectors=True`` refits every detector on all of ``X`` (less
+        the conformal slice below) once the network is trained; the network
+        was trained against the training-split fits, so that moves the served
+        features off the ones validation measured. Measured on five recorded
+        ADBench tables over 8 paired seeds, the refit cost test AUC 0.0013
+        (standard error 0.0006; pima 0.0062, 0.0022) and expected calibration
+        error 0.0018 (0.0008), and left the certificate's coverage where it
+        was, which is why it is not the default. Either way the conformal
+        certificate is fitted last, on the function that is served.
+
         Conformal certificate (``conformal_calibrate``, default True): with
         EXPLICIT labels, a stratified ``conformal_split`` slice of each class
-        (at least 5 rows) is held out before detectors or the net see it, and
+        (at least 5 rows; at least the fewest rows whose finite-sample bound
+        reaches ``conformal_coverage`` -- 9 at 0.9 -- when the class is at
+        least twice that size) is held out before detectors or the net see
+        it, and
         :meth:`calibrate_fusion_conformal` fits the distribution-free
         coverage certificate (target ``conformal_coverage``) on it
         automatically, so ``detect_with_fusion`` serves prediction sets and
@@ -1802,8 +2088,24 @@ class OmniMercuryEngine(LoggerMixin):
             y_arr = np.asarray(y).reshape(-1)
             rng_conf = np.random.default_rng(42)
             per_class_idx = [np.flatnonzero((y_arr >= 0.5) == is_pos) for is_pos in (False, True)]
+            # A class's slice is ``conformal_split`` of it, at least 5 rows,
+            # leaving at least 5 for training. Five rows bound coverage at
+            # 5/6, short of the default 0.9 request, so when the class can
+            # spare them (it is at least twice that size) the floor is the
+            # fewest rows whose finite-sample bound reaches the requested
+            # coverage -- 9 at 0.9. A smaller class keeps the 5-row floor
+            # rather than starving training, and its certificate reports the
+            # coverage it actually achieves.
+            rows_needed = self._conformal_rows_needed(conformal_coverage)
             take = [
-                min(max(round(conformal_split * len(idx)), 5), max(len(idx) - 5, 0))
+                min(
+                    max(
+                        round(conformal_split * len(idx)),
+                        rows_needed if len(idx) >= 2 * rows_needed else 5,
+                        5,
+                    ),
+                    max(len(idx) - 5, 0),
+                )
                 for idx in per_class_idx
             ]
             if all(t >= 5 for t in take):
@@ -1831,22 +2133,44 @@ class OmniMercuryEngine(LoggerMixin):
                     take,
                 )
 
-        # Fit base detectors and extract the fusion feature set (detectors +
-        # domain models, matching inference). Shared with build_feature_npz()
-        # so the offline builder's archive is byte-for-byte what fit_fusion()
-        # trains on. Record the trained group names so inference can restrict
-        # itself to exactly this set.
-        detector_features = self._extract_fusion_features(X, fit_detectors=True)
+        # The train/validation split is drawn first, before any detector is
+        # fitted: the validation rows select the early-stopping epoch, fit the
+        # temperature and produce the published ``fit_validation`` AUC/F1, so
+        # nothing fitted for training may have seen them. Stratified by the
+        # explicit labels; without labels the pseudo-labels do not exist yet
+        # (they come from detectors fitted on the training rows), so the
+        # split is the plain permutation.
+        split_generator: torch.Generator | None = None
+        if seed is not None:
+            split_generator = torch.Generator()
+            split_generator.manual_seed(int(seed))
+        split_labels = np.zeros(n_samples) if y is None else np.asarray(y).reshape(-1)
+        train_indices, val_indices = self._fusion_train_val_split(
+            split_labels, validation_split, split_generator
+        )
+        # Row order is kept within each split: several detectors read the
+        # rows of a batch as a sequence.
+        train_rows = np.sort(train_indices.numpy())
+        val_rows = np.sort(val_indices.numpy())
+
+        # Fit base detectors on the training rows and extract the fusion
+        # feature set (detectors + domain models, matching inference) for
+        # each split as its own batch, so the validation rows' features are
+        # exactly what serving them would extract. Record the trained group
+        # names so inference can restrict itself to exactly this set.
+        detector_features = self._extract_fusion_features_split(X, train_rows, val_rows)
         self._fusion_feature_groups = sorted(detector_features.keys())
         self._record_fusion_support(X)
 
         # Generate consensus labels if not provided (semi-supervised). Done
         # here -- before the symbolic weight is resolved -- because the
         # label-scarcity schedule keys on the number of consensus-labelled
-        # anomalies.
+        # anomalies. The contamination estimate and the label threshold come
+        # from the training rows alone; the validation rows are labelled by
+        # that threshold.
         if y is None:
             logger.info("No labels provided, using semi-supervised consensus labeling...")
-            y = self._generate_consensus_labels(X, contamination)
+            y = self._generate_consensus_labels(X, contamination, reference_rows=train_rows)
 
         # Resolve the symbolic co-training weight to a concrete lambda. The
         # public argument may be a float, the string "adaptive", or a
@@ -1856,14 +2180,30 @@ class OmniMercuryEngine(LoggerMixin):
         # labels are scarce.
         n_positive = int(np.count_nonzero(np.asarray(y).reshape(-1) >= 0.5))
         symbolic_weight_eff = resolve_symbolic_weight(symbolic_weight, n_positive)
+        if symbolic_weight == "adaptive":
+            # Improvement ledger: the label-scarcity schedule chose the
+            # symbolic-constraint weight for this fit — an adaptive change to
+            # what the shipped loss optimises, recorded with its rollback.
+            from omni_mercury_engine.governance.improvement_ledger import (
+                record_adaptive_change,
+            )
+
+            record_adaptive_change(
+                "engine.fit_fusion.symbolic_weight",
+                "label-scarcity schedule resolved the symbolic-constraint weight",
+                reason=f"symbolic_weight='adaptive' with n_positive={int(n_positive)}",
+                before="adaptive",
+                after=float(symbolic_weight_eff),
+                impact=None,
+                rollback="pass symbolic_weight=<float> to pin the weight explicitly",
+            )
 
         # Detector-consensus scores for symbolic co-training (only when enabled,
         # to avoid the extra detect() pass on the purely-neural default path).
         detector_scores: torch.Tensor | None = None
         if symbolic_weight_eff > 0:
-            detector_scores, symbolic_channels = self._extract_consensus_scores(
-                X,
-                return_channels=True,
+            detector_scores, symbolic_channels = self._extract_consensus_scores_split(
+                X, train_rows, val_rows
             )
             self._symbolic_score_channels = symbolic_channels
         else:
@@ -1877,8 +2217,9 @@ class OmniMercuryEngine(LoggerMixin):
         domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None
         if domain_encoder:
             x_arr = np.nan_to_num(np.asarray(X, dtype=np.float32))
-            mean = x_arr.mean(axis=0)
-            std = x_arr.std(axis=0)
+            # Standardisation statistics from the training rows only.
+            mean = x_arr[train_rows].mean(axis=0)
+            std = x_arr[train_rows].std(axis=0)
             std[std < 1e-8] = 1.0
             domain_scaler = (mean, std)
             self._domain_scaler = domain_scaler
@@ -1905,7 +2246,17 @@ class OmniMercuryEngine(LoggerMixin):
             raw_inputs=raw_inputs,
             domain_scaler=domain_scaler,
             domain_encoder_config=domain_encoder_config,
+            seed=seed,
+            split=(train_indices, val_indices),
         )
+
+        # The detectors were fitted on the training rows so validation stayed
+        # held out, and by default they are what is served. On request every
+        # detector is refitted on all of ``X`` (less the conformal slice,
+        # which nothing may see).
+        if refit_detectors and len(val_rows) > 0:
+            self._fit_detectors_for_training(X)
+            self._invalidate_drift_reference()
 
         # When the weight was specified adaptively (string/schedule), surface how
         # it resolved -- including when it resolved to 0 (abundant labels ->
@@ -1965,6 +2316,24 @@ class OmniMercuryEngine(LoggerMixin):
 
         return metrics
 
+    @staticmethod
+    def _conformal_rows_needed(coverage: float) -> int:
+        """Fewest calibration rows per class whose bound reaches ``coverage``.
+
+        Split conformal over ``n`` calibration rows guarantees at most
+        ``n / (n + 1)``: the requested level is attained exactly when the
+        rank ``ceil((n + 1) * coverage)`` is not clamped to ``n`` (the test
+        :class:`SplitConformalPredictor` applies). At 0.9 that is 9 rows, at
+        0.95 it is 19. A coverage outside ``(0, 1)`` has no such size; the
+        historical 5-row floor is returned.
+        """
+        if not 0.0 < coverage < 1.0:
+            return 5
+        n = max(1, int(np.ceil(coverage / (1.0 - coverage))) - 1)
+        while int(np.ceil((n + 1) * coverage)) > n:
+            n += 1
+        return n
+
     def tune_fusion(
         self,
         X: np.ndarray[Any, Any],
@@ -1996,7 +2365,9 @@ class OmniMercuryEngine(LoggerMixin):
             sampler: ``"tpe"``, ``"gp"`` or ``"random"``.
             scheduler: Optional ``"asha"``/``"hyperband"``/``"median"`` pruner;
                 ``None`` (default) evaluates every trial.
-            seed: Seed for the split and the sampler.
+            seed: Seed for the split, the sampler and every ``fit_fusion``
+                the search runs (``None`` fits with ``fit_fusion``'s default
+                seed, so only the split and the sampler vary between runs).
             validation_split: Fraction held out for AUC scoring.
             search_space: Optional custom
                 :class:`~omni_mercury_engine.automl.SearchSpace`; the default
@@ -2083,6 +2454,11 @@ class OmniMercuryEngine(LoggerMixin):
                 .add(UniformParameter("symbolic_weight", 0.0, 0.5))
             )
 
+        # Every trial and the final refit train under one seed, so trials
+        # differ by their configuration alone and the delivered model is the
+        # measured one.
+        fit_seed = 0 if seed is None else int(seed)
+
         def _coerce(config: dict[str, Any]) -> dict[str, Any]:
             return {
                 "learning_rate": float(config["learning_rate"]),
@@ -2100,7 +2476,9 @@ class OmniMercuryEngine(LoggerMixin):
             # objective would depend on evaluation order -- the reported best_config
             # would then not reproduce from an independent, from-scratch fit.
             self._init_fusion()
-            self.fit_fusion(x_train, y_train, epochs=tuning_epochs, **_coerce(config))
+            self.fit_fusion(
+                x_train, y_train, epochs=tuning_epochs, seed=fit_seed, **_coerce(config)
+            )
             scores = np.asarray(self.score_fusion(x_val), dtype=np.float64).reshape(-1)
             # Minimise negative AUC -> maximise held-out ranking quality.
             return -float(compute_auc_roc(y_val, scores))
@@ -2132,7 +2510,7 @@ class OmniMercuryEngine(LoggerMixin):
         # From-scratch final fit so the delivered model matches the measured
         # trial (same reset as each trial), not the last trial's leftover state.
         self._init_fusion()
-        self.fit_fusion(X, y, epochs=tuning_epochs, **best_config)
+        self.fit_fusion(X, y, epochs=tuning_epochs, seed=fit_seed, **best_config)
 
         # best_config is guaranteed non-empty here (all-fail raised above).
         return {
@@ -2163,6 +2541,8 @@ class OmniMercuryEngine(LoggerMixin):
         raw_inputs: torch.Tensor | None = None,
         domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None = None,
         domain_encoder_config: dict[str, Any] | None = None,
+        seed: int | None = 0,
+        split: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> dict[str, Any]:
         """Train the fusion head on a pre-extracted feature-group mapping.
 
@@ -2191,11 +2571,130 @@ class OmniMercuryEngine(LoggerMixin):
             detector_scores: Per-sample detector-consensus matrix
                 ``(N, n_detectors)`` aligned row-for-row with
                 ``detector_features``. Ignored when ``symbolic_weight == 0``.
+            seed: As in :meth:`fit_fusion`. The whole of training runs under
+                :func:`_scoped_torch_seed`, so the split, the per-epoch
+                shuffle, the weights of a not-yet-trained network, the
+                co-trained modules' initial weights and dropout are functions
+                of the seed, and the caller's global torch RNG state is the
+                same after the call as before it.
+            split: ``(train_indices, val_indices)`` row-index tensors when the
+                caller drew the split itself -- :meth:`fit_fusion` does, so it
+                can fit the detectors on the training rows only. ``None``
+                draws it here from the labels (see
+                :meth:`_fusion_train_val_split`).
 
         Returns:
             Training metrics (``best_loss``, ``epochs_trained`` ... plus
             ``temperature``/``ece_before``/``ece_after`` when calibrated, and
             ``symbolic_satisfaction``/``symbolic_loss`` when co-trained).
+        """
+        with _scoped_torch_seed(seed) as generator:
+            return self._train_fusion_on_features(
+                detector_features,
+                y,
+                generator=generator,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                early_stopping_patience=early_stopping_patience,
+                validation_split=validation_split,
+                use_focal_loss=use_focal_loss,
+                focal_alpha=focal_alpha,
+                focal_gamma=focal_gamma,
+                calibrate=calibrate,
+                symbolic_weight=symbolic_weight,
+                symbolic_semantics=symbolic_semantics,
+                symbolic_rule_graph=symbolic_rule_graph,
+                detector_scores=detector_scores,
+                raw_inputs=raw_inputs,
+                domain_scaler=domain_scaler,
+                domain_encoder_config=domain_encoder_config,
+                split=split,
+            )
+
+    @staticmethod
+    def _fusion_train_val_split(
+        labels: np.ndarray[Any, Any],
+        validation_split: float,
+        generator: torch.Generator | None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Row indices of the training and validation splits.
+
+        The validation split holds ``int(n * validation_split)`` rows, as it
+        always has. When both classes are present (each with at least two
+        rows) and the split can hold a row of each, it is stratified: the
+        minority class sends ``round(validation_split * n_minority)`` rows,
+        at least one and never all of them, and the majority class fills the
+        rest. Under class imbalance a plain permutation often leaves the
+        validation rows single-class -- at 2% positives about one split in
+        four -- and then temperature calibration and ``val_roc_auc`` are
+        skipped. With a single class (or too few rows to stratify) the split
+        is the plain permutation.
+
+        Args:
+            labels: Binary labels ``(n,)``; ``>= 0.5`` is the positive class.
+            validation_split: Fraction of rows held out for validation.
+            generator: Local generator the permutations draw from; ``None``
+                draws from torch's global stream.
+
+        Returns:
+            ``(train_indices, val_indices)``, each a 1-D ``int64`` tensor.
+        """
+        n_samples = len(labels)
+        n_val = int(n_samples * validation_split)
+        n_train = n_samples - n_val
+
+        def permuted(rows: np.ndarray[Any, Any]) -> torch.Tensor:
+            as_tensor = torch.as_tensor(rows, dtype=torch.long)
+            return as_tensor[torch.randperm(len(rows), generator=generator)]
+
+        positive = np.asarray(labels).reshape(-1) >= 0.5
+        classes = sorted((np.flatnonzero(positive), np.flatnonzero(~positive)), key=len)
+        minority, majority = classes
+        if n_val >= 2 and n_train >= 2 and len(minority) >= 2:
+            k_minority = min(len(minority) - 1, max(1, round(validation_split * len(minority))))
+            k_majority = n_val - k_minority
+            if 1 <= k_majority <= len(majority) - 1:
+                minority_rows = permuted(minority)
+                majority_rows = permuted(majority)
+                val_indices = torch.cat([minority_rows[:k_minority], majority_rows[:k_majority]])
+                train_rows = torch.cat([minority_rows[k_minority:], majority_rows[k_majority:]])
+                train_indices = train_rows[torch.randperm(len(train_rows), generator=generator)]
+                return train_indices, val_indices
+
+        indices = torch.randperm(n_samples, generator=generator)
+        return indices[:n_train], indices[n_train:]
+
+    def _train_fusion_on_features(
+        self,
+        detector_features: dict[str, torch.Tensor],
+        y: np.ndarray[Any, Any] | torch.Tensor,
+        *,
+        generator: torch.Generator | None,
+        epochs: int,
+        batch_size: int,
+        learning_rate: float,
+        early_stopping_patience: int,
+        validation_split: float,
+        use_focal_loss: bool,
+        focal_alpha: float,
+        focal_gamma: float,
+        calibrate: bool,
+        symbolic_weight: float,
+        symbolic_semantics: str,
+        symbolic_rule_graph: str,
+        detector_scores: torch.Tensor | None,
+        raw_inputs: torch.Tensor | None,
+        domain_scaler: tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]] | None,
+        domain_encoder_config: dict[str, Any] | None,
+        split: tuple[torch.Tensor, torch.Tensor] | None,
+    ) -> dict[str, Any]:
+        """Training loop behind :meth:`_fit_fusion_on_features`.
+
+        Runs inside that method's seed scope: every draw from torch's global
+        stream here (weight initialisation, dropout) is a function of the
+        fit's seed, and ``generator`` is the local stream for the split and
+        the per-epoch shuffle (``None``: the ambient global stream).
         """
         # GPU check with fallback
         device = self.device
@@ -2206,18 +2705,58 @@ class OmniMercuryEngine(LoggerMixin):
         if isinstance(y, torch.Tensor):
             y = y.cpu().numpy()
         y = np.asarray(y).reshape(-1)
-        n_samples = len(y)
 
         # Prepare training data
         labels_tensor = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
 
-        # Create train/val split
-        n_val = int(n_samples * validation_split)
-        n_train = n_samples - n_val
+        # Train/validation split, stratified by label when both classes are
+        # present so the validation rows can calibrate and be scored.
+        if split is not None:
+            train_indices, val_indices = split
+        else:
+            train_indices, val_indices = self._fusion_train_val_split(
+                y, validation_split, generator
+            )
+        n_train = len(train_indices)
+        n_val = len(val_indices)
 
-        indices = torch.randperm(n_samples)
-        train_indices = indices[:n_train]
-        val_indices = indices[n_train:]
+        # A network this engine constructed and nothing has trained or loaded
+        # is rebuilt here, inside the seed scope: its construction-time
+        # weights came from whatever torch's global stream held when the
+        # engine was built, which made the fitted model a function of process
+        # history. Weights are drawn under the fit's seed. A loaded or
+        # already-fitted network is trained on from where it is.
+        #
+        # The rebuilt network registers exactly the feature groups this fit
+        # extracted, at their extracted widths. The construction-time default
+        # registry does not describe a fit: it lacks groups the engine
+        # extracts (``multiverse``, ``neurosymbolic`` -- the model drops an
+        # unregistered group, so they were extracted on every call and
+        # thrown away) and lists groups nothing extracts (``affective`` is
+        # off the default path, ``security`` and ``resilience`` have no
+        # extractor), each a zero token averaged into the pooled
+        # representation of every row. With the registry matching the data,
+        # pooling is masked to the groups present, so a group missing from
+        # one serve call does not dilute the others. A loaded checkpoint
+        # keeps the architecture it was saved with.
+        if self._fusion_model_pristine:
+            built = self.fusion_model
+            self.fusion_model = OmniFusionModel(
+                feature_dims={
+                    name: int(np.prod(tuple(features.shape[1:])))
+                    for name, features in detector_features.items()
+                },
+                hidden_dim=built.hidden_dim,
+                num_heads=built.num_heads,
+                dropout=built.dropout,
+                num_classes=built.num_classes,
+                masked_mean_pooling=True,
+            )
+            self.fusion_inference = FusionInference(
+                model=self.fusion_model,
+                device=str(self.device),
+            )
+        self._fusion_model_pristine = False
 
         # Training loop with early stopping
         self.fusion_model.train()
@@ -2332,9 +2871,13 @@ class OmniMercuryEngine(LoggerMixin):
                 dom_module.train()
             train_losses: list[float] = []
 
+            # A fresh order every epoch: one fixed order replays identical
+            # batches (and identical batch statistics) epoch after epoch.
+            epoch_order = train_indices[torch.randperm(n_train, generator=generator)]
+
             for start_idx in range(0, n_train, batch_size):
                 end_idx = min(start_idx + batch_size, n_train)
-                batch_indices = train_indices[start_idx:end_idx]
+                batch_indices = epoch_order[start_idx:end_idx]
 
                 # Get batch features
                 batch_features = {
@@ -2439,6 +2982,11 @@ class OmniMercuryEngine(LoggerMixin):
         if symbolic_active and sym_module is not None:
             sym_module.eval()
         self._fusion_trained = True
+        # The serving weights now come from this in-process fit, not from any
+        # previously loaded checkpoint file: drop the cached file identity so
+        # model provenance reports "in-memory fit", never a stale artifact.
+        self._fusion_checkpoint_name = None
+        self._fusion_checkpoint_sha256 = None
         self._invalidate_drift_reference()
 
         logger.info(f"Fusion training complete. Best val_loss: {best_val_loss:.4f}")
@@ -2591,6 +3139,7 @@ class OmniMercuryEngine(LoggerMixin):
         focal_alpha: float = 0.75,
         focal_gamma: float = 2.0,
         calibrate: bool = True,
+        seed: int | None = 0,
     ) -> dict[str, Any]:
         """Train one fusion head on a *pool* of labelled datasets.
 
@@ -2599,7 +3148,10 @@ class OmniMercuryEngine(LoggerMixin):
         (the base anomaly detectors are unsupervised and dataset-specific, so
         reusing a single fit across heterogeneous corpora would be wrong), then
         training the shared fusion head on the concatenation of the feature
-        groups every dataset has in common.
+        groups every dataset has in common. Each dataset contributes
+        ``validation_split`` of its own rows (stratified by its labels) to
+        the validation split, and its detectors are fitted on its training
+        rows only, so validation is held out exactly as in :meth:`fit_fusion`.
 
         Only groups present **and** of identical width across all datasets are
         pooled; a group whose dimensionality varies cannot be concatenated and
@@ -2620,7 +3172,7 @@ class OmniMercuryEngine(LoggerMixin):
                 for tests.
             epochs, batch_size, learning_rate, early_stopping_patience,
             validation_split, use_focal_loss, focal_alpha, focal_gamma,
-            calibrate: As in :meth:`fit_fusion`.
+            calibrate, seed: As in :meth:`fit_fusion`.
 
         Returns:
             Training metrics, augmented with ``pooled_datasets``,
@@ -2640,17 +3192,35 @@ class OmniMercuryEngine(LoggerMixin):
 
         per_dataset: list[tuple[dict[str, torch.Tensor], np.ndarray[Any, Any]]] = []
         raw_pool: list[np.ndarray[Any, Any]] = []
+        # Each source is split on its own (stratified, as in fit_fusion) and
+        # its detectors are fitted on its training rows only, so the pooled
+        # validation rows are held out of every fit that produced a feature.
+        split_generator: torch.Generator | None = None
+        if seed is not None:
+            split_generator = torch.Generator()
+            split_generator.manual_seed(int(seed))
+        pooled_train: list[torch.Tensor] = []
+        pooled_val: list[torch.Tensor] = []
+        offset = 0
         for i, (raw_x, raw_y) in enumerate(datasets):
             x_arr = np.asarray(raw_x, dtype=np.float32)
             if x_arr.ndim == 1:
                 x_arr = x_arr.reshape(1, -1)
             raw_pool.append(np.asarray(x_arr, dtype=np.float64))
             labels = np.asarray(raw_y).reshape(-1)
+            source_train, source_val = self._fusion_train_val_split(
+                labels, validation_split, split_generator
+            )
+            pooled_train.append(source_train + offset)
+            pooled_val.append(source_val + offset)
+            offset += len(labels)
             # Fresh detectors per source: extraction fits this engine's
-            # detectors on x_arr only, so each dataset's features reflect its
-            # own distribution.
+            # detectors on x_arr's training rows only, so each dataset's
+            # features reflect its own distribution.
             extractor = factory()
-            feats = extractor._extract_fusion_features(x_arr, fit_detectors=True)
+            feats = extractor._extract_fusion_features_split(
+                x_arr, np.sort(source_train.numpy()), np.sort(source_val.numpy())
+            )
             logger.info(
                 "Pooled source %d/%d: %d samples, groups=%s",
                 i + 1,
@@ -2705,6 +3275,8 @@ class OmniMercuryEngine(LoggerMixin):
             focal_alpha=focal_alpha,
             focal_gamma=focal_gamma,
             calibrate=calibrate,
+            seed=seed,
+            split=(torch.cat(pooled_train), torch.cat(pooled_val)),
         )
         metrics.update(
             {
@@ -2719,6 +3291,8 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         X: np.ndarray[Any, Any],
         contamination: float | None = None,
+        *,
+        reference_rows: np.ndarray[Any, Any] | None = None,
     ) -> np.ndarray[Any, Any]:
         """Generate consensus labels using detector agreement for semi-supervised learning.
 
@@ -2728,46 +3302,69 @@ class OmniMercuryEngine(LoggerMixin):
         Args:
             X: Training features.
             contamination: Expected anomaly fraction. If None, estimated adaptively.
+            reference_rows: Sorted row indices of the training split. When
+                given, everything that defines the labels comes from those
+                rows alone -- any detector still to be fitted is fitted on
+                them, they are scored as one batch, and the contamination
+                estimate and the label threshold are theirs -- and the
+                remaining (validation) rows are scored as a second batch by
+                the same detectors and labelled by that threshold. ``None``
+                derives the labels from all of ``X`` as one batch.
 
         Returns:
-            Binary consensus labels (0=normal, 1=anomaly).
+            Binary consensus labels (0=normal, 1=anomaly), aligned with ``X``.
         """
         n_samples = len(X)
+        if reference_rows is None:
+            reference_rows = np.arange(n_samples)
+        other_rows = np.setdiff1d(np.arange(n_samples), reference_rows)
+        batches = [np.asarray(reference_rows)] + ([other_rows] if len(other_rows) else [])
+        x_reference = X[reference_rows]
 
-        # Collect scores from all detectors
+        # Collect scores from all detectors: one column per detector that
+        # scored every batch, so each batch averages the same detectors.
         all_scores: list[np.ndarray[Any, Any]] = []
         for name, detector in self.detectors.items():
             try:
-                self._fit_for_training(name, detector, X)
-                result = detector.detect(X)
-                scores = result.get("scores", result.get("is_anomaly", np.zeros(n_samples)))
-                if isinstance(scores, (list, np.ndarray)):
+                self._fit_for_training(name, detector, x_reference)
+                column: np.ndarray[Any, Any] | None = None
+                for rows in batches:
+                    result = detector.detect(X[rows])
+                    scores = result.get("scores", result.get("is_anomaly", np.zeros(len(rows))))
+                    if not isinstance(scores, (list, np.ndarray)):
+                        raise ValueError("detector reported no per-row scores")
                     scores = np.array(scores).flatten()
-                    if len(scores) == n_samples:
-                        all_scores.append(scores)
+                    if len(scores) != len(rows):
+                        raise ValueError("detector scores are not per-row")
+                    if column is None:
+                        column = np.empty(n_samples, dtype=scores.dtype)
+                    column[rows] = scores
+                assert column is not None  # batches is never empty
+                all_scores.append(column)
             except Exception as e:
                 logger.debug(f"Failed to get scores from {name}: {e}")
 
         if not all_scores:
-            # Fallback: use distance from mean
-            mean = np.mean(X, axis=0)
+            # Fallback: use distance from the reference rows' mean
+            mean = np.mean(x_reference, axis=0)
             distances = np.linalg.norm(X - mean, axis=1)
-            all_scores = [distances / (distances.max() + 1e-8)]
+            all_scores = [distances / (distances[reference_rows].max() + 1e-8)]
 
         # Ensemble score (average)
         ensemble_score = np.mean(all_scores, axis=0)
+        reference_score = ensemble_score[reference_rows]
 
         # Estimate contamination if not provided
         if contamination is None:
             # Use IQR-based estimation
-            q1, q3 = np.percentile(ensemble_score, [25, 75])
+            q1, q3 = np.percentile(reference_score, [25, 75])
             iqr = q3 - q1
             upper_fence = q3 + 1.5 * iqr
-            contamination = float(np.mean(ensemble_score > upper_fence))
+            contamination = float(np.mean(reference_score > upper_fence))
             contamination = max(0.001, min(contamination, 0.5))
 
         # Threshold at (1 - contamination) percentile
-        threshold = np.percentile(ensemble_score, (1 - contamination) * 100)
+        threshold = np.percentile(reference_score, (1 - contamination) * 100)
         consensus_labels = (ensemble_score > threshold).astype(float)
 
         logger.info(
@@ -2801,9 +3398,13 @@ class OmniMercuryEngine(LoggerMixin):
 
         Args:
             X: Raw training features ``(n_samples, n_features)``.
-            fit_detectors: When True, unfitted detectors are fit on ``X`` before
-                extraction. Set False if detectors are already fit (e.g. eval),
-                so no fitting happens on held-out data.
+            fit_detectors: When True, detectors are fit on ``X`` before
+                extraction: the unfitted ones, those whose fit came from an
+                inference batch or a loaded checkpoint, and those an earlier
+                training call fitted (their fit describes that call's rows).
+                A detector the caller fitted directly is kept. Set False if
+                detectors are already fit (e.g. eval), so no fitting happens
+                on held-out data.
 
         Returns:
             Mapping of feature-group name to a float32 feature tensor.
@@ -2821,23 +3422,7 @@ class OmniMercuryEngine(LoggerMixin):
         # (ROADMAP row 16; defect found 2026-06-11).
         self._reset_transient_detector_state()
         if fit_detectors:
-            logger.info(f"Fitting {len(self.detectors)} base detectors...")
-            for name, detector in self.detectors.items():
-                try:
-                    if self._fit_for_training(name, detector, X):
-                        logger.debug(f"Fitted detector: {name}")
-                    self._modality_declined_detectors.discard(name)
-                except InputModalityError as e:
-                    # A correct refusal: this detector does not process this
-                    # modality (e.g. the spatial detector on a univariate
-                    # column). Recorded so inference skips it rather than
-                    # reporting it to the caller as an unfitted detector.
-                    self._modality_declined_detectors.add(name)
-                    record_component_declined(name)
-                    logger.info(f"Detector {name} declined the training modality: {e}")
-                except Exception as e:
-                    self._modality_declined_detectors.discard(name)
-                    logger.warning(f"Failed to fit detector {name}: {e}")
+            self._fit_detectors_for_training(X)
 
         logger.info("Extracting fusion features (detectors + domain models)...")
         fusion_features: dict[str, torch.Tensor] = {}
@@ -2873,7 +3458,7 @@ class OmniMercuryEngine(LoggerMixin):
         # Domain-model feature groups: extracted (never fit) exactly as
         # detect_with_fusion does, so the trained/served feature space matches.
         # Models that cannot process the input are skipped gracefully.
-        for name, model in self.models.items():
+        for name, model in self._models_on_the_default_path():
             extractor: Any = model
             try:
                 _record(name, extractor.extract_features(X))
@@ -2887,15 +3472,150 @@ class OmniMercuryEngine(LoggerMixin):
         # inference matches training. ``_domain_encoder`` is None on the default
         # path AND during the training-time extraction call (it is created later
         # in _fit_fusion_on_features), so neither path is affected.
-        if self._domain_encoder is not None and self._domain_scaler is not None:
-            mean, std = self._domain_scaler
-            x_std = (np.nan_to_num(np.asarray(X, dtype=np.float32)) - mean) / std
-            self._domain_encoder.eval()
-            with torch.no_grad():
-                dom = self._domain_encoder(torch.tensor(x_std, dtype=torch.float32).to(self.device))
-            fusion_features["differentiable_domain"] = dom.detach().to(torch.float32).cpu()
+        domain_feature = self._domain_encoder_feature(X)
+        if domain_feature is not None:
+            fusion_features["differentiable_domain"] = domain_feature
 
         return fusion_features
+
+    def _domain_encoder_feature(self, X: Any) -> torch.Tensor | None:
+        """The co-trained domain encoder's feature for raw rows ``X``, if one is fitted.
+
+        ``None`` when no encoder was trained (the default path) or ``X`` is
+        not a 2-D array the encoder's scaler applies to.
+        """
+        if self._domain_encoder is None or self._domain_scaler is None:
+            return None
+        if isinstance(X, torch.Tensor):
+            X = X.detach().cpu().numpy()
+        if not isinstance(X, np.ndarray):
+            return None
+        mean, std = self._domain_scaler
+        rows = np.nan_to_num(np.asarray(X, dtype=np.float32))
+        if rows.ndim != 2 or rows.shape[1] != mean.shape[0]:
+            return None
+        x_std = (rows - mean) / std
+        self._domain_encoder.eval()
+        with torch.no_grad():
+            dom = self._domain_encoder(torch.tensor(x_std, dtype=torch.float32).to(self.device))
+        feature: torch.Tensor = dom.detach().to(torch.float32).cpu()
+        return feature
+
+    def _fit_detectors_for_training(self, X: np.ndarray[Any, Any]) -> None:
+        """Fit the base detectors on training rows ``X`` (see :meth:`_fit_for_training`).
+
+        Replaces every fit a training call may replace -- unfitted detectors,
+        inference-batch and checkpoint fits, and fits an earlier training
+        call made -- and keeps a fit the caller made directly. The feature
+        cache is dropped first: its entries were computed against the fits
+        being replaced, and a later detect on the same bytes must not be
+        served them.
+        """
+        logger.info(f"Fitting {len(self.detectors)} base detectors...")
+        self.feature_cache.clear()
+        for name, detector in self.detectors.items():
+            try:
+                if self._fit_for_training(name, detector, X, refit_training_fits=True):
+                    logger.debug(f"Fitted detector: {name}")
+                self._modality_declined_detectors.discard(name)
+            except InputModalityError as e:
+                # A correct refusal: this detector does not process this
+                # modality (e.g. the spatial detector on a univariate
+                # column). Recorded so inference skips it rather than
+                # reporting it to the caller as an unfitted detector.
+                self._modality_declined_detectors.add(name)
+                record_component_declined(name)
+                logger.info(f"Detector {name} declined the training modality: {e}")
+            except Exception as e:
+                self._modality_declined_detectors.discard(name)
+                logger.warning(f"Failed to fit detector {name}: {e}")
+
+    def _extract_fusion_features_split(
+        self,
+        X: np.ndarray[Any, Any],
+        train_rows: np.ndarray[Any, Any],
+        val_rows: np.ndarray[Any, Any],
+    ) -> dict[str, torch.Tensor]:
+        """Fusion features for a train/validation split with validation held out.
+
+        The base detectors are fitted on ``X[train_rows]`` only. The training
+        rows are then extracted as one batch and the validation rows as
+        another -- the latter exactly as :meth:`score_fusion` would extract
+        them from an engine fitted on the training rows -- and the two are
+        reassembled in ``X``'s row order. Fitting on all of ``X`` (as this
+        path used to) makes every validation row part of each detector's
+        reference, so the early-stopping epoch, the temperature and the
+        published ``fit_validation`` AUC/F1 were measured on rows the
+        detectors had already seen.
+
+        A group the validation batch does not produce (or produces with
+        another per-row shape) is dropped from both, so training and
+        validation always carry the same groups. With no validation rows
+        this is :meth:`_extract_fusion_features` on ``X``.
+
+        Args:
+            X: Raw training features ``(n_samples, n_features)``.
+            train_rows: Sorted row indices of the training split.
+            val_rows: Sorted row indices of the validation split.
+
+        Returns:
+            Mapping of feature-group name to an ``(n_samples, ...)`` tensor.
+        """
+        if len(val_rows) == 0:
+            return self._extract_fusion_features(X, fit_detectors=True)
+        train_features = self._extract_fusion_features(X[train_rows], fit_detectors=True)
+        val_features = self._extract_fusion_features(X[val_rows], fit_detectors=False)
+        train_index = torch.as_tensor(train_rows, dtype=torch.long)
+        val_index = torch.as_tensor(val_rows, dtype=torch.long)
+        assembled: dict[str, torch.Tensor] = {}
+        for name, train_part in train_features.items():
+            val_part = val_features.get(name)
+            if val_part is None or val_part.shape[1:] != train_part.shape[1:]:
+                logger.warning(
+                    "Feature group %r is dropped from this fit: the validation rows "
+                    "did not produce it with the training rows' shape %s.",
+                    name,
+                    tuple(train_part.shape[1:]),
+                )
+                continue
+            full = torch.zeros((len(X), *train_part.shape[1:]), dtype=torch.float32)
+            full[train_index] = train_part
+            full[val_index] = val_part
+            assembled[name] = full
+        if not assembled:
+            raise RuntimeError("No fusion features could be extracted")
+        return assembled
+
+    def _extract_consensus_scores_split(
+        self,
+        X: np.ndarray[Any, Any],
+        train_rows: np.ndarray[Any, Any],
+        val_rows: np.ndarray[Any, Any],
+    ) -> tuple[torch.Tensor, list[str]]:
+        """Co-training consensus scores with each split scored as its own batch.
+
+        The counterpart of :meth:`_extract_fusion_features_split` for the
+        symbolic co-training substrate: the (already fitted) detectors score
+        the training rows and the validation rows separately, and only the
+        channels both batches produced are kept.
+
+        Returns:
+            ``(scores, channels)``: an ``(n_samples, n_channels)`` matrix in
+            ``X``'s row order and the channel names of its columns.
+        """
+        if len(val_rows) == 0:
+            return self._extract_consensus_scores(X, return_channels=True)
+        train_scores, channels = self._extract_consensus_scores(X[train_rows], return_channels=True)
+        val_scores, val_channels = self._extract_consensus_scores(
+            X[val_rows], channels=channels, return_channels=True
+        )
+        if val_channels != channels:
+            channels = val_channels
+            train_scores = self._extract_consensus_scores(X[train_rows], channels=channels)
+        scores = torch.zeros((len(X), len(channels)), dtype=torch.float32)
+        scores[torch.as_tensor(train_rows, dtype=torch.long)] = train_scores
+        scores[torch.as_tensor(val_rows, dtype=torch.long)] = val_scores
+        return scores, channels
 
     @overload
     def _extract_consensus_scores(
@@ -3058,7 +3778,7 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         probs: np.ndarray[Any, Any],
         data: Any,
-        all_scores: dict[str, Any],
+        all_scores: dict[str, Any] | Callable[[], dict[str, Any]],
     ) -> tuple[np.ndarray[Any, Any], list[int]]:
         """Fail-closed extrapolation floor on the fused per-row probabilities.
 
@@ -3072,6 +3792,11 @@ class OmniMercuryEngine(LoggerMixin):
         extrapolate. In-support rows pass through bit-identically; engines
         restored from a checkpoint without an envelope (legacy) and
         non-tabular inputs are a no-op.
+
+        ``all_scores`` may be a zero-argument callable returning the score
+        mapping; it is called only when some row is outside the envelope, so
+        a caller that has not computed the per-detector scores (the
+        ``score_fusion`` path) pays for them only when the floor needs them.
         """
         if (
             self._fusion_support_low is None
@@ -3098,7 +3823,8 @@ class OmniMercuryEngine(LoggerMixin):
             return probs, []
         n = rows.shape[0]
         columns = []
-        for raw in all_scores.values():
+        score_channels = all_scores() if callable(all_scores) else all_scores
+        for raw in score_channels.values():
             col = np.asarray(raw, dtype=np.float64).reshape(-1)
             if col.shape[0] == n and np.all(np.isfinite(col)):
                 columns.append(col)
@@ -3110,13 +3836,128 @@ class OmniMercuryEngine(LoggerMixin):
         guarded[outside] = np.maximum(flat[outside], consensus[outside])
         out_rows = [int(i) for i in np.flatnonzero(outside)]
         logger.info(
-            "detect_with_fusion: %d of %d rows lie outside the fusion training "
+            "fusion scoring: %d of %d rows lie outside the fusion training "
             "envelope; their probabilities are floored at the detector consensus "
-            "(see result['out_of_support_rows']).",
+            "(see detect_with_fusion's result['out_of_support_rows']).",
             len(out_rows),
             n,
         )
         return guarded.reshape(np.asarray(probs).shape), out_rows
+
+    def _serving_score_channels(self, data: Any) -> dict[str, Any]:
+        """Per-detector and per-model normalised anomaly scores, as serving computes them."""
+        _, det_scores, _, _ = self._extract_detector_features(data)
+        _, mod_scores = self._extract_model_features(data)
+        return {**det_scores, **mod_scores}
+
+    def _fused_probabilities(
+        self,
+        features: dict[str, Any],
+        data: Any,
+        score_channels: dict[str, Any] | Callable[[], dict[str, Any]],
+        *,
+        equation_profile: str | None = None,
+        domain: str | None = None,
+        apply_support_guard: bool = True,
+        serving: bool = True,
+    ) -> tuple[dict[str, Any], list[int], dict[str, Any] | None]:
+        """The one fusion scoring core: every probability the engine reports comes from here.
+
+        Network forward on the trained feature groups (plus the co-trained
+        domain-encoder feature when one is fitted), then post-hoc temperature
+        calibration, then the optional runtime equation profile, then the
+        extrapolation floor of :meth:`_apply_fusion_support_guard`.
+        :meth:`detect_with_fusion` (what is served), :meth:`score_fusion`
+        (what benchmarks measure, what conformal calibration and the drift
+        reference are fitted on, what the explainers attribute) and
+        :meth:`detect_with_fusion_calibrated` all take their probabilities
+        from this method, so a threshold fitted on one is a threshold on the
+        others. They used to be three different functions: the floor ran
+        only when serving, the domain-encoder feature only in
+        ``score_fusion``, and the equation profile read different channels
+        on each path.
+
+        Args:
+            features: Feature groups for ``data`` (any superset of the
+                trained groups; the rest are ignored).
+            data: The raw rows the features were extracted from.
+            score_channels: Per-detector/model normalised scores, or a
+                zero-argument callable producing them. They feed the equation
+                profile and the support floor and are resolved only when one
+                of those needs them.
+            equation_profile: Per-call runtime equation profile override.
+            domain: Domain hint for the profile's ethical-gate estimate.
+            apply_support_guard: ``False`` skips the extrapolation floor (the
+                network's own probability outside the training envelope).
+            serving: ``True`` for a served request: the forward goes through
+                the instrumented inference wrapper (latency histogram, error
+                counter) and returns severity, class and attention outputs.
+                ``False`` for offline scoring (``score_fusion``): the same
+                network forward on the same groups, uninstrumented, so
+                benchmark batches and explainer sweeps do not land in the
+                serving latency series; only ``anomaly_probs`` is returned.
+
+        Returns:
+            ``(fusion_result, out_of_support_rows, equation_profile_metadata)``
+            where ``fusion_result`` is the network's prediction mapping with
+            ``anomaly_probs`` replaced by the final probabilities.
+        """
+        resolved: dict[str, Any] | None = None
+
+        def channels() -> dict[str, Any]:
+            nonlocal resolved
+            if resolved is None:
+                resolved = score_channels() if callable(score_channels) else score_channels
+            return resolved
+
+        if "differentiable_domain" not in features:
+            domain_feature = self._domain_encoder_feature(data)
+            if domain_feature is not None:
+                features = {**features, "differentiable_domain": domain_feature}
+
+        self.fusion_model.eval()
+        if serving:
+            fusion_result = self._timed_fusion_predict(features)
+        else:
+            with torch.no_grad():
+                batch = {
+                    name: torch.as_tensor(group, dtype=torch.float32).to(self.device)
+                    for name, group in self._restrict_to_trained_groups(features).items()
+                }
+                outputs = self.fusion_model(batch)
+            fusion_result = {"anomaly_probs": outputs["anomaly_probs"].detach().cpu().numpy()}
+
+        # Temperature calibration at the decision boundary, so every consumer
+        # (anomaly_prob, the threshold finder, drift signals, benchmarks)
+        # reads the same temperature-scaled probabilities.
+        probs = self._apply_fusion_calibration(np.asarray(fusion_result["anomaly_probs"]))
+
+        # Optional runtime equation profile (opt-in; exact no-op when unset).
+        # Applied on the calibrated probabilities so the blended score stays
+        # on the same temperature scale every downstream consumer reads.
+        profile_metadata: dict[str, Any] | None = None
+        if (
+            equation_profile if equation_profile is not None else self.equation_profile
+        ) is not None:
+            probs, profile_metadata = self._apply_runtime_equation_profile(
+                np.asarray(probs),
+                channels(),
+                equation_profile=equation_profile,
+                domain=domain,
+            )
+
+        # Extrapolation guard: rows outside the fusion training envelope are
+        # floored at the detector consensus. Applied after calibration and the
+        # equation profile so the floor compares on the same scale every
+        # downstream consumer reads.
+        out_of_support_rows: list[int] = []
+        if apply_support_guard:
+            probs, out_of_support_rows = self._apply_fusion_support_guard(
+                np.asarray(probs), data, channels
+            )
+
+        fusion_result["anomaly_probs"] = probs
+        return fusion_result, out_of_support_rows, profile_metadata
 
     def _apply_runtime_equation_profile(
         self,
@@ -3283,15 +4124,18 @@ class OmniMercuryEngine(LoggerMixin):
         *,
         equation_profile: str | None = None,
         domain: str | None = None,
+        apply_support_guard: bool = True,
     ) -> np.ndarray[Any, Any]:
         """Return fusion anomaly probabilities for a batch of samples.
 
         This is the batch evaluation/benchmarking counterpart to
-        :meth:`detect_with_fusion`. It extracts detector features and runs the
-        trained ``OmniFusionModel`` forward pass, returning one probability per
-        row. Detectors are NOT refit on ``X`` (refitting on evaluation data
-        would leak), so the engine must already be trained via
-        :meth:`fit_fusion` / :meth:`train_fusion_model`.
+        :meth:`detect_with_fusion`, and it returns the probabilities that
+        method serves (its per-row ``anomaly_probs``): both take them from
+        :meth:`_fused_probabilities`, so the temperature, the equation
+        profile and the out-of-support floor apply here exactly as they do
+        when serving. Detectors are NOT refit on ``X`` (refitting on
+        evaluation data would leak), so the engine must already be trained
+        via :meth:`fit_fusion` / :meth:`train_fusion_model`.
 
         Unlike :meth:`detect_with_fusion`, this does not run the σ_Immutable /
         benevolence ethical gates — it is for measuring detection quality (e.g.
@@ -3302,8 +4146,15 @@ class OmniMercuryEngine(LoggerMixin):
             equation_profile: Optional runtime equation profile override. When
                 omitted, :attr:`equation_profile` is used; when neither selects
                 a profile the calibrated probabilities are returned unchanged.
+                A selected profile reads the detectors' and models' normalised
+                scores, as serving does.
             domain: Optional domain hint for the profile's ethical-gate (η)
                 estimate.
+            apply_support_guard: Apply the extrapolation floor serving applies
+                to rows outside the training envelope (default ``True``; see
+                :meth:`_apply_fusion_support_guard`). ``False`` returns the
+                network's own calibrated probability for such rows -- a
+                diagnostic of the network, not the served function.
 
         Returns:
             Array of anomaly probabilities in ``[0, 1]``, shape ``(n_samples,)``.
@@ -3318,37 +4169,73 @@ class OmniMercuryEngine(LoggerMixin):
         if X.ndim == 1:
             X = X.reshape(1, -1)
 
-        features = self._restrict_to_trained_groups(
-            self._extract_fusion_features(X, fit_detectors=False)
-        )
-        self.fusion_model.eval()
-        with torch.no_grad():
-            batch = {name: feat.to(self.device) for name, feat in features.items()}
-            outputs = self.fusion_model(batch)
-            probs = outputs["anomaly_probs"].detach().cpu().numpy().reshape(-1)
-
-        # Apply post-hoc temperature calibration when available. Monotonic, so
-        # rankings/AUC are unchanged; only the probability values are corrected.
-        # Same helper that ``detect_with_fusion`` calls so the benchmark path
-        # and the production path agree on what the checkpoint's temperature
-        # means.
-        calibrated = self._apply_fusion_calibration(probs).reshape(-1)
-        # Optional runtime equation profile (opt-in; exact no-op when unset, so
-        # the default benchmark/serve path is byte-for-byte unchanged). Channel
-        # values are per-group feature means as the R/H/O proxy when no explicit
-        # detector-score dict is in scope on the benchmark path.
-        score_channels = {
-            name: feat.detach().cpu().numpy().mean(axis=1)
-            for name, feat in features.items()
-            if feat.ndim >= 2
-        }
-        profiled, _ = self._apply_runtime_equation_profile(
-            calibrated,
-            score_channels,
+        features = self._extract_fusion_features(X, fit_detectors=False)
+        # The per-detector scores (a second pass over every detector) are
+        # computed only if an equation profile or an out-of-support row needs
+        # them; in-support, profile-less scoring costs what it always did.
+        fusion_result, _, _ = self._fused_probabilities(
+            features,
+            X,
+            functools.partial(self._serving_score_channels, X),
             equation_profile=equation_profile,
             domain=domain,
+            apply_support_guard=apply_support_guard,
+            serving=False,
         )
-        return np.asarray(profiled).reshape(-1)
+        return np.asarray(fusion_result["anomaly_probs"]).reshape(-1)
+
+    def score_fusion_causal(
+        self,
+        X: np.ndarray[Any, Any],
+        *,
+        window: int = 256,
+        equation_profile: str | None = None,
+        domain: str | None = None,
+        apply_support_guard: bool = True,
+    ) -> np.ndarray[Any, Any]:
+        """Causal fixed-window execution of :meth:`score_fusion`.
+
+        :meth:`score_fusion` hands the whole batch to the feature extractors,
+        several of which compute batch-level statistics, so a row's
+        probability can depend on rows that arrive after it. This mode scores
+        row ``i`` as the last row of the trailing window ``X[i-window+1 : i+1]``
+        — the identical trained model and extractors, read in arrival order,
+        with nothing later than the row itself visible. It is the streaming
+        counterpart for an already-fitted fusion engine; no refit happens.
+
+        Args:
+            X: Rows in arrival order, ``(n_samples, n_features)``.
+            window: Trailing-window length each row is scored within.
+            equation_profile: Forwarded to :meth:`score_fusion`.
+            domain: Forwarded to :meth:`score_fusion`.
+            apply_support_guard: Forwarded to :meth:`score_fusion`.
+
+        Returns:
+            Array of anomaly probabilities in ``[0, 1]``, one per row, each a
+            function of that row's trailing window only.
+
+        Raises:
+            ValueError: If mode is not 'fusion' or ``window < 1``.
+        """
+        if self.mode != "fusion":
+            raise ValueError("score_fusion_causal() requires mode='fusion'")
+        if window < 1:
+            raise ValueError(f"window must be >= 1, got {window}")
+        X = np.asarray(X, dtype=np.float32)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+        out = np.empty(len(X), dtype=np.float64)
+        for i in range(len(X)):
+            lo = max(0, i - window + 1)
+            out[i] = float(
+                self.score_fusion(
+                    X[lo : i + 1],
+                    equation_profile=equation_profile,
+                    domain=domain,
+                    apply_support_guard=apply_support_guard,
+                )[-1]
+            )
+        return out
 
     def evaluate_neurosymbolic_feedback(
         self,
@@ -3429,8 +4316,11 @@ class OmniMercuryEngine(LoggerMixin):
                 single-sample serving regime) instead of as one batch.
 
         Returns:
-            Diagnostics dict with the target ``coverage``, the learned per-class
-            ``thresholds`` and ``n_calibration``.
+            Diagnostics dict with the target ``coverage``, the
+            ``coverage_achieved`` (the finite-sample bound the smaller class's
+            calibration rows actually guarantee; below the target when a
+            class is too small), the learned per-class ``thresholds`` and
+            ``n_calibration``.
 
         Raises:
             ValueError: If mode is not 'fusion'.
@@ -3452,8 +4342,42 @@ class OmniMercuryEngine(LoggerMixin):
         else:
             probs = self.score_fusion(X_cal)
         y = np.asarray(y_cal).astype(int).ravel()
+        previous = self._fusion_conformal
+        previous_n = self._fusion_conformal_n_calibration
         self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
+        # Recorded for model provenance: the certificate's calibration-set size.
+        self._fusion_conformal_n_calibration = int(y.size)
+        self._fusion_conformal_regime = "per_sample"
+        self._fusion_batch_family = None
         report = self._fusion_conformal.coverage_report(probs, y)
+        # Improvement ledger: replacing the serving certificate is an adaptive
+        # change to what "calibrated" means on every later decision.
+        from omni_mercury_engine.governance.improvement_ledger import record_adaptive_change
+
+        record_adaptive_change(
+            "engine.conformal_certificate",
+            "fitted the conformal certificate that serves prediction sets",
+            reason=f"calibrate_fusion_conformal() on {int(y.size)} held-out rows",
+            before=(
+                {
+                    "coverage": float(previous.coverage),
+                    "coverage_achieved": float(previous.coverage_achieved),
+                    "n_calibration": previous_n,
+                }
+                if previous is not None
+                else None
+            ),
+            after={
+                "coverage": float(coverage),
+                "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+                "n_calibration": int(y.size),
+            },
+            impact={"coverage_report_thresholds": report["thresholds"]},
+            rollback=(
+                "reload the previous checkpoint (load_model restores its "
+                "conformal_state), or refit on the previous calibration split"
+            ),
+        )
         logger.info(
             "Fusion conformal calibrated: coverage=%.2f thresholds=%s (n_cal=%d)",
             coverage,
@@ -3462,9 +4386,261 @@ class OmniMercuryEngine(LoggerMixin):
         )
         return {
             "coverage": coverage,
+            "coverage_achieved": float(
+                getattr(self._fusion_conformal, "coverage_achieved", coverage)
+            ),
             "thresholds": report["thresholds"],
             "n_calibration": len(y),
         }
+
+    def calibrate_fusion_conformal_batches(
+        self,
+        batches: Sequence[np.ndarray[Any, Any]],
+        labels: Sequence[int],
+        coverage: float = 0.9,
+    ) -> dict[str, Any]:
+        """Fit the conformal certificate on whole batches, one statistic each.
+
+        :meth:`calibrate_fusion_conformal` certifies a row.  The scalar
+        verdict of a multi-row detection is the batch's most anomalous row,
+        and picking the maximum of many rows is not exchangeable with a
+        per-row fit: a clean batch of a few hundred rows almost always has one
+        row past a per-row threshold.  When the question is about the batch
+        ("does this window / document / image contain an anomaly?"), the
+        certificate has to be calibrated on that statistic.
+
+        This scores each calibration batch exactly as serving will (all its
+        rows together), takes its maximum probability, and fits the conformal
+        classifier on one ``(batch-max probability, batch label)`` pair per
+        batch.  :meth:`detect_with_fusion` already issues its prediction set
+        for the batch-max probability, so the certificate then covers the
+        verdict it is attached to; the result and the decision record name
+        the regime ``"batch_max"``.
+
+        Args:
+            batches: Calibration batches ``(rows_i, n_features)``, disjoint
+                from the training data and from any later evaluation set.
+            labels: One binary label per batch (1 = contains an anomaly).
+            coverage: Target per-class coverage.
+
+        Returns:
+            ``coverage``, ``coverage_achieved`` (the finite-sample bound the
+            smaller class guarantees), ``thresholds``, ``n_calibration``
+            (batches) and ``regime``.
+
+        Raises:
+            ValueError: If mode is not 'fusion', or the counts differ.
+            RuntimeError: If the fusion model is untrained.
+        """
+        if self.mode != "fusion":
+            raise ValueError("calibrate_fusion_conformal_batches() requires mode='fusion'")
+        if not self._fusion_trained:
+            raise RuntimeError(
+                "Fusion model is untrained; call fit_fusion()/train_fusion_model() "
+                "before calibrate_fusion_conformal_batches()."
+            )
+        y = np.asarray(list(labels)).astype(int).ravel()
+        if len(batches) != y.size:
+            raise ValueError(f"{len(batches)} batches but {y.size} labels: one label per batch")
+        row_probs = [np.asarray(self.score_fusion(np.asarray(batch))).ravel() for batch in batches]
+        probs = np.array([float(np.max(rows)) for rows in row_probs])
+        previous = self._fusion_conformal
+        previous_n = self._fusion_conformal_n_calibration
+        previous_regime = self._fusion_conformal_regime
+        self._fusion_conformal = BinaryConformalClassifier(coverage=coverage).fit(probs, y)
+        self._fusion_conformal_n_calibration = int(y.size)
+        self._fusion_conformal_regime = "batch_max"
+        self._fusion_batch_family = self._fit_batch_family(
+            [
+                self._batch_family_summary(np.asarray(batch), rows)
+                for batch, rows in zip(batches, row_probs, strict=True)
+            ]
+        )
+        report = self._fusion_conformal.coverage_report(probs, y)
+        from omni_mercury_engine.governance.improvement_ledger import record_adaptive_change
+
+        record_adaptive_change(
+            "engine.conformal_certificate",
+            "fitted a batch-level conformal certificate (one batch-max statistic per batch)",
+            reason=f"calibrate_fusion_conformal_batches() on {int(y.size)} held-out batches",
+            before=(
+                {
+                    "coverage": float(previous.coverage),
+                    "coverage_achieved": float(previous.coverage_achieved),
+                    "n_calibration": previous_n,
+                    "regime": previous_regime,
+                }
+                if previous is not None
+                else None
+            ),
+            after={
+                "coverage": float(coverage),
+                "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+                "n_calibration": int(y.size),
+                "regime": "batch_max",
+            },
+            impact={"coverage_report_thresholds": report["thresholds"]},
+            rollback=(
+                "reload the previous checkpoint (load_model restores its "
+                "conformal_state and regime), or refit on the previous calibration set"
+            ),
+        )
+        return {
+            "coverage": coverage,
+            "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+            "thresholds": report["thresholds"],
+            "n_calibration": int(y.size),
+            "regime": "batch_max",
+        }
+
+    #: Level of the batch-family test: a batch whose distance from the
+    #: calibration batches ranks in their top 5% is not claimed as one of them.
+    _BATCH_FAMILY_ALPHA = 0.05
+    _BATCH_FAMILY_NAMES = (
+        "log_rows",
+        "mean_absolute_z",
+        "share_beyond_3",
+        "fourth_moment",
+        "mean_absolute_correlation",
+        "leading_eigen_share",
+        "row_norm_median",
+        "row_norm_tail",
+        "bulk_score_median",
+        "bulk_score_mean",
+    )
+
+    @staticmethod
+    def _batch_family_summary(
+        batch: np.ndarray[Any, Any], row_probs: np.ndarray[Any, Any]
+    ) -> np.ndarray[Any, Any]:
+        """What a batch looks like as a whole: ten numbers, scale-free.
+
+        The batch's columns are standardized against the batch itself (median
+        and MAD), so the summary describes the *shape* of its cloud (how
+        heavy the tails, how the columns move together, how long the rows)
+        whatever units the columns are in, together with the level of the
+        model's own scores over the bulk of its rows.  It deliberately
+        leaves out the batch's maximum score: that is the statistic the
+        certificate is about, and a batch is not out of family for containing
+        an anomaly.
+        """
+        data = np.nan_to_num(np.asarray(batch, dtype=np.float64))
+        median = np.median(data, axis=0)
+        scale = 1.4826 * np.median(np.abs(data - median), axis=0)
+        scale = np.where(scale > 1e-9, scale, data.std(axis=0))
+        usable = scale > 1e-9
+        z = np.zeros_like(data)
+        z[:, usable] = np.clip((data[:, usable] - median[usable]) / scale[usable], -10.0, 10.0)
+        norms = np.sqrt(np.mean(z**2, axis=1))
+        moving = z[:, usable]
+        if moving.shape[1] >= 2 and moving.shape[0] >= 3:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                # ``asarray``: older numpy stubs type ``nan_to_num`` of a
+                # correlation matrix as scalar-or-array; it is a matrix here
+                # (two or more columns), and typed as one on every supported numpy.
+                corr: np.ndarray[Any, Any] = np.asarray(
+                    np.nan_to_num(np.corrcoef(moving, rowvar=False)), dtype=np.float64
+                )
+            off = corr[~np.eye(corr.shape[0], dtype=bool)]
+            mean_corr = float(np.mean(np.abs(off)))
+            eigen = np.linalg.eigvalsh(corr)
+            leading = float(eigen[-1] / max(float(np.sum(np.abs(eigen))), 1e-12))
+        else:
+            mean_corr, leading = 0.0, 1.0
+        scores = np.sort(np.asarray(row_probs, dtype=np.float64).ravel())
+        bulk = scores[: max(1, int(0.8 * scores.size))]
+        return np.array(
+            [
+                float(np.log(max(data.shape[0], 1))),
+                float(np.mean(np.abs(z))),
+                float(np.mean(np.abs(z) > 3.0)),
+                float(np.log1p(np.mean(z**4))),
+                mean_corr,
+                leading,
+                float(np.median(norms)),
+                float(np.quantile(norms, 0.95) / max(float(np.median(norms)), 1e-9)),
+                float(np.median(bulk)),
+                float(np.mean(bulk)),
+            ]
+        )
+
+    def _fit_batch_family(self, summaries: list[np.ndarray[Any, Any]]) -> dict[str, Any] | None:
+        """The calibration batches as a reference: mean, spread, and distances among them.
+
+        Each batch's distance is taken from the mean and spread of the
+        *others* (leave-one-out), so it is the distance a new batch of the
+        same family would have, and a served batch can be ranked among them.
+        """
+        from omni_mercury_engine.discovery import rms_standardized_distance
+
+        stacked = np.asarray(summaries, dtype=np.float64)
+        if stacked.shape[0] < 20:
+            return None  # too few batches to rank a newcomer among
+        distances: list[float] = []
+        for index in range(stacked.shape[0]):
+            others = np.delete(stacked, index, axis=0)
+            found = rms_standardized_distance(
+                stacked[index], others.mean(axis=0), others.std(axis=0, ddof=1)
+            )
+            if found is not None:
+                distances.append(found)
+        return {
+            "names": list(self._BATCH_FAMILY_NAMES),
+            "mean": [float(v) for v in stacked.mean(axis=0)],
+            "std": [float(v) for v in stacked.std(axis=0, ddof=1)],
+            "distances": distances,
+            "n_batches": int(stacked.shape[0]),
+            "alpha": float(self._BATCH_FAMILY_ALPHA),
+        }
+
+    def _run_batch_family_check(
+        self, payload: dict[str, Any], batch: np.ndarray[Any, Any], row_probs: Any
+    ) -> None:
+        """Ask whether this batch is one of the certificate's calibration family.
+
+        A batch-level certificate is exchangeable over batches, so the drift
+        question is about the batch as a whole: its summary's distance from
+        the calibration batches, ranked among their own distances (the same
+        rank test the novelty verdict uses).  A p-value at or below the level
+        reports drift at severity HIGH, which the decision layer reads as
+        "the certificate is not claimed here".
+        """
+        from omni_mercury_engine.discovery import rank_p_value, rms_standardized_distance
+
+        family = self._fusion_batch_family
+        assert family is not None
+        payload.update(
+            reference_rows=int(family["n_batches"]),
+            reference_source="calibration_batches:batch_family",
+            n_tested=len(batch),
+        )
+        if row_probs is None or len(np.asarray(row_probs).ravel()) != len(batch):
+            payload.update(status="error", message="row probabilities unavailable for the check")
+            return
+        summary = self._batch_family_summary(batch, np.asarray(row_probs))
+        distance = rms_standardized_distance(summary, family["mean"], family["std"])
+        if distance is None:
+            payload.update(status="error", message="the calibration family has no spread")
+            return
+        p_value = rank_p_value(distance, family["distances"])
+        is_drift = p_value <= float(family["alpha"])
+        payload.update(
+            status="tested",
+            is_drift=bool(is_drift),
+            severity="HIGH" if is_drift else "NONE",
+            p_value=float(p_value),
+            statistic=float(distance),
+            message=(
+                f"batch-family test: this batch's summary is at distance {distance:.2f} from "
+                f"the {family['n_batches']} calibration batches (rank p={p_value:.3f}, level "
+                f"{family['alpha']})"
+                + (
+                    "; it is not one of the family the certificate was calibrated on"
+                    if is_drift
+                    else ""
+                )
+            ),
+        )
 
     def score_fusion_conformal(self, X: np.ndarray[Any, Any]) -> dict[str, Any]:
         """Return calibrated probabilities *and* conformal label sets for a batch.
@@ -3672,6 +4848,10 @@ class OmniMercuryEngine(LoggerMixin):
         self._drift_reference = None
         self._drift_reference_source = None
         self._drift_reference_unavailable = None
+        # Rows accumulated for the previous model were chosen by its notion
+        # of "normal-looking" and compared against its reference.
+        with self._drift_buffer_lock:
+            self._drift_buffer.clear()
 
     def _set_drift_reference(self, reference: np.ndarray[Any, Any], source: str) -> bool:
         """Fit the drift detector on the reference rows the model calls normal.
@@ -3770,8 +4950,11 @@ class OmniMercuryEngine(LoggerMixin):
     #: Fewest rows a drift test runs on (reference or tested batch).
     _DRIFT_MIN_ROWS = 20
 
+    #: Most rows the cross-call drift window keeps (the newest ones).
+    _DRIFT_WINDOW_ROWS = 100
+
     def _drift_payload(
-        self, data: np.ndarray[Any, Any], is_anomaly_rows: Any
+        self, data: np.ndarray[Any, Any], is_anomaly_rows: Any, row_probs: Any = None
     ) -> dict[str, Any] | None:
         """Test this batch's normal-looking rows for drift against the reference.
 
@@ -3783,13 +4966,33 @@ class OmniMercuryEngine(LoggerMixin):
         failed). Only ``tested`` can report drift, so the others never defer a
         decision. Drift is monitoring: a failing check is logged and reported
         as ``error`` but never fails the detection request.
+
+        A batch with at least ``_DRIFT_MIN_ROWS`` normal-looking rows is
+        tested on its own, as it always was. A smaller one -- the
+        one-sample-per-call pattern of the CLI, the MCP server and
+        ``DecisionLoop`` -- could never reach the minimum, so every such
+        call reported ``insufficient_rows`` and the drift deferral could not
+        fire however far the stream had moved. Its normal-looking rows now
+        join a rolling window of the most recent ``_DRIFT_WINDOW_ROWS`` such
+        rows across calls, and once the window holds ``_DRIFT_MIN_ROWS`` the
+        window is what is tested (``accumulated_rows`` in the payload says
+        so). The window belongs to the engine, so it describes the stream
+        this engine serves; a fit or load empties it.
         """
         if self.drift_detector is None:
             return None
         started = time.perf_counter()
         payload: dict[str, Any] = {"is_drift": None, "severity": None, "p_value": None}
         try:
-            self._run_drift_check(payload, data, is_anomaly_rows)
+            if self._fusion_conformal_regime == "batch_max" and self._fusion_batch_family:
+                # A batch-level certificate is exchangeable over batches, not
+                # rows: the family question is asked of the batch as a whole.
+                matrix = np.asarray(data, dtype=np.float64)
+                self._run_batch_family_check(
+                    payload, matrix.reshape(1, -1) if matrix.ndim == 1 else matrix, row_probs
+                )
+            else:
+                self._run_drift_check(payload, data, is_anomaly_rows)
         except Exception as exc:
             logger.exception("Drift check failed; the detection result is returned without it")
             payload.update(
@@ -3819,52 +5022,68 @@ class OmniMercuryEngine(LoggerMixin):
                 status="no_baseline",
                 message=self._drift_reference_unavailable or self._NO_DRIFT_SOURCE,
             )
-        else:
-            assert self._drift_reference is not None
+            return
+        assert self._drift_reference is not None
+        payload.update(
+            reference_rows=len(self._drift_reference),
+            reference_source=self._drift_reference_source,
+        )
+        normal = np.ones(len(x), dtype=bool)
+        if is_anomaly_rows is not None:
+            flags = np.asarray(is_anomaly_rows, dtype=bool).reshape(-1)
+            if flags.shape[0] == len(x):
+                normal = ~flags
+        rows = x[normal & np.isfinite(x).all(axis=1)]
+        payload.update(n_tested=len(rows), inlier_fraction=float(normal.mean()))
+        if x.shape[1] != self._drift_reference.shape[1]:
             payload.update(
-                reference_rows=len(self._drift_reference),
-                reference_source=self._drift_reference_source,
+                status="incomparable",
+                message=(
+                    f"input has {x.shape[1]} features; the reference has "
+                    f"{self._drift_reference.shape[1]}"
+                ),
             )
-            normal = np.ones(len(x), dtype=bool)
-            if is_anomaly_rows is not None:
-                flags = np.asarray(is_anomaly_rows, dtype=bool).reshape(-1)
-                if flags.shape[0] == len(x):
-                    normal = ~flags
-            rows = x[normal & np.isfinite(x).all(axis=1)]
-            payload.update(n_tested=len(rows), inlier_fraction=float(normal.mean()))
-            if x.shape[1] != self._drift_reference.shape[1]:
-                payload.update(
-                    status="incomparable",
-                    message=(
-                        f"input has {x.shape[1]} features; the reference has "
-                        f"{self._drift_reference.shape[1]}"
-                    ),
+            return
+        if len(rows) < self._DRIFT_MIN_ROWS:
+            # Too few to test alone: they join the cross-call window, and the
+            # window is tested once it is long enough.
+            with self._drift_buffer_lock:
+                self._drift_buffer.extend(np.array(rows, dtype=np.float64, copy=True))
+                accumulated = len(self._drift_buffer)
+                window = (
+                    np.vstack(self._drift_buffer) if accumulated >= self._DRIFT_MIN_ROWS else None
                 )
-            elif len(rows) < self._DRIFT_MIN_ROWS:
+            payload.update(accumulated_rows=accumulated)
+            if window is None:
                 payload.update(
                     status="insufficient_rows",
-                    message=f"{len(rows)} normal-looking rows; at least {self._DRIFT_MIN_ROWS} are tested",
+                    message=(
+                        f"{len(rows)} normal-looking rows in this call, {accumulated} "
+                        f"accumulated across calls; at least {self._DRIFT_MIN_ROWS} are tested"
+                    ),
                 )
-            else:
-                try:
-                    found = self.drift_detector.detect(rows)
-                except DriftIncomparableError as exc:  # defensive: widths were checked
-                    payload.update(status="incomparable", message=str(exc))
-                else:
-                    payload.update(
-                        status="tested",
-                        is_drift=bool(found.is_drift),
-                        severity=found.severity.name if found.is_drift else "NONE",
-                        p_value=float(found.p_value),
-                        message=found.message,
-                    )
-                    if found.is_drift:
-                        logger.warning(
-                            "Data drift detected: severity=%s (%s rows tested against %s)",
-                            found.severity.name,
-                            len(rows),
-                            self._drift_reference_source,
-                        )
+                return
+            rows = window
+            payload.update(n_tested=len(rows))
+        try:
+            found = self.drift_detector.detect(rows)
+        except DriftIncomparableError as exc:  # defensive: widths were checked
+            payload.update(status="incomparable", message=str(exc))
+            return
+        payload.update(
+            status="tested",
+            is_drift=bool(found.is_drift),
+            severity=found.severity.name if found.is_drift else "NONE",
+            p_value=float(found.p_value),
+            message=found.message,
+        )
+        if found.is_drift:
+            logger.warning(
+                "Data drift detected: severity=%s (%s rows tested against %s)",
+                found.severity.name,
+                len(rows),
+                self._drift_reference_source,
+            )
 
     def enable_fairness_auditing(
         self,
@@ -4521,23 +5740,34 @@ class OmniMercuryEngine(LoggerMixin):
             logger.error(f"LLM enhancement error: {e}")
             return None
 
-    def _auto_fit_on_inference(self, name: str, detector: Any, data: Any) -> None:
+    def _auto_fit_on_inference(
+        self, name: str, detector: Any, data: Any, *, record: bool = True
+    ) -> None:
         """Fit an unfitted detector on an inference batch and record it.
 
         The record (``inference_auto_fit_detectors`` in results) keeps the
         batch out of the drift reference and makes the next training fit
-        replace this fit instead of keeping it.
+        replace this fit instead of keeping it. ``record=False`` fits a
+        detector instance that is not the engine's (a per-call override):
+        the bookkeeping describes the engine's own detectors, so it is left
+        untouched.
         """
-        if name not in self._inference_auto_fit_detectors:
-            logger.warning(
-                "Detector %r was auto-fit on an inference batch (n=%s) because it had no "
-                "prior fit; that batch is now its reference. Call fit_fusion(X_train, "
-                "y_train) or load a checkpoint first to avoid the leakage.",
-                name,
-                getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
-            )
-        self._inference_auto_fit_detectors.add(name)
-        detector.fit(data)
+        if record:
+            if name not in self._inference_auto_fit_detectors:
+                logger.warning(
+                    "Detector %r was auto-fit on an inference batch (n=%s) because it had no "
+                    "prior fit; that batch is now its reference. Call fit_fusion(X_train, "
+                    "y_train) or load a checkpoint first to avoid the leakage.",
+                    name,
+                    getattr(data, "shape", ("?",))[0] if hasattr(data, "shape") else "?",
+                )
+            self._inference_auto_fit_detectors.add(name)
+        if isinstance(detector, MercuryAnomalyDetector):
+            # The batch is unlabelled and may hold the anomalies being looked
+            # for; the detector must not treat it as a vetted normal reference.
+            detector.fit(data, unlabeled_reference=True)
+        else:
+            detector.fit(data)
 
     #: Probability, under the global null (every row normal and every
     #: detector's reference independent of the batch), that ``detect`` calls a
@@ -4587,26 +5817,42 @@ class OmniMercuryEngine(LoggerMixin):
                 return True
         return False
 
-    def _fit_for_training(self, name: str, detector: Any, X: Any) -> bool:
-        """Fit ``detector`` on training rows unless it already holds a training fit.
+    def _fit_for_training(
+        self, name: str, detector: Any, X: Any, *, refit_training_fits: bool = False
+    ) -> bool:
+        """Fit ``detector`` on training rows unless it holds a fit to keep.
 
         A detector auto-fit on an inference batch is refit, so training never
         keeps a reference that came from scored data; one whose fit came from
         a loaded checkpoint is refit too, so training never keeps another
-        corpus's reference (its rows can even have a different width).
+        corpus's reference (its rows can even have a different width). With
+        ``refit_training_fits`` a detector an earlier training call fitted is
+        refit as well: that fit describes the earlier call's rows, not these.
+        A fit the caller made directly is kept in every case.
+
+        Args:
+            name: Detector name.
+            detector: The detector instance.
+            X: Training rows.
+            refit_training_fits: Replace a fit made by an earlier training
+                call. The entry points that train on data pass ``True``;
+                helpers that only need the detectors fitted leave it off, so
+                one training call fits each detector once.
 
         Returns:
             Whether the detector was fitted.
         """
-        if (
-            detector.is_fitted()
-            and name not in self._inference_auto_fit_detectors
-            and name not in self._checkpoint_fit_detectors
-        ):
+        replaceable = (
+            name in self._inference_auto_fit_detectors
+            or name in self._checkpoint_fit_detectors
+            or (refit_training_fits and name in self._training_fit_detectors)
+        )
+        if detector.is_fitted() and not replaceable:
             return False
         detector.fit(X)
         self._inference_auto_fit_detectors.discard(name)
         self._checkpoint_fit_detectors.discard(name)
+        self._training_fit_detectors.add(name)
         return True
 
     def stream_session(
@@ -4617,6 +5863,7 @@ class OmniMercuryEngine(LoggerMixin):
         min_samples: int = 32,
         refit_interval: int = 128,
         monitor_drift: bool = True,
+        churn_window: int = 32,
     ) -> Any:
         """Open a one-sample-at-a-time detection session on this engine.
 
@@ -4634,6 +5881,8 @@ class OmniMercuryEngine(LoggerMixin):
             refit_interval: Samples between detector refits.
             monitor_drift: Run the ADWIN online drift monitor over the
                 measured stream (verdicts then carry a ``drift`` record).
+            churn_window: Point-resolved verdict pairs the per-tick ``churn``
+                (verdict-flip fraction) is computed over.
 
         Returns:
             A new ``EngineStreamSession``.
@@ -4647,6 +5896,7 @@ class OmniMercuryEngine(LoggerMixin):
             min_samples=min_samples,
             refit_interval=refit_interval,
             monitor_drift=monitor_drift,
+            churn_window=churn_window,
         )
 
     @property
@@ -4718,6 +5968,8 @@ class OmniMercuryEngine(LoggerMixin):
         self,
         data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any],
         detector_types: list[str] | None = None,
+        *,
+        detector_overrides: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Detect anomalies using specified detectors.
 
@@ -4733,6 +5985,17 @@ class OmniMercuryEngine(LoggerMixin):
             detector_types: List of detector names to use. If None,
                 uses all detectors. Valid names: 'statistical',
                 'temporal', 'spatial', 'dimensional', 'directive'.
+            detector_overrides: Optional ``{name: detector instance}`` map.
+                For a requested name that is a detector of this engine, the
+                mapped instance runs in place of the engine's own -- for this
+                call only. ``engine.detectors`` is neither read through nor
+                written: a caller holding private detector copies (a stream
+                session) is scored through the gated boundary without its
+                copies ever being visible to another caller of this engine.
+                An unfitted override is fitted on ``data`` as the engine's
+                own would be, but the fit is the caller's: it is not recorded
+                in the engine's inference auto-fit bookkeeping. Omitted, the
+                method behaves exactly as it always has.
 
         Returns:
             Dictionary containing:
@@ -4772,15 +6035,19 @@ class OmniMercuryEngine(LoggerMixin):
         # finished, as the first failure in ``detector_types`` order.
         runnable: list[tuple[str, Any]] = []
         declined: list[str] = []
+        overrides: Mapping[str, Any] = detector_overrides or {}
         for detector_name in dict.fromkeys(detector_types):
             if detector_name in self.detectors:
-                detector = self.detectors[detector_name]
+                overridden = detector_name in overrides
+                detector = overrides[detector_name] if overridden else self.detectors[detector_name]
 
                 if not detector.is_fitted():
                     if isinstance(data, dict):
                         continue
                     try:
-                        self._auto_fit_on_inference(detector_name, detector, data)
+                        self._auto_fit_on_inference(
+                            detector_name, detector, data, record=not overridden
+                        )
                         fitted_on_this_batch.add(detector_name)
                     except InputModalityError as e:
                         # Correct refusal, not a fault: skip the detector and
@@ -5430,10 +6697,12 @@ class OmniMercuryEngine(LoggerMixin):
         """
         # ------------------------------------------------------------
         # σ_Immutable second hard ethical gate.  Fails closed unless the
-        # process-wide test-only ``_GOSNN_TESTING_BYPASS`` flag is set.
+        # process-wide test-only ``_GOSNN_TESTING_BYPASS`` flag is set --
+        # and, in a production process, even then.
         # ------------------------------------------------------------
         if _GOSNN_TESTING_BYPASS:
-            return
+            if _gosnn_testing_bypass_allowed("OmniMercuryEngine._enforce_ethics_at_boundary"):
+                return
         from omni_mercury_engine.security.sigma_immutable_gate import (
             PERMITTED_ETHICAL_POSTURE,
             build_sigma_immutable_vector,
@@ -5537,7 +6806,8 @@ class OmniMercuryEngine(LoggerMixin):
             ``logger.warning`` is emitted the first time it happens, so the
             caller can audit it. To avoid the leakage entirely, call
             ``fit_fusion(X_train, y_train)`` (which fits all detectors on
-            ``X_train``) before any ``detect_with_fusion`` invocation.
+            training rows of ``X_train``) before any ``detect_with_fusion``
+            invocation.
         """
         detector_features = {}
         detector_scores = {}
@@ -5629,8 +6899,14 @@ class OmniMercuryEngine(LoggerMixin):
                     record_component_declined(name)
                 else:
                     record_inference_error(name)
-                if isinstance(e, TimeoutError):
-                    logger.warning(f"Detector {name} skipped: {e}")
+                # The skip is recorded for the caller: detect_with_fusion
+                # lists it in the result, and the decision layer will not
+                # ground a verdict when a trained detector is missing.
+                reason = _record_skipped_evidence(name, e)
+                if reason in ("timeout", "saturated"):
+                    # Capacity, not the input: the detector would have
+                    # reported had it been given the time or a worker.
+                    logger.warning(f"Detector {name} skipped ({reason}): {e}")
                 else:
                     logger.debug(f"Detector {name} feature extraction failed: {e}")
                 continue
@@ -5698,6 +6974,24 @@ class OmniMercuryEngine(LoggerMixin):
         cached: tuple[Any, Any] = self.feature_cache.get_or_compute(cache_key, compute_features)
         return cached
 
+    def _models_on_the_default_path(self) -> list[tuple[str, Any]]:
+        """The specialized models whose output this engine uses, in order.
+
+        Every model is constructed and reachable at ``models`` — the released
+        API keeps them — but one the Detector Evidence Ledger measures broken
+        on its declared modality (tier T0: constant output, so its "signal"
+        is the same whatever the input) contributes no feature and no score,
+        unless this engine was built with ``include_unproven=True`` or a
+        loaded fusion checkpoint was trained with its feature group: a
+        trained projection must not be starved of the input it was fitted on.
+        """
+        trained_with = getattr(self, "_fusion_feature_groups", None) or ()
+        return [
+            (name, model)
+            for name, model in self.models.items()
+            if name not in self.excluded_unproven or name in trained_with
+        ]
+
     def _extract_model_features(
         self, data: np.ndarray[Any, Any] | torch.Tensor | dict[str, Any]
     ) -> tuple[Any, ...]:
@@ -5717,12 +7011,28 @@ class OmniMercuryEngine(LoggerMixin):
         Note:
             Models that fail to process data are silently skipped.
             This allows graceful degradation when domain-specific
-            data is not available.
+            data is not available. A model whose features extract but whose
+            ``predict`` refuses (e.g. one that was never fitted and will not
+            report a heuristic score) keeps its *features* and contributes no
+            *score*: training extracts features without calling ``predict``,
+            so dropping the features here would feed the fusion network a
+            zero token for a group it was trained on, on every serve call,
+            while ``score_fusion`` and calibration kept feeding it the real
+            features.
         """
         model_features = {}
         model_scores = {}
+        skippable = (
+            OmniAnomalyException,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            KeyError,
+            AttributeError,
+            IndexError,
+        )
 
-        for name, model in self.models.items():
+        for name, model in self._models_on_the_default_path():
             try:
 
                 def compute_features(mdl: Any = model, d: Any = data) -> tuple[Any, ...]:
@@ -5735,8 +7045,12 @@ class OmniMercuryEngine(LoggerMixin):
                     # Same for ``predict``: it re-reads the batch, so it must
                     # not start from the memory extraction left behind.
                     _reset_transient_state(mdl)
-                    with time_detection(name):
-                        prediction = mdl.predict(d)
+                    try:
+                        with time_detection(name):
+                            prediction = mdl.predict(d)
+                    except skippable as refusal:
+                        # The features stand; only the score is unavailable.
+                        prediction = refusal
                     return features, prediction
 
                 # Dict inputs were keyed by a constant placeholder, so distinct
@@ -5752,17 +7066,16 @@ class OmniMercuryEngine(LoggerMixin):
                     )
 
                 model_features[name] = features
+                if isinstance(prediction, BaseException):
+                    if isinstance(prediction, InputModalityError):
+                        record_component_declined(name)
+                    else:
+                        record_inference_error(name)
+                    logger.debug(f"Model {name} reported no score: {prediction}")
+                    continue
                 scores = prediction.get("anomaly_scores", 0)
                 model_scores[name] = self._normalize_scores(scores, features.shape[0])
-            except (
-                OmniAnomalyException,
-                ValueError,
-                TypeError,
-                RuntimeError,
-                KeyError,
-                AttributeError,
-                IndexError,
-            ) as e:
+            except skippable as e:
                 # Mirror the detector path: a ModelException (or any Mercury
                 # component exception) means "this model cannot process the
                 # input" and must degrade gracefully, matching this method's
@@ -5771,6 +7084,7 @@ class OmniMercuryEngine(LoggerMixin):
                     record_component_declined(name)
                 else:
                     record_inference_error(name)
+                _record_skipped_evidence(name, e)
                 logger.debug(f"Model {name} feature extraction failed: {e}")
                 continue
 
@@ -5786,6 +7100,9 @@ class OmniMercuryEngine(LoggerMixin):
         equation_profile: str | None = None,
         gdpr_report: bool = False,
         subject_id: str | None = None,
+        *,
+        reference_scope: str | None = None,
+        disclose_reference: bool = True,
     ) -> dict[str, Any]:
         """Detect anomalies using ML fusion with GOSNN synaptic integration.
 
@@ -5826,7 +7143,9 @@ class OmniMercuryEngine(LoggerMixin):
                 ``check="gosnn_unavailable"`` because skipping GOSNN
                 would also skip the σ_Immutable second hard gate.  Unit
                 tests that need to bypass GOSNN must additionally set
-                the module-level :data:`_GOSNN_TESTING_BYPASS` flag.
+                the module-level :data:`_GOSNN_TESTING_BYPASS` flag,
+                which is ignored (and logged at ERROR) when
+                ``MERCURY_ENV=production``.
             explain: When ``True``, attach an ``explanation`` field — an
                 Integrated-Gradients attribution of this sample's calibrated
                 fusion probability (over the same ``score_fusion`` serve path)
@@ -5850,6 +7169,16 @@ class OmniMercuryEngine(LoggerMixin):
                 a unique per-report id (``anon-<hex>``) is generated when omitted,
                 so distinct data-subject audits never collapse onto one identifier
                 (the generated id is surfaced in the report's ``subject_id`` field).
+            reference_scope: Whose novelty reference this call is scored
+                against and adds to. A server passes the caller's identity so
+                "unlike what has been seen" means unlike what that caller has
+                shown; ``None`` (a library or command-line user) uses the
+                engine's own reference.
+            disclose_reference: Whether the novelty artifact may carry the
+                reference it was scored against. ``False`` when that
+                reference is shared between callers who may not see each
+                other's data: the artifact then carries digests and says it
+                cannot be replayed.
 
         Returns:
             Dictionary containing:
@@ -5865,7 +7194,22 @@ class OmniMercuryEngine(LoggerMixin):
                   per-row values, aligned with the input rows
                 - threshold_used: The decision threshold applied
                 - detector_importance: Dict of detector weights
+                - model_provenance: Identity of the calibrated model that
+                  produced the probability — ``{"checkpoint"`` (basename or
+                  ``"in-memory fit"``), ``"checkpoint_sha256"`` (hex, hashed
+                  once at load; ``None`` for an in-memory fit),
+                  ``"temperature"``, ``"conformal"`` (``coverage_target`` /
+                  ``coverage_achieved`` / ``n_calibration``, or ``None``),
+                  ``"trained_groups"}``
                 - mode: Detection mode ('fusion')
+                - skipped_detectors: (only when something was skipped) evidence
+                  sources that did not report this call, ``{name: {"reason",
+                  "detail", "trained_group"}}`` with reason ``timeout`` /
+                  ``saturated`` / ``declined`` / ``error`` / ``not_extracted``.
+                  ``trained_group`` marks a feature group the fusion network
+                  was trained on: the probability was then computed without
+                  it, and the decision layer defers a verdict it would
+                  otherwise have grounded
                 - explanation: (only when ``explain=True``) Integrated-Gradients
                   feature attribution + faithfulness scores for this sample
                 - gdpr_report: (only when ``gdpr_report=True``) GDPR Article 22
@@ -5916,13 +7260,45 @@ class OmniMercuryEngine(LoggerMixin):
         # row of n features, which is this method's documented reading of it.
         self._check_feature_width(data, "detect_with_fusion")
 
-        det_features, det_scores, det_certificates, det_uncertainties = (
-            self._extract_detector_features(data)
-        )
-        mod_features, mod_scores = self._extract_model_features(data)
+        skipped_evidence: dict[str, dict[str, str]] = {}
+        collector_token = _SKIPPED_EVIDENCE.set(skipped_evidence)
+        try:
+            det_features, det_scores, det_certificates, det_uncertainties = (
+                self._extract_detector_features(data)
+            )
+            mod_features, mod_scores = self._extract_model_features(data)
+        finally:
+            _SKIPPED_EVIDENCE.reset(collector_token)
 
         all_features = {**det_features, **mod_features}
         all_scores = {**det_scores, **mod_scores}
+        domain_feature = self._domain_encoder_feature(data)
+        if domain_feature is not None:
+            all_features["differentiable_domain"] = domain_feature
+
+        # Evidence that did not arrive. The extractors skip a detector that
+        # timed out, was refused by a saturated executor, declined the input
+        # or failed, and the network is then fed without its group; that used
+        # to be visible only in a DEBUG log line, so a verdict computed from
+        # part of the evidence looked like any other. Listed here: every base
+        # detector that was skipped, and every feature group the network was
+        # trained on that this call does not feed it (``trained_group``: the
+        # ones the decision layer refuses to ground a verdict without).
+        trained_groups = set(self._fusion_feature_groups or ())
+        skipped_report: dict[str, dict[str, Any]] = {
+            name: {**info, "trained_group": name in trained_groups}
+            for name, info in skipped_evidence.items()
+            if name in self.detectors or name in trained_groups
+        }
+        for group in sorted(trained_groups - set(all_features)):
+            skipped_report.setdefault(
+                group,
+                {
+                    "reason": "not_extracted",
+                    "detail": "no feature group was produced for this input",
+                    "trained_group": True,
+                },
+            )
 
         # ------------------------------------------------------------
         # Hard ethical gate at the decision boundary.
@@ -5981,8 +7357,12 @@ class OmniMercuryEngine(LoggerMixin):
             # The only legitimate caller is a unit test that has set
             # the module-level ``_GOSNN_TESTING_BYPASS`` flag, which is
             # a deliberate, auditable opt-out.  Anything else fails
-            # closed with ``check="gosnn_unavailable"``.
-            if not _GOSNN_TESTING_BYPASS:
+            # closed with ``check="gosnn_unavailable"`` -- including a
+            # production process that has the flag set.
+            if not (
+                _GOSNN_TESTING_BYPASS
+                and _gosnn_testing_bypass_allowed("OmniMercuryEngine.detect_with_fusion")
+            ):
                 raise EthicalConstraintViolationError(
                     action=(f"OmniMercuryEngine.detect_with_fusion:domain={domain or 'general'}"),
                     score=0.0,
@@ -6181,37 +7561,17 @@ class OmniMercuryEngine(LoggerMixin):
                     },
                 ) from exc
 
-        fusion_result = self._timed_fusion_predict(all_features)
-
-        # Calibrate at the production decision boundary, in-place into the
-        # result dict, so every downstream consumer (anomaly_prob, the
-        # threshold finder, drift signals) sees the same temperature-scaled
-        # probabilities the benchmark path serves through ``score_fusion``.
-        # Without this, the persisted post-hoc temperature scalar (Guo et al.
-        # 2017) trained by ``fit_fusion`` only affects ``score_fusion`` and
-        # the user-facing ``mercury-agent detect`` keeps returning raw sigmoid.
-        fusion_result["anomaly_probs"] = self._apply_fusion_calibration(
-            np.asarray(fusion_result["anomaly_probs"])
-        )
-
-        # Optional runtime equation profile (opt-in; exact no-op when unset).
-        # Applied on the calibrated probabilities so the blended score stays on
-        # the same temperature scale every downstream consumer reads.
-        fusion_result["anomaly_probs"], equation_profile_metadata = (
-            self._apply_runtime_equation_profile(
-                np.asarray(fusion_result["anomaly_probs"]),
-                all_scores,
-                equation_profile=equation_profile,
-                domain=domain,
-            )
-        )
-
-        # Extrapolation guard: rows outside the fusion training envelope are
-        # floored at the detector consensus. Applied after calibration and the
-        # equation profile so the floor compares on the same scale every
-        # downstream consumer reads.
-        fusion_result["anomaly_probs"], out_of_support_rows = self._apply_fusion_support_guard(
-            np.asarray(fusion_result["anomaly_probs"]), data, all_scores
+        # The shared scoring core: network forward, temperature calibration,
+        # the optional equation profile and the extrapolation floor, in that
+        # order -- the same function ``score_fusion`` returns, so what was
+        # benchmarked and what conformal calibration was fitted on is what is
+        # served here.
+        fusion_result, out_of_support_rows, equation_profile_metadata = self._fused_probabilities(
+            all_features,
+            data,
+            all_scores,
+            equation_profile=equation_profile,
+            domain=domain,
         )
 
         anomaly_probs_all = np.asarray(fusion_result["anomaly_probs"], dtype=np.float64).reshape(-1)
@@ -6234,6 +7594,66 @@ class OmniMercuryEngine(LoggerMixin):
 
         # Determine threshold for anomaly classification
         threshold = self._get_anomaly_threshold(anomaly_prob_val, anomaly_probs_all)
+
+        # Online drift recalibration: feed this batch's calibrated scores to the
+        # adaptive conformal threshold so the operating point tracks score drift
+        # rather than going stale (see enable_online_recalibration). Surfaced for
+        # audit; applied as the operating threshold only after warmup so the
+        # decider grounds on a converged, fresh threshold instead of deferring
+        # forever on drift.
+        #
+        # Resolved HERE, before anything is derived from the threshold. It
+        # used to run after the result was assembled and overwrite only
+        # ``threshold_used`` and the scalar ``is_anomaly``: the per-row
+        # ``is_anomaly_rows`` and the drift check's choice of normal-looking
+        # rows had already been computed with the static threshold, so one
+        # result reported a threshold that its own row verdicts and drift
+        # payload did not use.
+        adaptive_stats: dict[str, Any] | None = None
+        adaptive_threshold: float | None = None
+        if self._adaptive_conformal is not None:
+            for s in anomaly_probs_all:
+                self._adaptive_conformal.update(float(s))
+            candidate = self._adaptive_conformal.get_current_threshold()
+            adaptive_stats = self._adaptive_conformal.get_coverage_stats()
+            if np.isfinite(candidate):
+                adaptive_threshold = float(candidate)
+                if self._adaptive_conformal.n_updates >= self._recalibration_warmup:
+                    static_threshold = threshold
+                    threshold = adaptive_threshold
+                    # Improvement ledger: an adaptive change to the live
+                    # operating point is recorded with its rollback — once at
+                    # the warmup crossing, then on every move >= 0.01, never
+                    # per call (the recalibrator moves a little every tick).
+                    last = self._last_recorded_adaptive_threshold
+                    if last is None or abs(adaptive_threshold - last) >= 0.01:
+                        from omni_mercury_engine.governance.improvement_ledger import (
+                            record_adaptive_change,
+                        )
+
+                        record_adaptive_change(
+                            "engine.online_recalibration",
+                            (
+                                "online drift recalibration took over the operating threshold"
+                                if last is None
+                                else "online drift recalibration moved the operating threshold"
+                            ),
+                            reason=(
+                                f"adaptive conformal tracker past warmup "
+                                f"({self._adaptive_conformal.n_updates} updates, "
+                                f"warmup {self._recalibration_warmup}); coverage stats "
+                                f"{adaptive_stats}"
+                            ),
+                            before=(static_threshold if last is None else last),
+                            after=adaptive_threshold,
+                            impact=None,
+                            rollback=(
+                                "disable_online_recalibration() restores the static "
+                                "threshold path; the static threshold this call "
+                                f"computed was {static_threshold:.6f}"
+                            ),
+                        )
+                        self._last_recorded_adaptive_threshold = adaptive_threshold
 
         result = {
             "anomaly_prob": anomaly_prob_val,
@@ -6259,6 +7679,11 @@ class OmniMercuryEngine(LoggerMixin):
             "detector_uncertainties": {k: float(v) for k, v in det_uncertainties.items()},
             "mode": "fusion",
             "threshold_used": float(threshold),
+            # Identity of the calibrated model that produced the probability
+            # (checkpoint name + sha256, temperature, conformal coverage,
+            # trained groups) -- additive, assembled from state cached at
+            # load/fit time, so no file is read or hashed per call.
+            "model_provenance": self._model_provenance(),
         }
 
         # Surface any detectors that had to be auto-fit on the inference batch.
@@ -6266,6 +7691,12 @@ class OmniMercuryEngine(LoggerMixin):
         # the result is biased by the leakage and the caller should know.
         if self._inference_auto_fit_detectors:
             result["inference_auto_fit_detectors"] = sorted(self._inference_auto_fit_detectors)
+
+        # Evidence sources that did not report this call (absent when every
+        # one did). The decision layer reads it: a verdict that would be
+        # grounded is deferred when a trained detector is among them.
+        if skipped_report:
+            result["skipped_detectors"] = skipped_report
 
         # Add GOSNN metadata if integration was enabled
         if gosnn_metadata:
@@ -6286,27 +7717,18 @@ class OmniMercuryEngine(LoggerMixin):
             elif isinstance(data, torch.Tensor):
                 drift_input = data.detach().cpu().numpy()
             if drift_input is not None:
-                drift_payload = self._drift_payload(drift_input, result.get("is_anomaly_rows"))
+                drift_payload = self._drift_payload(
+                    drift_input, result.get("is_anomaly_rows"), result.get("anomaly_probs")
+                )
                 if drift_payload is not None:
                     result["drift_detection"] = drift_payload
 
-        # Online drift recalibration: feed this batch's calibrated scores to the
-        # adaptive conformal threshold so the operating point tracks score drift
-        # rather than going stale (see enable_online_recalibration). Surfaced for
-        # audit; applied as the operating threshold only after warmup so the
-        # decider grounds on a converged, fresh threshold instead of deferring
-        # forever on drift.
-        if self._adaptive_conformal is not None:
-            batch_scores = np.asarray(fusion_result["anomaly_probs"], dtype=float).reshape(-1)
-            for s in batch_scores:
-                self._adaptive_conformal.update(float(s))
-            adaptive_threshold = self._adaptive_conformal.get_current_threshold()
-            result["adaptive_conformal"] = self._adaptive_conformal.get_coverage_stats()
-            if np.isfinite(adaptive_threshold):
-                result["adaptive_threshold"] = float(adaptive_threshold)
-                if self._adaptive_conformal.n_updates >= self._recalibration_warmup:
-                    result["threshold_used"] = float(adaptive_threshold)
-                    result["is_anomaly"] = bool(float(anomaly_prob_val) > adaptive_threshold)
+        # Online recalibration audit trail (the threshold itself was resolved
+        # above, before the verdicts were derived from it).
+        if adaptive_stats is not None:
+            result["adaptive_conformal"] = adaptive_stats
+            if adaptive_threshold is not None:
+                result["adaptive_threshold"] = adaptive_threshold
 
         # Neuro-symbolic feedback diagnostics. The co-trained LTN is retained
         # after fit/load so production inference can expose whether the current
@@ -6336,6 +7758,8 @@ class OmniMercuryEngine(LoggerMixin):
                     "symbolic_consistency": result.get("symbolic_consistency"),
                     "gosnn_metadata": result.get("gosnn_metadata"),
                     "drift_detection": result.get("drift_detection"),
+                    "reference_scope": reference_scope,
+                    "disclose_reference": disclose_reference,
                 },
             )
             result["cognitive_analysis"] = cognitive.to_dict()
@@ -6347,12 +7771,31 @@ class OmniMercuryEngine(LoggerMixin):
         # score. A no-op (no key added) until the calibrator is fit.
         if self._fusion_conformal is not None:
             pred_set = self._fusion_conformal.predict(np.array([float(anomaly_prob_val)]))
+            n_rows = int(anomaly_probs_all.size)
             result["conformal"] = {
                 "prediction_set": pred_set.label_sets()[0],
                 "set_size": int(pred_set.set_size[0]),
                 "abstain": bool(pred_set.set_size[0] == 2),
                 "coverage": float(pred_set.coverage_level),
+                # The scalar verdict is the batch-max row.  A certificate
+                # fitted per sample does not cover it (selecting the max
+                # breaks per-sample exchangeability); one fitted on batch-max
+                # statistics does.  The result says which this is rather than
+                # let "calibrated" read as a batch-level promise it is not.
+                "regime": self._fusion_conformal_regime,
+                "n_rows": n_rows,
             }
+            if n_rows > 1 and self._fusion_conformal_regime == "per_sample":
+                # Per-row label sets ARE individually exchangeable with the
+                # fit; surface their set-size counts so the record carries the
+                # part of the certificate that is sound on a batch.
+                row_sets = self._fusion_conformal.predict(anomaly_probs_all)
+                sizes = np.asarray(row_sets.set_size, dtype=int)
+                result["conformal"]["row_set_sizes"] = {
+                    "empty": int(np.sum(sizes == 0)),
+                    "singleton": int(np.sum(sizes == 1)),
+                    "ambiguous": int(np.sum(sizes == 2)),
+                }
 
         # Explainability (opt-in): attach an Integrated-Gradients attribution of
         # this sample's calibrated fusion probability, plus its faithfulness
@@ -6376,15 +7819,16 @@ class OmniMercuryEngine(LoggerMixin):
         # Decision / abstention / response layer: close the loop from the
         # calibrated certificate just assembled (probability + conformal set +
         # ethical verdict + symbolic agreement + drift) to a bounded,
-        # non-destructive response with an explicit "don't-know" gate. A no-op
-        # (no key added) until enable_decision_layer() is called. When an audit
-        # ledger was supplied, the decision is also recorded -- the "verify"
-        # step that turns the stream of decisions into a queryable trail.
+        # non-destructive response with an explicit "don't-know" gate. On by
+        # default (decision_layer=False at construction opts out). When an
+        # audit ledger was supplied, the decision is also recorded -- the
+        # "verify" step that turns the stream of decisions into a queryable
+        # trail.
         if self.decision_layer is not None:
             decision_record = self.decision_layer.decide(result, domain=domain)
-            if self.decision_ledger is not None:
-                self.decision_ledger.record(decision_record)
             result["decision"] = decision_record.to_dict()
+            if self.decision_ledger is not None:
+                self.decision_ledger.record(_ledger_record(decision_record, result["decision"]))
 
         return result
 
@@ -6532,6 +7976,57 @@ class OmniMercuryEngine(LoggerMixin):
         )
         return report.to_dict()
 
+    def _model_provenance(self) -> dict[str, Any]:
+        """Identity of the calibrated model behind ``detect_with_fusion``.
+
+        A JSON-safe mapping assembled entirely from engine state cached at
+        load/fit/calibrate time (no per-call file reads or hashing):
+
+        * ``checkpoint``: the loaded checkpoint's basename, or ``"in-memory
+          fit"`` when the serving weights come from an in-process fit (or no
+          training has happened yet).
+        * ``checkpoint_sha256``: sha256 of the loaded file, hashed once by
+          :meth:`load_model`; ``None`` for an in-memory fit.
+        * ``temperature``: the fitted post-hoc temperature scalar, or ``None``
+          when no calibrator is fitted.
+        * ``conformal``: ``{"coverage_target", "coverage_achieved",
+          "n_calibration"}`` for the fitted conformal certificate
+          (``n_calibration`` is ``None`` for a certificate restored from a
+          checkpoint, which does not record it), or ``None`` without one.
+        * ``trained_groups``: the feature groups the network was trained on.
+        * ``certificate_scope``: present only when the checkpoint's training
+          provenance states one: what the certificate was calibrated on and
+          what it has been measured to cover, in the trainer's words.  The
+          decision layer carries it into every record as a caveat.
+
+        Returns:
+            The ``model_provenance`` mapping attached to detection results.
+        """
+        temperature: float | None = None
+        calibrator = self._fusion_calibrator
+        if calibrator is not None:
+            raw_temperature = getattr(calibrator, "temperature", None)
+            if raw_temperature is not None:
+                temperature = float(raw_temperature)
+        conformal: dict[str, Any] | None = None
+        if self._fusion_conformal is not None:
+            conformal = {
+                "coverage_target": float(self._fusion_conformal.coverage),
+                "coverage_achieved": float(self._fusion_conformal.coverage_achieved),
+                "n_calibration": self._fusion_conformal_n_calibration,
+            }
+        provenance: dict[str, Any] = {
+            "checkpoint": self._fusion_checkpoint_name or "in-memory fit",
+            "checkpoint_sha256": self._fusion_checkpoint_sha256,
+            "temperature": temperature,
+            "conformal": conformal,
+            "trained_groups": list(self._fusion_feature_groups or ()),
+        }
+        scope = (self._fusion_provenance or {}).get("certificate_scope")
+        if isinstance(scope, str) and scope:
+            provenance["certificate_scope"] = scope
+        return provenance
+
     @capability_contract(Invariant.GATED_BOUNDARY, boundary_subject=_fusion_calibrated_subject)
     def detect_with_fusion_calibrated(
         self,
@@ -6607,34 +8102,15 @@ class OmniMercuryEngine(LoggerMixin):
         # Get fusion probability
         anomaly_prob = fusion_result.get("anomaly_prob", 0.5)
 
-        # For batch data, we need the full probability array
-        # The fusion_inference returns probs for all samples
-        if self.mode == "fusion":
-            det_features, det_scores, _, _ = self._extract_detector_features(data)
-            mod_features, mod_scores = self._extract_model_features(data)
-            all_features = {**det_features, **mod_features}
-
-            fusion_output = self._timed_fusion_predict(all_features)
-            all_probs = fusion_output.get("anomaly_probs", np.array([anomaly_prob]))
-            if isinstance(all_probs, torch.Tensor):
-                all_probs = all_probs.cpu().numpy()
-            all_probs = np.asarray(all_probs).flatten()
-            # Calibrate before threshold selection: the threshold finder
-            # (Otsu/F1/percentile) must operate on the same probability scale
-            # as detect_with_fusion's calibrated anomaly_prob, otherwise the
-            # threshold and the scalar live on different scales and the
-            # is_anomaly verdict is internally inconsistent.
-            all_probs = self._apply_fusion_calibration(all_probs)
-            # Keep the batch threshold scale identical to the (possibly
-            # profile-blended) per-sample anomaly_prob returned by
-            # detect_with_fusion. Exact no-op when no profile is selected.
-            all_probs, _ = self._apply_runtime_equation_profile(
-                all_probs,
-                {**det_scores, **mod_scores},
-                equation_profile=equation_profile,
-                domain=domain,
-            )
-            all_probs = np.asarray(all_probs).flatten()
+        # The threshold finder (Otsu/F1/percentile) runs on the per-row
+        # probabilities detect_with_fusion just served -- calibrated, profile
+        # blended and floored outside the training envelope -- so the
+        # threshold and the verdicts live on one scale. This method used to
+        # re-run the fusion without the support floor and threshold
+        # probabilities the served result never contained.
+        served_rows = fusion_result.get("anomaly_probs") if self.mode == "fusion" else None
+        if served_rows is not None:
+            all_probs = np.asarray(served_rows, dtype=np.float64).flatten()
         else:
             all_probs = np.array([anomaly_prob])
 
@@ -6674,6 +8150,10 @@ class OmniMercuryEngine(LoggerMixin):
         # Carry over drift detection
         if "drift_detection" in fusion_result:
             result["drift_detection"] = fusion_result["drift_detection"]
+
+        # Carry over the evidence sources that did not report
+        if "skipped_detectors" in fusion_result:
+            result["skipped_detectors"] = fusion_result["skipped_detectors"]
 
         return result
 
@@ -6802,6 +8282,7 @@ class OmniMercuryEngine(LoggerMixin):
         checkpoint_dir: str | None = None,
         use_mixed_precision: bool = False,
         gradient_accumulation_steps: int = 1,
+        seed: int | None = 0,
     ) -> dict[str, Any]:
         """Train the fusion model on custom data.
 
@@ -6839,6 +8320,17 @@ class OmniMercuryEngine(LoggerMixin):
                 Requires CUDA. Default False.
             gradient_accumulation_steps: Steps for gradient accumulation.
                 Useful for larger effective batch sizes. Default 1.
+            seed: Seed of the training run (default ``0``), as in
+                :meth:`fit_fusion`: it drives the train/validation split
+                (stratified by anomaly label when both classes are present),
+                the per-epoch shuffle of the training rows, the initial
+                weights of a network this engine has not trained or loaded
+                yet, and dropout, so the same archive and seed give the same
+                trained model whatever the process drew from torch's global
+                RNG beforehand; the caller's global RNG state is restored
+                when the call returns. ``None`` leaves all of that to the
+                ambient global stream. A network that was already trained or
+                loaded is trained on from its current weights.
 
         Returns:
             Dictionary containing:
@@ -6865,12 +8357,6 @@ class OmniMercuryEngine(LoggerMixin):
             >>> print(f"Best loss: {result['best_loss']:.4f}")
             >>> print(f"Epochs: {result['epochs_trained']}")
         """
-        import os
-        import tempfile
-
-        from torch.utils.data import DataLoader, random_split
-
-        from omni_mercury_engine.ml.training import AnomalyDataset, FusionTrainer
         from omni_mercury_engine.security.safe_load import (
             UnsafePayloadError,
             safe_load_training_data,
@@ -6912,25 +8398,102 @@ class OmniMercuryEngine(LoggerMixin):
         # exactly the set this archive trained on (train/serve lockstep).
         self._fusion_feature_groups = sorted(features_dict.keys())
 
-        # Create dataset and split
-        dataset = AnomalyDataset(features_dict, labels)
-        total_size = len(dataset)
-        val_size = int(total_size * validation_split)
-        train_size = total_size - val_size
+        # The whole of training runs under the seed scope, as fit_fusion's
+        # does: the split, the per-epoch shuffle, the weights of a
+        # not-yet-trained network and dropout are functions of ``seed``, and
+        # the caller's global torch RNG state is handed back untouched.
+        with _scoped_torch_seed(seed) as generator:
+            return self._train_fusion_archive(
+                features_dict,
+                labels,
+                generator=generator,
+                validation_split=validation_split,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                optimizer_type=optimizer_type,
+                early_stopping_patience=early_stopping_patience,
+                checkpoint_dir=checkpoint_dir,
+                use_mixed_precision=use_mixed_precision,
+                gradient_accumulation_steps=gradient_accumulation_steps,
+            )
 
-        train_dataset, val_dataset = random_split(
-            dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42)
+    def _train_fusion_archive(
+        self,
+        features_dict: dict[str, torch.Tensor],
+        labels: torch.Tensor,
+        *,
+        generator: torch.Generator | None,
+        validation_split: float,
+        epochs: int,
+        batch_size: int,
+        learning_rate: float,
+        optimizer_type: str,
+        early_stopping_patience: int,
+        checkpoint_dir: str | None,
+        use_mixed_precision: bool,
+        gradient_accumulation_steps: int,
+    ) -> dict[str, Any]:
+        """Training loop behind :meth:`train_fusion_model`.
+
+        Runs inside that method's seed scope: every draw from torch's global
+        stream here (weight initialisation, dropout) is a function of the
+        run's seed, and ``generator`` is the local stream for the split and
+        the per-epoch shuffle (``None``: the ambient global stream).
+        """
+        import os
+        import tempfile
+
+        from torch.utils.data import DataLoader, Subset
+
+        from omni_mercury_engine.ml.training import AnomalyDataset, FusionTrainer
+
+        # Train/validation split from the helper fit_fusion uses: stratified
+        # by anomaly label when both classes are present, so a rare positive
+        # class reaches the validation rows. The split used to be a fixed
+        # (seed 42) unstratified permutation whatever the caller did.
+        dataset = AnomalyDataset(features_dict, labels)
+        train_indices, val_indices = self._fusion_train_val_split(
+            (labels > 0).to(torch.float32).numpy(), validation_split, generator
         )
+        train_dataset = Subset(dataset, train_indices.tolist())
+        val_dataset = Subset(dataset, val_indices.tolist())
+
+        # A network this engine constructed and nothing has trained or loaded
+        # is rebuilt here, inside the seed scope, with the architecture it
+        # was constructed with: its construction-time weights came from
+        # whatever torch's global stream held when the engine was built. A
+        # loaded or already-trained network is trained on from where it is.
+        if self._fusion_model_pristine:
+            built = self.fusion_model
+            self.fusion_model = OmniFusionModel(
+                feature_dims=dict(built.feature_dims),
+                hidden_dim=built.hidden_dim,
+                num_heads=built.num_heads,
+                dropout=built.dropout,
+                num_classes=built.num_classes,
+                masked_mean_pooling=built.masked_mean_pooling,
+            )
+            self.fusion_model.to(self.device)
+            self.fusion_inference = FusionInference(
+                model=self.fusion_model,
+                device=str(self.device),
+            )
 
         # Create data loaders
         # Use config.num_workers (default 4) for parallel data loading
         # Set to 0 in config for single-threaded loading (needed for some environments)
+        # ``shuffle=True`` draws a fresh order every epoch; with ``generator``
+        # that order comes from the run's local stream instead of the global
+        # one (the sampler runs in this process, so worker count does not
+        # change the batches).
         train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True,
             num_workers=self.config.num_workers,
             pin_memory=self.device.type == "cuda",
+            generator=generator,
         )
         val_loader = DataLoader(
             val_dataset,
@@ -6971,6 +8534,8 @@ class OmniMercuryEngine(LoggerMixin):
         optimizer = optimizer_config["optimizer"]
         scheduler = optimizer_config["lr_scheduler"]["scheduler"]
 
+        # These weights are trained from here on; a later fit_fusion keeps them.
+        self._fusion_model_pristine = False
         self.fusion_model.train()
 
         for epoch in range(epochs):
@@ -7190,6 +8755,10 @@ class OmniMercuryEngine(LoggerMixin):
             "model_state_dict": self.fusion_model.state_dict(),
             "feature_dims": dict(self.fusion_model.feature_dims),
             "hidden_dim": self.fusion_model.hidden_dim,
+            # Pooling mode of the fusion layer. Absent on checkpoints written
+            # before the key existed, which were all trained with the plain
+            # mean (False); load_model restores exactly that for them.
+            "masked_mean_pooling": bool(self.fusion_model.masked_mean_pooling),
             "projection_registry": self.fusion_model.export_projection_registry(),
             "temperature": temperature,
             "feature_groups": self._fusion_feature_groups,
@@ -7237,6 +8806,10 @@ class OmniMercuryEngine(LoggerMixin):
             "model_state_dicts": model_state_dicts,
             "model_fitted_state": model_fitted_state,
             "conformal_state": conformal_state,
+            # Beside conformal_state, whose layout is unchanged: what one
+            # calibration unit was. Absent in older checkpoints = per_sample.
+            "conformal_regime": self._fusion_conformal_regime,
+            "conformal_batch_family": self._fusion_batch_family,
         }
         torch.save(checkpoint, path)
 
@@ -7272,13 +8845,22 @@ class OmniMercuryEngine(LoggerMixin):
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             feature_dims = checkpoint.get("feature_dims")
             hidden_dim = checkpoint.get("hidden_dim", self.fusion_model.hidden_dim)
+            # The pooling mode is part of the architecture (it changes the
+            # served probabilities, not the parameters). A checkpoint without
+            # the key was trained with the plain mean.
+            masked_pooling = bool(checkpoint.get("masked_mean_pooling", False))
+            if feature_dims is None:
+                feature_dims = self.fusion_model.feature_dims
 
-            if feature_dims is not None and (
+            if (
                 feature_dims != self.fusion_model.feature_dims
                 or hidden_dim != self.fusion_model.hidden_dim
+                or masked_pooling != self.fusion_model.masked_mean_pooling
             ):
                 self.fusion_model = OmniFusionModel(
-                    feature_dims=dict(feature_dims), hidden_dim=hidden_dim
+                    feature_dims=dict(feature_dims),
+                    hidden_dim=hidden_dim,
+                    masked_mean_pooling=masked_pooling,
                 )
                 self.fusion_model.to(self.device)
                 self.fusion_inference = FusionInference(
@@ -7410,6 +8992,7 @@ class OmniMercuryEngine(LoggerMixin):
                 # Serving uses this state as-is; explicit new training data
                 # replaces it (see _fit_for_training).
                 self._checkpoint_fit_detectors.add(det_name)
+                self._training_fit_detectors.discard(det_name)
                 restored_by_this_load.add(det_name)
 
             if "fitted_feature_width" not in checkpoint:
@@ -7471,12 +9054,40 @@ class OmniMercuryEngine(LoggerMixin):
                 if conformal_state is not None
                 else None
             )
+            # The calibration-set size travels inside conformal_state (added
+            # alongside the fitted thresholds); a checkpoint written before it
+            # was recorded restores None, so provenance reports the honest
+            # "unknown" rather than a stale in-process count.
+            self._fusion_conformal_n_calibration = (
+                self._fusion_conformal.n_calibration if self._fusion_conformal is not None else None
+            )
+            regime = checkpoint.get("conformal_regime")
+            self._fusion_conformal_regime = regime if regime == "batch_max" else "per_sample"
+            family = checkpoint.get("conformal_batch_family")
+            self._fusion_batch_family = (
+                dict(family)
+                if isinstance(family, dict) and self._fusion_conformal_regime == "batch_max"
+                else None
+            )
         else:
             # Legacy bare state_dict (no metadata): load directly.
             self.fusion_model.load_state_dict(checkpoint)
             self._fusion_trained = True
             self._symbolic_module = None
 
+        # Cache the loaded artifact's identity for model provenance: the
+        # basename names it, the sha256 pins the exact bytes. Hashed once,
+        # here, so serving never re-reads the file per call. A failed load
+        # raises before this point and keeps the previous identity.
+        self._fusion_checkpoint_name = Path(path).name
+        digest = hashlib.sha256()
+        with Path(path).open("rb") as checkpoint_file:
+            for chunk in iter(lambda: checkpoint_file.read(1 << 20), b""):
+                digest.update(chunk)
+        self._fusion_checkpoint_sha256 = digest.hexdigest()
+
+        # Loaded weights are kept by a later fit (see _fit_fusion_on_features).
+        self._fusion_model_pristine = False
         self.fusion_model.eval()
 
     def load_default_fusion_checkpoint(self) -> bool:

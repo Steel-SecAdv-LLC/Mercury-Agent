@@ -185,7 +185,56 @@ class EthicalConstants:
     # cognitive/ethical_bounding.py, see docs/HARM_POLICY.md) -- a blocking
     # disposition now raises PHYSICAL/SOCIETAL harm and hard-vetoes
     # is_permissible; cached v3 verdicts must invalidate.
-    RULESET_VERSION: int = 4
+    # v5: the grave-harm lexicon gains the agentive-frame pattern (a lethal or
+    # grave-harm act the speaker states or asks help with, against a person
+    # named by pronoun, role, relation or name) and stops reading a passive's
+    # agent as a victim; verdicts for those texts change in both directions, so
+    # cached v4 verdicts must invalidate.
+    # v6: corrections to the v5 pattern -- only a past participle before "by"
+    # is a passive (the active voice with a stated manner was being permitted),
+    # the person must be the harm verb's own object, and plain variants of the
+    # pinned threats match; verdicts change in both directions again.
+    # v7: corrections to v6 found by a differential against v5 over 1,797
+    # sentences -- the person may sit anywhere in the verb's own object phrase
+    # again (v6 required adjacency and permitted "extort money from my boss"),
+    # the agent after "by" is skipped whatever form names the act, and a line
+    # break is a clause boundary only after a complete line.
+    # v8: v7 was run against v5 on 1,797 sentences and reported as releasing
+    # six benign ones. A wider differential (9,111) found 188 threats v5 refused
+    # and v7 permitted ("i will murder my family", a threat broken across a
+    # line). v8 restores them, reads a wrapped line both joined and split, and
+    # is held to a frozen floor of 6,278 sentences that must stay refused
+    # (tests/pillars/test_ruleset_floor.py).
+    # v9: a harm command on the line after one ending in a conjunction ("here
+    # is the plan and / kill my wife") is refused; the same break in a report
+    # ("he said he would come and / kill my wife") stays permitted. Earlier
+    # rulesets could not tell them apart and permitted both.
+    # v10: a hazard term is matched as a word, not as letters inside other
+    # words ("pricing" held ricin, "so many" held soman); "against people"
+    # alone is not attack planning; and a verb reaches its object within 160
+    # characters, not across a whole text. Verdicts change for ordinary
+    # requests that were refused, so cached v9 verdicts must invalidate.
+    # v11: v10 freed more than the ordinary request. A term had to touch the
+    # edge of a word, so "neurotoxins" held no toxin, and "against people"
+    # needed a verb of use even beside a named agent ("release chlorine gas
+    # against civilians" was permitted). A term is in every word but the
+    # ordinary English words that happen to hold it, and the bare words are
+    # attack planning wherever a hazard is named, as in v9.
+    # v12: v11 exempted listed words only, each looked up as one variant of
+    # the text had it, and reached 400 characters from a verb to its object.
+    # "Pricing-model" and "tricine" were refused, and "enhance our outreach"
+    # met "flu virus" three sentences on. A term strictly inside a word is
+    # that word's letters, and the reach is 160.
+    # v13: v12 hid a term behind the letters round it ("AnthraxSpores",
+    # "xsarinx", a request run together), since it counted one inside a word
+    # only between words the gate knows. A term is found wherever it stands
+    # in a word a writer wrote, as in v9; the ordinary words that hold one
+    # are taken out of the text first, whole.
+    # v14: four of those words read as the agent ("asarin": a sarin) and are
+    # words of the text again; a term of two words is found with a letter
+    # glued to each side, as one of one word is; "so manes" is not soman.
+    # v15: a fifth such word, "aricine".
+    RULESET_VERSION: int = 15
 
 
 ETHICAL = EthicalConstants()

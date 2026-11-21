@@ -600,7 +600,12 @@ class PlasticityEngine:
     ) -> None:
         """Provide outcome feedback for a pattern (reinforcement learning).
 
-        Uses eligibility traces to assign credit to recent adaptations.
+        Uses eligibility traces to assign credit to recent adaptations: only
+        a connection whose trace is still above 0.1 is credited, and the
+        trace decays in wall-clock time (below 0.1 about four seconds after a
+        0.9 activation). This is the online path, for a reward that follows
+        the activity it judges at once. A reward that arrives later, and
+        knows which connection it is about, goes through :meth:`reinforce`.
 
         Args:
             pattern_id: Pattern that was used
@@ -623,6 +628,69 @@ class PlasticityEngine:
 
             # Update metaplasticity
             self._update_metaplasticity()
+
+    def reinforce(
+        self,
+        source_pattern: str,
+        target_pattern: str,
+        success: bool,
+        magnitude: float = 1.0,
+    ) -> float | None:
+        """Credit an outcome to one named connection, whatever its eligibility trace.
+
+        :meth:`feedback` answers "which recent activity earned this reward?"
+        with the eligibility trace, and a trace is gone seconds after the
+        activity. A caller that recorded which connection an outcome belongs
+        to does not need that question answered: feedback from a person
+        arrives minutes or hours after the detection it judges, and through
+        the trace it moved no weight at all. This applies the same reward
+        signal (``+magnitude`` for a success, ``-magnitude / 2`` for a
+        failure) to the one connection named, with the trace factor taken as
+        1.
+
+        The step is bounded exactly as the trace-based one is, and tighter in
+        one respect: ``magnitude`` is clamped to ``[0, 1]``, so a single
+        reward moves a weight by at most the current global learning rate
+        (itself kept in ``[0.01, 0.5]`` by metaplasticity), and the weight is
+        clipped to ``[0, 1]``. A magnitude that is negative or not a number
+        is no reward: nothing moves and nothing is recorded.
+
+        Like :meth:`feedback`, the outcome is recorded against the source
+        pattern and feeds metaplasticity. No connection is created: a
+        connection that was never made, or has since been pruned, has nothing
+        to credit.
+
+        Args:
+            source_pattern: Source pattern of the connection
+            target_pattern: Target pattern of the connection
+            success: Whether the prediction/action the connection carried was right
+            magnitude: Size of the reward in ``[0, 1]`` (clamped)
+
+        Returns:
+            The weight change applied (``0.0`` when the weight was already at
+            its bound or the magnitude carried no reward), or ``None`` when
+            the engine holds no such connection.
+        """
+        with self._lock:
+            connection = self._connections.get((source_pattern, target_pattern))
+            if connection is None:
+                return None
+
+            magnitude = float(magnitude)
+            # NaN fails ``> 0.0`` and lands on 0.0 with the negatives.
+            scale = min(1.0, magnitude) if magnitude > 0.0 else 0.0
+            if scale == 0.0:
+                return 0.0
+
+            self._outcome_feedback[source_pattern].append((success, scale))
+
+            reward_signal = scale if success else -scale * 0.5
+            old_weight = float(connection.weight)
+            delta = self._global_learning_rate * reward_signal
+            connection.weight = float(np.clip(old_weight + delta, 0.0, 1.0))
+
+            self._update_metaplasticity()
+            return connection.weight - old_weight
 
     def _update_metaplasticity(self) -> None:
         """Update global learning rate based on recent performance."""

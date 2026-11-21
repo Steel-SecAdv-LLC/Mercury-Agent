@@ -1,0 +1,122 @@
+{
+  "schema": "mercury.research.cross_modal_consistency/v1",
+  "generated_at": "2026-11-20T21:32:46.594337+00:00",
+  "protocol": {
+    "agreement": "mean rank percentile of the row across detector streams",
+    "flagged": "detector-mean ensemble >= train q0.95",
+    "bar": "adopt only if FP agreement < TP agreement - 0.05 on >= 80% of evaluations",
+    "n_evaluations": 15
+  },
+  "per_dataset": {
+    "pima_real/seed0": {
+      "n_flagged": 15,
+      "n_false_positive": 8,
+      "n_true_positive": 7,
+      "agreement_false_positive": 0.9676855895196506,
+      "agreement_true_positive": 0.955333749220212
+    },
+    "pima_real/seed1": {
+      "n_flagged": 2,
+      "n_false_positive": 1,
+      "n_true_positive": 1,
+      "agreement_false_positive": 0.9991266375545852,
+      "agreement_true_positive": 0.9965065502183407
+    },
+    "pima_real/seed2": {
+      "n_flagged": 13,
+      "n_false_positive": 7,
+      "n_true_positive": 6,
+      "agreement_false_positive": 0.96394260761073,
+      "agreement_true_positive": 0.9679767103347889
+    },
+    "cardio/seed0": {
+      "n_flagged": 35,
+      "n_false_positive": 14,
+      "n_true_positive": 21,
+      "agreement_false_positive": 0.9315225907547662,
+      "agreement_true_positive": 0.9360842691738486
+    },
+    "cardio/seed1": {
+      "n_flagged": 23,
+      "n_false_positive": 13,
+      "n_true_positive": 10,
+      "agreement_false_positive": 0.9428209815778372,
+      "agreement_true_positive": 0.9721023765996344
+    },
+    "cardio/seed2": {
+      "n_flagged": 22,
+      "n_false_positive": 11,
+      "n_true_positive": 11,
+      "agreement_false_positive": 0.9474156556423466,
+      "agreement_true_positive": 0.974206415157055
+    },
+    "breastw/seed0": {
+      "n_flagged": 9,
+      "n_false_positive": 0,
+      "n_true_positive": 9,
+      "agreement_false_positive": null,
+      "agreement_true_positive": 0.9221674876847289
+    },
+    "breastw/seed1": {
+      "n_flagged": 6,
+      "n_false_positive": 0,
+      "n_true_positive": 6,
+      "agreement_false_positive": null,
+      "agreement_true_positive": 0.9024630541871921
+    },
+    "breastw/seed2": {
+      "n_flagged": 8,
+      "n_false_positive": 1,
+      "n_true_positive": 7,
+      "agreement_false_positive": 0.8600985221674877,
+      "agreement_true_positive": 0.925545390570021
+    },
+    "wbc/seed0": {
+      "n_flagged": 3,
+      "n_false_positive": 0,
+      "n_true_positive": 3,
+      "agreement_false_positive": null,
+      "agreement_true_positive": 0.9723076923076923
+    },
+    "wbc/seed1": {
+      "n_flagged": 4,
+      "n_false_positive": 2,
+      "n_true_positive": 2,
+      "agreement_false_positive": 0.9569230769230771,
+      "agreement_true_positive": 0.9846153846153847
+    },
+    "wbc/seed2": {
+      "n_flagged": 4,
+      "n_false_positive": 2,
+      "n_true_positive": 2,
+      "agreement_false_positive": 0.9646153846153847,
+      "agreement_true_positive": 0.9753846153846154
+    },
+    "thyroid/seed0": {
+      "n_flagged": 55,
+      "n_false_positive": 35,
+      "n_true_positive": 20,
+      "agreement_false_positive": 0.9604757686954323,
+      "agreement_true_positive": 0.950132860938884
+    },
+    "thyroid/seed1": {
+      "n_flagged": 53,
+      "n_false_positive": 36,
+      "n_true_positive": 17,
+      "agreement_false_positive": 0.9532673949414426,
+      "agreement_true_positive": 0.9528786536758193
+    },
+    "thyroid/seed2": {
+      "n_flagged": 52,
+      "n_false_positive": 32,
+      "n_true_positive": 20,
+      "agreement_false_positive": 0.9575786093888397,
+      "agreement_true_positive": 0.9449689991142604
+    }
+  },
+  "mean_agreement_false_positive": 0.9505,
+  "mean_agreement_true_positive": 0.9613,
+  "tp_agreement_higher_count": 7,
+  "comparable_evaluations": 12,
+  "adopted": false
+}

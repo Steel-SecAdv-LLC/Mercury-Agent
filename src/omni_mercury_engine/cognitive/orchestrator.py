@@ -28,8 +28,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections import OrderedDict, deque
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
@@ -45,12 +46,58 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
-from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
+from omni_mercury_engine.cognitive.multi_hop_reasoner import (
+    InferenceRule,
+    MultiHopReasoner,
+    Proposition,
+    ReasoningType,
+)
 from omni_mercury_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+from omni_mercury_engine.discovery import (
+    causal_artifact_from_analysis,
+    hypothesis_artifact,
+    matrix_digest,
+    novelty_artifact,
+)
 from omni_mercury_engine.utils.logging import LoggerMixin
 
+if TYPE_CHECKING:
+    from omni_mercury_engine.measurement import MeasurementEvidence
+
 logger = logging.getLogger(__name__)
+
+
+#: The derivations the orchestrator may make. Each is a conjunction of
+#: measured verdicts and is certain GIVEN them: the rule adds no strength of
+#: its own, so a conclusion is exactly as good as its weakest premise and
+#: carries no probability. A premise enters only when its own test passed.
+_DISCOVERY_RULES: tuple[dict[str, Any], ...] = (
+    {
+        "rule": "flagged_and_novel",
+        "premises": ("anomaly_flagged", "observation_novel"),
+        "conclusion": "candidate_new_regime",
+    },
+    {
+        "rule": "flagged_and_lagged_dependence",
+        "premises": ("anomaly_flagged", "lagged_dependence"),
+        "conclusion": "candidate_driver",
+    },
+    {
+        "rule": "new_regime_with_driver",
+        "premises": ("candidate_new_regime", "candidate_driver"),
+        "conclusion": "candidate_driven_regime",
+    },
+)
+
+#: The decision threshold the flagged premise is cut at when the detection
+#: result names none.
+_DEFAULT_FLAG_THRESHOLD = 0.5
+
+
+def _proof(evidence: MeasurementEvidence | None) -> dict[str, Any] | None:
+    """Evidence as JSON, or ``None`` when there is none."""
+    return evidence.to_dict() if evidence is not None else None
 
 
 @dataclass
@@ -62,6 +109,17 @@ class CognitiveAnalysisResult:
     anomaly_score: float
     severity: float
 
+    # What proves each uncertainty number below was measured
+    # (omni_mercury_engine.measurement). REQUIRED, with no default: ``None``
+    # is the statement "not measured" and it has to be made. The
+    # ``*_measured`` / ``confidence_calibrated`` flags are derived from these
+    # and cannot be passed in. They used to be booleans defaulting to True,
+    # so a result built without running any estimator reported its 0.0
+    # placeholders as measurements.
+    epistemic_evidence: MeasurementEvidence | None
+    aleatoric_evidence: MeasurementEvidence | None
+    calibration_evidence: MeasurementEvidence | None
+
     # Reasoning chain
     reasoning_chain: list[dict[str, Any]] = field(default_factory=list)
     causal_factors: list[str] = field(default_factory=list)
@@ -71,12 +129,6 @@ class CognitiveAnalysisResult:
     aleatoric_uncertainty: float = 0.0
     confidence: float = 0.0
     is_reliable: bool = True
-    # Transparency flags: whether epistemic/aleatoric were measured (vs a placeholder
-    # when no ensemble/model was supplied) and whether confidence came from a
-    # fitted calibrator (vs an uncalibrated monotone prior).
-    epistemic_measured: bool = True
-    aleatoric_measured: bool = True
-    confidence_calibrated: bool = False
 
     # Knowledge updates
     knowledge_updates: list[str] = field(default_factory=list)
@@ -104,6 +156,20 @@ class CognitiveAnalysisResult:
     # unchanged when the opt-in component is off.
     novelty_score: float | None = None
     is_novel: bool | None = None
+    # What the verdict rests on: the measured standardized distance, its rank
+    # p-value among the reference distances, and the level it was compared
+    # with. ``novelty_evidence`` is None while the verdict is undetermined
+    # (too few reference distances to rank among), and ``novelty_measured``
+    # is derived from it.
+    novelty_distance: float | None = None
+    novelty_p_value: float | None = None
+    novelty_alpha: float | None = None
+    novelty_evidence: MeasurementEvidence | None = None
+
+    # Discovery artifacts (omni_mercury_engine.discovery), by kind: each
+    # instrument's claim with the procedure and numbers that produced it, so
+    # it can be re-run from the record. Empty until an instrument produces one.
+    discovery: dict[str, Any] = field(default_factory=dict)
 
     # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
     # IntegratedAnomalyDetector for this domain. Empty until a forecast is
@@ -116,6 +182,31 @@ class CognitiveAnalysisResult:
 
     # Timing
     analysis_time_ms: float = 0.0
+
+    # The id to hand back to ``CognitiveOrchestrator.learn_from_feedback``.
+    # None on a result that was not produced by ``analyze``. Not part of
+    # ``to_dict()``, whose schema is kept unchanged.
+    analysis_id: int | None = None
+
+    @property
+    def epistemic_measured(self) -> bool:
+        """Whether ``epistemic_uncertainty`` was measured: it carries the evidence."""
+        return self.epistemic_evidence is not None
+
+    @property
+    def aleatoric_measured(self) -> bool:
+        """Whether ``aleatoric_uncertainty`` was measured: it carries the evidence."""
+        return self.aleatoric_evidence is not None
+
+    @property
+    def confidence_calibrated(self) -> bool:
+        """Whether ``confidence`` came through a calibrator fitted on outcomes."""
+        return self.calibration_evidence is not None
+
+    @property
+    def novelty_measured(self) -> bool:
+        """Whether the novelty verdict was measured (ranked among reference distances)."""
+        return self.novelty_evidence is not None
 
     def to_dict(self) -> dict[str, Any]:
         """To dict.
@@ -134,6 +225,19 @@ class CognitiveAnalysisResult:
             "is_reliable": self.is_reliable,
             "epistemic_uncertainty": self.epistemic_uncertainty,
             "aleatoric_uncertainty": self.aleatoric_uncertainty,
+            # Transparency: whether the uncertainties above were actually
+            # measured (ensemble/MC variance, heteroscedastic residuals) and
+            # whether the confidence came from a fitted calibrator. Without
+            # these, a downstream record cannot tell a placeholder 0.1 from a
+            # measurement.
+            "epistemic_measured": self.epistemic_measured,
+            "aleatoric_measured": self.aleatoric_measured,
+            "confidence_calibrated": self.confidence_calibrated,
+            # The proof behind each flag, or None: a flag with no evidence
+            # beside it is not one a reader of this payload should accept.
+            "epistemic_evidence": _proof(self.epistemic_evidence),
+            "aleatoric_evidence": _proof(self.aleatoric_evidence),
+            "calibration_evidence": _proof(self.calibration_evidence),
             "reasoning_chain": self.reasoning_chain,
             "causal_factors": self.causal_factors,
             "similar_cases": self.similar_historical_cases,
@@ -149,6 +253,13 @@ class CognitiveAnalysisResult:
         if self.novelty_score is not None:
             payload["novelty_score"] = self.novelty_score
             payload["is_novel"] = self.is_novel
+            payload["novelty_distance"] = self.novelty_distance
+            payload["novelty_p_value"] = self.novelty_p_value
+            payload["novelty_alpha"] = self.novelty_alpha
+            payload["novelty_measured"] = self.novelty_measured
+            payload["novelty_evidence"] = _proof(self.novelty_evidence)
+        if self.discovery:
+            payload["discovery"] = self.discovery
         if self.predictive_forecast:
             payload["predictive_forecast"] = self.predictive_forecast
         return payload
@@ -167,6 +278,17 @@ class CognitiveAnalysisResult:
 # (history bookkeeping, IPB threat-assessment dispatch) that need the
 # canonical fallback label without re-running the sanitiser.
 _DEFAULT_DOMAIN: str = "general"
+
+
+@dataclass
+class _FeedbackRecord:
+    """What one ``analyze`` call created that later feedback can be credited to."""
+
+    # (source_pattern, target_pattern) of each plasticity connection adapted.
+    connections: list[tuple[str, str]] = field(default_factory=list)
+    # ``indicator_id`` of each indicator that raised a warning.
+    indicator_ids: list[str] = field(default_factory=list)
+    feedback_applied: bool = False
 
 
 class CognitiveOrchestrator(LoggerMixin):
@@ -198,6 +320,14 @@ class CognitiveOrchestrator(LoggerMixin):
         print(f"Causal factors: {result.causal_factors}")
         print(f"Similar cases: {result.similar_historical_cases}")
     """
+
+    #: How many analyses ``learn_from_feedback`` can still address. Each
+    #: ``analyze`` call keeps a small record of the plasticity connections and
+    #: indicators it touched; the oldest record is dropped past this many.
+    FEEDBACK_MEMORY_LIMIT: int = 4096
+    #: Most observation nodes the orchestrator keeps in its knowledge graph
+    #: (oldest evicted first). Bounds the served engine's working memory.
+    OBSERVATION_MEMORY_LIMIT: ClassVar[int] = 512
 
     def __init__(
         self,
@@ -277,6 +407,16 @@ class CognitiveOrchestrator(LoggerMixin):
             max_chain_depth=5,
             enable_explanation_generation=True,
         )
+        for rule in _DISCOVERY_RULES:
+            self.reasoner.add_rule(
+                InferenceRule(
+                    rule_id=rule["rule"],
+                    premises=list(rule["premises"]),
+                    conclusion=rule["conclusion"],
+                    reasoning_type=ReasoningType.DEDUCTIVE,
+                    confidence=1.0,
+                )
+            )
         self.uncertainty = UncertaintyQuantifier(
             n_monte_carlo=20,
             reliability_threshold=0.15,
@@ -289,6 +429,13 @@ class CognitiveOrchestrator(LoggerMixin):
         self.cbr = CaseBasedReasoner() if enable_cbr else None
         self.indicators = IndicatorDevelopmentSystem() if enable_indicators else None
         self.curiosity = CuriosityEngine() if enable_curiosity else None
+        # One novelty reference per caller scope (context["reference_scope"]):
+        # "unlike what has been seen" means unlike what THAT caller has shown,
+        # and a reference built from one caller's observations is not handed
+        # to another. ``self.curiosity`` is the reference of calls that name
+        # no scope (a library or command-line user). Least recently used
+        # scopes are dropped past the bound.
+        self._curiosity_by_scope: OrderedDict[str, CuriosityEngine] = OrderedDict()
         # No simulated/external sources on the runtime path -> no network I/O.
         self.enhanced_detector = (
             IntegratedAnomalyDetector(use_simulated_sources=False)
@@ -299,6 +446,14 @@ class CognitiveOrchestrator(LoggerMixin):
         # State
         self._analysis_count = 0
         self._anomaly_history: list[dict[str, Any]] = []
+        # Observation nodes this orchestrator added to the knowledge graph,
+        # oldest first. One is added per detected anomaly; past
+        # OBSERVATION_MEMORY_LIMIT the oldest is removed from the graph, so a
+        # long-lived served engine holds a bounded working memory instead of
+        # growing one node per anomalous request without limit.
+        self._observation_nodes: deque[str] = deque()
+        # analysis id -> what that analysis created (bounded, oldest first out).
+        self._feedback_records: OrderedDict[int, _FeedbackRecord] = OrderedDict()
 
         # Initialize core knowledge
         self._initialize_core_knowledge()
@@ -365,7 +520,6 @@ class CognitiveOrchestrator(LoggerMixin):
             Enhanced analysis result with cognitive insights
         """
         start_time = time.time()
-        self._analysis_count += 1
         context = context or {}
 
         # Extract core detection values
@@ -378,11 +532,19 @@ class CognitiveOrchestrator(LoggerMixin):
         anomaly_prob = anomaly_score
         severity = detection_result.get("severity", 0.0)
 
-        # Initialize result
+        # Initialize result. Nothing has been estimated yet, so nothing is
+        # measured: the uncertainty step sets these flags from what it
+        # actually did. A path that skips that step (no ``raw_data``) used to
+        # keep the dataclass defaults and report both uncertainties as 0.0
+        # *and measured* -- a placeholder presented as a measurement, which
+        # the decision layer then counted as a measured critique.
         result = CognitiveAnalysisResult(
             anomaly_detected=anomaly_detected,
             anomaly_score=anomaly_score,
             severity=severity,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
         )
         symbolic_consistency = context.get("symbolic_consistency")
         if isinstance(symbolic_consistency, dict):
@@ -396,249 +558,23 @@ class CognitiveOrchestrator(LoggerMixin):
                     max(0.0, 1.0 - float(satisfaction))
                 )
 
-        # === STEP 1: UNCERTAINTY QUANTIFICATION ===
-        if raw_data is not None:
-            predictions = np.array([anomaly_score])
-            uncertainty_est = self.uncertainty.estimate_uncertainty(predictions)
-
-            result.epistemic_uncertainty = uncertainty_est.epistemic
-            result.aleatoric_uncertainty = uncertainty_est.aleatoric
-            result.confidence = uncertainty_est.confidence
-            result.is_reliable = uncertainty_est.is_reliable
-            # Carry the transparency flags downstream so narrative/explanation layers
-            # do not present a placeholder/uncalibrated number as a measurement.
-            result.epistemic_measured = uncertainty_est.epistemic_measured
-            result.aleatoric_measured = uncertainty_est.aleatoric_measured
-            result.confidence_calibrated = uncertainty_est.confidence_calibrated
-
-        # === STEP 2: KNOWLEDGE GRAPH UPDATE ===
-        if anomaly_detected:
-            # Store anomaly as observation in knowledge graph
-            obs_id = f"obs_{self._analysis_count}"
-            self.knowledge_graph.add_node(
-                node_id=obs_id,
-                node_type=NodeType.OBSERVATION,
-                label=f"Anomaly observation {self._analysis_count}",
-                attributes={
-                    "score": anomaly_score,
-                    "severity": severity,
-                    "symbolic_consistency": result.symbolic_consistency,
-                    "feedback_signals": result.feedback_signals,
-                    "timestamp": time.time(),
-                    "context": context,
-                },
-            )
-
-            # Link to domain if specified
-            domain = context.get("domain")
-            if domain:
-                self.knowledge_graph.add_edge(obs_id, f"domain_{domain}", EdgeType.INSTANCE_OF)
-                result.knowledge_updates.append(f"Added observation to {domain} domain")
-
-        # === STEP 3: MULTI-HOP REASONING ===
-        if anomaly_detected and anomaly_score > 0.5:
-            # Build premises from detection
-            premises = [
-                Proposition(
-                    prop_id="anomaly_detected",
-                    content=f"Anomaly detected with score {anomaly_score:.2f}",
-                    truth_value=anomaly_score,
-                ),
-                Proposition(
-                    prop_id=f"severity_{int(severity * 10)}",
-                    content=f"Severity level {severity:.2f}",
-                    truth_value=severity,
-                ),
-            ]
-
-            # Attempt multi-hop reasoning
-            chain = self.reasoner.multi_hop_reason(premises)
-            if chain:
-                result.reasoning_chain = [
-                    {
-                        "step": i,
-                        "rule": step.rule_applied.rule_id,
-                        "conclusion": step.conclusion_derived.content,
-                        "confidence": step.confidence,
-                    }
-                    for i, step in enumerate(chain.steps)
-                ]
-
-        # === STEP 4: CAUSAL DISCOVERY ===
-        if self.causal and raw_data is not None and raw_data.shape[0] > 10:
-            try:
-                if raw_data.ndim == 1:
-                    raw_data = raw_data.reshape(-1, 1)
-
-                if raw_data.shape[1] > 1:
-                    # Discover temporal causation
-                    causal_graph = self.causal.discover_temporal_causation(raw_data[:, :5])
-
-                    result.causal_factors = [
-                        f"{e.source} → {e.target} (lag={e.lag}, strength={e.strength:.2f})"
-                        for e in causal_graph.edges[:5]
-                    ]
-            except Exception as e:
-                logger.debug(f"Causal discovery skipped: {e}")
-
-        # === STEP 5: CASE-BASED REASONING ===
-        if self.cbr and anomaly_detected:
-            problem = {
-                "score": anomaly_score,
-                "severity": severity,
-                "domain": context.get("domain", "general"),
-                "symbolic_satisfaction": result.feedback_signals.get("symbolic_satisfaction"),
-            }
-
-            cbr_result = self.cbr.solve(problem, domain=context.get("domain"))
-
-            if cbr_result.get("solution"):
-                result.similar_historical_cases = [cbr_result.get("source_case", "")]
-                result.recommended_actions = list(
-                    cbr_result.get("solution", {}).get("actions", [])
-                )[:5]
-
-        # === STEP 6: PLASTICITY ADAPTATION ===
-        if self.plasticity and anomaly_detected:
-            # Strengthen connections based on detection
-            domain = context.get("domain", "general")
-
-            self.plasticity.adapt(
-                source_pattern=f"anomaly_type_{int(severity * 10)}",
-                target_pattern=f"domain_{domain}",
-                strength=anomaly_score,
-                adaptation_type=AdaptationType.PARAMETRIC,
-            )
-            result.plasticity_adaptations = 1
-
-        # === STEP 7: INDICATOR EVALUATION ===
-        if self.indicators and anomaly_detected:
-            warnings = self.indicators.evaluate(
-                observation={
-                    "type": "anomaly",
-                    "severity": severity,
-                    "score": anomaly_score,
-                    "symbolic_satisfaction": result.feedback_signals.get("symbolic_satisfaction"),
-                    "domain": context.get("domain"),
-                },
-                domain=context.get("domain"),
-            )
-
-            result.warnings = [w.to_dict() for w in warnings]
-            result.triggered_indicators = [w.indicator.name for w in warnings]
-
-        # === STEP 8: IPB CONTEXT ===
-        if self.ipb and context.get("domain"):
-            domain_map: dict[str, EnvironmentDomain] = {
-                "cyber": EnvironmentDomain.CYBER,
-                "medical": EnvironmentDomain.MEDICAL,
-                "financial": EnvironmentDomain.FINANCIAL,
-                "infrastructure": EnvironmentDomain.INFRASTRUCTURE,
-            }
-            domain_key = context.get("domain")
-            env_domain = domain_map.get(domain_key) if isinstance(domain_key, str) else None
-
-            if env_domain and anomaly_score > 0.7:
-                result.threat_assessment = {
-                    "domain": env_domain.value,
-                    "elevated": True,
-                    "recommendation": "Conduct full IPB assessment",
-                }
-
-        # === STEP 9: CURIOSITY-DRIVEN NOVELTY ===
-        # Score how unusual this observation is relative to the distribution the
-        # CuriosityEngine has seen. Prefer the raw feature vector (mean over the
-        # batch) as the observation; fall back to (score, severity).
-        if self.curiosity and anomaly_detected:
-            try:
-                observation: Any
-                features = np.asarray(raw_data, dtype=float) if raw_data is not None else None
-                if features is not None and features.size > 0:
-                    # Mean over the batch for 2-D input; the raw vector otherwise.
-                    observation = (
-                        features.mean(axis=0) if features.ndim == 2 else features.reshape(-1)
-                    )
-                else:
-                    # No usable raw features (None or empty) -> score/severity.
-                    observation = {"score": anomaly_score, "severity": severity}
-                exploration = self.curiosity.explore(
-                    f"anomaly:{context.get('domain', _DEFAULT_DOMAIN)}", observation
-                )
-                result.novelty_score = exploration.novelty_score
-                result.is_novel = exploration.is_novel
-            except Exception as e:
-                logger.debug(f"Curiosity novelty scoring skipped: {e}")
-
-        # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
-        # Fold every observation into the Bayesian/HMM predictive memory and, for
-        # detected anomalies, surface a forecast. include_external=False keeps the
-        # runtime path free of I/O.
-        if self.enhanced_detector is not None:
-            try:
-                domain_label = str(context.get("domain", _DEFAULT_DOMAIN))
-                # Update the predictors on EVERY analysis so they observe both
-                # anomalies (success) and normal cases (failure). Updating only
-                # on anomalies would feed the Beta-Bernoulli predictor a
-                # success-only stream and drive its forecast toward 1.0.
-                self.enhanced_detector.update_predictor(
-                    domain_label, success=bool(anomaly_detected)
-                )
-                self.enhanced_detector.observe_sequence(f"sev_{int(severity * 10)}")
-                # Heavier memory storage + forecast generation only for anomalies.
-                if anomaly_detected:
-                    self.enhanced_detector.add_memory(
-                        f"obs_{self._analysis_count:06d}",
-                        "observation",
-                        {"score": anomaly_score, "severity": severity, "domain": domain_label},
-                    )
-                    forecast = self.enhanced_detector.predict(domain_label, include_external=False)
-                    # forecast.probability is a Bayesian+HMM *blend* whose HMM
-                    # term saturates toward 1.0 via self-transition, so it is not
-                    # a base-rate estimate. Surface the calibrated Bayesian
-                    # probability (+ its interval) as the anomaly probability,
-                    # and keep the blend as a separate, transparently-labelled score.
-                    bayes_prob, bayes_interval = self.enhanced_detector.bayesian_predictor.predict(
-                        domain_label
-                    )
-                    result.predictive_forecast = {
-                        "prediction_type": getattr(
-                            forecast.prediction_type, "value", str(forecast.prediction_type)
-                        ),
-                        "probability": float(bayes_prob),
-                        "blended_score": float(forecast.probability),
-                        "confidence_interval": (
-                            [float(v) for v in bayes_interval]
-                            if bayes_interval is not None
-                            else None
-                        ),
-                    }
-            except Exception as e:
-                logger.debug(f"Enhanced predictive analysis skipped: {e}")
-
-        # Store in history for future CBR
-        self._anomaly_history.append(
-            {
-                "score": anomaly_score,
-                "severity": severity,
-                "domain": context.get("domain"),
-                "timestamp": time.time(),
-            }
-        )
-
-        # Limit history size
-        if len(self._anomaly_history) > 1000:
-            self._anomaly_history = self._anomaly_history[-500:]
-
-        # === ETHICAL GATE — mandatory benevolence check ===
+        # === ETHICAL GATES — enforced BEFORE any persistent side effect ===
+        # Both hard gates used to run at the END of analyze(), after the
+        # knowledge graph had stored the raw caller context, CBR solved,
+        # plasticity adapted, indicators evaluated and the anomaly history
+        # grew -- so a refused request still left durable traces (including
+        # the refused text itself, in the graph).  They now run first: a
+        # request the gate refuses leaves no trace in any persistent state.
+        # That includes ``_analysis_count``: it is advanced only once both
+        # gates have passed (below), so a refusal neither counts as an
+        # analysis nor leaves a gap in the ``obs_<n>`` ids of the ones that ran.
+        #
         # Score on a controlled action description that reflects the
-        # orchestrator's inherent safety posture.  Caller-supplied
-        # ``context`` is NOT passed to the scorer — arbitrary text
-        # could inject harm keywords ("damage", "control", "track",
-        # "expose", …) and trip a false EthicalConstraintViolationError.
-        # ``sanitize_domain`` from ``cognitive.ethical_bounding`` is the
-        # canonical whitelist (Wave B Vector 2-6 closure) so a hostile or
-        # typo'd value like ``"damage_control"`` is collapsed to
-        # ``"general"`` before reaching the scorer.
+        # orchestrator's inherent safety posture.  ``sanitize_domain`` from
+        # ``cognitive.ethical_bounding`` is the canonical whitelist (Wave B
+        # Vector 2-6 closure) so a hostile or typo'd value like
+        # ``"damage_control"`` is collapsed to ``"general"`` before reaching
+        # the scorer.
         safe_domain = sanitize_domain(context.get("domain", _DEFAULT_DOMAIN))
         # Hard gate 1 of 2: the shared fail-closed harm-uplift choke point over
         # the *real* analysis decision. The superseded control was a benevolence
@@ -707,6 +643,273 @@ class CognitiveOrchestrator(LoggerMixin):
             result.analysis_time_ms = (time.time() - start_time) * 1000
             raise
 
+        # Both gates passed. From here the analysis may write persistent
+        # state, and this record is where it notes what it wrote so that
+        # ``learn_from_feedback`` can find it again. The counter is the first
+        # of those writes: nothing above this line touches orchestrator state.
+        self._analysis_count += 1
+        result.analysis_id = self._analysis_count
+        feedback_record = _FeedbackRecord()
+        self._feedback_records[self._analysis_count] = feedback_record
+        while len(self._feedback_records) > self.FEEDBACK_MEMORY_LIMIT:
+            self._feedback_records.popitem(last=False)
+
+        # === STEP 1: UNCERTAINTY QUANTIFICATION ===
+        if raw_data is not None:
+            predictions = np.array([anomaly_score])
+            uncertainty_est = self.uncertainty.estimate_uncertainty(predictions)
+
+            result.epistemic_uncertainty = uncertainty_est.epistemic
+            result.aleatoric_uncertainty = uncertainty_est.aleatoric
+            result.confidence = uncertainty_est.confidence
+            result.is_reliable = uncertainty_est.is_reliable
+            # Carry the transparency flags downstream so narrative/explanation layers
+            # do not present a placeholder/uncalibrated number as a measurement.
+            result.epistemic_evidence = uncertainty_est.epistemic_evidence
+            result.aleatoric_evidence = uncertainty_est.aleatoric_evidence
+            result.calibration_evidence = uncertainty_est.calibration_evidence
+
+        # === STEP 2: KNOWLEDGE GRAPH UPDATE ===
+        if anomaly_detected:
+            # Store anomaly as observation in knowledge graph
+            obs_id = f"obs_{self._analysis_count}"
+            self._observation_nodes.append(obs_id)
+            while len(self._observation_nodes) > self.OBSERVATION_MEMORY_LIMIT:
+                self.knowledge_graph.remove_node(self._observation_nodes.popleft())
+            self.knowledge_graph.add_node(
+                node_id=obs_id,
+                node_type=NodeType.OBSERVATION,
+                label=f"Anomaly observation {self._analysis_count}",
+                attributes={
+                    "score": anomaly_score,
+                    "severity": severity,
+                    "symbolic_consistency": result.symbolic_consistency,
+                    "feedback_signals": result.feedback_signals,
+                    "timestamp": time.time(),
+                    "context": context,
+                },
+            )
+
+            # Link to domain if specified
+            domain = context.get("domain")
+            if domain:
+                result.knowledge_updates.append(self._link_observation_to_domain(obs_id, domain))
+
+        # === STEP 3: MULTI-HOP REASONING ===
+        # Runs as step 9b, after the instruments whose verdicts are its
+        # premises (the novelty verdict and the lagged dependences). Here it
+        # was given two premises no rule could match, and derived nothing.
+
+        # === STEP 4: CAUSAL DISCOVERY ===
+        if self.causal and raw_data is not None and raw_data.shape[0] > 10:
+            try:
+                if raw_data.ndim == 1:
+                    raw_data = raw_data.reshape(-1, 1)
+
+                if raw_data.shape[1] > 1:
+                    # Discover temporal causation over the leading columns.
+                    window = np.asarray(raw_data[:, :5], dtype=float)
+                    causal_graph = self.causal.discover_temporal_causation(window)
+
+                    result.causal_factors = [
+                        f"{e.source} → {e.target} (lag={e.lag}, "
+                        f"partial R²={e.strength:.2f}, adjusted p={e.p_value:.2g})"
+                        for e in causal_graph.edges[:5]
+                    ]
+                    # The finding as an artifact: every pair tested with its
+                    # sums of squares, so the corrected verdict re-derives
+                    # from the record, and the window's digest, so the sums
+                    # of squares can be recomputed from the data.
+                    result.discovery["causal"] = causal_artifact_from_analysis(
+                        causal_graph.analysis,
+                        input_shape=window.shape,
+                        input_digest=matrix_digest(window),
+                        max_lag=self.causal.max_lag,
+                        alpha=self.causal.significance_level,
+                    )
+            except Exception as e:
+                logger.debug(f"Causal discovery skipped: {e}")
+
+        # === STEP 5: CASE-BASED REASONING ===
+        if self.cbr and anomaly_detected:
+            problem = {
+                "score": anomaly_score,
+                "severity": severity,
+                "domain": context.get("domain", "general"),
+                "symbolic_satisfaction": result.feedback_signals.get("symbolic_satisfaction"),
+            }
+
+            cbr_result = self.cbr.solve(problem, domain=context.get("domain"))
+
+            if cbr_result.get("solution"):
+                result.similar_historical_cases = [cbr_result.get("source_case", "")]
+                result.recommended_actions = list(
+                    cbr_result.get("solution", {}).get("actions", [])
+                )[:5]
+
+        # === STEP 6: PLASTICITY ADAPTATION ===
+        if self.plasticity and anomaly_detected:
+            # Strengthen connections based on detection
+            domain = context.get("domain", "general")
+            source_pattern = f"anomaly_type_{int(severity * 10)}"
+            target_pattern = f"domain_{domain}"
+
+            self.plasticity.adapt(
+                source_pattern=source_pattern,
+                target_pattern=target_pattern,
+                strength=anomaly_score,
+                adaptation_type=AdaptationType.PARAMETRIC,
+            )
+            result.plasticity_adaptations = 1
+            feedback_record.connections.append((source_pattern, target_pattern))
+
+        # === STEP 7: INDICATOR EVALUATION ===
+        if self.indicators and anomaly_detected:
+            warnings = self.indicators.evaluate(
+                observation={
+                    "type": "anomaly",
+                    "severity": severity,
+                    "score": anomaly_score,
+                    "symbolic_satisfaction": result.feedback_signals.get("symbolic_satisfaction"),
+                    "domain": context.get("domain"),
+                },
+                domain=context.get("domain"),
+            )
+
+            result.warnings = [w.to_dict() for w in warnings]
+            result.triggered_indicators = [w.indicator.name for w in warnings]
+            feedback_record.indicator_ids.extend(w.indicator.indicator_id for w in warnings)
+
+        # === STEP 8: IPB CONTEXT ===
+        if self.ipb and context.get("domain"):
+            domain_map: dict[str, EnvironmentDomain] = {
+                "cyber": EnvironmentDomain.CYBER,
+                "medical": EnvironmentDomain.MEDICAL,
+                "financial": EnvironmentDomain.FINANCIAL,
+                "infrastructure": EnvironmentDomain.INFRASTRUCTURE,
+            }
+            domain_key = context.get("domain")
+            env_domain = domain_map.get(domain_key) if isinstance(domain_key, str) else None
+
+            if env_domain and anomaly_score > 0.7:
+                result.threat_assessment = {
+                    "domain": env_domain.value,
+                    "elevated": True,
+                    "recommendation": "Conduct full IPB assessment",
+                }
+
+        # === STEP 9: CURIOSITY-DRIVEN NOVELTY ===
+        # Score how unusual this observation is relative to the distribution the
+        # CuriosityEngine has seen. Prefer the raw feature vector (mean over the
+        # batch) as the observation; fall back to (score, severity).
+        if self.curiosity and anomaly_detected:
+            try:
+                observation: Any
+                features = np.asarray(raw_data, dtype=float) if raw_data is not None else None
+                if features is not None and features.size > 0:
+                    # Mean over the batch for 2-D input; the raw vector otherwise.
+                    observation = (
+                        features.mean(axis=0) if features.ndim == 2 else features.reshape(-1)
+                    )
+                else:
+                    # No usable raw features (None or empty) -> score/severity.
+                    observation = {"score": anomaly_score, "severity": severity}
+                exploration = self._curiosity_for(context.get("reference_scope")).explore(
+                    f"anomaly:{context.get('domain', _DEFAULT_DOMAIN)}", observation
+                )
+                result.novelty_score = exploration.novelty_score
+                result.is_novel = exploration.is_novel
+                result.novelty_distance = float(exploration.standardized_distance)
+                result.novelty_p_value = exploration.p_value
+                result.novelty_alpha = exploration.alpha
+                result.novelty_evidence = exploration.evidence
+                # The verdict as an artifact: the observation, the reference
+                # it was scored against and the reference distances it was
+                # ranked among, so it replays from the record alone. None
+                # while the verdict is undetermined: there is then no claim.
+                artifact = novelty_artifact(
+                    observation=exploration.observation,
+                    reference_mean=exploration.reference_mean,
+                    reference_std=exploration.reference_std,
+                    reference_n=exploration.reference_n,
+                    calibration=exploration.calibration,
+                    alpha=exploration.alpha,
+                    standardized_distance=exploration.standardized_distance,
+                    p_value=exploration.p_value,
+                    is_novel=exploration.is_novel,
+                    disclose=bool(context.get("disclose_reference", True)),
+                )
+                if artifact is not None:
+                    result.discovery["novelty"] = artifact
+            except Exception as e:
+                logger.debug(f"Curiosity novelty scoring skipped: {e}")
+
+        # === STEP 9b: DERIVED HYPOTHESIS ===
+        if anomaly_detected:
+            self._derive_hypothesis(result, detection_result)
+
+        # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
+        # Fold every observation into the Bayesian/HMM predictive memory and, for
+        # detected anomalies, surface a forecast. include_external=False keeps the
+        # runtime path free of I/O.
+        if self.enhanced_detector is not None:
+            try:
+                domain_label = str(context.get("domain", _DEFAULT_DOMAIN))
+                # Update the predictors on EVERY analysis so they observe both
+                # anomalies (success) and normal cases (failure). Updating only
+                # on anomalies would feed the Beta-Bernoulli predictor a
+                # success-only stream and drive its forecast toward 1.0.
+                self.enhanced_detector.update_predictor(
+                    domain_label, success=bool(anomaly_detected)
+                )
+                self.enhanced_detector.observe_sequence(f"sev_{int(severity * 10)}")
+                # Heavier memory storage + forecast generation only for anomalies.
+                if anomaly_detected:
+                    self.enhanced_detector.add_memory(
+                        f"obs_{self._analysis_count:06d}",
+                        "observation",
+                        {"score": anomaly_score, "severity": severity, "domain": domain_label},
+                    )
+                    forecast = self.enhanced_detector.predict(domain_label, include_external=False)
+                    # forecast.probability is a Bayesian+HMM *blend* whose HMM
+                    # term saturates toward 1.0 via self-transition, so it is not
+                    # a base-rate estimate. Surface the calibrated Bayesian
+                    # probability (+ its interval) as the anomaly probability,
+                    # and keep the blend as a separate, transparently-labelled score.
+                    bayes_prob, bayes_interval = self.enhanced_detector.bayesian_predictor.predict(
+                        domain_label
+                    )
+                    result.predictive_forecast = {
+                        "prediction_type": getattr(
+                            forecast.prediction_type, "value", str(forecast.prediction_type)
+                        ),
+                        "probability": float(bayes_prob),
+                        "blended_score": float(forecast.probability),
+                        "confidence_interval": (
+                            [float(v) for v in bayes_interval]
+                            if bayes_interval is not None
+                            else None
+                        ),
+                    }
+            except Exception as e:
+                logger.debug(f"Enhanced predictive analysis skipped: {e}")
+
+        # Store in history for future CBR
+        self._anomaly_history.append(
+            {
+                "score": anomaly_score,
+                "severity": severity,
+                "domain": context.get("domain"),
+                "timestamp": time.time(),
+            }
+        )
+
+        # Limit history size
+        if len(self._anomaly_history) > 1000:
+            self._anomaly_history = self._anomaly_history[-500:]
+
+        # (Both hard ethical gates ran at the TOP of this method, before any
+        # persistent write -- see "ETHICAL GATES" above.)
         result.analysis_time_ms = (time.time() - start_time) * 1000
 
         return result
@@ -746,35 +949,333 @@ class CognitiveOrchestrator(LoggerMixin):
             anomaly_prob=anomaly_prob,
         )
 
+    #: Caller scopes whose novelty reference is kept at once.
+    REFERENCE_SCOPE_LIMIT: ClassVar[int] = 256
+
+    def _curiosity_for(self, scope: Any) -> CuriosityEngine:
+        """The novelty reference for ``scope`` (the unscoped one when none is named)."""
+        if self.curiosity is None:  # pragma: no cover - callers check first
+            raise RuntimeError("curiosity is not enabled")
+        if not isinstance(scope, str) or not scope:
+            return self.curiosity
+        engine = self._curiosity_by_scope.get(scope)
+        if engine is None:
+            engine = CuriosityEngine(alpha=self.curiosity.alpha)
+            self._curiosity_by_scope[scope] = engine
+            while len(self._curiosity_by_scope) > self.REFERENCE_SCOPE_LIMIT:
+                self._curiosity_by_scope.popitem(last=False)
+        else:
+            self._curiosity_by_scope.move_to_end(scope)
+        return engine
+
+    def _derive_hypothesis(
+        self, result: CognitiveAnalysisResult, detection_result: dict[str, Any]
+    ) -> None:
+        """Derive what follows from the measured verdicts, and record it as an artifact.
+
+        The premises are verdicts that passed their own tests: the detection
+        flag against its threshold, the novelty verdict against its level,
+        the strongest lagged dependence against the family-wise level. The
+        reasoner chains the rules in :data:`_DISCOVERY_RULES` over them. A
+        step carries no confidence, because none was measured: the
+        conclusion's standing is its premises', and the artifact names the
+        one closest to failing and the value at which it does.
+        """
+        premises: list[dict[str, Any]] = []
+        score = result.anomaly_score
+        if isinstance(score, (int, float, np.floating)) and not isinstance(score, bool):
+            raw = detection_result.get("threshold_used", detection_result.get("threshold"))
+            threshold = _DEFAULT_FLAG_THRESHOLD
+            if isinstance(raw, (int, float, np.floating)) and not isinstance(raw, bool):
+                named = float(raw)
+                if 0.0 < named <= 1.0:
+                    threshold = named
+            if np.isfinite(score) and float(score) >= threshold:
+                premises.append(
+                    {
+                        "id": "anomaly_flagged",
+                        "statement": (
+                            f"The detection flagged this input: P(anomaly) {float(score):.3f} "
+                            f"at or above the decision threshold {threshold:.3f}."
+                        ),
+                        "statistic": float(score),
+                        "op": ">=",
+                        "cut": threshold,
+                        "source": "detection",
+                    }
+                )
+        novelty = result.discovery.get("novelty")
+        if novelty is not None and novelty["claim"]["is_novel"]:
+            premises.append(
+                {
+                    "id": "observation_novel",
+                    "statement": (
+                        "The observation's distance from the reference ranks in the top "
+                        f"{novelty['inputs']['alpha']:.0%} of the reference's own distances "
+                        f"(p={novelty['claim']['p_value']:.3g})."
+                    ),
+                    "statistic": float(novelty["claim"]["p_value"]),
+                    "op": "<=",
+                    "cut": float(novelty["inputs"]["alpha"]),
+                    "source": "novelty",
+                }
+            )
+        edge: dict[str, Any] | None = None
+        causal = result.discovery.get("causal")
+        if causal is not None and causal["claim"]["edges"]:
+            edge = min(causal["claim"]["edges"], key=lambda e: (e["p_adjusted"], -e["partial_r2"]))
+            premises.append(
+                {
+                    "id": "lagged_dependence",
+                    "statement": (
+                        f"Within this window {edge['source']} leads {edge['target']} at lag "
+                        f"{edge['lag']} (partial R² {edge['partial_r2']:.2f}, "
+                        f"adjusted p={edge['p_adjusted']:.2g})."
+                    ),
+                    "statistic": float(edge["p_adjusted"]),
+                    "op": "<=",
+                    "cut": float(causal["inputs"]["alpha"]),
+                    "source": "causal",
+                    "edge": {
+                        "source": edge["source"],
+                        "target": edge["target"],
+                        "lag": edge["lag"],
+                    },
+                }
+            )
+        if len(premises) < 2:
+            return
+        chain = self.reasoner.multi_hop_reason(
+            [
+                Proposition(prop_id=p["id"], content=p["statement"], truth_value=1.0)
+                for p in premises
+            ]
+        )
+        if chain is None or not chain.steps:
+            return
+        steps: list[dict[str, Any]] = [
+            {
+                "rule": step.rule_applied.rule_id,
+                "premises": [used.prop_id for used in step.premises_used],
+                "conclusion": step.conclusion_derived.prop_id,
+            }
+            for step in chain.steps
+        ]
+        conclusion = str(steps[-1]["conclusion"])
+        lead = (
+            f"{edge['source']} leads {edge['target']} at lag {edge['lag']}"
+            if edge is not None
+            else ""
+        )
+        statement = {
+            "candidate_new_regime": (
+                "The flagged observation is unlike the reference: a candidate new regime, "
+                "not a recurrence of what has been seen."
+            ),
+            "candidate_driver": (
+                f"Within this window {lead}: a candidate driver of the flagged behaviour."
+            ),
+            "candidate_driven_regime": (
+                f"A candidate new regime in which {lead}: unlike the reference, with a "
+                "candidate driver."
+            ),
+        }.get(conclusion, conclusion)
+        result.reasoning_chain = [
+            {
+                "step": index,
+                "rule": step["rule"],
+                "premises": step["premises"],
+                "conclusion": step["conclusion"],
+                # None, not a number: a conjunction of verdicts has no measured
+                # confidence of its own, and a constant here would read as one.
+                "confidence": None,
+            }
+            for index, step in enumerate(steps)
+        ]
+        artifact = hypothesis_artifact(
+            conclusion=conclusion, statement=statement, premises=premises, steps=steps
+        )
+        if artifact is not None:
+            result.discovery["hypothesis"] = artifact
+
+    def _link_observation_to_domain(self, obs_id: str, domain: Any) -> str:
+        """Link an observation node to its domain node and say what happened.
+
+        The graph is seeded with five ``domain_*`` concepts. Any other known
+        domain label (the ``sanitize_domain`` whitelist, which includes the
+        default ``"general"``) gets its concept node the first time an
+        observation needs it, created the way the seeded ones are. A label
+        outside the whitelist is caller text, not a domain: no node is
+        created for it, and the observation stays unlinked.
+
+        Args:
+            obs_id: Node id of the stored observation
+            domain: The caller's ``context["domain"]`` value
+
+        Returns:
+            The ``knowledge_updates`` entry: "Added observation to ..." only
+            when the edge exists in the graph.
+        """
+        domain_node = f"domain_{domain}"
+        if self.knowledge_graph.get_node(domain_node) is None:
+            if not isinstance(domain, str) or sanitize_domain(domain) != domain:
+                return f"Observation not linked to a domain: {domain!r} is not a known domain"
+            self.knowledge_graph.add_node(
+                node_id=domain_node,
+                node_type=NodeType.CONCEPT,
+                label=domain.title(),
+                attributes={"description": f"{domain.title()} domain"},
+            )
+
+        edge = self.knowledge_graph.add_edge(obs_id, domain_node, EdgeType.INSTANCE_OF)
+        if edge is None:
+            return f"Observation not linked to a domain: no edge to {domain!r} could be added"
+        return f"Added observation to {domain} domain"
+
+    def _plasticity_state(
+        self, connections: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], tuple[float, float]]:
+        """``(weight, eligibility)`` of each named plasticity connection that still exists."""
+        if self.plasticity is None or not connections:
+            return {}
+        wanted = set(connections)
+        state: dict[tuple[str, str], tuple[float, float]] = {}
+        for edge in self.plasticity.export_graph()["edges"]:
+            key = (edge["source"], edge["target"])
+            if key in wanted:
+                state[key] = (float(edge["weight"]), float(edge["eligibility"]))
+        return state
+
     def learn_from_feedback(
         self,
         analysis_id: int,
         was_correct: bool,
         actual_outcome: str | None = None,
-    ) -> None:
+    ) -> dict[str, Any]:
         """Learn from feedback on a previous analysis.
 
-        This closes the loop - updating CBR, plasticity, and indicators
-        based on real-world outcomes.
+        Feedback is credited to what that analysis created:
+
+        * each plasticity connection it adapted (``anomaly_type_<n> ->
+          domain_<x>``) receives the engine's reward signal, addressed to
+          that connection by name through ``PlasticityEngine.reinforce``;
+        * every indicator that raised a warning during it is validated as a
+          true or false positive (``IndicatorDevelopmentSystem.validate_indicator``).
+
+        The reward is addressed, not trace-based, because of when feedback
+        arrives. ``PlasticityEngine.feedback`` credits a connection only
+        while its eligibility trace is above 0.1, and the trace decays in
+        wall-clock time: about four seconds after a strong detection it is
+        gone. Feedback from a person comes minutes or hours later, so through
+        the trace it moved no weight. ``analyze`` recorded which connection
+        the analysis made, so the reward goes to that connection whatever its
+        trace is by then, bounded by the engine's learning rate and weight
+        limits (one step of at most the global learning rate, weight kept in
+        ``[0, 1]``). It also goes to that connection only: a connection
+        another analysis made from the same source pattern is not judged by
+        this feedback. The trace found is still reported, as ``eligibility``.
+
+        The case base is not touched: ``was_correct`` judges the detection,
+        not the outcome of a reused solution. Resolved cases are added with
+        :meth:`add_case_from_resolution`.
+
+        Two limits are reported instead of hidden. ``analyze`` keeps the
+        record feedback needs for the last ``FEEDBACK_MEMORY_LIMIT`` analyses
+        only, and each analysis takes feedback once. A weight already at its
+        bound, or a connection the engine has since pruned, does not move,
+        and ``plasticity_weights_changed`` counts only weights that did.
 
         Args:
-            analysis_id: Which analysis to provide feedback for
+            analysis_id: ``CognitiveAnalysisResult.analysis_id`` of the
+                analysis the feedback is about
             was_correct: Whether the detection was correct
-            actual_outcome: What actually happened
+            actual_outcome: What actually happened; passed to the indicator
+                validation as context
+
+        Returns:
+            What the feedback changed: ``analysis_id``, ``known`` (the
+            analysis is still in feedback memory), ``applied``, ``reason``
+            (why nothing was applied, else None), ``plasticity_connections``
+            (``source``, ``target``, ``eligibility``, ``weight_before``,
+            ``weight_after`` per connection the analysis adapted; the last
+            three are None for a connection the engine has since pruned),
+            ``plasticity_weights_changed`` and ``indicators_validated``.
         """
-        if self.plasticity:
-            self.plasticity.feedback(
-                pattern_id=f"analysis_{analysis_id}",
-                success=was_correct,
-                magnitude=1.0,
+        report: dict[str, Any] = {
+            "analysis_id": analysis_id,
+            "known": False,
+            "applied": False,
+            "reason": None,
+            "plasticity_connections": [],
+            "plasticity_weights_changed": 0,
+            "indicators_validated": [],
+        }
+
+        record = self._feedback_records.get(analysis_id)
+        if record is None:
+            report["reason"] = "unknown_analysis"
+            logger.warning(
+                "Feedback on analysis %s not applied: no such analysis in feedback memory "
+                "(never run, refused, or older than the last %d)",
+                analysis_id,
+                self.FEEDBACK_MEMORY_LIMIT,
             )
+            return report
 
-        # Update indicators
+        report["known"] = True
+        if record.feedback_applied:
+            report["reason"] = "feedback_already_applied"
+            return report
+
+        if self.plasticity and record.connections:
+            before = self._plasticity_state(record.connections)
+            # One reward per connection this analysis adapted, addressed by
+            # name: ``reinforce`` does not consult the eligibility trace, so
+            # feedback that arrives hours after the detection still lands.
+            for source_pattern, target_pattern in dict.fromkeys(record.connections):
+                self.plasticity.reinforce(
+                    source_pattern,
+                    target_pattern,
+                    success=was_correct,
+                    magnitude=1.0,
+                )
+            after = self._plasticity_state(record.connections)
+            for key in record.connections:
+                weight_before, eligibility = before.get(key, (None, None))
+                weight_after = after.get(key, (None, None))[0]
+                report["plasticity_connections"].append(
+                    {
+                        "source": key[0],
+                        "target": key[1],
+                        "eligibility": eligibility,
+                        "weight_before": weight_before,
+                        "weight_after": weight_after,
+                    }
+                )
+                if weight_before != weight_after:
+                    report["plasticity_weights_changed"] += 1
+
         if self.indicators:
-            # Mark triggered indicators as true/false positive
-            pass  # Would need to track which indicators fired
+            for indicator_id in dict.fromkeys(record.indicator_ids):
+                self.indicators.validate_indicator(
+                    indicator_id,
+                    is_true_positive=was_correct,
+                    feedback={"analysis_id": analysis_id, "actual_outcome": actual_outcome},
+                )
+                report["indicators_validated"].append(indicator_id)
 
-        logger.info(f"Learned from feedback on analysis {analysis_id}: correct={was_correct}")
+        record.feedback_applied = True
+        report["applied"] = True
+
+        logger.info(
+            "Learned from feedback on analysis %s: correct=%s, plasticity weights changed=%d, "
+            "indicators validated=%d",
+            analysis_id,
+            was_correct,
+            report["plasticity_weights_changed"],
+            len(report["indicators_validated"]),
+        )
+        return report
 
     def develop_indicators_from_history(
         self,

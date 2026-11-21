@@ -159,6 +159,39 @@ PROBE_PRESETS: dict[str, list[str]] = {
         "IQRRobustProbe",
     ],
     "forensic": _ALL_PROBE_NAMES,
+    # The measured redundancy reduction. On the recorded corpora the fit-time
+    # probe correlations form two clusters at mean |r| >= 0.80 — {additive,
+    # harmonic_oscillator, r3_recursion_resonance, quantum_annealing,
+    # modified_zscore} and {catalan_optimized, exponential_decay} — and keeping
+    # only each cluster's strongest member (by mean held-out AUROC) measures
+    # *better* than the full ensemble through the shipped fusion: mean AUROC
+    # 0.7584 vs 0.7494 on the four NAB files, 0.6859 vs 0.6763 on the five
+    # ADBench tables, mean rank 1.21 vs 1.79 over the 19 evaluations
+    # (``research/math_arrest/harness_probe_redundancy.py``; the matrices are
+    # in ``artifacts/math_arrest_probe_correlation.json`` and the selection is
+    # pinned by ``tests/detectors/test_probe_redundancy.py``). The default
+    # stays ``"all"``: the 21-column per-probe feature surface is a released
+    # contract (``MathArrestDetector.extract_features`` feeds fusion
+    # checkpoints sized to it), and the shipped decorrelator already
+    # down-weights these clusters inside the full ensemble.
+    "decorrelated": [
+        "AdditiveProbe",
+        "MomentumProbe",
+        "VarianceAdaptedProbe",
+        "EthicalConstrainedProbe",
+        "CatalanOptimizedProbe",
+        "HelixMultiplicativeProbe",
+        "SVDProjectionProbe",
+        "LyapunovChaosProbe",
+        "TopologyHomologyProbe",
+        "FractalSelfSimilarityProbe",
+        "ZetaHarmonicProbe",
+        "WavePropagationProbe",
+        "QuantumSuperpositionProbe",
+        "EnergyMinimizationProbe",
+        "BoltzmannCouplingProbe",
+        "IQRRobustProbe",
+    ],
 }
 
 
@@ -411,6 +444,201 @@ class AnomalyMathArrest:
             out[result.probe_name] = np.asarray(result.deviation_scores, dtype=np.float64)
         return out
 
+    def scored_results(self, data: npt.NDArray[np.float64]) -> list[ProbeResult]:
+        """Every fitted probe's :class:`ProbeResult` on ``data``, one pass.
+
+        The shared scoring step behind :meth:`detect`,
+        :meth:`per_probe_scores` and :meth:`probe_attributions`: callers that
+        need more than one of the fused score, the per-probe columns and the
+        attributions can score the probes once and derive the rest
+        (:meth:`fuse_results` and
+        :meth:`~omni_mercury_engine.detectors.math_arrest.fusion.PhiWeightedFusion.leave_one_out_attribution`),
+        instead of paying a full 21-probe pass per view. A probe that failed
+        to fit, or that raises while scoring, is omitted and logged.
+
+        Args:
+            data: Evaluation data.
+
+        Returns:
+            One result per probe that fitted and scored.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
+        results: list[ProbeResult] = []
+        for probe in self._probes:
+            if not probe.is_fitted:
+                continue
+            try:
+                results.append(probe.deviation_score(data))
+            except (RuntimeError, ValueError) as exc:
+                logger.warning("Probe %s failed during scoring: %s", type(probe).__name__, exc)
+        return results
+
+    def fuse_results(self, results: list[ProbeResult]) -> npt.NDArray[np.float64]:
+        """The exact :meth:`detect` fusion of already-scored probe results.
+
+        Args:
+            results: Output of :meth:`scored_results`.
+
+        Returns:
+            Fused scores in ``[0, 1]`` (empty array for no results).
+        """
+        if not results:
+            return np.array([], dtype=np.float64)
+        order = get_affinity_order(self._domain, [r.probe_name for r in results])
+        return self._fusion.fuse(results, affinity_order=order, decorrelator=self._decorrelator)
+
+    def probe_attributions(
+        self, data: npt.NDArray[np.float64]
+    ) -> dict[str, npt.NDArray[np.float64]]:
+        """Per-sample leave-one-probe-out attribution of the fused score.
+
+        For every sample, each probe's attribution is the change in the fused
+        score when that probe is ablated (its weight zeroed, the rest
+        renormalised — under the default ``uniform`` weighting this is
+        exactly the fusion of the remaining probes). Computed against the
+        same effective weights, affinity order and decorrelator state that
+        :meth:`detect` applies, so every attribution explains the score that
+        was actually served.
+
+        Args:
+            data: Evaluation data.
+
+        Returns:
+            ``{probe_name: (n_samples,) attribution}``; empty when nothing
+            fitted.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+        """
+        results = self.scored_results(data)
+        if not results:
+            return {}
+        order = get_affinity_order(self._domain, [r.probe_name for r in results])
+        ordered, weights = self._fusion.effective_weights(
+            results, affinity_order=order, decorrelator=self._decorrelator
+        )
+        return self._fusion.leave_one_out_attribution(ordered, weights)
+
+    def refine_contrastive(
+        self,
+        data: npt.NDArray[np.float64],
+        labels: npt.NDArray[np.int32],
+        *,
+        eta: float = 0.5,
+        max_pairs: int = 20_000,
+        seed: int = 0,
+    ) -> dict[str, Any]:
+        """Probe-local re-weighting from the fused score's discordant pairs.
+
+        On a labelled calibration set, the discordant pairs are the (anomaly,
+        normal) pairs the fused score orders the wrong way. Each probe is
+        scored by the fraction of those pairs it orders *correctly*; probes
+        that repair disagreements get their decorrelator multiplier scaled up
+        by ``1 + eta * (2r - 1)`` and probes that cause them get scaled down
+        — a small, probe-local adjustment through the ensemble's existing
+        weighting seam, never a change to any probe's mathematics.
+
+        Opt-in and supervised: nothing changes unless this is called, and the
+        caller owns the labelled data (a held-out calibration fold, never the
+        evaluation set).
+
+        Args:
+            data: Labelled calibration rows/series.
+            labels: Binary ground truth, 1 marking anomalies.
+            eta: Adjustment size; ``0`` is a no-op.
+            max_pairs: Pair-sample budget for the discordance estimate.
+            seed: Seed for the pair sampling.
+
+        Returns:
+            ``{"discordant_before", "discordant_after", "repair_rates",
+            "multipliers"}`` — the measured disagreement rate on the sampled
+            pairs before and after the adjustment, per-probe repair rates and
+            the updated multipliers.
+
+        Raises:
+            RuntimeError: If :meth:`fit` has not been called.
+            ValueError: On single-class labels or a negative ``eta``.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("AnomalyMathArrest has not been fitted. Call fit() first.")
+        if eta < 0.0:
+            raise ValueError(f"eta must be >= 0, got {eta}")
+        y = np.asarray(labels).reshape(-1).astype(np.int64)
+        results = self.scored_results(data)
+        if not results:
+            return {
+                "discordant_before": float("nan"),
+                "discordant_after": float("nan"),
+                "repair_rates": {},
+                "multipliers": self._decorrelator.weight_multipliers,
+            }
+        width = min(len(y), *(len(r.deviation_scores) for r in results))
+        matrix = np.column_stack([r.deviation_scores[:width] for r in results])
+        names = [r.probe_name for r in results]
+        y = y[:width]
+        positives = np.where(y == 1)[0]
+        negatives = np.where(y == 0)[0]
+        if positives.size == 0 or negatives.size == 0:
+            raise ValueError("contrastive refinement needs both classes in the labels")
+
+        rng = np.random.default_rng(seed)
+        count = min(max_pairs, positives.size * negatives.size)
+        pair_pos = rng.choice(positives, size=count)
+        pair_neg = rng.choice(negatives, size=count)
+
+        def discordance() -> tuple[float, npt.NDArray[np.bool_]]:
+            fused = self.fuse_results(results)[:width]
+            discordant = fused[pair_pos] < fused[pair_neg]
+            return float(discordant.mean()), discordant
+
+        before, discordant = discordance()
+        repair_rates: dict[str, float] = {}
+        factors: dict[str, float] = {}
+        if discordant.any() and not self._decorrelator.is_calibrated:
+            # A fit on fewer than MIN_SAMPLES_FOR_DECORRELATION rows skipped
+            # the calibration; the labelled calibration fold supplies it.
+            self.calibrate_decorrelator(data)
+        if discordant.any() and self._decorrelator.is_calibrated:
+            pos_rows = pair_pos[discordant]
+            neg_rows = pair_neg[discordant]
+            for j, name in enumerate(names):
+                rate = float((matrix[pos_rows, j] > matrix[neg_rows, j]).mean())
+                repair_rates[name] = rate
+                # Floored so an all-wrong probe is demoted, never zeroed:
+                # a zero multiplier would amount to deleting the probe.
+                factors[name] = max(1.0 + eta * (2.0 * rate - 1.0), 0.05)
+            self._decorrelator.scale_multipliers(factors)
+        after, _ = discordance()
+        if factors:
+            # Improvement ledger: probe weights were refined from the fused
+            # score's own mistakes — an adaptive change, recorded with the
+            # measured before/after discordance it was applied for.
+            from omni_mercury_engine.governance.improvement_ledger import (
+                record_adaptive_change,
+            )
+
+            record_adaptive_change(
+                "math_arrest.contrastive_refinement",
+                "contrastive refinement rescaled probe weight multipliers",
+                reason=(
+                    f"calibration discordance {before:.4f} on the labelled fold; " f"eta={eta:g}"
+                ),
+                before={"discordance": before},
+                after={"discordance": after, "factors": factors},
+                impact={"discordance_delta": after - before},
+                rollback="re-fit without refine_contrastive (multipliers reset)",
+            )
+        return {
+            "discordant_before": before,
+            "discordant_after": after,
+            "repair_rates": repair_rates,
+            "multipliers": self._decorrelator.weight_multipliers,
+        }
+
     def predict(self, data: npt.NDArray[np.float64]) -> npt.NDArray[np.int32]:
         """Binary classification: 0=normal, 1=anomaly.
 
@@ -508,7 +736,29 @@ class AnomalyMathArrest:
         probe_names = [r.probe_name for r in results]
         fit_qualities = {r.probe_name: r.trajectory_fit_quality for r in results}
 
-        return self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        multipliers = self._decorrelator.calibrate(score_matrix, probe_names, fit_qualities)
+        if multipliers and any(abs(m - 1.0) > 1e-12 for m in multipliers.values()):
+            # Improvement ledger: redundant probes were down-weighted from the
+            # ensemble's own correlation structure — an adaptive change to the
+            # live probe weights, recorded with its rollback.
+            from omni_mercury_engine.governance.improvement_ledger import (
+                record_adaptive_change,
+            )
+
+            record_adaptive_change(
+                "math_arrest.decorrelator",
+                "correlation-aware decorrelation down-weighted redundant probes",
+                reason=(
+                    f"pairwise |r| clustering over {len(probe_names)} fitted probes "
+                    f"on {n} calibration rows (threshold "
+                    f"{self._decorrelator.threshold:g})"
+                ),
+                before=dict.fromkeys(multipliers, 1.0),
+                after=dict(multipliers),
+                impact=None,
+                rollback="re-fit without calibrate_decorrelator (multipliers stay 1.0)",
+            )
+        return multipliers
 
     def get_probe_diagnostics(self) -> list[dict[str, Any]]:
         """Per-probe fit quality and status for full transparency."""

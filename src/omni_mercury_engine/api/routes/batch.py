@@ -32,6 +32,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import BaseModel, Field, field_validator
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.api.detection_metrics import records_detection
 from omni_mercury_engine.api.fusion_weights import (
     TEMPORAL_STEP_SCALE,
     calibrated_max_z,
@@ -474,6 +475,16 @@ async def process_batch_job(
             await _send_callback(callback_url, job_id, JobStatus.FAILED)
 
 
+def _chunk_has_failed_sample(results: list[dict[str, Any]]) -> bool:
+    """Whether any sample of a processed chunk carries an ``error`` entry.
+
+    ``_process_chunk`` catches each sample's exception and returns normally,
+    so without this the ``api_batch`` success ratio was 1.0 by construction.
+    """
+    return any("error" in result for result in results)
+
+
+@records_detection("batch", failed=_chunk_has_failed_sample)
 async def _process_chunk(
     chunk: list[list[float]],
     method: BatchDetectionMethod,

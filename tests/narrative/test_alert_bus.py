@@ -46,7 +46,13 @@ def test_visibility_rule_matches_the_retriever() -> None:
     assert alert_bus.principal_may_see("alice", None)
     assert alert_bus.principal_may_see("alice", "alice")
     assert not alert_bus.principal_may_see("alice", "bob")
-    assert alert_bus.principal_may_see(None, "anonymous")
+    # An anonymous viewer has no identity to own records with: every
+    # "anonymous"-recorded entry belongs to some OTHER unauthenticated
+    # caller, so the old `may_see(None, "anonymous") == True` was the
+    # cross-caller leak, not a feature. Unowned (None) entries stay public.
+    assert alert_bus.principal_may_see(None, None)
+    assert not alert_bus.principal_may_see(None, "anonymous")
+    assert not alert_bus.principal_may_see("anonymous", "anonymous")
     assert not alert_bus.principal_may_see(None, "alice")
 
 

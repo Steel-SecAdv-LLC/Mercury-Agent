@@ -3,171 +3,213 @@
     "earthquake": {
       "event": "turkey_syria_2023",
       "k": 8,
-      "clean_auroc": 0.9874213836477987,
+      "clean_auroc": 0.9937106918238994,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9874213836477987,
+          "worst_case_auroc": 0.9937106918238994,
           "worst_attack": "none"
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.48427672955974843,
+          "worst_case_auroc": 0.339622641509434,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 4,
-          "worst_case_auroc": 0.32704402515723274,
+          "worst_case_auroc": 0.1132075471698113,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.20125786163522008,
+          "worst_case_auroc": 0.17610062893081757,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.32704402515723274,
+      "worst_case_half_channel_auroc": 0.1132075471698113,
       "cubic_moment": {
         "floor_auc": 1.0,
         "cubic_auc": 1.0,
         "escape": 0.0
+      }
+    },
+    "energy": {
+      "event": "texas_2021",
+      "k": 6,
+      "clean_auroc": 0.827456864216054,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.827456864216054,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.8379594898724683,
+          "worst_attack": "transfer",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.8014503625906477,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.47811952988247064,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.8014503625906477,
+      "cubic_moment": {
+        "floor_auc": 0.854213553388347,
+        "cubic_auc": 0.8402100525131284,
+        "escape": -0.014003500875218622
       }
     },
     "fema": {
       "event": "hurricane_2024",
       "k": 7,
-      "clean_auroc": 0.923583984375,
+      "clean_auroc": 0.9711666666666667,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.923583984375,
+          "worst_case_auroc": 0.9711666666666667,
           "worst_attack": "none"
         },
         {
           "m": 1,
-          "worst_case_auroc": 0.802001953125,
+          "worst_case_auroc": 0.9063333333333334,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         },
         {
           "m": 3,
-          "worst_case_auroc": 0.828857421875,
+          "worst_case_auroc": 0.8678333333333335,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         },
         {
           "m": 5,
-          "worst_case_auroc": 0.59423828125,
+          "worst_case_auroc": 0.4956666666666667,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.828857421875,
+      "worst_case_half_channel_auroc": 0.8678333333333335,
       "cubic_moment": {
-        "floor_auc": 0.931884765625,
-        "cubic_auc": 0.92333984375,
-        "escape": -0.008544921875
+        "floor_auc": 0.9863333333333334,
+        "cubic_auc": 0.9921666666666668,
+        "escape": 0.005833333333333357
       }
     },
-    "hurricane": {
-      "event": "milton_2024",
-      "k": 8,
-      "clean_auroc": 0.8865384615384616,
+    "fema_activity": {
+      "event": "tropical_declarations_2020",
+      "k": 5,
+      "clean_auroc": 0.8069453587886767,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.8865384615384616,
+          "worst_case_auroc": 0.8069453587886767,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.8069453587886767,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 2,
+          "worst_case_auroc": 0.5887096774193549,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.5887096774193549,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.5887096774193549,
+      "cubic_moment": {
+        "floor_auc": 0.8104015799868333,
+        "cubic_auc": 0.8107307439104673,
+        "escape": 0.0003291639236340238
+      }
+    },
+    "hurricane": {
+      "event": "maria_2017",
+      "k": 8,
+      "clean_auroc": 0.9047619047619048,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.9047619047619048,
           "worst_attack": "none"
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.8865384615384616,
-          "worst_attack": "bpda",
+          "worst_case_auroc": 0.8935574229691877,
+          "worst_attack": "condmean",
           "gradient_masking_flag": false
         },
         {
           "m": 4,
-          "worst_case_auroc": 0.8500000000000001,
+          "worst_case_auroc": 0.8025210084033613,
           "worst_attack": "condmean",
           "gradient_masking_flag": true
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.8538461538461538,
+          "worst_case_auroc": 0.8795518207282913,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.8500000000000001,
+      "worst_case_half_channel_auroc": 0.8025210084033613,
       "cubic_moment": {
-        "floor_auc": 0.8807692307692309,
-        "cubic_auc": 1.0,
-        "escape": 0.11923076923076914
-      }
-    },
-    "marine": {
-      "event": "marine_heatwave_2023",
-      "k": 3,
-      "clean_auroc": 0.9991645781119466,
-      "floor_curve": [
-        {
-          "m": 0,
-          "worst_case_auroc": 0.9991645781119466,
-          "worst_attack": "none"
-        },
-        {
-          "m": 1,
-          "worst_case_auroc": 0.9766081871345029,
-          "worst_attack": "transfer",
-          "gradient_masking_flag": true
-        },
-        {
-          "m": 2,
-          "worst_case_auroc": 0.9465329991645781,
-          "worst_attack": "condmean",
-          "gradient_masking_flag": true
-        }
-      ],
-      "worst_case_half_channel_auroc": 0.9766081871345029,
-      "cubic_moment": {
-        "floor_auc": 1.0,
-        "cubic_auc": 1.0,
-        "escape": 0.0
+        "floor_auc": 0.900560224089636,
+        "cubic_auc": 0.9411764705882354,
+        "escape": 0.040616246498599407
       }
     },
     "network_security": {
       "event": "nsl_kdd",
       "k": 9,
-      "clean_auroc": 0.9134720700985761,
+      "clean_auroc": 0.9210608668439995,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9134720700985761,
+          "worst_case_auroc": 0.9210608668439995,
           "worst_attack": "none"
         },
         {
           "m": 2,
-          "worst_case_auroc": 0.8773274917853232,
+          "worst_case_auroc": 0.904631513065248,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 4,
-          "worst_case_auroc": 0.8172429979658895,
+          "worst_case_auroc": 0.8654357690502269,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.7585667344703488,
+          "worst_case_auroc": 0.7515255828508839,
           "worst_attack": "condmean",
           "gradient_masking_flag": false
         }
       ],
-      "worst_case_half_channel_auroc": 0.8172429979658895,
+      "worst_case_half_channel_auroc": 0.8654357690502269,
       "cubic_moment": {
         "floor_auc": 0.9274761383195118,
         "cubic_auc": 0.9745736191519323,
@@ -175,83 +217,119 @@
       }
     },
     "pandemic": {
-      "event": "mpox_2022",
+      "event": "covid_india_delta",
       "k": 12,
-      "clean_auroc": 0.7954545454545454,
+      "clean_auroc": 0.9239864864864865,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.7954545454545454,
+          "worst_case_auroc": 0.9239864864864865,
           "worst_attack": "none"
         },
         {
           "m": 3,
-          "worst_case_auroc": 0.7932900432900434,
-          "worst_attack": "bpda",
-          "gradient_masking_flag": false
+          "worst_case_auroc": 0.8766891891891891,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.7943722943722944,
-          "worst_attack": "bpda",
-          "gradient_masking_flag": false
+          "worst_case_auroc": 0.8102477477477478,
+          "worst_attack": "condmean",
+          "gradient_masking_flag": true
         },
         {
           "m": 9,
-          "worst_case_auroc": 0.7911255411255412,
+          "worst_case_auroc": 0.8063063063063063,
           "worst_attack": "condmean",
-          "gradient_masking_flag": false
+          "gradient_masking_flag": true
         }
       ],
-      "worst_case_half_channel_auroc": 0.7943722943722944,
+      "worst_case_half_channel_auroc": 0.8102477477477478,
       "cubic_moment": {
-        "floor_auc": 0.8625541125541125,
-        "cubic_auc": 0.9794372294372294,
-        "escape": 0.11688311688311692
+        "floor_auc": 0.9645270270270271,
+        "cubic_auc": 0.9966216216216217,
+        "escape": 0.03209459459459463
       }
     },
     "tornado": {
       "event": "super_outbreak_2011",
       "k": 12,
-      "clean_auroc": 0.9642122583299053,
+      "clean_auroc": 0.9716166186754421,
       "floor_curve": [
         {
           "m": 0,
-          "worst_case_auroc": 0.9642122583299053,
+          "worst_case_auroc": 0.9716166186754421,
           "worst_attack": "none"
         },
         {
           "m": 3,
-          "worst_case_auroc": 0.8576717400246813,
+          "worst_case_auroc": 0.9654463183874948,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 6,
-          "worst_case_auroc": 0.3566433566433566,
+          "worst_case_auroc": 0.6269025092554505,
           "worst_attack": "condmean",
-          "gradient_masking_flag": true
+          "gradient_masking_flag": false
         },
         {
           "m": 9,
-          "worst_case_auroc": 0.41999177293294937,
+          "worst_case_auroc": 0.6807897984368572,
           "worst_attack": "condmean",
+          "gradient_masking_flag": false
+        }
+      ],
+      "worst_case_half_channel_auroc": 0.6269025092554505,
+      "cubic_moment": {
+        "floor_auc": 0.9786096256684491,
+        "cubic_auc": 1.0,
+        "escape": 0.021390374331550888
+      }
+    },
+    "tsunami": {
+      "event": "tonga_2022",
+      "k": 6,
+      "clean_auroc": 0.6490610328638498,
+      "floor_curve": [
+        {
+          "m": 0,
+          "worst_case_auroc": 0.6490610328638498,
+          "worst_attack": "none"
+        },
+        {
+          "m": 1,
+          "worst_case_auroc": 0.6490610328638498,
+          "worst_attack": "nes",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 3,
+          "worst_case_auroc": 0.6596244131455399,
+          "worst_attack": "nes",
+          "gradient_masking_flag": true
+        },
+        {
+          "m": 4,
+          "worst_case_auroc": 0.6349765258215962,
+          "worst_attack": "transfer",
           "gradient_masking_flag": true
         }
       ],
-      "worst_case_half_channel_auroc": 0.3566433566433566,
+      "worst_case_half_channel_auroc": 0.6596244131455399,
       "cubic_moment": {
-        "floor_auc": 0.9666803784450843,
-        "cubic_auc": 0.9954751131221719,
-        "escape": 0.028794734677087597
+        "floor_auc": 0.7194835680751173,
+        "cubic_auc": 0.6533646322378717,
+        "escape": -0.0661189358372456
       }
     }
   },
   "eps": 0.6,
   "row_cap": 160,
   "overall": {
-    "mean_clean_auroc": 0.9242638973651763,
-    "mean_worst_case_half_channel_auroc": 0.7072526118783252,
+    "mean_clean_auroc": 0.8855296101252199,
+    "mean_worst_case_half_channel_auroc": 0.6817702631239415,
     "gaussian_control_escape": -0.0032222222222223484
   }
 }

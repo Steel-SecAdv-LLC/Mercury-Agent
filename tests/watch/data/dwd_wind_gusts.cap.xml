@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!-- This is a Common Alerting Protocol (CAP) message issued by Germany's National Meteorological Service, Deutscher Wetterdienst (DWD). Visit https://www.dwd.de -->
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.276.0.DWD.PVW.1794938640000.b60b5504-1765-404d-b9df-d036d18aac6c.ENG</identifier>
+  <sender>opendata@dwd.de</sender>
+  <sent>2026-11-17T19:04:00+01:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <source>PVW</source>
+  <scope>Public</scope>
+  <code>id:2.49.0.0.276.0.DWD.PVW.1794938640000.b60b5504-1765-404d-b9df-d036d18aac6c</code>
+  <references>opendata@dwd.de,2.49.0.0.276.0.DWD.PVW.1794916860000.b71f5037-8ec8-448b-bce4-21d51d533a92.ENG,2026-11-17T13:01:00+01:00</references>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>wind gusts</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-17T19:04:00+01:00</effective>
+    <onset>2026-11-17T19:04:00+01:00</onset>
+    <expires>2026-11-18T10:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Official WARNING of WIND GUSTS</headline>
+    <description>There is a risk of wind gusts (level 1 of 4).
+Max. gusts: &lt; 60 km/h; Wind direction: south-west; Increased gusts: near showers and in exposed locations &lt; 75 km/h</description>
+    <instruction>Hazard(s) to expect: light objects flying through the air. 
+Recommendations for what to do: 
+Secure loose objects. For example, fasten tents and coverings.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>south-west</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;60 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;75 [km/h]</value>
+    </parameter>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>(vertices removed from this recording)</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Nordhalben</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>809476159</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Roßwein</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>814522510</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Ludwigsstadt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>809476152</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <!-- 1199 more area blocks removed from this recording -->
+  </info>
+</alert>

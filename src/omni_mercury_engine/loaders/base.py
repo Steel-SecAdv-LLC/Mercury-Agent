@@ -19,7 +19,7 @@ import time
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 import numpy as np
@@ -27,6 +27,9 @@ import pandas as pd
 
 from omni_mercury_engine.datasets.exceptions import OfflineModeError
 from omni_mercury_engine.security.safe_http import SafeHTTPClient
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +79,78 @@ class FetchHTTPError(ConnectionError):
 #: produce a "de-leaked" matrix from such a frame, and persisted through the
 #: frame cache so the mark survives a process restart.
 SYNTHETIC_ATTR = "mercury_synthetic"
+
+
+#: The hour (UTC) an SPC convective day begins. The daily storm-reports file
+#: (``today.csv``) covers 1200 UTC through 1159 UTC of the next calendar day.
+SPC_CONVECTIVE_DAY_START_HOUR = 12
+
+#: How far ahead of the reader's clock a report time may sit before the file
+#: is taken to be the previous convective day's (clock skew, not reports).
+_SPC_CLOCK_TOLERANCE = pd.Timedelta(minutes=10)
+
+
+def spc_convective_day_timestamps(
+    times: Iterable[Any], now: pd.Timestamp | None = None
+) -> list[pd.Timestamp]:
+    """Date the ``HHMM`` UTC report times of an SPC daily storm-reports file.
+
+    The file carries no date column, and its rows span two calendar days: a
+    report at 2330 and one at 0010 are forty minutes apart. Stamping every
+    row with today's date put them 23 h 20 min apart in the wrong order
+    (so the hourly clustering feature never saw them together), and dated a
+    2330 report in the future when read shortly after midnight UTC.
+
+    Args:
+        times: The file's ``Time`` values (``"2330"``, ``10``, ...).
+        now: The current time, UTC; defaults to the clock. Only used to
+            decide which convective day the file belongs to: the one in
+            progress, unless that would date a report in the future.
+
+    Returns:
+        One naive-UTC timestamp per value; the epoch for a value that is not
+        a valid ``HHMM`` time, as the loaders' other branches do.
+    """
+    current = pd.Timestamp.now(tz="UTC") if now is None else pd.Timestamp(now)
+    if current.tzinfo is not None:
+        current = current.tz_convert("UTC").tz_localize(None)
+    day_start = current.normalize()
+    if current.hour < SPC_CONVECTIVE_DAY_START_HOUR:
+        day_start -= pd.Timedelta(days=1)
+
+    stamps: list[pd.Timestamp] = []
+    for value in times:
+        try:
+            hhmm = f"{int(value):04d}"
+            hour, minute = int(hhmm[:2]), int(hhmm[2:])
+            if len(hhmm) != 4 or hour > 23 or minute > 59:
+                raise ValueError(hhmm)
+        except (ValueError, TypeError):
+            stamps.append(pd.Timestamp("1970-01-01"))
+            continue
+        day = (
+            day_start if hour >= SPC_CONVECTIVE_DAY_START_HOUR else day_start + pd.Timedelta(days=1)
+        )
+        stamps.append(day + pd.Timedelta(hours=hour, minutes=minute))
+
+    # A report cannot be later than the moment it is read. If most of the
+    # file would be, it is still the previous convective day's: SPC rebuilds
+    # ``today.csv`` every few minutes, and in the minutes after 1200 UTC it
+    # can hold yesterday's rows while the clock already says today. Every row
+    # then moves back one day together. "Most", not "any": one mistyped time
+    # used to re-date a whole day of correctly dated reports.
+    epoch = pd.Timestamp("1970-01-01")
+    dated = [stamp for stamp in stamps if stamp != epoch]
+    ahead = [stamp for stamp in dated if stamp > current + _SPC_CLOCK_TOLERANCE]
+    if dated and 2 * len(ahead) > len(dated):
+        stamps = [s if s == epoch else s - pd.Timedelta(days=1) for s in stamps]
+    return stamps
+
+
+#: HTTP statuses that describe the request, not the moment: retrying cannot
+#: change them. 408 and 425 are absent (they are about timing), and 429 has
+#: its own branch in ``_fetch_url``.
+_NOT_TRANSIENT_STATUSES = frozenset({400, 401, 403, 404, 405, 406, 410, 414, 422, 451})
 
 
 class SyntheticDataNotDeleakable(ValueError):
@@ -214,15 +289,21 @@ class BaseDomainLoader(ABC):
             },
         )
 
-    def _read_frame_cache(self, key: str) -> pd.DataFrame | None:
+    def _read_frame_cache(self, key: str, max_age: float | None = None) -> pd.DataFrame | None:
         """The cached frame with its provenance and datetime columns restored, or ``None``.
 
         A payload in the pre-provenance shape (a bare column dict) is treated
         as absent so it is fetched again and re-cached with its mark: its
         provenance is unknown, and an unknown frame must not be scored as a
         real one.
+
+        Args:
+            key: Cache key.
+            max_age: Seconds after which this entry is stale, when shorter than
+                :attr:`CACHE_TTL` (a live read must not be served for as long
+                as a static historical event).
         """
-        cached = self._read_cache(key)
+        cached = self._read_cache(key, max_age=max_age)
         if not isinstance(cached, dict) or "frame" not in cached:
             return None
         frame = pd.DataFrame(cached["frame"])
@@ -545,6 +626,12 @@ class BaseDomainLoader(ABC):
                     # more of the same quota (FIRMS: ~4 min of blind
                     # retries per tripped call before this guard).
                     break
+                if last_status in _NOT_TRANSIENT_STATUSES:
+                    # The request itself is what the server refused (no such
+                    # file, bad credential, malformed query): the answer is
+                    # the same on the next attempt. A retired DART station's
+                    # 404 was retried three times over 14 s, per station.
+                    break
                 if attempt < self.max_retries:
                     wait = self.retry_backoff * (2**attempt)
                     logger.warning(
@@ -699,11 +786,13 @@ class BaseDomainLoader(ABC):
         hashed = hashlib.sha256(key.encode()).hexdigest()[:16]
         return self.cache_dir / f"{hashed}.json"
 
-    def _read_cache(self, key: str) -> Any | None:
+    def _read_cache(self, key: str, max_age: float | None = None) -> Any | None:
         """Read data from cache if valid (not expired).
 
         Args:
             key: Cache key.
+            max_age: Seconds after which this entry is stale, when shorter than
+                :attr:`CACHE_TTL`.
 
         Returns:
             Cached data or None if expired/missing.
@@ -711,10 +800,11 @@ class BaseDomainLoader(ABC):
         path = self._get_cache_path(key)
         if not path.exists():
             return None
+        ttl = self.CACHE_TTL if max_age is None else min(self.CACHE_TTL, max_age)
         try:
             with open(path) as f:
                 cached = json.load(f)
-            if time.time() - cached.get("timestamp", 0) > self.CACHE_TTL:
+            if time.time() - cached.get("timestamp", 0) > ttl:
                 return None
             return cached.get("data")
         except (json.JSONDecodeError, KeyError, OSError):
@@ -737,7 +827,11 @@ class BaseDomainLoader(ABC):
         try:
             payload = json.dumps({"timestamp": time.time(), "data": data})
         except (TypeError, ValueError) as exc:
-            logger.debug("Cache write failed for %s: %s", key, exc)
+            # WARNING, not DEBUG: a payload that cannot be serialised is never
+            # cached, on every call. At DEBUG that went unseen for the
+            # financial, flood and tsunami loaders, whose frames hold
+            # Timestamps (use ``_write_frame_cache`` for a frame).
+            logger.warning("Cache write failed for %s: %s", key, exc)
             return
         try:
             with open(path, "w") as f:

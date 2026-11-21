@@ -1,6 +1,6 @@
 # Mercury Agent Documentation
 
-Version `3.0.0` — Steel-SecAdv-LLC. Last updated: 2026-10-27.
+Version `3.1.0` — Steel-SecAdv-LLC. Last updated: 2026-11-16.
 
 Mercury Agent is a standalone **neuro-symbolic AI** with a
 **Civilization-First** mission — a hybrid of deep-learning detectors, an
@@ -53,8 +53,8 @@ attribution to code transferred from its former agent layer.)
   contract.
 - **Committed benchmark run.** The README headline is the committed
   `mercury_benchmark_results.json` run — **67 successful / 76
-  attempted**, Mean AUC **0.8610**, Median **0.9077**, Mean Oracle
-  F1 **0.6476** (2026-10-26) — surfaced in the README "Latest
+  attempted**, Mean AUC **0.8616**, Median **0.9038**, Mean Oracle
+  F1 **0.6493** (2026-11-16) — surfaced in the README "Latest
   Benchmark Results" block. CI's coarse regression-gate floors are
   **ROC-AUC 0.75 / F1 0.55** (`.github/workflows/benchmark.yml`), ~7%
   below the historical **0.803 AUC / 0.589 F1** baseline.
@@ -98,6 +98,7 @@ INSTALLATION
 ARCHITECTURE
 API_REFERENCE
 GENERAL_CAPABILITIES
+DISCOVERY
 INTERCONNECT
 ```
 
@@ -160,6 +161,7 @@ RETRAIN_RUNBOOK
 ESCALATION_AUDIT_RUNBOOK
 DETECTION_MECHANISMS_RUNBOOK
 DORMANCY_LEDGER
+SKIP_LEDGER
 ```
 
 ```{toctree}
@@ -216,8 +218,9 @@ MIGRATION-1.6-to-1.7
 - Top-level `ARCHITECTURE.md` — full system architecture, including
   the Dual-Gate Hard Ethical Enforcement contract and σ_Immutable
   layout.
-- Top-level `CHANGELOG.md` — release history; the newest version
-  section at the top carries the current release's entries.
+- Top-level `CHANGELOG.md` — release history from 3.0.0; the newest version
+  section at the top carries the current release's entries. Releases
+  before 3.0.0 are in `docs/changelog/CHANGELOG-pre-3.0.md`.
 - Top-level `SECURITY.md` — supported versions, PQC backend audit
   status, vulnerability reporting process.
 - Top-level `CONTRIBUTING.md` — development workflow and PR

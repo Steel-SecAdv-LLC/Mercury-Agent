@@ -22,6 +22,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from omni_mercury_engine.datasets.exceptions import (
+    DataSourceUnavailableError,
+    OfflineModeError,
+    check_synthetic_allowed,
+)
 from omni_mercury_engine.loaders.base import BaseDomainLoader
 
 logger = logging.getLogger(__name__)
@@ -196,6 +201,7 @@ class MarineLoader(BaseDomainLoader):
 
         Raises:
             ConnectionError: If the OBIS API is unreachable after retries.
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and nothing is cached.
         """
         cache_key = "marine_realtime"
         cached = self._read_cache(cache_key)
@@ -210,6 +216,11 @@ class MarineLoader(BaseDomainLoader):
                 records = self._fetch_occurrences(scientificname=species_name)
                 if records:
                     frames.append(pd.DataFrame(records))
+            except OfflineModeError:
+                # The air-gap refusal is deterministic and typed; the broad
+                # handler below used to swallow it and re-raise a generic
+                # ConnectionError that no longer named MERCURY_OFFLINE.
+                raise
             except Exception as exc:
                 logger.warning(
                     "marine: failed to fetch occurrences for %s: %s",
@@ -250,7 +261,16 @@ class MarineLoader(BaseDomainLoader):
 
         Raises:
             ValueError: If *event_id* is not in the catalog.
-            ConnectionError: If the OBIS API is unreachable.
+            OfflineModeError: If ``MERCURY_OFFLINE`` is set and the event is
+                not cached.
+            DataSourceUnavailableError: If OBIS is unreachable or returns no
+                occurrence records for the event and the synthetic opt-in
+                (``MERCURY_ALLOW_SYNTHETIC=1``) is not set.  With the opt-in
+                a synthetic stand-in is returned instead, carrying the
+                synthetic mark (:meth:`is_synthetic`) and
+                ``is_real_data=False``; it is never cached.  Also raised,
+                regardless of the opt-in, when only some of the species
+                queries failed: the answered ones are not the record.
         """
         if event_id not in _EVENT_CATALOG:
             raise ValueError(
@@ -273,6 +293,10 @@ class MarineLoader(BaseDomainLoader):
             lon_max=region["lon_max"],
         )
 
+        # Why each species query failed, kept so that an all-failed fetch can
+        # say so instead of reading as "OBIS has no data for this event".
+        fetch_errors: list[str] = []
+
         # Fetch baseline period records.
         baseline_frames: list[pd.DataFrame] = []
         for species_name in event["species"]:
@@ -287,7 +311,10 @@ class MarineLoader(BaseDomainLoader):
                     df_sp = pd.DataFrame(records)
                     df_sp["period"] = "baseline"
                     baseline_frames.append(df_sp)
+            except OfflineModeError:
+                raise
             except Exception as exc:
+                fetch_errors.append(f"{type(exc).__name__}: {exc}")
                 logger.warning(
                     "marine: baseline fetch failed for %s: %s",
                     species_name,
@@ -308,7 +335,10 @@ class MarineLoader(BaseDomainLoader):
                     df_sp = pd.DataFrame(records)
                     df_sp["period"] = "event"
                     event_frames.append(df_sp)
+            except OfflineModeError:
+                raise
             except Exception as exc:
+                fetch_errors.append(f"{type(exc).__name__}: {exc}")
                 logger.warning(
                     "marine: event fetch failed for %s: %s",
                     species_name,
@@ -317,17 +347,48 @@ class MarineLoader(BaseDomainLoader):
 
         all_frames = baseline_frames + event_frames
         if not all_frames:
-            # Synthetic fallback: never cached (a later load would silently
+            # Measured with the transport raising ConnectionError and with
+            # MERCURY_OFFLINE=1: this branch used to hand back 4000 fabricated
+            # rows whose only provenance was an ``is_real_data`` column --
+            # ``is_synthetic()`` was False, so ``engineer_scored_features``
+            # scored them as a real event.  It now refuses unless the
+            # project-wide opt-in allows synthesis (raises
+            # DataSourceUnavailableError otherwise), exactly as the energy and
+            # pandemic loaders do.
+            if fetch_errors:
+                reason = (
+                    f"OBIS ({_OBIS_BASE_URL}) unreachable for event '{event_id}': "
+                    f"{len(fetch_errors)} species queries failed, last error "
+                    f"{fetch_errors[-1]}"
+                )
+            else:
+                reason = (
+                    f"OBIS ({_OBIS_BASE_URL}) returned no occurrence records "
+                    f"for event '{event_id}'"
+                )
+            check_synthetic_allowed("MarineLoader", reason)
+            # Opted-in stand-in: never cached (a later load would silently
             # serve it as real under the same cache key), never logged as
-            # "fetched", and marked on the frame.
-            logger.warning(
-                "marine: no occurrence data retrieved for event '%s'. "
-                "Returning SYNTHETIC stand-in data (not cached).",
-                event_id,
-            )
+            # "fetched", and marked both on the frame (``is_synthetic``) and
+            # per row (``is_real_data``, ``dataset_id == "synthetic"``).
             df = self._synthesize_event(event)
             df["is_real_data"] = False
-            return df
+            return self.mark_synthetic(df)
+
+        if fetch_errors:
+            # Some queries answered and some failed at the transport. The
+            # label is the species-richness loss between the two periods, so
+            # a species or a whole period missing for a network reason
+            # changes it: with every baseline query failing the frame held
+            # event rows only, was stamped real, cached for CACHE_TTL and
+            # labelled all-normal. A partial fetch is refused, never cached.
+            raise DataSourceUnavailableError(
+                "MarineLoader",
+                _OBIS_BASE_URL,
+                f"OBIS partially unreachable for event '{event_id}': "
+                f"{len(fetch_errors)} of {2 * len(event['species'])} species queries "
+                f"failed, last error {fetch_errors[-1]}",
+            )
 
         df = pd.concat(all_frames, ignore_index=True)
         df = self._normalize_columns(df)

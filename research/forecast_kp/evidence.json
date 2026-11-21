@@ -1,0 +1,546 @@
+{
+  "record": {
+    "source": "https://kp.gfz.de/app/files/Kp_ap_since_1932.txt",
+    "first": "1932-01-01",
+    "last": "2026-11-16",
+    "definitive_through": "2026-10-31",
+    "days": 34654,
+    "forecastable_days": 34626,
+    "storm_day_rate": 0.2148
+  },
+  "walk_forward": {
+    "first_year": 1960,
+    "last_year": 2025,
+    "all": {
+      "forecasts": 24107,
+      "storm_days": 4765,
+      "brier": 0.1369,
+      "log_score": 0.4344,
+      "auroc": 0.7398,
+      "references": {
+        "climatology": {
+          "brier": 0.1598,
+          "log_score": 0.5007,
+          "skill": 0.1435
+        },
+        "persistence": {
+          "brier": 0.1506,
+          "log_score": 0.475,
+          "skill": 0.0909
+        }
+      },
+      "reliability": [
+        {
+          "from": 0.0,
+          "to": 0.1,
+          "forecasts": 5921,
+          "mean_probability": 0.069,
+          "observed_rate": 0.067
+        },
+        {
+          "from": 0.1,
+          "to": 0.2,
+          "forecasts": 8359,
+          "mean_probability": 0.145,
+          "observed_rate": 0.128
+        },
+        {
+          "from": 0.2,
+          "to": 0.3,
+          "forecasts": 4630,
+          "mean_probability": 0.243,
+          "observed_rate": 0.227
+        },
+        {
+          "from": 0.3,
+          "to": 0.4,
+          "forecasts": 2623,
+          "mean_probability": 0.345,
+          "observed_rate": 0.326
+        },
+        {
+          "from": 0.4,
+          "to": 0.5,
+          "forecasts": 1328,
+          "mean_probability": 0.446,
+          "observed_rate": 0.45
+        },
+        {
+          "from": 0.5,
+          "to": 0.6,
+          "forecasts": 735,
+          "mean_probability": 0.544,
+          "observed_rate": 0.577
+        },
+        {
+          "from": 0.6,
+          "to": 0.7,
+          "forecasts": 334,
+          "mean_probability": 0.645,
+          "observed_rate": 0.704
+        },
+        {
+          "from": 0.7,
+          "to": 0.8,
+          "forecasts": 135,
+          "mean_probability": 0.741,
+          "observed_rate": 0.741
+        },
+        {
+          "from": 0.8,
+          "to": 0.9,
+          "forecasts": 41,
+          "mean_probability": 0.834,
+          "observed_rate": 0.732
+        },
+        {
+          "from": 0.9,
+          "to": 1.0,
+          "forecasts": 1,
+          "mean_probability": 0.901,
+          "observed_rate": 1.0
+        }
+      ]
+    },
+    "by_period": {
+      "1960-1979": {
+        "forecasts": 7305,
+        "storm_days": 1614,
+        "brier": 0.1533,
+        "log_score": 0.4783,
+        "auroc": 0.7041,
+        "references": {
+          "climatology": {
+            "brier": 0.1731,
+            "log_score": 0.5307,
+            "skill": 0.1143
+          },
+          "persistence": {
+            "brier": 0.1653,
+            "log_score": 0.5099,
+            "skill": 0.0726
+          }
+        },
+        "reliability": [
+          {
+            "from": 0.0,
+            "to": 0.1,
+            "forecasts": 1084,
+            "mean_probability": 0.077,
+            "observed_rate": 0.098
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "forecasts": 2766,
+            "mean_probability": 0.147,
+            "observed_rate": 0.136
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "forecasts": 1676,
+            "mean_probability": 0.243,
+            "observed_rate": 0.23
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "forecasts": 924,
+            "mean_probability": 0.345,
+            "observed_rate": 0.316
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "forecasts": 445,
+            "mean_probability": 0.445,
+            "observed_rate": 0.447
+          },
+          {
+            "from": 0.5,
+            "to": 0.6,
+            "forecasts": 239,
+            "mean_probability": 0.543,
+            "observed_rate": 0.577
+          },
+          {
+            "from": 0.6,
+            "to": 0.7,
+            "forecasts": 118,
+            "mean_probability": 0.644,
+            "observed_rate": 0.678
+          },
+          {
+            "from": 0.7,
+            "to": 0.8,
+            "forecasts": 36,
+            "mean_probability": 0.74,
+            "observed_rate": 0.722
+          },
+          {
+            "from": 0.8,
+            "to": 0.9,
+            "forecasts": 16,
+            "mean_probability": 0.824,
+            "observed_rate": 0.75
+          },
+          {
+            "from": 0.9,
+            "to": 1.0,
+            "forecasts": 1,
+            "mean_probability": 0.901,
+            "observed_rate": 1.0
+          }
+        ]
+      },
+      "1980-1999": {
+        "forecasts": 7305,
+        "storm_days": 1885,
+        "brier": 0.1648,
+        "log_score": 0.504,
+        "auroc": 0.728,
+        "references": {
+          "climatology": {
+            "brier": 0.1918,
+            "log_score": 0.572,
+            "skill": 0.1411
+          },
+          "persistence": {
+            "brier": 0.179,
+            "log_score": 0.5405,
+            "skill": 0.0794
+          }
+        },
+        "reliability": [
+          {
+            "from": 0.0,
+            "to": 0.1,
+            "forecasts": 840,
+            "mean_probability": 0.078,
+            "observed_rate": 0.087
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "forecasts": 2430,
+            "mean_probability": 0.149,
+            "observed_rate": 0.142
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "forecasts": 1711,
+            "mean_probability": 0.245,
+            "observed_rate": 0.235
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "forecasts": 1095,
+            "mean_probability": 0.346,
+            "observed_rate": 0.349
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "forecasts": 631,
+            "mean_probability": 0.447,
+            "observed_rate": 0.452
+          },
+          {
+            "from": 0.5,
+            "to": 0.6,
+            "forecasts": 345,
+            "mean_probability": 0.544,
+            "observed_rate": 0.612
+          },
+          {
+            "from": 0.6,
+            "to": 0.7,
+            "forecasts": 156,
+            "mean_probability": 0.647,
+            "observed_rate": 0.737
+          },
+          {
+            "from": 0.7,
+            "to": 0.8,
+            "forecasts": 77,
+            "mean_probability": 0.74,
+            "observed_rate": 0.766
+          },
+          {
+            "from": 0.8,
+            "to": 0.9,
+            "forecasts": 20,
+            "mean_probability": 0.843,
+            "observed_rate": 0.7
+          }
+        ]
+      },
+      "2000-2019": {
+        "forecasts": 7305,
+        "storm_days": 981,
+        "brier": 0.1028,
+        "log_score": 0.3465,
+        "auroc": 0.7456,
+        "references": {
+          "climatology": {
+            "brier": 0.1262,
+            "log_score": 0.4258,
+            "skill": 0.1854
+          },
+          "persistence": {
+            "brier": 0.118,
+            "log_score": 0.3994,
+            "skill": 0.1285
+          }
+        },
+        "reliability": [
+          {
+            "from": 0.0,
+            "to": 0.1,
+            "forecasts": 3114,
+            "mean_probability": 0.065,
+            "observed_rate": 0.054
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "forecasts": 2376,
+            "mean_probability": 0.141,
+            "observed_rate": 0.109
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "forecasts": 935,
+            "mean_probability": 0.242,
+            "observed_rate": 0.224
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "forecasts": 478,
+            "mean_probability": 0.344,
+            "observed_rate": 0.301
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "forecasts": 202,
+            "mean_probability": 0.446,
+            "observed_rate": 0.436
+          },
+          {
+            "from": 0.5,
+            "to": 0.6,
+            "forecasts": 126,
+            "mean_probability": 0.545,
+            "observed_rate": 0.492
+          },
+          {
+            "from": 0.6,
+            "to": 0.7,
+            "forecasts": 53,
+            "mean_probability": 0.643,
+            "observed_rate": 0.717
+          },
+          {
+            "from": 0.7,
+            "to": 0.8,
+            "forecasts": 17,
+            "mean_probability": 0.741,
+            "observed_rate": 0.588
+          },
+          {
+            "from": 0.8,
+            "to": 0.9,
+            "forecasts": 4,
+            "mean_probability": 0.839,
+            "observed_rate": 0.75
+          }
+        ]
+      },
+      "2020-2025": {
+        "forecasts": 2192,
+        "storm_days": 285,
+        "brier": 0.1028,
+        "log_score": 0.3487,
+        "auroc": 0.7187,
+        "references": {
+          "climatology": {
+            "brier": 0.121,
+            "log_score": 0.4124,
+            "skill": 0.1501
+          },
+          "persistence": {
+            "brier": 0.1156,
+            "log_score": 0.3928,
+            "skill": 0.1103
+          }
+        },
+        "reliability": [
+          {
+            "from": 0.0,
+            "to": 0.1,
+            "forecasts": 883,
+            "mean_probability": 0.065,
+            "observed_rate": 0.058
+          },
+          {
+            "from": 0.1,
+            "to": 0.2,
+            "forecasts": 787,
+            "mean_probability": 0.142,
+            "observed_rate": 0.121
+          },
+          {
+            "from": 0.2,
+            "to": 0.3,
+            "forecasts": 308,
+            "mean_probability": 0.24,
+            "observed_rate": 0.179
+          },
+          {
+            "from": 0.3,
+            "to": 0.4,
+            "forecasts": 126,
+            "mean_probability": 0.342,
+            "observed_rate": 0.302
+          },
+          {
+            "from": 0.4,
+            "to": 0.5,
+            "forecasts": 50,
+            "mean_probability": 0.448,
+            "observed_rate": 0.5
+          },
+          {
+            "from": 0.5,
+            "to": 0.6,
+            "forecasts": 25,
+            "mean_probability": 0.546,
+            "observed_rate": 0.52
+          },
+          {
+            "from": 0.6,
+            "to": 0.7,
+            "forecasts": 7,
+            "mean_probability": 0.627,
+            "observed_rate": 0.286
+          },
+          {
+            "from": 0.7,
+            "to": 0.8,
+            "forecasts": 5,
+            "mean_probability": 0.749,
+            "observed_rate": 1.0
+          },
+          {
+            "from": 0.8,
+            "to": 0.9,
+            "forecasts": 1,
+            "mean_probability": 0.803,
+            "observed_rate": 1.0
+          }
+        ]
+      }
+    }
+  },
+  "after_the_fit": {
+    "first": "2026-01-01",
+    "last": "2026-11-16",
+    "forecasts": 320,
+    "storm_days": 56,
+    "brier": 0.1317,
+    "log_score": 0.4272,
+    "auroc": 0.6834,
+    "references": {
+      "climatology": {
+        "brier": 0.146,
+        "log_score": 0.4687,
+        "skill": 0.0975
+      },
+      "persistence": {
+        "brier": 0.1475,
+        "log_score": 0.4696,
+        "skill": 0.1065
+      }
+    },
+    "reliability": [
+      {
+        "from": 0.0,
+        "to": 0.1,
+        "forecasts": 80,
+        "mean_probability": 0.077,
+        "observed_rate": 0.087
+      },
+      {
+        "from": 0.1,
+        "to": 0.2,
+        "forecasts": 132,
+        "mean_probability": 0.147,
+        "observed_rate": 0.152
+      },
+      {
+        "from": 0.2,
+        "to": 0.3,
+        "forecasts": 64,
+        "mean_probability": 0.244,
+        "observed_rate": 0.188
+      },
+      {
+        "from": 0.3,
+        "to": 0.4,
+        "forecasts": 26,
+        "mean_probability": 0.339,
+        "observed_rate": 0.269
+      },
+      {
+        "from": 0.4,
+        "to": 0.5,
+        "forecasts": 9,
+        "mean_probability": 0.456,
+        "observed_rate": 0.444
+      },
+      {
+        "from": 0.5,
+        "to": 0.6,
+        "forecasts": 7,
+        "mean_probability": 0.548,
+        "observed_rate": 0.571
+      },
+      {
+        "from": 0.6,
+        "to": 0.7,
+        "forecasts": 1,
+        "mean_probability": 0.648,
+        "observed_rate": 1.0
+      },
+      {
+        "from": 0.7,
+        "to": 0.8,
+        "forecasts": 1,
+        "mean_probability": 0.702,
+        "observed_rate": 1.0
+      }
+    ]
+  },
+  "conformal": {
+    "calibrated_on": "walk-forward forecasts 2000-2025",
+    "n_calibration": 9497,
+    "coverage_target": 0.9,
+    "coverage_achieved_bound": 0.9,
+    "after_the_fit": {
+      "days": 320,
+      "empirical_coverage": 0.8656,
+      "empirical_coverage_storm_days": 0.9286,
+      "empirical_coverage_quiet_days": 0.8523,
+      "singleton_rate": 0.3125,
+      "ambiguous_rate": 0.6875,
+      "empty_rate": 0.0
+    }
+  },
+  "model": "kp-g1/2025"
+}

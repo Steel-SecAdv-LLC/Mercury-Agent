@@ -112,7 +112,18 @@ class TestPandemicExpansion(unittest.TestCase):
     # Test 6: WHO GHO graceful failure
     # ----------------------------------------------------------------
     def test_who_gho_graceful_failure(self) -> None:
-        """Mock WHO API returning error; verify loader returns empty."""
+        """Mock WHO API error; the helper still returns empty but flags the failure.
+
+        The low-level ``_fetch_who_gho`` keeps its graceful-empty contract on
+        a fetch failure (this test's original guarantee, unchanged). The added
+        assertion pins the new contract on top of it: the empty frame now
+        carries the ``_FETCH_FAILED_ATTR`` marker so ``fetch_historical`` can
+        tell an outage apart from a genuine "no records" result and raise
+        rather than serve the empty frame as data. The marker only annotates
+        the frame; ``df.empty`` is still True, so nothing is loosened.
+        """
+        from omni_mercury_engine.loaders.pandemic_loader import _FETCH_FAILED_ATTR
+
         with patch.object(
             self.loader,
             "_fetch_json",
@@ -125,6 +136,7 @@ class TestPandemicExpansion(unittest.TestCase):
                 end_date="2018-12-31",
             )
             self.assertTrue(df.empty)
+            self.assertTrue(df.attrs.get(_FETCH_FAILED_ATTR))
 
     # ----------------------------------------------------------------
     # Test 7: stub events return empty DataFrame

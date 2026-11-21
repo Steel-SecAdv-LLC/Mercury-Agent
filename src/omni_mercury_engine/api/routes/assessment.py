@@ -28,7 +28,6 @@ Refusals: 403 carries ``check`` (``harm_uplift``, ``covert_sensing``,
 from __future__ import annotations
 
 import logging
-import os
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
@@ -36,6 +35,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from omni_mercury_engine.api.auth import APIKeyAuth, JWTAuth, Permission, User
+from omni_mercury_engine.serving_limits import serving_limits
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -46,8 +46,10 @@ router = APIRouter(prefix="/api/v1/assessment", tags=["Assessment"])
 
 #: Largest request body accepted by these routes (bytes). Vital-signs arrays
 #: are the large case; ``service.MAX_SIGNAL_VALUES`` bounds them again after
-#: parsing.
-MAX_BODY_BYTES = int(os.environ.get("MERCURY_ASSESSMENT_MAX_BODY_BYTES", str(64 * 1024 * 1024)))
+#: parsing. Read from the single source of serving bounds, which the
+#: body-size middleware enforces as the body streams (this module's own check
+#: sees only a declared length).
+MAX_BODY_BYTES = serving_limits().assessment_max_body_bytes
 
 
 def _principal(permission: Permission) -> Callable[..., User]:
@@ -113,9 +115,34 @@ async def _run(call: Callable[..., dict[str, Any]], *args: Any, **kwargs: Any) -
         result: dict[str, Any] = await run_in_threadpool(call, *args, **kwargs)
         return result
     except EthicalConstraintViolationError as exc:
+        from omni_mercury_engine.cognitive.decision_gate import refused_for_size
+
+        # More text than the gate reads is a refusal about size, and says so.
+        too_much = refused_for_size(exc)
+        # The released flat shape is kept; an ethical (403) refusal is
+        # additionally extended with the same structured report and
+        # fail-closed DecisionRecord the detection routes carry, so every
+        # blocked decision is reconstructable from its record. A size (413)
+        # refusal is about transport, not an ethical verdict, and stays flat.
+        detail: dict[str, Any] = {
+            "refused": True,
+            "check": exc.check,
+            "reason": too_much or str(exc),
+        }
+        if too_much is None:
+            from omni_mercury_engine.api.routes.detection import _ethical_refusal_detail
+
+            structured = _ethical_refusal_detail(exc, str(exc))
+            detail["ethics"] = structured["ethics"]
+            if "decision" in structured:
+                detail["decision"] = structured["decision"]
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"refused": True, "check": exc.check, "reason": str(exc)},
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+                if too_much is None
+                else status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            ),
+            detail=detail,
         ) from exc
     except ConsentRequiredError as exc:
         raise HTTPException(
