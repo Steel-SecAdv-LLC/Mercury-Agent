@@ -11,7 +11,9 @@ scores a leaked anomaly.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import ast
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -27,10 +29,11 @@ from benchmarks.nab_streaming_benchmark import (
     evaluate_stream,
     load_stream,
     run_benchmark,
+    run_causal_math_arrest,
 )
 
-if TYPE_CHECKING:
-    from pathlib import Path
+# One worker runs this module, so the benchmark run below is made once.
+pytestmark = pytest.mark.xdist_group("nab_streaming_benchmark")
 
 # Floors sit just under the recorded causal run (0.817/0.692/0.665/0.749,
 # mean 0.731); they assert real detection with headroom for numeric noise,
@@ -39,8 +42,22 @@ _PER_STREAM_FLOOR = 0.60
 _MEAN_FLOOR = 0.68
 
 
-def test_every_real_stream_beats_chance_by_a_margin() -> None:
-    results = run_benchmark(FIXTURE)
+@pytest.fixture(scope="module")
+def benchmark_run() -> dict[str, Any]:
+    """One full run of the benchmark, read by every test that needs one.
+
+    A run scores 5,790 points one at a time and then runs the causal
+    math-arrest corpus: 42 s alone on a development machine and about 160 s
+    on the hosted runner under coverage with four workers (2026-11-21, ML
+    Tests). The determinism test used to make two such runs inside one test
+    and passed the suite's 300 s limit there. The module makes one, and each
+    determinism test repeats one part of it.
+    """
+    return run_benchmark(FIXTURE)
+
+
+def test_every_real_stream_beats_chance_by_a_margin(benchmark_run: dict[str, Any]) -> None:
+    results = benchmark_run
     assert results["mean_auroc"] >= _MEAN_FLOOR
     for key, r in results["per_stream"].items():
         assert r["auroc"] >= _PER_STREAM_FLOOR, f"{key} AUROC {r['auroc']:.3f} below floor"
@@ -125,11 +142,45 @@ def test_causal_scoring_is_prefix_invariant() -> None:
     ), "whole-batch scoring was expected to leak future information but did not"
 
 
-def test_results_are_deterministic() -> None:
-    first = run_benchmark(FIXTURE)["per_stream"]
-    second = run_benchmark(FIXTURE)["per_stream"]
-    for key in first:
-        assert abs(first[key]["auroc"] - second[key]["auroc"]) < 1e-9
+@pytest.mark.parametrize(("key", "rel_path"), _STREAMS, ids=[key for key, _ in _STREAMS])
+def test_results_are_deterministic(benchmark_run: dict[str, Any], key: str, rel_path: str) -> None:
+    """A second, independent evaluation of a stream reproduces the run's.
+
+    ``run_benchmark`` evaluates each stream with ``evaluate_stream``; this
+    evaluates it again from the file and compares with what the run
+    reported, the AUROC at the tolerance this test has always used and every
+    other reported figure exactly.
+    """
+    values, labels = load_stream(FIXTURE, key, rel_path)
+    again = evaluate_stream(values, labels)
+    first = benchmark_run["per_stream"][key]
+    assert abs(first["auroc"] - again["auroc"]) < 1e-9
+    assert again == first
+
+
+def test_causal_math_arrest_results_are_deterministic(benchmark_run: dict[str, Any]) -> None:
+    """A second causal math-arrest run reports exactly what the first did."""
+    assert run_causal_math_arrest(FIXTURE) == benchmark_run["math_arrest_causal"]
+
+
+def test_no_test_runs_the_whole_benchmark_itself() -> None:
+    """The full benchmark is run by the module fixture and nowhere else here.
+
+    Two runs in one test is what crossed the 300 s limit. A test that needs a
+    run takes ``benchmark_run``; one that needs a second measurement repeats
+    the part it compares.
+    """
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    callers = [
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == "run_benchmark"
+    ]
+    assert callers == ["benchmark_run"]
 
 
 def test_labels_come_from_committed_windows_not_fabricated() -> None:

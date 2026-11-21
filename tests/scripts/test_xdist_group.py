@@ -51,6 +51,7 @@ _PROBE_DIR = "_xdist_group_probe"
 XDIST_GROUP_USERS: frozenset[str] = frozenset(
     {
         "tests/benchmarks/test_fusion_mode_ablation.py",
+        "tests/benchmarks/test_nab_streaming_benchmark.py",
         "tests/core/test_adaptive_domain_thresholding_measured.py",
         "tests/detectors/test_affinity_lodo.py",
         "tests/decision/test_record_provenance.py",

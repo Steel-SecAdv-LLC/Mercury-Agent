@@ -781,6 +781,93 @@ class TestM5Fema:
         # The last row must see all n-1 priors, not a capped 5000.
         assert national[-1] == float(n - 1)
 
+    @pytest.mark.timeout(60)
+    def test_trailing_counts_scale_with_the_number_of_declarations(self) -> None:
+        """Sixty thousand declarations inside one window are counted at once.
+
+        The count used to compare every row with every row inside its
+        window: 5,200 declarations in one year took over five minutes of
+        pandas lookups on a development machine and passed the suite's 300 s
+        limit on the hosted runner (2026-11-21, ML Tests). At that rate this
+        frame would take hours. Rows in date order are now counted by rank
+        and binary search.
+        """
+        from omni_mercury_engine.loaders.fema_loader import FEMALoader
+
+        n = 60_000
+        base = pd.Timestamp("2020-01-01", tz="UTC")
+        df = pd.DataFrame(
+            {
+                "declarationDate": [base + pd.Timedelta(seconds=i) for i in range(n)],
+                "state": ["FL", "TX", "CA"] * (n // 3),
+            }
+        )
+        same_state, national = FEMALoader._compute_trailing_counts(df)
+        assert np.array_equal(national, np.arange(n, dtype=np.float64))
+        assert np.array_equal(same_state, np.repeat(np.arange(n // 3, dtype=np.float64), 3))
+
+    def test_trailing_counts_equal_the_backward_scan(self) -> None:
+        """Rank-and-search counts are the backward scan's counts, row for row.
+
+        ``_trailing_counts_by_scan`` is the definition: from each row walk to
+        earlier rows, skip the undated, stop at the first one older than
+        twelve months, count the rest. Frames here have ties, rows exactly on
+        the window edge, undated rows, labels that are not strings, spans
+        from minutes to years, and (one in ten) rows out of date order, which
+        the loader's sort never produces and which take the scan itself.
+        """
+        from omni_mercury_engine.loaders.fema_loader import FEMALoader
+
+        rng = np.random.default_rng(7)
+        base = pd.Timestamp("2015-01-01", tz="UTC")
+        out_of_order = 0
+        for trial in range(150):
+            n = int(rng.integers(0, 160))
+            span_days = float(rng.choice([0.01, 30.0, 400.0, 2500.0]))
+            offsets = np.sort(rng.uniform(0.0, span_days, n))
+            if trial % 3 == 0:
+                offsets = np.sort(np.round(offsets / 73.0) * 73.0)  # ties; 5 x 73 = 365
+            df = pd.DataFrame(
+                {
+                    "declarationDate": [base + pd.Timedelta(days=float(o)) for o in offsets],
+                    "state": list(rng.choice(np.array(["FL", "TX", "CA", None, 12], object), n)),
+                }
+            )
+            if trial % 4 == 0 and n > 3:
+                undated = rng.choice(n, size=max(1, n // 7), replace=False)
+                df.loc[undated, "declarationDate"] = pd.NaT
+            if trial % 10 == 9 and n > 3:
+                df = df.sample(frac=1.0, random_state=trial).reset_index(drop=True)
+                out_of_order += 1
+            dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
+            want_state, want_national = FEMALoader._trailing_counts_by_scan(
+                dates, df["state"].values
+            )
+            got_state, got_national = FEMALoader._compute_trailing_counts(df)
+            assert np.array_equal(got_national, want_national), f"national differs, frame {trial}"
+            assert np.array_equal(got_state, want_state), f"same-state differs, frame {trial}"
+        assert out_of_order >= 10
+
+    def test_trailing_counts_stop_at_twelve_months(self) -> None:
+        """A declaration exactly 365 days earlier counts; one second older does not."""
+        from omni_mercury_engine.loaders.fema_loader import FEMALoader
+
+        now = pd.Timestamp("2024-06-01", tz="UTC")
+        df = pd.DataFrame(
+            {
+                "declarationDate": [
+                    now - pd.Timedelta(days=365, seconds=1),
+                    now - pd.Timedelta(days=365),
+                    now - pd.Timedelta(days=10),
+                    now,
+                ],
+                "state": ["TX", "FL", "TX", "FL"],
+            }
+        )
+        same_state, national = FEMALoader._compute_trailing_counts(df)
+        assert national.tolist() == [0.0, 1.0, 2.0, 2.0]
+        assert same_state.tolist() == [0.0, 0.0, 1.0, 1.0]
+
 
 # ======================================================================
 # M6 -- WHO emergency timestamp UTC normalisation

@@ -765,6 +765,81 @@ class FEMALoader(BaseDomainLoader):
 
         dates = pd.to_datetime(df["declarationDate"], errors="coerce", utc=True)
         states = df["state"].values
+
+        # The declaration instants as plain UTC datetime64, NaT where a date
+        # did not parse. A row with no date counts nothing and is counted by
+        # nothing.
+        stamps = np.asarray(dates.dt.tz_localize(None))
+        dated = np.flatnonzero(~np.isnat(stamps))
+        instants = stamps[dated]
+        if instants.size > 1 and bool(np.any(instants[1:] < instants[:-1])):
+            # Rows out of date order: the count is defined by the backward
+            # scan (it stops at the first earlier row that is out of the
+            # window), so that scan is what runs. ``engineer_features`` sorts
+            # by date before calling, so the loader never comes here.
+            return FEMALoader._trailing_counts_by_scan(dates, states)
+
+        # Rows in date order (what ``engineer_features`` passes). Every dated
+        # row before row ``k`` is a prior declaration, and those older than
+        # twelve months are a prefix of the sorted instants, so the trailing
+        # count is a rank minus a binary search: O(n log n). The backward
+        # scan this replaces compared every row with every row inside its
+        # window -- 13.5 million pandas lookups for 5,200 declarations in one
+        # year, which is over a minute of interpreter time.
+        one_year = np.timedelta64(365, "D")
+        national[dated] = FEMALoader._ranks_within_window(instants, one_year)
+
+        labels = np.array([str(states[i]) for i in dated], dtype=object)
+        codes, _ = pd.factorize(labels)
+        by_state = np.argsort(codes, kind="stable")
+        bounds = np.flatnonzero(np.diff(codes[by_state])) + 1
+        for members in np.split(by_state, bounds):
+            same_state[dated[members]] = FEMALoader._ranks_within_window(
+                instants[members], one_year
+            )
+
+        return same_state, national
+
+    @staticmethod
+    def _ranks_within_window(
+        instants: np.ndarray[Any, Any], window: np.timedelta64
+    ) -> np.ndarray[Any, Any]:
+        """Count, for each instant, the earlier ones no older than ``window``.
+
+        Args:
+            instants: ``datetime64`` values in non-decreasing order.
+            window: Length of the trailing window.
+
+        Returns:
+            For position ``k``, the number of positions before ``k`` whose
+            instant is at or after ``instants[k] - window``.
+        """
+        older = np.searchsorted(instants, instants - window, side="left")
+        counts: np.ndarray[Any, Any] = (np.arange(instants.size) - older).astype(np.float64)
+        return counts
+
+    @staticmethod
+    def _trailing_counts_by_scan(
+        dates: pd.Series, states: np.ndarray[Any, Any]
+    ) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
+        """Trailing 12-month counts by scanning backwards from each row.
+
+        The definition ``_compute_trailing_counts`` implements, and the path
+        it takes for rows that are not in date order: from each row, walk to
+        earlier rows, skip the undated, stop at the first one older than the
+        window, count the rest. Quadratic in the number of rows inside a
+        window.
+
+        Args:
+            dates: Declaration dates (timezone-aware, NaT where unparsed).
+            states: State label per row.
+
+        Returns:
+            Tuple of (same_state_counts, national_counts) arrays.
+        """
+        n = len(dates)
+        same_state = np.zeros(n, dtype=np.float64)
+        national = np.zeros(n, dtype=np.float64)
         one_year = pd.Timedelta(days=365)
 
         for i in range(n):
@@ -774,15 +849,6 @@ class FEMALoader(BaseDomainLoader):
             cutoff = current_date - one_year
             current_state = str(states[i])
 
-            # Count prior declarations within the trailing 12 months.  The
-            # rows are sorted by ``declarationDate`` ascending, so scanning
-            # backwards from ``i`` we can stop the moment a prior date falls
-            # before the cutoff -- everything earlier is older still.  The
-            # previous code instead scanned a fixed ``i - 5000`` window and
-            # ``continue``d past out-of-window rows, which silently
-            # undercounted the trailing total whenever more than 5000
-            # declarations fell inside the 12-month window.  The break-based
-            # scan is both exact (no cap) and no slower.
             nat_count = 0
             state_count = 0
             for j in range(i - 1, -1, -1):

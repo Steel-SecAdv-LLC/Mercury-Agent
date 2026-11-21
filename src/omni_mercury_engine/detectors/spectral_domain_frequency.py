@@ -50,7 +50,8 @@ from typing import Any
 import numpy as np
 import torch
 from scipy.fft import fft, fftfreq
-from scipy.stats import norm, truncnorm
+from scipy.special import ndtr
+from scipy.stats import truncnorm
 
 from omni_mercury_engine.core.base import BaseDetector
 from omni_mercury_engine.core.centralized_constants import (
@@ -60,6 +61,21 @@ from omni_mercury_engine.core.exceptions import DetectorException
 from omni_mercury_engine.detectors.provenance import DecisionSource
 
 logger = logging.getLogger(__name__)
+
+
+def _two_sided_normal_p(z: float) -> float:
+    """Two-sided p-value of a standard-normal statistic.
+
+    ``scipy.special.ndtr`` is the function ``scipy.stats.norm.cdf`` evaluates;
+    calling it directly gives the same float (held on a grid by
+    ``tests/detectors/test_spectral_normal_p_value.py``) without the
+    distribution object's argument handling, which cost about 25 microseconds
+    a call against 0.07. ``_compute_band_anomaly`` calls this for every band
+    of every window, about 29 times per scored point in the NAB streaming
+    benchmark.
+    """
+    return float(2.0 * (1.0 - ndtr(abs(z))))
+
 
 # =============================================================================
 # Constants
@@ -1176,7 +1192,7 @@ class SpectralDomainFrequency(BaseDetector):
 
         # If truncation is trivial (no effective constraint), use standard test
         if np.isinf(L) and np.isinf(U):
-            p_value = 2.0 * (1.0 - norm.cdf(abs(t_obs)))
+            p_value = _two_sided_normal_p(t_obs)
             return float(np.clip(p_value, 0.0, 1.0))
 
         # Standardize truncation bounds
@@ -1191,7 +1207,7 @@ class SpectralDomainFrequency(BaseDetector):
             p_value = float(p_upper + p_lower)
         except (ValueError, RuntimeError):
             # Numerical issues with extreme truncation; fall back
-            p_value = 2.0 * (1.0 - norm.cdf(abs(t_obs)))
+            p_value = _two_sided_normal_p(t_obs)
 
         return float(np.clip(p_value, 0.0, 1.0))
 
@@ -1394,7 +1410,7 @@ class SpectralDomainFrequency(BaseDetector):
         if best_p < 1.0:
             p_value = best_p
         else:
-            p_value = float(2.0 * (1.0 - norm.cdf(abs(z_score))))
+            p_value = _two_sided_normal_p(z_score)
 
         is_significant = p_value < alpha
 
