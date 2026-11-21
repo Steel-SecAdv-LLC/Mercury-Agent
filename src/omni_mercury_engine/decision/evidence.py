@@ -399,7 +399,10 @@ class Evidence:
             stays a real probability.
         is_anomaly: The detector's raw threshold verdict (carried for context).
         threshold: The decision threshold the verdict used.
-        severity: Anomaly severity in ``[0, 1]`` (0.0 when absent).
+        severity: Anomaly severity in ``[0, 1]`` (0.0 when absent; a raw
+            fusion severity outside the range is clamped to it -- the head
+            is an unbounded regression, the record's contract is the unit
+            interval).
         conformal_set_size: Conformal label-set size in ``{0, 1, 2}``, or
             ``None`` when no conformal certificate was attached this run.
         conformal_labels: The conformal label set (e.g. ``(1,)`` / ``(0, 1)``),
@@ -522,7 +525,12 @@ class Evidence:
             threshold = _as_float(result.get("threshold"))
         if threshold is None:
             threshold = 0.5
-        severity = _as_float(result.get("severity")) or 0.0
+        # The record's contract is severity in [0, 1] (decision/record.py), and
+        # the response layer bands it on that scale. The fusion model's severity
+        # head is an unbounded regression trained toward 0/1 labels, so a served
+        # value can fall slightly outside (a real record carried -0.041): clamp
+        # to the documented range; the raw value stays in the detection result.
+        severity = min(1.0, max(0.0, _as_float(result.get("severity")) or 0.0))
         default_flag = anomaly_prob is not None and anomaly_prob > threshold
         is_anomaly = bool(result.get("is_anomaly", default_flag))
 

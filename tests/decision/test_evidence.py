@@ -20,6 +20,17 @@ class TestExtraction:
         assert ev.severity == 0.6
         assert ev.calibrated is False
 
+    def test_severity_keeps_the_records_documented_range(self) -> None:
+        """Fails on the prior code, which passed the regression head's raw value through.
+
+        The record documents severity in [0, 1] and the response layer bands
+        it on that scale; the fusion severity head is an unbounded regression,
+        and a real served record carried -0.041.
+        """
+        low = Evidence.from_detection({"anomaly_prob": 0.9, "severity": -0.041})
+        high = Evidence.from_detection({"anomaly_prob": 0.9, "severity": 1.7})
+        assert (low.severity, high.severity) == (0.0, 1.0)
+
     def test_reads_conformal_certificate(self) -> None:
         ev = Evidence.from_detection(
             {
