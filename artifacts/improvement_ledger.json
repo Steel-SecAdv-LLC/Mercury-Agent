@@ -1,13 +1,13 @@
 {
   "schema": "mercury.governance.improvement_ledger/v1",
-  "generated_at": "2026-11-20T21:30:00+00:00",
+  "generated_at": "2026-11-21T02:42:40+00:00",
   "note": "Committed, measured adaptive-change decisions. Every entry states what was changed or proposed, why, the harness that measured it, the measured impact, the verdict, and the rollback. Runtime adaptations are recorded separately by the process-wide ImprovementLedger (governance/improvement_ledger.py) and served at GET /api/v1/detect/flagship/improvements.",
   "decisions": [
     {
       "component": "detectors.statistical.adaptive_weights",
       "change": "Entropy-constrained re-selection of the R/K/IG component weights: sweep the whole weight simplex (step 0.05, 231 vectors) and select the best mean-rank vector inside the normalised-entropy band [0.30, 0.95].",
       "reason": "The fusion-mode ablation showed a fully peaked weight vector (single best component) beating the adaptive R/K/IG fusion - the collapse an entropy constraint exists to examine.",
-      "verdict": "recorded_not_adopted",
+      "verdict": "refused",
       "impact": {
         "harness": "research/ensembles/harness_weight_entropy.py",
         "artifact": "artifacts/fusion_weight_entropy.json",
@@ -34,10 +34,28 @@
           0,
           1,
           2
-        ]
+        ],
+        "leave_one_table_out": {
+          "protocol": "each table held out in turn; the in-band vector with the best mean rank on the other four is scored on it beside the shipped adaptive weights",
+          "per_table_delta": {
+            "breastw": -0.0009,
+            "cardio": 0.0105,
+            "pima_real": -0.0191,
+            "thyroid": 0.0084,
+            "wbc": 0.0088
+          },
+          "mean_delta": 0.0015,
+          "worst_table_delta": -0.0191,
+          "bar": {
+            "mean_gain_above": 0.003,
+            "no_table_below": -0.002
+          },
+          "bar_met": false
+        }
       },
-      "why_not_adopted": "The winner was selected on the same five tables it is scored on; a +0.0025 in-sample margin is selection-bias territory. Adoption requires the margin to survive on tables the selection never saw.",
-      "rollback": "Nothing shipped: the served path keeps _compute_adaptive_weights unchanged. The artifact and harness remain for re-measurement on held-out tables."
+      "rollback": "Nothing shipped: the served path keeps _compute_adaptive_weights unchanged. The artifact and harness remain for re-measurement on held-out tables.",
+      "why_refused": "Re-measured on tables the selection never saw (leave-one-table-out): mean gain +0.0015 against a bar of more than +0.003, and -0.0191 on the worst table against a floor of -0.002. Neither clause is met. The in-sample margin that prompted the entry does not survive out of sample, so the shipped adaptive weights stay.",
+      "history": "First recorded as recorded_not_adopted: the winner had been selected on the same five tables it was scored on, and adoption was made conditional on the out-of-sample run that now refuses it."
     },
     {
       "component": "core.three_r.recursion_depth",
@@ -298,6 +316,138 @@
       },
       "why_refused": "A certificate without a labelled outcome to calibrate against is a false claim in uniform dress. The plan's trustworthy properties are the ones it has by construction - deterministic, bounded, non-destructive, reconstructable from the DecisionRecord it was derived from - and the docstring now states that scoring is deliberately absent, not forgotten. The day recommendation outcomes are recorded (a feedback loop exists in DecisionLoop/FeedbackSink), a measured calibration becomes possible and this verdict is re-openable.",
       "rollback": "Nothing to roll back."
+    },
+    {
+      "component": "measurement.evidence_contract",
+      "change": "A quantity is measured only when it carries the artifact that proves it (omni_mercury_engine.measurement.MeasurementEvidence: the method, the number of observations behind it, the SHA-256 of the numbers it was measured on, and for a verdict the statistic and its cut). UncertaintyEstimate, CognitiveAnalysisResult and ExplorationResult take that evidence as a REQUIRED argument with no default; their measured/calibrated flags are derived properties and can no longer be passed in. The decision record carries the evidence and reads a True flag with no parsable evidence beside it as False.",
+      "reason": "The flags were booleans that defaulted to True, so a result built without running any estimator reported its placeholder numbers as measurements. Three live misstatements followed from that design and are fixed with it: an analysis given no raw data reported both uncertainties as 0.0 and measured; a multi-row batch of predictions with nothing drawn was reported as measured epistemic uncertainty with mc_samples naming draws that never ran; and an ensemble of five reported mc_samples as the configured count, not five.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "tests/cognitive/test_orchestrator_golden.py (the payload's flag set, their evidence, and the golden input's unmeasured set are pinned)",
+        "artifact": "src/omni_mercury_engine/measurement.py",
+        "golden_input_unmeasured": [
+          "epistemic_uncertainty",
+          "aleatoric_uncertainty",
+          "confidence",
+          "is_novel"
+        ],
+        "construction_sites_that_relied_on_a_default": 9,
+        "scope": "an API change to three result types, made on instruction: constructing one without stating its evidence is now a TypeError"
+      },
+      "rollback": "None offered: restoring a default would restore the ability to claim a measurement with nothing behind it."
+    },
+    {
+      "component": "cognitive.curiosity_novelty.rank_verdict",
+      "change": "is_novel is a rank test: novel when the observation's standardized distance ranks in the top alpha (0.05) of the distances the reference observations themselves had (a distribution-free p-value over the last 256 reference distances; undetermined, and so never novel, below 20). It replaces a cut on the score at 0.7. The score itself is unchanged.",
+      "reason": "The score was measured to discriminate (AUROC 0.93) but the verdict's cut had never been measured. At 0.7 it called 14.5% of ordinary held-out rows novel; a verdict a professional acts on has to say how often it is wrong on ordinary data, and the rank test does by construction.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_novelty_discovery.py",
+        "artifact": "artifacts/novelty_discovery.json",
+        "bar": "set before the run: normal rows called novel at most 0.07 on average and 0.10 on any table",
+        "normal_rows_called_novel": {
+          "score_cut": 0.1448,
+          "rank": 0.0389,
+          "rank_worst_table": 0.0491
+        },
+        "anomalies_called_novel": {
+          "score_cut": 0.8818,
+          "rank": 0.7308
+        },
+        "read_only_mean_auroc_unchanged": 0.9282,
+        "cost": "fewer anomalies are called novel (0.73 against 0.88): the price of a verdict that fires on 3.9% of ordinary rows instead of 14.5%"
+      },
+      "rollback": "CuriosityEngine(alpha=...) moves the level; the score cut is still reported (novelty_threshold) for comparison but no longer decides the verdict."
+    },
+    {
+      "component": "cognitive.causal_discovery.corrections",
+      "change": "The Granger test is corrected for what it searches: each pair's p-value is multiplied by the lags tried (it reports the lag with the smallest p-value), the pairs of one analysis are corrected together by Holm's procedure, and time steps where any column lies beyond 4 robust deviations are set aside. The edge strength is the partial R-squared; it was 1 - p. The arithmetic moved to omni_mercury_engine.discovery, the same functions a recorded finding is replayed with.",
+      "reason": "The instrument's findings ride every decision record as causal_factors and nothing had measured how often it finds an edge where there is none. On independent noise it reported at least one in 76-94% of analyses.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "bar": "set before the run: a false edge in at most 7.5% of plain-noise analyses; the planted edge found in at least 90% at 200 rows with any other edge in at most 10%",
+        "false_edge_plain_noise_worst": {
+          "prior": 0.945,
+          "corrected_trimmed": 0.03
+        },
+        "false_edge_common_shock": {
+          "prior": 1.0,
+          "corrected": 1.0,
+          "corrected_trimmed": 0.01
+        },
+        "planted_edge_found_n200": 1.0,
+        "planted_edge_found_n100": 0.915
+      },
+      "rollback": "None offered: the uncorrected test is not a test at the level it states."
+    },
+    {
+      "component": "cognitive.causal_discovery.stability_gate",
+      "change": "A window whose level is not stable across consecutive blocks (a chi-square test of block means against a within-block long-run variance, Bonferroni across columns, level 0.001) is not assessed: it yields no edge, and the artifact says why.",
+      "reason": "After the corrections, a sustained shift, a trend or a random walk common to the columns still produced a false edge in 10-100% of analyses: Granger precedence cannot be read from a window whose level moves. The gate is fail-closed: a declined window gets no edge, never a wrong one.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "bar": "set before the run: a false edge in at most 10% of disturbed analyses, and at most 15% of stable windows declined",
+        "false_edge_disturbed_worst": {
+          "corrected_trimmed": 1.0,
+          "shipped": 0.01
+        },
+        "planted_edge_found_n200": 0.955,
+        "stable_windows_declined": {
+          "independent_n200": 0.045,
+          "independent_n60": 0.115,
+          "ar1_0.7_n200": 0.76
+        },
+        "coverage_bar_met": false,
+        "open_problem": "shipped declines most strongly autocorrelated windows (the coverage bar is not met there). What is missing is a test of level stability that is valid under autocorrelation and still has power against a shift inside the window: the residual guard is valid and has none; the block-mean check has power and over-declines."
+      },
+      "why_adopted_with_a_bar_unmet": "The coverage bar is not met on strongly autocorrelated windows, most of which are declined. It was adopted anyway because the unmet bar costs coverage, not truth: without the gate the instrument reports false edges in up to 100% of shifted windows. This entry is not a claim that the bar was cleared.",
+      "rollback": "omni_mercury_engine.discovery.STABILITY_ALPHA sets the level; granger_family() runs the corrected test with no gate for a caller who has established stability another way."
+    },
+    {
+      "component": "cognitive.causal_discovery.first_difference",
+      "change": "Run the corrected, trimmed test on first differences, so a sustained shift becomes two boundary rows.",
+      "reason": "Candidate for windows whose level moves, with no window declined.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "false_edge_disturbed_worst": 0.165,
+        "false_edge_plain_worst": 0.115,
+        "other_edge_beside_a_planted_one": 0.165
+      },
+      "why_refused": "Three bars unmet: false edges up to 17% under a sustained shift and 12% on short plain noise, and a stray edge beside the planted one in 17% of analyses (over-differencing leaves moving-average structure the own-lag terms do not absorb).",
+      "rollback": "Not adopted; nothing to roll back."
+    },
+    {
+      "component": "cognitive.causal_discovery.residual_guard",
+      "change": "Decline a window when the residuals of each column's autoregression shift between blocks, a check that is valid under autocorrelation.",
+      "reason": "Candidate for a stability gate that does not decline ordinary autocorrelated windows.",
+      "verdict": "refused",
+      "impact": {
+        "harness": "research/cognitive/harness_causal_discovery.py",
+        "artifact": "artifacts/causal_discovery.json",
+        "false_edge_disturbed_worst": 1.0,
+        "windows_declined_under_a_sustained_shift": 0.0
+      },
+      "why_refused": "No power: the autoregression absorbs a level shift as persistence, the residuals look stable, and the guard declines none of the shifted windows, which then report a false edge every time.",
+      "rollback": "Not adopted; nothing to roll back."
+    },
+    {
+      "component": "cognitive.derived_hypothesis",
+      "change": "The orchestrator derives a conclusion from the measured verdicts that hold (the detection flag against its threshold, the novelty verdict, the strongest lagged dependence) by forward-chaining three explicit conjunction rules, and records it as an artifact naming its premises, its steps, the premise closest to failing and the value at which it fails. A step carries no confidence, because none was measured.",
+      "reason": "The multi-hop reasoning step was given two premises that none of its rules could match, so it derived nothing: reasoning_chain was empty and the record's hypothesis was None on every served decision.",
+      "verdict": "adopted",
+      "impact": {
+        "harness": "tests/test_discovery_artifacts.py (derivation, replay and withdrawal are pinned; the premises' own error rates are the two harnesses above)",
+        "artifact": "src/omni_mercury_engine/discovery.py",
+        "scope": "a conclusion is a conjunction of verdicts and is exactly as good as its weakest premise: it has no probability of its own and none is reported",
+        "not_measured": "whether a derived conclusion is true of the world beyond its premises holding. No harness exists for that, and none is claimed."
+      },
+      "rollback": "enable_cognitive_analysis(enable_curiosity=False) removes the novelty premise; the rules live in cognitive.orchestrator._DISCOVERY_RULES."
     }
   ]
 }

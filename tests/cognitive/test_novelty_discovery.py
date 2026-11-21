@@ -77,8 +77,18 @@ class TestMeasuredArtifact:
 
     def test_fifteen_evaluations_two_protocols(self, artifact: dict[str, Any]) -> None:
         assert artifact["protocol"]["n_evaluations"] == 15
+        # Two ranking protocols, and the verdict's operating point under each
+        # rule (the score cut it replaced and the rank test that ships).
+        expected = {
+            "read_only_auroc",
+            "absorbing_auroc",
+            "score_cut_normal_called_novel",
+            "score_cut_anomalies_called_novel",
+            "rank_normal_called_novel",
+            "rank_anomalies_called_novel",
+        }
         for values in artifact["per_dataset"].values():
-            assert set(values) == {"read_only_auroc", "absorbing_auroc"}
+            assert set(values) == expected
 
     def test_the_signal_clears_a_real_floor(self, artifact: dict[str, Any]) -> None:
         """The adoption rested on ~0.93 mean; 0.85 is the never-regress floor."""
@@ -170,14 +180,18 @@ class TestChallengeGrounds:
                 "novelty_score": 0.91,
                 "is_novel": True,
                 "novelty_distance": 2.41,
-                "novelty_threshold": 0.7,
+                "novelty_p_value": 0.012,
+                "novelty_alpha": 0.05,
             }
         )
         assert summary is not None
         challenge = summary["novelty_challenge"]
         assert challenge["standardized_distance"] == pytest.approx(2.41)
-        assert challenge["novelty_threshold"] == pytest.approx(0.7)
-        assert "re-score read-only" in challenge["falsifiable_by"]
+        assert challenge["p_value"] == pytest.approx(0.012)
+        assert challenge["alpha"] == pytest.approx(0.05)
+        # The recipe is something the record's holder can run: a replay of
+        # the artifact the record carries, not a call into the live engine.
+        assert "replay discovery.novelty" in challenge["falsifiable_by"]
 
     def test_no_novelty_no_fabricated_challenge(self) -> None:
         from omni_mercury_engine.decision.evidence import _cognitive_summary
@@ -204,21 +218,52 @@ class TestChallengeGrounds:
 
     def test_orchestrator_result_serializes_the_challenge_fields(self) -> None:
         from omni_mercury_engine.cognitive.orchestrator import CognitiveAnalysisResult
+        from omni_mercury_engine.measurement import MeasurementEvidence
 
+        ranked = MeasurementEvidence.from_samples(
+            "conformal_rank", list(range(40)), statistic=0.012, threshold=0.05
+        )
         result = CognitiveAnalysisResult(
             anomaly_detected=True,
             anomaly_score=0.9,
             severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
             novelty_score=0.8,
             is_novel=True,
             novelty_distance=1.7,
-            novelty_threshold=0.7,
+            novelty_p_value=0.012,
+            novelty_alpha=0.05,
+            novelty_evidence=ranked,
         )
         payload = result.to_dict()
         assert payload["novelty_distance"] == pytest.approx(1.7)
-        assert payload["novelty_threshold"] == pytest.approx(0.7)
+        assert payload["novelty_p_value"] == pytest.approx(0.012)
+        assert payload["novelty_alpha"] == pytest.approx(0.05)
+        # Measured because it carries the evidence, and only because of that.
+        assert payload["novelty_measured"] is True
+        assert payload["novelty_evidence"] == ranked.to_dict()
         # Without novelty the keys stay absent (schema unchanged).
         bare = CognitiveAnalysisResult(
-            anomaly_detected=True, anomaly_score=0.9, severity=0.5
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
         ).to_dict()
         assert "novelty_distance" not in bare
+        assert "novelty_measured" not in bare
+        # A verdict with no evidence is carried, and is not measured.
+        claimed = CognitiveAnalysisResult(
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
+            novelty_score=0.8,
+            is_novel=True,
+        ).to_dict()
+        assert claimed["novelty_measured"] is False

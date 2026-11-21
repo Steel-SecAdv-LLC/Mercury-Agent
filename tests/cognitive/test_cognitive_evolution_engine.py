@@ -181,6 +181,9 @@ def test_result_is_serialisable() -> None:
         "standardized_distance",
         "n_observations",
         "measured",
+        "p_value",
+        "alpha",
+        "evidence",
     }
 
 

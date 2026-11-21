@@ -39,15 +39,19 @@ from omni_mercury_engine.decision.evidence import Evidence
 #: schema change that updates this set in the same commit; a dropped key is
 #: a regression.
 _GOLDEN_KEYS = {
+    "aleatoric_evidence",
     "aleatoric_measured",
     "aleatoric_uncertainty",
     "analysis_time_ms",
     "anomaly_detected",
     "anomaly_score",
     "benevolence_score",
+    "calibration_evidence",
     "causal_factors",
     "confidence",
     "confidence_calibrated",
+    "discovery",
+    "epistemic_evidence",
     "epistemic_measured",
     "epistemic_uncertainty",
     "ethical_permissible",
@@ -55,9 +59,12 @@ _GOLDEN_KEYS = {
     "is_novel",
     "is_reliable",
     "knowledge_updates",
+    "novelty_alpha",
     "novelty_distance",
+    "novelty_evidence",
+    "novelty_measured",
+    "novelty_p_value",
     "novelty_score",
-    "novelty_threshold",
     "reasoning_chain",
     "recommendations",
     "severity",
@@ -77,19 +84,30 @@ _MEASUREMENT_FLAGS = {
     "epistemic_uncertainty": "epistemic_measured",
     "aleatoric_uncertainty": "aleatoric_measured",
     "confidence": "confidence_calibrated",
+    "is_novel": "novelty_measured",
+}
+
+#: Each flag and the evidence it is derived from. A flag is ``True`` exactly
+#: when its evidence is present: it cannot be set, only earned.
+_EVIDENCE_OF = {
+    "epistemic_measured": "epistemic_evidence",
+    "aleatoric_measured": "aleatoric_evidence",
+    "confidence_calibrated": "calibration_evidence",
+    "novelty_measured": "novelty_evidence",
 }
 
 #: Which of them are unmeasured on the golden input: one detection point, no
-#: ensemble, no model, no fitted calibrator -- so all three.  Removing a
-#: name from this set is the claim "this is now measured here"; it needs the
-#: measurement (an ensemble or MC spread, a heteroscedastic residual, a
-#: fitted calibrator) landing in the same commit, not a flipped default.
-_GOLDEN_UNMEASURED = {"epistemic_uncertainty", "aleatoric_uncertainty", "confidence"}
+#: ensemble, no model, no fitted calibrator, and a first observation with no
+#: reference to rank it against -- so all four.  Removing a name from this set
+#: is the claim "this is now measured here"; it needs the measurement (an
+#: ensemble or MC spread, a heteroscedastic residual, a fitted calibrator,
+#: reference distances) landing in the same commit.
+_GOLDEN_UNMEASURED = {"epistemic_uncertainty", "aleatoric_uncertainty", "confidence", "is_novel"}
 
 
 def _unmeasured(payload: dict[str, Any]) -> set[str]:
     """The fields ``payload`` itself declares unmeasured."""
-    return {field for field, flag in _MEASUREMENT_FLAGS.items() if payload[flag] is not True}
+    return {field for field, flag in _MEASUREMENT_FLAGS.items() if payload.get(flag) is not True}
 
 
 def _analyze() -> dict[str, Any]:
@@ -172,6 +190,85 @@ class TestUnmeasuredFieldsArePinned:
             "update _GOLDEN_UNMEASURED in the same commit, with the measurement"
         )
 
+    def test_every_flag_is_derived_from_evidence_in_the_same_payload(self) -> None:
+        """A flag is True exactly when the evidence beside it is present."""
+        payload = _analyze()
+        assert set(_EVIDENCE_OF) == set(_MEASUREMENT_FLAGS.values())
+        for flag, evidence in _EVIDENCE_OF.items():
+            assert payload[flag] is (payload[evidence] is not None), flag
+
+    def test_measured_cannot_be_declared(self) -> None:
+        """Fails on the prior code, where each was a constructor argument defaulting to True."""
+        from omni_mercury_engine.cognitive.orchestrator import CognitiveAnalysisResult
+        from omni_mercury_engine.cognitive.uncertainty import UncertaintyEstimate
+
+        # Called through untyped aliases: these calls are wrong on purpose, and
+        # the point is that they fail at run time, not only under a type checker.
+        analysis: Any = CognitiveAnalysisResult
+        estimate: Any = UncertaintyEstimate
+
+        with pytest.raises(TypeError, match="required"):
+            analysis(anomaly_detected=True, anomaly_score=0.9, severity=0.5)
+        with pytest.raises(TypeError, match="unexpected keyword"):
+            analysis(
+                anomaly_detected=True,
+                anomaly_score=0.9,
+                severity=0.5,
+                epistemic_evidence=None,
+                aleatoric_evidence=None,
+                calibration_evidence=None,
+                epistemic_measured=True,
+            )
+        stated = CognitiveAnalysisResult(
+            anomaly_detected=True,
+            anomaly_score=0.9,
+            severity=0.5,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
+        )
+        assert (stated.epistemic_measured, stated.aleatoric_measured) == (False, False)
+        with pytest.raises(AttributeError):
+            setattr(stated, "epistemic_measured", True)  # noqa: B010 - the assignment IS the test
+
+        numbers = {
+            "prediction": 0.5,
+            "epistemic": 0.1,
+            "aleatoric": 0.1,
+            "total": 0.14,
+            "confidence": 0.5,
+            "confidence_interval": (0.2, 0.8),
+            "calibration_error": None,
+            "is_reliable": True,
+            "explanation": "",
+        }
+        with pytest.raises(TypeError, match="required"):
+            estimate(**numbers)
+        with pytest.raises(TypeError, match="unexpected keyword"):
+            estimate(
+                **numbers,
+                epistemic_evidence=None,
+                aleatoric_evidence=None,
+                calibration_evidence=None,
+                calibration_error_evidence=None,
+                aleatoric_measured=True,
+            )
+
+    def test_noise_yields_no_causal_factor(self) -> None:
+        """Fails on the prior code, which reported 'X1 -> X0 (lag=1, strength=0.95)' here.
+
+        The golden input is independent Gaussian noise with one outlying row.
+        Nothing drives anything in it.  The uncorrected test found an edge
+        anyway (it does so in 81-94% of pure-noise analyses), and called
+        ``1 - p`` its strength.
+        """
+        payload = _analyze()
+        assert payload["causal_factors"] == []
+        causal = payload["discovery"]["causal"]
+        # Assessed, twelve ordered pairs tested, and no edge survived correction.
+        assert causal["claim"] == {"assessed": True, "edges": [], "pairs_tested": 12}
+        assert payload["reasoning_chain"] == []  # no premise but the flag: nothing follows
+
     def test_an_analysis_without_raw_data_measures_nothing(self) -> None:
         """Fails on the prior code: no estimate ran, yet both read 0.0 *and measured*."""
         with warnings.catch_warnings():
@@ -205,6 +302,13 @@ class TestUnmeasuredFieldsArePinned:
             summary = Evidence.from_detection({"cognitive_analysis": altered}).cognitive
             assert summary is not None
             assert summary[flag] is None
+        # A literal True is still only a claim: without evidence that parses
+        # beside it, the record does not carry it as a measurement.
+        for evidence in (None, {}, {"method": "ensemble_variance", "n": 1, "digest": "0" * 64}):
+            claimed = {**payload, flag: True, _EVIDENCE_OF[flag]: evidence}
+            summary = Evidence.from_detection({"cognitive_analysis": claimed}).cognitive
+            assert summary is not None
+            assert summary[flag] is False
 
     def test_the_golden_critique_is_not_counted_as_measured(self) -> None:
         """With every field unmeasured, the critique rests on no measurement."""

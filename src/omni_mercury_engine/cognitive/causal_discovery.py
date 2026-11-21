@@ -30,6 +30,8 @@ from typing import Any
 import numpy as np
 from scipy import linalg, stats
 
+from omni_mercury_engine.discovery import granger_analysis, granger_pair
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,10 +62,10 @@ class CausalEdge:
     source: str
     target: str
     relation_type: CausalRelationType
-    strength: float  # Standardized effect size (Cohen's d or partial r)
+    strength: float  # Effect size (partial r; partial R-squared for temporal edges)
     confidence: float  # 1 - p_value from CI test
     lag: int = 0  # Time lag for temporal causation
-    p_value: float = 0.0  # P-value from independence test
+    p_value: float = 0.0  # P-value from the test (family-corrected for temporal edges)
     separation_set: tuple[int, ...] = field(
         default_factory=tuple
     )  # Conditioning set that separated
@@ -93,10 +95,18 @@ class CausalGraph:
     separation_sets: dict[tuple[str, str], tuple[str, ...]]  # (i, j) -> conditioning set
     is_cpdag: bool = True  # True if some edges undirected
     timestamp: float = field(default_factory=time.time)
+    #: For a temporal graph: every ordered pair tested, with its statistics
+    #: and corrected p-value, whether or not it became an edge. Empty for
+    #: graphs that were not found by pairwise testing.
+    tests: list[dict[str, Any]] = field(default_factory=list)
+    #: For a temporal graph: the whole analysis the tests came from (rows set
+    #: aside, the stability check, whether the window was assessed and, if
+    #: not, why). Empty for other graphs.
+    analysis: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """To dict."""
-        return {
+        payload: dict[str, Any] = {
             "id": self.graph_id,
             "nodes": self.nodes,
             "edges": [e.to_dict() for e in self.edges],
@@ -104,6 +114,14 @@ class CausalGraph:
             "colliders": self.colliders,
             "is_cpdag": self.is_cpdag,
         }
+        if self.analysis:
+            payload["assessed"] = bool(self.analysis.get("assessed"))
+            payload["pairs_tested"] = len(self.tests)
+            payload["rows_excluded"] = self.analysis.get("rows_excluded", 0)
+            payload["corrections"] = ["bonferroni_over_lags", "holm_over_pairs"]
+            if not payload["assessed"]:
+                payload["not_assessed_because"] = self.analysis.get("not_assessed_because")
+        return payload
 
     def get_parents(self, node: str) -> list[str]:
         """Get parent nodes (direct causes)."""
@@ -295,7 +313,9 @@ class GrangerCausalityTest:
     - Restricted: Y_t = f(Y_{t-1}, ..., Y_{t-p})
     - Unrestricted: Y_t = f(Y_{t-1}, ..., Y_{t-p}, X_{t-1}, ..., X_{t-p})
 
-    Uses F-test for nested model comparison.
+    Uses F-test for nested model comparison.  The arithmetic lives in
+    :func:`omni_mercury_engine.discovery.granger_pair`, the same function a
+    recorded finding is replayed with.
     """
 
     @staticmethod
@@ -314,70 +334,23 @@ class GrangerCausalityTest:
             significance_level: Alpha for significance
 
         Returns:
-            (is_causal, f_statistic, optimal_lag, p_value)
+            ``(is_causal, f_statistic, optimal_lag, p_value)``.  The lag is the
+            one with the smallest p-value, and the p-value returned is that
+            one multiplied by the number of lags tried (Bonferroni): the
+            smallest of several p-values is not itself a p-value, and
+            comparing it with ``significance_level`` uncorrected, as this did,
+            rejected a true null about 12% of the time at a nominal 5%
+            (``artifacts/causal_discovery.json``).
         """
-        n = len(x)
-        if n <= max_lag + 2:
+        found = granger_pair(x, y, max_lag)
+        if found is None:
             return False, 0.0, 0, 1.0
-
-        best_lag = 1
-        best_f = 0.0
-        best_p = 1.0
-
-        for lag in range(1, max_lag + 1):
-            if n <= 2 * lag + 2:
-                continue
-
-            # Construct lagged matrices
-            Y = y[lag:]
-            Y_lagged = np.column_stack(
-                [y[lag - i - 1 : -i - 1 if i < lag - 1 else len(y) - lag] for i in range(lag)]
-            )
-            X_lagged = np.column_stack(
-                [x[lag - i - 1 : -i - 1 if i < lag - 1 else len(x) - lag] for i in range(lag)]
-            )
-
-            # Ensure proper shapes
-            min_len = min(len(Y), Y_lagged.shape[0], X_lagged.shape[0])
-            Y = Y[:min_len]
-            Y_lagged = Y_lagged[:min_len]
-            X_lagged = X_lagged[:min_len]
-
-            try:
-                # Restricted model: Y ~ Y_lagged
-                Z_r = np.column_stack([np.ones(min_len), Y_lagged])
-                beta_r, _residuals_r, _, _ = linalg.lstsq(Z_r, Y)
-                rss_r = np.sum((Y - Z_r @ beta_r) ** 2)
-
-                # Unrestricted model: Y ~ Y_lagged + X_lagged
-                Z_u = np.column_stack([np.ones(min_len), Y_lagged, X_lagged])
-                beta_u, _residuals_u, _, _ = linalg.lstsq(Z_u, Y)
-                rss_u = np.sum((Y - Z_u @ beta_u) ** 2)
-
-                # F-test
-                k_r = Z_r.shape[1]
-                k_u = Z_u.shape[1]
-                df1 = k_u - k_r
-                df2 = min_len - k_u
-
-                if df2 <= 0 or rss_u <= 0:
-                    continue
-
-                f_stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
-                p_value = 1 - stats.f.cdf(f_stat, df1, df2)
-
-                # Select best lag by BIC
-                if p_value < best_p:
-                    best_lag = lag
-                    best_f = f_stat
-                    best_p = p_value
-
-            except (linalg.LinAlgError, ValueError) as e:
-                logger.debug(f"Granger causality F-test failed for lag {lag}: {e}")
-                continue
-
-        is_causal = best_p < significance_level
-        return is_causal, float(best_f), best_lag, float(best_p)
+        return (
+            found.p_lag_adjusted < significance_level,
+            found.f_statistic,
+            found.lag,
+            found.p_lag_adjusted,
+        )
 
 
 class PropensityScoreEstimator:
@@ -835,35 +808,35 @@ class CausalDiscoveryEngine:
         """
         _n_time, n_vars = time_series.shape
         names = variable_names or [f"X{i}" for i in range(n_vars)]
-        edges = []
 
-        for i in range(n_vars):
-            for j in range(n_vars):
-                if i == j:
-                    continue
-
-                is_causal, _f_stat, opt_lag, p_value = GrangerCausalityTest.test(
-                    time_series[:, i],
-                    time_series[:, j],
-                    self.max_lag,
-                    self.significance_level,
-                )
-
-                if is_causal:
-                    # Compute effect size (R-squared improvement)
-                    strength = 1 - p_value  # Use p-value as proxy
-
-                    edges.append(
-                        CausalEdge(
-                            source=names[i],
-                            target=names[j],
-                            relation_type=CausalRelationType.DIRECT,
-                            strength=strength,
-                            confidence=1 - p_value,
-                            lag=opt_lag,
-                            p_value=p_value,
-                        )
-                    )
+        # Every ordered pair is one family of tests. Each pair's p-value is
+        # corrected for the lags it searched, and the family by Holm's
+        # procedure, so the chance of ANY false edge in this graph is at most
+        # ``significance_level``. Uncorrected, as this was, an analysis of
+        # pure noise reported at least one edge 81-94% of the time.
+        #
+        # Before that, time steps where any column is far from its median are
+        # set aside (a shock common to the columns makes each predict the
+        # others), and a window whose level is not stable across blocks is not
+        # assessed at all: it yields no edge, and the graph says why.
+        analysis = granger_analysis(time_series, self.max_lag, names)
+        tests = analysis["tests"]
+        edges = [
+            CausalEdge(
+                source=test["source"],
+                target=test["target"],
+                relation_type=CausalRelationType.DIRECT,
+                # The share of the target's unexplained variance the source's
+                # lags explain. This field used to hold 1 - p, which is not
+                # an effect size.
+                strength=test["partial_r2"],
+                confidence=1 - test["p_adjusted"],
+                lag=test["lag"],
+                p_value=test["p_adjusted"],
+            )
+            for test in tests
+            if test["p_adjusted"] <= self.significance_level
+        ]
 
         graph = CausalGraph(
             graph_id=f"temporal_causal_{int(time.time() * 1000)}",
@@ -873,6 +846,8 @@ class CausalDiscoveryEngine:
             colliders=[],
             separation_sets={},
             is_cpdag=False,  # Temporal graphs are directed
+            tests=tests,
+            analysis=analysis,
         )
 
         self._graphs[graph.graph_id] = graph

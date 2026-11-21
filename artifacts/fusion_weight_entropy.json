@@ -1,7 +1,7 @@
 {
   "schema": "mercury.research.fusion_weight_entropy/v1",
-  "generated_at": "2026-11-19T08:17:45.669259+00:00",
-  "commit": "b58c209fbf3dec9d40448f9bdae19698f20a2534",
+  "generated_at": "2026-11-21T02:50:20.796607+00:00",
+  "commit": "04d67d22f71458fda000af58006141e9e86e611a",
   "config": {
     "tables": [
       "pima_real",
@@ -86,5 +86,46 @@
       "normalized_entropy": 0.9912
     }
   },
-  "improves_on_shipped": true
+  "improves_on_shipped": true,
+  "leave_one_table_out": {
+    "folds": {
+      "breastw": {
+        "selected_on_the_other_four": "w_0.80_0.00_0.20",
+        "auc": 0.9601,
+        "shipped_adaptive_auc": 0.961,
+        "delta": -0.0009
+      },
+      "cardio": {
+        "selected_on_the_other_four": "w_0.65_0.15_0.20",
+        "auc": 0.9145,
+        "shipped_adaptive_auc": 0.904,
+        "delta": 0.0105
+      },
+      "pima_real": {
+        "selected_on_the_other_four": "w_0.65_0.15_0.20",
+        "auc": 0.6336,
+        "shipped_adaptive_auc": 0.6527,
+        "delta": -0.0191
+      },
+      "thyroid": {
+        "selected_on_the_other_four": "w_0.65_0.15_0.20",
+        "auc": 0.9499,
+        "shipped_adaptive_auc": 0.9415,
+        "delta": 0.0084
+      },
+      "wbc": {
+        "selected_on_the_other_four": "w_0.60_0.15_0.25",
+        "auc": 0.9982,
+        "shipped_adaptive_auc": 0.9894,
+        "delta": 0.0088
+      }
+    },
+    "mean_delta": 0.0015,
+    "worst_table_delta": -0.0191,
+    "bar": {
+      "mean_gain_above": 0.003,
+      "no_table_below": -0.002
+    },
+    "bar_met": false
+  }
 }

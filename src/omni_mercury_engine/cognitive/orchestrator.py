@@ -30,7 +30,7 @@ import logging
 import time
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
@@ -46,12 +46,58 @@ from omni_mercury_engine.cognitive.ethical_bounding import (
 from omni_mercury_engine.cognitive.indicator_system import IndicatorDevelopmentSystem
 from omni_mercury_engine.cognitive.ipb_engine import EnvironmentDomain, IPBEngine
 from omni_mercury_engine.cognitive.knowledge_graph import EdgeType, KnowledgeGraph, NodeType
-from omni_mercury_engine.cognitive.multi_hop_reasoner import MultiHopReasoner, Proposition
+from omni_mercury_engine.cognitive.multi_hop_reasoner import (
+    InferenceRule,
+    MultiHopReasoner,
+    Proposition,
+    ReasoningType,
+)
 from omni_mercury_engine.cognitive.plasticity_engine import AdaptationType, PlasticityEngine
 from omni_mercury_engine.cognitive.uncertainty import UncertaintyQuantifier
+from omni_mercury_engine.discovery import (
+    causal_artifact_from_analysis,
+    hypothesis_artifact,
+    matrix_digest,
+    novelty_artifact,
+)
 from omni_mercury_engine.utils.logging import LoggerMixin
 
+if TYPE_CHECKING:
+    from omni_mercury_engine.measurement import MeasurementEvidence
+
 logger = logging.getLogger(__name__)
+
+
+#: The derivations the orchestrator may make. Each is a conjunction of
+#: measured verdicts and is certain GIVEN them: the rule adds no strength of
+#: its own, so a conclusion is exactly as good as its weakest premise and
+#: carries no probability. A premise enters only when its own test passed.
+_DISCOVERY_RULES: tuple[dict[str, Any], ...] = (
+    {
+        "rule": "flagged_and_novel",
+        "premises": ("anomaly_flagged", "observation_novel"),
+        "conclusion": "candidate_new_regime",
+    },
+    {
+        "rule": "flagged_and_lagged_dependence",
+        "premises": ("anomaly_flagged", "lagged_dependence"),
+        "conclusion": "candidate_driver",
+    },
+    {
+        "rule": "new_regime_with_driver",
+        "premises": ("candidate_new_regime", "candidate_driver"),
+        "conclusion": "candidate_driven_regime",
+    },
+)
+
+#: The decision threshold the flagged premise is cut at when the detection
+#: result names none.
+_DEFAULT_FLAG_THRESHOLD = 0.5
+
+
+def _proof(evidence: MeasurementEvidence | None) -> dict[str, Any] | None:
+    """Evidence as JSON, or ``None`` when there is none."""
+    return evidence.to_dict() if evidence is not None else None
 
 
 @dataclass
@@ -63,6 +109,17 @@ class CognitiveAnalysisResult:
     anomaly_score: float
     severity: float
 
+    # What proves each uncertainty number below was measured
+    # (omni_mercury_engine.measurement). REQUIRED, with no default: ``None``
+    # is the statement "not measured" and it has to be made. The
+    # ``*_measured`` / ``confidence_calibrated`` flags are derived from these
+    # and cannot be passed in. They used to be booleans defaulting to True,
+    # so a result built without running any estimator reported its 0.0
+    # placeholders as measurements.
+    epistemic_evidence: MeasurementEvidence | None
+    aleatoric_evidence: MeasurementEvidence | None
+    calibration_evidence: MeasurementEvidence | None
+
     # Reasoning chain
     reasoning_chain: list[dict[str, Any]] = field(default_factory=list)
     causal_factors: list[str] = field(default_factory=list)
@@ -72,12 +129,6 @@ class CognitiveAnalysisResult:
     aleatoric_uncertainty: float = 0.0
     confidence: float = 0.0
     is_reliable: bool = True
-    # Transparency flags: whether epistemic/aleatoric were measured (vs a placeholder
-    # when no ensemble/model was supplied) and whether confidence came from a
-    # fitted calibrator (vs an uncalibrated monotone prior).
-    epistemic_measured: bool = True
-    aleatoric_measured: bool = True
-    confidence_calibrated: bool = False
 
     # Knowledge updates
     knowledge_updates: list[str] = field(default_factory=list)
@@ -105,11 +156,20 @@ class CognitiveAnalysisResult:
     # unchanged when the opt-in component is off.
     novelty_score: float | None = None
     is_novel: bool | None = None
-    # The challenge grounds that make the novelty verdict falsifiable: the
-    # measured standardized distance behind the score, and the threshold the
-    # is_novel verdict was cut at. None whenever novelty_score is None.
+    # What the verdict rests on: the measured standardized distance, its rank
+    # p-value among the reference distances, and the level it was compared
+    # with. ``novelty_evidence`` is None while the verdict is undetermined
+    # (too few reference distances to rank among), and ``novelty_measured``
+    # is derived from it.
     novelty_distance: float | None = None
-    novelty_threshold: float | None = None
+    novelty_p_value: float | None = None
+    novelty_alpha: float | None = None
+    novelty_evidence: MeasurementEvidence | None = None
+
+    # Discovery artifacts (omni_mercury_engine.discovery), by kind: each
+    # instrument's claim with the procedure and numbers that produced it, so
+    # it can be re-run from the record. Empty until an instrument produces one.
+    discovery: dict[str, Any] = field(default_factory=dict)
 
     # Predictive-memory forecast (opt-in): Bayesian/HMM prediction from the
     # IntegratedAnomalyDetector for this domain. Empty until a forecast is
@@ -127,6 +187,26 @@ class CognitiveAnalysisResult:
     # None on a result that was not produced by ``analyze``. Not part of
     # ``to_dict()``, whose schema is kept unchanged.
     analysis_id: int | None = None
+
+    @property
+    def epistemic_measured(self) -> bool:
+        """Whether ``epistemic_uncertainty`` was measured: it carries the evidence."""
+        return self.epistemic_evidence is not None
+
+    @property
+    def aleatoric_measured(self) -> bool:
+        """Whether ``aleatoric_uncertainty`` was measured: it carries the evidence."""
+        return self.aleatoric_evidence is not None
+
+    @property
+    def confidence_calibrated(self) -> bool:
+        """Whether ``confidence`` came through a calibrator fitted on outcomes."""
+        return self.calibration_evidence is not None
+
+    @property
+    def novelty_measured(self) -> bool:
+        """Whether the novelty verdict was measured (ranked among reference distances)."""
+        return self.novelty_evidence is not None
 
     def to_dict(self) -> dict[str, Any]:
         """To dict.
@@ -153,6 +233,11 @@ class CognitiveAnalysisResult:
             "epistemic_measured": self.epistemic_measured,
             "aleatoric_measured": self.aleatoric_measured,
             "confidence_calibrated": self.confidence_calibrated,
+            # The proof behind each flag, or None: a flag with no evidence
+            # beside it is not one a reader of this payload should accept.
+            "epistemic_evidence": _proof(self.epistemic_evidence),
+            "aleatoric_evidence": _proof(self.aleatoric_evidence),
+            "calibration_evidence": _proof(self.calibration_evidence),
             "reasoning_chain": self.reasoning_chain,
             "causal_factors": self.causal_factors,
             "similar_cases": self.similar_historical_cases,
@@ -169,7 +254,12 @@ class CognitiveAnalysisResult:
             payload["novelty_score"] = self.novelty_score
             payload["is_novel"] = self.is_novel
             payload["novelty_distance"] = self.novelty_distance
-            payload["novelty_threshold"] = self.novelty_threshold
+            payload["novelty_p_value"] = self.novelty_p_value
+            payload["novelty_alpha"] = self.novelty_alpha
+            payload["novelty_measured"] = self.novelty_measured
+            payload["novelty_evidence"] = _proof(self.novelty_evidence)
+        if self.discovery:
+            payload["discovery"] = self.discovery
         if self.predictive_forecast:
             payload["predictive_forecast"] = self.predictive_forecast
         return payload
@@ -317,6 +407,16 @@ class CognitiveOrchestrator(LoggerMixin):
             max_chain_depth=5,
             enable_explanation_generation=True,
         )
+        for rule in _DISCOVERY_RULES:
+            self.reasoner.add_rule(
+                InferenceRule(
+                    rule_id=rule["rule"],
+                    premises=list(rule["premises"]),
+                    conclusion=rule["conclusion"],
+                    reasoning_type=ReasoningType.DEDUCTIVE,
+                    confidence=1.0,
+                )
+            )
         self.uncertainty = UncertaintyQuantifier(
             n_monte_carlo=20,
             reliability_threshold=0.15,
@@ -329,6 +429,13 @@ class CognitiveOrchestrator(LoggerMixin):
         self.cbr = CaseBasedReasoner() if enable_cbr else None
         self.indicators = IndicatorDevelopmentSystem() if enable_indicators else None
         self.curiosity = CuriosityEngine() if enable_curiosity else None
+        # One novelty reference per caller scope (context["reference_scope"]):
+        # "unlike what has been seen" means unlike what THAT caller has shown,
+        # and a reference built from one caller's observations is not handed
+        # to another. ``self.curiosity`` is the reference of calls that name
+        # no scope (a library or command-line user). Least recently used
+        # scopes are dropped past the bound.
+        self._curiosity_by_scope: OrderedDict[str, CuriosityEngine] = OrderedDict()
         # No simulated/external sources on the runtime path -> no network I/O.
         self.enhanced_detector = (
             IntegratedAnomalyDetector(use_simulated_sources=False)
@@ -435,8 +542,9 @@ class CognitiveOrchestrator(LoggerMixin):
             anomaly_detected=anomaly_detected,
             anomaly_score=anomaly_score,
             severity=severity,
-            epistemic_measured=False,
-            aleatoric_measured=False,
+            epistemic_evidence=None,
+            aleatoric_evidence=None,
+            calibration_evidence=None,
         )
         symbolic_consistency = context.get("symbolic_consistency")
         if isinstance(symbolic_consistency, dict):
@@ -557,9 +665,9 @@ class CognitiveOrchestrator(LoggerMixin):
             result.is_reliable = uncertainty_est.is_reliable
             # Carry the transparency flags downstream so narrative/explanation layers
             # do not present a placeholder/uncalibrated number as a measurement.
-            result.epistemic_measured = uncertainty_est.epistemic_measured
-            result.aleatoric_measured = uncertainty_est.aleatoric_measured
-            result.confidence_calibrated = uncertainty_est.confidence_calibrated
+            result.epistemic_evidence = uncertainty_est.epistemic_evidence
+            result.aleatoric_evidence = uncertainty_est.aleatoric_evidence
+            result.calibration_evidence = uncertainty_est.calibration_evidence
 
         # === STEP 2: KNOWLEDGE GRAPH UPDATE ===
         if anomaly_detected:
@@ -588,33 +696,9 @@ class CognitiveOrchestrator(LoggerMixin):
                 result.knowledge_updates.append(self._link_observation_to_domain(obs_id, domain))
 
         # === STEP 3: MULTI-HOP REASONING ===
-        if anomaly_detected and anomaly_score > 0.5:
-            # Build premises from detection
-            premises = [
-                Proposition(
-                    prop_id="anomaly_detected",
-                    content=f"Anomaly detected with score {anomaly_score:.2f}",
-                    truth_value=anomaly_score,
-                ),
-                Proposition(
-                    prop_id=f"severity_{int(severity * 10)}",
-                    content=f"Severity level {severity:.2f}",
-                    truth_value=severity,
-                ),
-            ]
-
-            # Attempt multi-hop reasoning
-            chain = self.reasoner.multi_hop_reason(premises)
-            if chain:
-                result.reasoning_chain = [
-                    {
-                        "step": i,
-                        "rule": step.rule_applied.rule_id,
-                        "conclusion": step.conclusion_derived.content,
-                        "confidence": step.confidence,
-                    }
-                    for i, step in enumerate(chain.steps)
-                ]
+        # Runs as step 9b, after the instruments whose verdicts are its
+        # premises (the novelty verdict and the lagged dependences). Here it
+        # was given two premises no rule could match, and derived nothing.
 
         # === STEP 4: CAUSAL DISCOVERY ===
         if self.causal and raw_data is not None and raw_data.shape[0] > 10:
@@ -623,13 +707,26 @@ class CognitiveOrchestrator(LoggerMixin):
                     raw_data = raw_data.reshape(-1, 1)
 
                 if raw_data.shape[1] > 1:
-                    # Discover temporal causation
-                    causal_graph = self.causal.discover_temporal_causation(raw_data[:, :5])
+                    # Discover temporal causation over the leading columns.
+                    window = np.asarray(raw_data[:, :5], dtype=float)
+                    causal_graph = self.causal.discover_temporal_causation(window)
 
                     result.causal_factors = [
-                        f"{e.source} → {e.target} (lag={e.lag}, strength={e.strength:.2f})"
+                        f"{e.source} → {e.target} (lag={e.lag}, "
+                        f"partial R²={e.strength:.2f}, adjusted p={e.p_value:.2g})"
                         for e in causal_graph.edges[:5]
                     ]
+                    # The finding as an artifact: every pair tested with its
+                    # sums of squares, so the corrected verdict re-derives
+                    # from the record, and the window's digest, so the sums
+                    # of squares can be recomputed from the data.
+                    result.discovery["causal"] = causal_artifact_from_analysis(
+                        causal_graph.analysis,
+                        input_shape=window.shape,
+                        input_digest=matrix_digest(window),
+                        max_lag=self.causal.max_lag,
+                        alpha=self.causal.significance_level,
+                    )
             except Exception as e:
                 logger.debug(f"Causal discovery skipped: {e}")
 
@@ -717,19 +814,39 @@ class CognitiveOrchestrator(LoggerMixin):
                 else:
                     # No usable raw features (None or empty) -> score/severity.
                     observation = {"score": anomaly_score, "severity": severity}
-                exploration = self.curiosity.explore(
+                exploration = self._curiosity_for(context.get("reference_scope")).explore(
                     f"anomaly:{context.get('domain', _DEFAULT_DOMAIN)}", observation
                 )
                 result.novelty_score = exploration.novelty_score
                 result.is_novel = exploration.is_novel
-                # The challenge grounds: the measured distance behind the
-                # score and the threshold the verdict was cut at, so a
-                # reviewer can falsify the verdict by re-measuring
-                # (CuriosityEngine.novelty(), read-only) rather than take it.
                 result.novelty_distance = float(exploration.standardized_distance)
-                result.novelty_threshold = float(self.curiosity.novelty_threshold)
+                result.novelty_p_value = exploration.p_value
+                result.novelty_alpha = exploration.alpha
+                result.novelty_evidence = exploration.evidence
+                # The verdict as an artifact: the observation, the reference
+                # it was scored against and the reference distances it was
+                # ranked among, so it replays from the record alone. None
+                # while the verdict is undetermined: there is then no claim.
+                artifact = novelty_artifact(
+                    observation=exploration.observation,
+                    reference_mean=exploration.reference_mean,
+                    reference_std=exploration.reference_std,
+                    reference_n=exploration.reference_n,
+                    calibration=exploration.calibration,
+                    alpha=exploration.alpha,
+                    standardized_distance=exploration.standardized_distance,
+                    p_value=exploration.p_value,
+                    is_novel=exploration.is_novel,
+                    disclose=bool(context.get("disclose_reference", True)),
+                )
+                if artifact is not None:
+                    result.discovery["novelty"] = artifact
             except Exception as e:
                 logger.debug(f"Curiosity novelty scoring skipped: {e}")
+
+        # === STEP 9b: DERIVED HYPOTHESIS ===
+        if anomaly_detected:
+            self._derive_hypothesis(result, detection_result)
 
         # === STEP 10: PREDICTIVE-MEMORY AUGMENTATION ===
         # Fold every observation into the Bayesian/HMM predictive memory and, for
@@ -831,6 +948,155 @@ class CognitiveOrchestrator(LoggerMixin):
             severity=severity,
             anomaly_prob=anomaly_prob,
         )
+
+    #: Caller scopes whose novelty reference is kept at once.
+    REFERENCE_SCOPE_LIMIT: ClassVar[int] = 256
+
+    def _curiosity_for(self, scope: Any) -> CuriosityEngine:
+        """The novelty reference for ``scope`` (the unscoped one when none is named)."""
+        if self.curiosity is None:  # pragma: no cover - callers check first
+            raise RuntimeError("curiosity is not enabled")
+        if not isinstance(scope, str) or not scope:
+            return self.curiosity
+        engine = self._curiosity_by_scope.get(scope)
+        if engine is None:
+            engine = CuriosityEngine(alpha=self.curiosity.alpha)
+            self._curiosity_by_scope[scope] = engine
+            while len(self._curiosity_by_scope) > self.REFERENCE_SCOPE_LIMIT:
+                self._curiosity_by_scope.popitem(last=False)
+        else:
+            self._curiosity_by_scope.move_to_end(scope)
+        return engine
+
+    def _derive_hypothesis(
+        self, result: CognitiveAnalysisResult, detection_result: dict[str, Any]
+    ) -> None:
+        """Derive what follows from the measured verdicts, and record it as an artifact.
+
+        The premises are verdicts that passed their own tests: the detection
+        flag against its threshold, the novelty verdict against its level,
+        the strongest lagged dependence against the family-wise level. The
+        reasoner chains the rules in :data:`_DISCOVERY_RULES` over them. A
+        step carries no confidence, because none was measured: the
+        conclusion's standing is its premises', and the artifact names the
+        one closest to failing and the value at which it does.
+        """
+        premises: list[dict[str, Any]] = []
+        score = result.anomaly_score
+        if isinstance(score, (int, float, np.floating)) and not isinstance(score, bool):
+            raw = detection_result.get("threshold_used", detection_result.get("threshold"))
+            threshold = _DEFAULT_FLAG_THRESHOLD
+            if isinstance(raw, (int, float, np.floating)) and not isinstance(raw, bool):
+                named = float(raw)
+                if 0.0 < named <= 1.0:
+                    threshold = named
+            if np.isfinite(score) and float(score) >= threshold:
+                premises.append(
+                    {
+                        "id": "anomaly_flagged",
+                        "statement": (
+                            f"The detection flagged this input: P(anomaly) {float(score):.3f} "
+                            f"at or above the decision threshold {threshold:.3f}."
+                        ),
+                        "statistic": float(score),
+                        "op": ">=",
+                        "cut": threshold,
+                        "source": "detection",
+                    }
+                )
+        novelty = result.discovery.get("novelty")
+        if novelty is not None and novelty["claim"]["is_novel"]:
+            premises.append(
+                {
+                    "id": "observation_novel",
+                    "statement": (
+                        "The observation's distance from the reference ranks in the top "
+                        f"{novelty['inputs']['alpha']:.0%} of the reference's own distances "
+                        f"(p={novelty['claim']['p_value']:.3g})."
+                    ),
+                    "statistic": float(novelty["claim"]["p_value"]),
+                    "op": "<=",
+                    "cut": float(novelty["inputs"]["alpha"]),
+                    "source": "novelty",
+                }
+            )
+        edge: dict[str, Any] | None = None
+        causal = result.discovery.get("causal")
+        if causal is not None and causal["claim"]["edges"]:
+            edge = min(causal["claim"]["edges"], key=lambda e: (e["p_adjusted"], -e["partial_r2"]))
+            premises.append(
+                {
+                    "id": "lagged_dependence",
+                    "statement": (
+                        f"Within this window {edge['source']} leads {edge['target']} at lag "
+                        f"{edge['lag']} (partial R² {edge['partial_r2']:.2f}, "
+                        f"adjusted p={edge['p_adjusted']:.2g})."
+                    ),
+                    "statistic": float(edge["p_adjusted"]),
+                    "op": "<=",
+                    "cut": float(causal["inputs"]["alpha"]),
+                    "source": "causal",
+                    "edge": {
+                        "source": edge["source"],
+                        "target": edge["target"],
+                        "lag": edge["lag"],
+                    },
+                }
+            )
+        if len(premises) < 2:
+            return
+        chain = self.reasoner.multi_hop_reason(
+            [
+                Proposition(prop_id=p["id"], content=p["statement"], truth_value=1.0)
+                for p in premises
+            ]
+        )
+        if chain is None or not chain.steps:
+            return
+        steps: list[dict[str, Any]] = [
+            {
+                "rule": step.rule_applied.rule_id,
+                "premises": [used.prop_id for used in step.premises_used],
+                "conclusion": step.conclusion_derived.prop_id,
+            }
+            for step in chain.steps
+        ]
+        conclusion = str(steps[-1]["conclusion"])
+        lead = (
+            f"{edge['source']} leads {edge['target']} at lag {edge['lag']}"
+            if edge is not None
+            else ""
+        )
+        statement = {
+            "candidate_new_regime": (
+                "The flagged observation is unlike the reference: a candidate new regime, "
+                "not a recurrence of what has been seen."
+            ),
+            "candidate_driver": (
+                f"Within this window {lead}: a candidate driver of the flagged behaviour."
+            ),
+            "candidate_driven_regime": (
+                f"A candidate new regime in which {lead}: unlike the reference, with a "
+                "candidate driver."
+            ),
+        }.get(conclusion, conclusion)
+        result.reasoning_chain = [
+            {
+                "step": index,
+                "rule": step["rule"],
+                "premises": step["premises"],
+                "conclusion": step["conclusion"],
+                # None, not a number: a conjunction of verdicts has no measured
+                # confidence of its own, and a constant here would read as one.
+                "confidence": None,
+            }
+            for index, step in enumerate(steps)
+        ]
+        artifact = hypothesis_artifact(
+            conclusion=conclusion, statement=statement, premises=premises, steps=steps
+        )
+        if artifact is not None:
+            result.discovery["hypothesis"] = artifact
 
     def _link_observation_to_domain(self, obs_id: str, domain: Any) -> str:
         """Link an observation node to its domain node and say what happened.

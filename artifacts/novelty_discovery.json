@@ -1,6 +1,6 @@
 {
   "schema": "mercury.research.novelty_discovery/v1",
-  "generated_at": "2026-11-20T20:42:20.409434+00:00",
+  "generated_at": "2026-11-21T02:41:46.554767+00:00",
   "protocol": {
     "observed": "fit-split normal rows (the detector's own fit data)",
     "scored": "held-out rows, read-only (novelty()) and absorbing (explore())",
@@ -9,67 +9,148 @@
   "per_dataset": {
     "pima_real/seed0": {
       "read_only_auroc": 0.7186666666666667,
-      "absorbing_auroc": 0.7120833333333333
+      "absorbing_auroc": 0.7120833333333333,
+      "score_cut_normal_called_novel": 0.18666666666666668,
+      "score_cut_anomalies_called_novel": 0.5,
+      "rank_normal_called_novel": 0.04,
+      "rank_anomalies_called_novel": 0.0875
     },
     "pima_real/seed1": {
       "read_only_auroc": 0.67525,
-      "absorbing_auroc": 0.6638333333333334
+      "absorbing_auroc": 0.6638333333333334,
+      "score_cut_normal_called_novel": 0.16666666666666666,
+      "score_cut_anomalies_called_novel": 0.45,
+      "rank_normal_called_novel": 0.02,
+      "rank_anomalies_called_novel": 0.0125
     },
     "pima_real/seed2": {
       "read_only_auroc": 0.7105,
-      "absorbing_auroc": 0.6956666666666667
+      "absorbing_auroc": 0.6956666666666667,
+      "score_cut_normal_called_novel": 0.19333333333333333,
+      "score_cut_anomalies_called_novel": 0.45,
+      "rank_normal_called_novel": 0.04666666666666667,
+      "rank_anomalies_called_novel": 0.1
     },
     "cardio/seed0": {
       "read_only_auroc": 0.9781715260545906,
-      "absorbing_auroc": 0.9672766749379652
+      "absorbing_auroc": 0.9672766749379652,
+      "score_cut_normal_called_novel": 0.16129032258064516,
+      "score_cut_anomalies_called_novel": 0.9807692307692307,
+      "rank_normal_called_novel": 0.06854838709677419,
+      "rank_anomalies_called_novel": 0.9230769230769231
     },
     "cardio/seed1": {
       "read_only_auroc": 0.9534739454094293,
-      "absorbing_auroc": 0.9436647022332506
+      "absorbing_auroc": 0.9436647022332506,
+      "score_cut_normal_called_novel": 0.14919354838709678,
+      "score_cut_anomalies_called_novel": 0.9038461538461539,
+      "rank_normal_called_novel": 0.05241935483870968,
+      "rank_anomalies_called_novel": 0.7307692307692307
     },
     "cardio/seed2": {
       "read_only_auroc": 0.964485111662531,
-      "absorbing_auroc": 0.9530474565756824
+      "absorbing_auroc": 0.9530474565756824,
+      "score_cut_normal_called_novel": 0.15524193548387097,
+      "score_cut_anomalies_called_novel": 0.9423076923076923,
+      "rank_normal_called_novel": 0.02620967741935484,
+      "rank_anomalies_called_novel": 0.7115384615384616
     },
     "breastw/seed0": {
       "read_only_auroc": 0.9927988986550884,
-      "absorbing_auroc": 0.9799851742031134
+      "absorbing_auroc": 0.9799851742031134,
+      "score_cut_normal_called_novel": 0.12030075187969924,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.06015037593984962,
+      "rank_anomalies_called_novel": 0.9859154929577465
     },
     "breastw/seed1": {
       "read_only_auroc": 0.9926930001058986,
-      "absorbing_auroc": 0.9848565074658477
+      "absorbing_auroc": 0.9848565074658477,
+      "score_cut_normal_called_novel": 0.09022556390977443,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.03007518796992481,
+      "rank_anomalies_called_novel": 0.971830985915493
     },
     "breastw/seed2": {
       "read_only_auroc": 0.9930106957534682,
-      "absorbing_auroc": 0.989727840728582
+      "absorbing_auroc": 0.989727840728582,
+      "score_cut_normal_called_novel": 0.08270676691729323,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.03759398496240601,
+      "rank_anomalies_called_novel": 0.9577464788732394
     },
     "wbc/seed0": {
       "read_only_auroc": 1.0,
-      "absorbing_auroc": 1.0
+      "absorbing_auroc": 1.0,
+      "score_cut_normal_called_novel": 0.12698412698412698,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.031746031746031744,
+      "rank_anomalies_called_novel": 1.0
     },
     "wbc/seed1": {
       "read_only_auroc": 1.0,
-      "absorbing_auroc": 0.9947089947089947
+      "absorbing_auroc": 0.9947089947089947,
+      "score_cut_normal_called_novel": 0.15873015873015872,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.031746031746031744,
+      "rank_anomalies_called_novel": 1.0
     },
     "wbc/seed2": {
       "read_only_auroc": 0.9947089947089947,
-      "absorbing_auroc": 1.0
+      "absorbing_auroc": 1.0,
+      "score_cut_normal_called_novel": 0.1746031746031746,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.031746031746031744,
+      "rank_anomalies_called_novel": 1.0
     },
     "thyroid/seed0": {
       "read_only_auroc": 0.9874752358886538,
-      "absorbing_auroc": 0.9859977838218998
+      "absorbing_auroc": 0.9859977838218998,
+      "score_cut_normal_called_novel": 0.13236627379873073,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.03989120580235721,
+      "rank_anomalies_called_novel": 0.9259259259259259
     },
     "thyroid/seed1": {
       "read_only_auroc": 0.9811289076928242,
-      "absorbing_auroc": 0.9796850340821329
+      "absorbing_auroc": 0.9796850340821329,
+      "score_cut_normal_called_novel": 0.14233907524932005,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.0371713508612874,
+      "rank_anomalies_called_novel": 0.7777777777777778
     },
     "thyroid/seed2": {
       "read_only_auroc": 0.9807595446761358,
-      "absorbing_auroc": 0.9786441019441926
+      "absorbing_auroc": 0.9786441019441926,
+      "score_cut_normal_called_novel": 0.1314596554850408,
+      "score_cut_anomalies_called_novel": 1.0,
+      "rank_normal_called_novel": 0.029918404351767906,
+      "rank_anomalies_called_novel": 0.7777777777777778
     }
   },
   "mean": {
     "read_only_auroc": 0.9282,
-    "absorbing_auroc": 0.9219
+    "absorbing_auroc": 0.9219,
+    "score_cut_normal_called_novel": 0.1448,
+    "score_cut_anomalies_called_novel": 0.8818,
+    "rank_normal_called_novel": 0.0389,
+    "rank_anomalies_called_novel": 0.7308
+  },
+  "verdict": {
+    "alpha": 0.05,
+    "score_cut": 0.7,
+    "bar": {
+      "rank_normal_called_novel_mean_max": 0.07,
+      "per_table_max": 0.1
+    },
+    "rank_normal_called_novel_by_table": {
+      "pima_real": 0.0356,
+      "cardio": 0.0491,
+      "breastw": 0.0426,
+      "wbc": 0.0317,
+      "thyroid": 0.0357
+    },
+    "rank_normal_called_novel_worst_table": 0.0491,
+    "bar_met": true
   }
 }

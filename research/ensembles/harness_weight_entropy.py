@@ -136,6 +136,46 @@ def mean_rank(per_config: dict[str, dict[str, float]]) -> dict[str, float]:
     return {c: round(totals[c] / len(tables), 4) for c in configs}
 
 
+#: The standing adoption bar: a mean gain above +0.003 with no table below -0.002.
+ADOPTION_MEAN_GAIN = 0.003
+ADOPTION_WORST_TABLE = -0.002
+
+
+def leave_one_table_out(
+    per_config: dict[str, dict[str, float]], in_band: list[str]
+) -> dict[str, Any]:
+    """Does a weight vector chosen on four tables beat the shipped weights on the fifth?
+
+    The in-band winner above is selected on the same tables it is scored on,
+    which is why it was recorded and not adopted.  Here each table is held
+    out in turn: the vector with the best mean rank on the other four is
+    selected, and scored on the one it never saw, beside the shipped adaptive
+    weights on that same table.
+    """
+    tables = sorted(per_config["shipped_adaptive"])
+    folds: dict[str, dict[str, Any]] = {}
+    for held in tables:
+        seen = [table for table in tables if table != held]
+        ranks = mean_rank({key: {t: per_config[key][t] for t in seen} for key in in_band})
+        chosen = min(in_band, key=lambda key: ranks[key])
+        shipped = per_config["shipped_adaptive"][held]
+        folds[held] = {
+            "selected_on_the_other_four": chosen,
+            "auc": per_config[chosen][held],
+            "shipped_adaptive_auc": shipped,
+            "delta": round(per_config[chosen][held] - shipped, 4),
+        }
+    deltas = [fold["delta"] for fold in folds.values()]
+    mean_delta, worst = float(np.mean(deltas)), float(min(deltas))
+    return {
+        "folds": folds,
+        "mean_delta": round(mean_delta, 4),
+        "worst_table_delta": round(worst, 4),
+        "bar": {"mean_gain_above": ADOPTION_MEAN_GAIN, "no_table_below": ADOPTION_WORST_TABLE},
+        "bar_met": mean_delta > ADOPTION_MEAN_GAIN and worst >= ADOPTION_WORST_TABLE,
+    }
+
+
 def main() -> int:
     data = component_scores()
     grid = simplex_grid()
@@ -200,6 +240,7 @@ def main() -> int:
             "fixed_403030": summary("w_0.40_0.30_0.30"),
         },
         "improves_on_shipped": ranks[selected] < ranks["shipped_adaptive"],
+        "leave_one_table_out": leave_one_table_out(per_config, in_band),
     }
     ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
     ARTIFACT_PATH.write_text(json.dumps(artifact, indent=2) + "\n")
@@ -217,6 +258,17 @@ def main() -> int:
             f"rank {cell['mean_rank']:8.2f} H {cell['normalized_entropy']:.3f}"
         )
     print(f"improves on shipped adaptive: {artifact['improves_on_shipped']}")
+    held_out = artifact["leave_one_table_out"]
+    for table, fold in held_out["folds"].items():
+        print(
+            f"  held out {table:10s} chose {fold['selected_on_the_other_four']:18s} "
+            f"AUC {fold['auc']:.4f} vs shipped {fold['shipped_adaptive_auc']:.4f} "
+            f"delta {fold['delta']:+.4f}"
+        )
+    print(
+        f"leave-one-table-out: mean delta {held_out['mean_delta']:+.4f}, worst table "
+        f"{held_out['worst_table_delta']:+.4f}, bar met: {held_out['bar_met']}"
+    )
     print(f"wrote {ARTIFACT_PATH.relative_to(_ROOT)}")
     return 0
 

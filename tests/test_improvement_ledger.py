@@ -164,7 +164,37 @@ class TestCommittedDecisions:
         selected = measured["selected_in_band"]
         assert entry["impact"]["winner_mean_auroc"] == pytest.approx(selected["mean_auc"])
         assert entry["impact"]["winner_mean_rank"] == pytest.approx(selected["mean_rank"])
-        assert entry["verdict"] == "recorded_not_adopted"
+        # It was recorded, not adopted, pending a run on tables the selection
+        # never saw. That run now exists and refuses it: the ledger says what
+        # the artifact measured, clause by clause.
+        held_out = measured["leave_one_table_out"]
+        recorded = entry["impact"]["leave_one_table_out"]
+        assert entry["verdict"] == "refused"
+        assert held_out["bar_met"] is False and recorded["bar_met"] is False
+        assert recorded["mean_delta"] == pytest.approx(held_out["mean_delta"])
+        assert recorded["worst_table_delta"] == pytest.approx(held_out["worst_table_delta"])
+        assert held_out["mean_delta"] <= held_out["bar"]["mean_gain_above"]
+        assert held_out["worst_table_delta"] < held_out["bar"]["no_table_below"]
+        assert set(recorded["per_table_delta"]) == set(held_out["folds"])
+
+    def test_adopted_entries_with_a_bar_say_whether_it_was_met(self) -> None:
+        """An adoption that leaves a bar unmet has to say so in so many words."""
+        data = published()
+        assert data is not None
+        gate = next(
+            d
+            for d in data["decisions"]
+            if d["component"] == "cognitive.causal_discovery.stability_gate"
+        )
+        assert gate["verdict"] == "adopted"
+        assert gate["impact"]["coverage_bar_met"] is False
+        assert "not a claim that the bar was cleared" in gate["why_adopted_with_a_bar_unmet"]
+        for component in (
+            "cognitive.causal_discovery.first_difference",
+            "cognitive.causal_discovery.residual_guard",
+        ):
+            refused = next(d for d in data["decisions"] if d["component"] == component)
+            assert refused["verdict"] == "refused" and refused["why_refused"]
 
 
 class TestRuntimeHooks:

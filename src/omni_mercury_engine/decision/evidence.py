@@ -45,6 +45,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from omni_mercury_engine.discovery import sealed as discovery_sealed
+from omni_mercury_engine.measurement import MeasurementEvidence
+
 #: Hard cap on each ``contributions`` map: enough to name every detector and
 #: the strongest features, never the raw full explanation.
 _MAX_CONTRIBUTION_ENTRIES = 16
@@ -164,18 +167,34 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
             return []
         return [str(item)[:160] for item in value if str(item).strip()][:limit]
 
-    def flag(key: str) -> bool | None:
-        value = analysis.get(key)
-        return bool(value) if isinstance(value, bool) else None
+    def proof(key: str) -> dict[str, Any] | None:
+        evidence = MeasurementEvidence.from_dict(analysis.get(key))
+        return evidence.to_dict() if evidence is not None else None
 
+    def flag(key: str, evidence_key: str) -> bool | None:
+        """A measured flag is believed only with the evidence that proves it.
+
+        Absent or mistyped reads as unknown (``None``).  ``True`` beside
+        evidence that parses is a measurement.  ``True`` with no such
+        evidence is a claim, not a measurement, and reads as ``False``.
+        """
+        value = analysis.get(key)
+        if not isinstance(value, bool):
+            return None
+        return value and proof(evidence_key) is not None
+
+    discovery = _discovery_artifacts(analysis.get("discovery"))
     return {
         "is_reliable": (bool(analysis["is_reliable"]) if "is_reliable" in analysis else None),
         "confidence": _as_float(analysis.get("confidence")),
-        "confidence_calibrated": flag("confidence_calibrated"),
+        "confidence_calibrated": flag("confidence_calibrated", "calibration_evidence"),
+        "calibration_evidence": proof("calibration_evidence"),
         "epistemic_uncertainty": _as_float(analysis.get("epistemic_uncertainty")),
-        "epistemic_measured": flag("epistemic_measured"),
+        "epistemic_measured": flag("epistemic_measured", "epistemic_evidence"),
+        "epistemic_evidence": proof("epistemic_evidence"),
         "aleatoric_uncertainty": _as_float(analysis.get("aleatoric_uncertainty")),
-        "aleatoric_measured": flag("aleatoric_measured"),
+        "aleatoric_measured": flag("aleatoric_measured", "aleatoric_evidence"),
+        "aleatoric_evidence": proof("aleatoric_evidence"),
         "ethical_permissible": (
             bool(analysis["ethical_permissible"]) if "ethical_permissible" in analysis else None
         ),
@@ -185,9 +204,16 @@ def _cognitive_summary(analysis: Any) -> dict[str, Any] | None:
         # component is unchanged.
         "novelty_score": _as_float(analysis.get("novelty_score")),
         "is_novel": (bool(analysis["is_novel"]) if "is_novel" in analysis else None),
+        "novelty_measured": flag("novelty_measured", "novelty_evidence"),
+        "novelty_evidence": proof("novelty_evidence"),
         "novelty_challenge": _novelty_challenge(analysis),
         "causal_factors": strings(analysis.get("causal_factors"), 5),
-        "hypothesis": _chain_hypothesis(analysis.get("reasoning_chain")),
+        "hypothesis": _artifact_hypothesis(discovery.get("hypothesis"))
+        or _chain_hypothesis(analysis.get("reasoning_chain")),
+        # The discovery artifacts themselves (omni_mercury_engine.discovery):
+        # each claim with the procedure and the numbers that produced it, so
+        # it can be replayed from this record without the process that made it.
+        "discovery": discovery or None,
         "similar_cases": strings(analysis.get("similar_cases"), 5),
         "recommendations": strings(analysis.get("recommendations"), 5),
     }
@@ -248,24 +274,98 @@ def _chain_hypothesis(chain: Any) -> dict[str, Any] | None:
 def _novelty_challenge(analysis: Mapping[str, Any]) -> dict[str, Any] | None:
     """The challenge grounds of a novelty verdict, or ``None`` without one.
 
-    Carries the measured standardized distance behind the score and the
-    threshold the ``is_novel`` verdict was cut at, plus the recipe that
-    falsifies it, so the verdict can be re-measured rather than taken.
+    Carries the measured standardized distance, its rank p-value among the
+    reference distances and the level the verdict was cut at, plus the recipe
+    that falsifies it.  The numbers the recipe needs ride the record itself,
+    in ``discovery.novelty``.
     """
     if _as_float(analysis.get("novelty_score")) is None:
         return None
     distance = _as_float(analysis.get("novelty_distance"))
-    threshold = _as_float(analysis.get("novelty_threshold"))
-    if distance is None and threshold is None:
+    p_value = _as_float(analysis.get("novelty_p_value"))
+    alpha = _as_float(analysis.get("novelty_alpha"))
+    if distance is None and p_value is None:
         return None
     return {
         "standardized_distance": distance,
-        "novelty_threshold": threshold,
+        "p_value": p_value,
+        "alpha": alpha,
         "falsifiable_by": (
-            "re-score read-only (CuriosityEngine.novelty()) against the "
-            "fitted distribution as it grows; is_novel falls when the score "
-            "drops below the threshold"
+            "replay discovery.novelty from this record (mercury-agent replay); "
+            "is_novel is withdrawn when the distance no longer ranks in the top "
+            "alpha of the reference distances"
         ),
+    }
+
+
+#: The discovery artifact kinds a record carries.
+_DISCOVERY_KINDS = ("novelty", "causal", "hypothesis")
+
+
+def _discovery_artifacts(raw: Any) -> dict[str, Any]:
+    """The discovery artifacts of a cognitive payload that are what they claim to be.
+
+    Only the known kinds, and only artifacts whose digest matches their own
+    content: one that was truncated or altered on the way here is dropped
+    rather than carried into the record as if it could be replayed.
+    """
+    if not isinstance(raw, Mapping):
+        return {}
+    kept: dict[str, Any] = {}
+    for kind in _DISCOVERY_KINDS:
+        artifact = raw.get(kind)
+        if (
+            isinstance(artifact, Mapping)
+            and artifact.get("kind") == kind
+            and discovery_sealed(artifact)
+        ):
+            kept[kind] = _plain(artifact)
+    return kept
+
+
+def _plain(value: Any) -> Any:
+    """A JSON-plain deep copy (mappings to dicts, sequences to lists)."""
+    if isinstance(value, Mapping):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    return value
+
+
+def _artifact_hypothesis(artifact: Any) -> dict[str, Any] | None:
+    """The record's hypothesis summary, read from a hypothesis artifact.
+
+    Same shape :func:`_chain_hypothesis` gives a generic chain.  The
+    confidence is ``None`` because none was measured: the conclusion stands
+    on its premises, and the falsifier names the one closest to failing.
+    """
+    if not isinstance(artifact, Mapping):
+        return None
+    claim, inputs = artifact.get("claim"), artifact.get("inputs")
+    if not isinstance(claim, Mapping) or not isinstance(inputs, Mapping):
+        return None
+    steps = inputs.get("steps") or []
+    challenge = artifact.get("challenge") or {}
+    weakest = challenge.get("weakest_link") if isinstance(challenge, Mapping) else None
+    falsifier: dict[str, Any] | None = None
+    if isinstance(weakest, Mapping):
+        falsifier = {
+            "weakest_step": str(weakest.get("statement", ""))[:240],
+            "rule": str(weakest.get("premise", ""))[:80],
+            "confidence": None,
+            "margin": _as_float(weakest.get("margin")),
+            "withdrawn_if": str(challenge.get("withdrawn_if", ""))[:160],
+            "falsifiable_by": (
+                "replay discovery.hypothesis from this record (mercury-agent replay): "
+                "the conclusion is withdrawn the moment a premise fails"
+            ),
+        }
+    return {
+        "conclusion": str(claim.get("statement", ""))[:240],
+        "confidence": None,
+        "rule": str(steps[-1].get("rule", ""))[:80] if steps else "",
+        "chain_depth": len(steps),
+        "falsifier": falsifier,
     }
 
 
