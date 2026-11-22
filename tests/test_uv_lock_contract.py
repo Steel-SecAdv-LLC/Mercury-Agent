@@ -41,13 +41,33 @@ def test_every_uv_sync_is_locked() -> None:
             assert "--locked" in line, (path, line)
 
 
+def _dockerfile_uv_pins(dockerfile: str) -> set[str]:
+    """The uv versions pinned by the hash-locked files the Dockerfile installs.
+
+    The builder installs uv from ``requirements/ci/uv.txt`` with
+    ``pip install --require-hashes`` (Scorecard Pinned-Dependencies), so the
+    version lives in that lock file, not in the Dockerfile text.
+    """
+    pins: set[str] = set()
+    for line in re.findall(r"^RUN pip install[^\n]*$", dockerfile, re.M):
+        if "--require-hashes" not in line:
+            continue
+        for rel in re.findall(r"-r /app/(requirements/ci/[\w.-]+\.txt)", line):
+            text = (REPO / rel).read_text(encoding="utf-8")
+            pins.update(re.findall(r"^uv==(\d+\.\d+\.\d+) ", text, re.M))
+    return pins
+
+
 def test_ci_lanes_and_dockerfile_pin_the_same_uv_version() -> None:
     ci = CI.read_text(encoding="utf-8")
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     ci_versions = set(re.findall(r'^\s+version: "(\d+\.\d+\.\d+)"\s*$', ci, re.M))
-    docker_version = re.search(r'"uv==(\d+\.\d+\.\d+)"', dockerfile)
-    assert docker_version is not None
-    assert ci_versions == {docker_version.group(1)}, (ci_versions, docker_version.group(1))
+    # uv reaches the image only through a hash-locked requirement file: an
+    # unhashed ``uv==`` literal in the Dockerfile would bypass the lock.
+    assert not re.search(r"uv==\d", dockerfile), "install uv from requirements/ci/uv.txt"
+    docker_versions = _dockerfile_uv_pins(dockerfile)
+    assert len(docker_versions) == 1, docker_versions
+    assert ci_versions == docker_versions, (ci_versions, docker_versions)
 
 
 def test_hardening_lane_checks_the_lock_and_builder_copies_it() -> None:
