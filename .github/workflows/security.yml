@@ -12,9 +12,11 @@ on:
   # merge commit message (see CONTRIBUTING.md "Squash-merge gotcha").
   workflow_dispatch:
 
+# Least privilege (OpenSSF Scorecard Token-Permissions): read-only by
+# default; the jobs that upload SARIF declare security-events: write
+# themselves (container-scan, filesystem-scan, codeql-analysis).
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -155,6 +157,9 @@ jobs:
   container-scan:
     name: Container Security Scan (Trivy)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload-sarif
     steps:
     - name: Checkout repository (attempt 1)
       id: checkout
@@ -336,6 +341,9 @@ jobs:
   filesystem-scan:
     name: Filesystem Security Scan (Trivy)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # upload-sarif
     steps:
     - name: Checkout repository (attempt 1)
       id: checkout
