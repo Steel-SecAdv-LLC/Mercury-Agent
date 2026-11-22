@@ -22,9 +22,11 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
 
+# Least privilege (OpenSSF Scorecard Token-Permissions): read-only at the
+# top; the auto-merge job declares the write scopes `gh pr merge --auto`
+# needs itself.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: dependabot-auto-merge-${{ github.event.pull_request.number || github.ref }}
@@ -39,6 +41,9 @@ jobs:
     # non-Dependabot PRs).
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # gh pr merge --auto (squash) on Dependabot's branch
+      pull-requests: write  # enable auto-merge on the PR
     steps:
       - name: Fetch Dependabot metadata
         id: metadata

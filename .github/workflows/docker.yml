@@ -1,8 +1,9 @@
 name: Docker & Security
 
+# Least privilege (OpenSSF Scorecard Token-Permissions): read-only at the
+# top; the docker job declares its own SARIF write below.
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: docker-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -24,8 +25,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      security-events: write
-      actions: write
+      security-events: write  # upload-sarif (trivy-docker-advisory)
 
     steps:
       - name: Checkout (attempt 1)
