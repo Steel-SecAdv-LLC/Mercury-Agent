@@ -200,6 +200,37 @@ def has_disallowed_contents_write(text: str) -> bool:
     return False
 
 
+def top_level_write_scopes(text: str) -> list[str]:
+    """Write scopes granted in the DOCUMENT-level ``permissions:`` block.
+
+    Least privilege (and OpenSSF Scorecard's Token-Permissions check, which
+    filed a High alert for every one of these on 2026-11-21): the top-level
+    block is the default for every job, so a write scope there leaks into
+    jobs that never need it. Write scopes belong on the one job that uses
+    them. ``WRITE_OK`` does not exempt this rule: even an allow-listed
+    workflow grants writes at job level, not at the top.
+    """
+    document_indent = top_level_indent(text)
+    lines = text.splitlines()
+    found: list[str] = []
+    for name, indent, _value, lineno in iter_top_level_keys(text):
+        if name != "permissions" or indent != document_indent:
+            continue
+        for line in lines[lineno:]:
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            line_indent = len(line) - len(line.lstrip())
+            if line_indent <= indent:
+                break
+            match = MAPPING_KEY_RE.match(line)
+            if not match:
+                continue
+            value = match.group("value").strip().split("#", 1)[0].strip().strip("'\"")
+            if value in ("write", "write-all"):
+                found.append(f"{normalize_key(match.group('key'))}: {value}")
+    return found
+
+
 def has_pull_request_target(text: str) -> bool:
     """True iff ``pull_request_target`` appears as an ``on:`` event key.
 
@@ -244,6 +275,11 @@ def check_workflow(path: Path) -> list[str]:
         errors.append(f"{path}: add top-level least-privilege permissions")
     elif path.name not in WRITE_OK and has_disallowed_contents_write(text):
         errors.append(f"{path}: contents: write requires explicit allow-listing")
+    for scope in top_level_write_scopes(text):
+        errors.append(
+            f"{path}: top-level permissions grant '{scope}' to every job; declare it "
+            "on the one job that uses it (Scorecard Token-Permissions)"
+        )
 
     if not has_top_level_key(text, "concurrency"):
         errors.append(f"{path}: add concurrency cancellation for PR velocity")
