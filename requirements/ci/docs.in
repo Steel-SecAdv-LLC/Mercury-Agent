@@ -1,0 +1,4 @@
+# The documentation build never imports the package (docs/conf.py).
+sphinx
+sphinx-rtd-theme
+myst-parser

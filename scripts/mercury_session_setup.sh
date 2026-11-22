@@ -57,11 +57,12 @@ if ama_pqc_live; then
   echo "AMA Cryptography native PQC already present — skipping build."
 else
   echo "Building AMA Cryptography ${AMA_REF} (primary PQC backend)..."
-  # AMA's setup.py preflight enforces these build-system floors. --ignore-installed
-  # because the base image's Debian-managed setuptools/wheel have no RECORD file
-  # and so cannot be uninstalled/upgraded in place.
-  python -m pip install --quiet --ignore-installed \
-    "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
+  # AMA's setup.py preflight enforces these build-system floors, hash-locked in
+  # requirements/ci/ama-build.txt (the file CI and the Dockerfile build with).
+  # --ignore-installed because the base image's Debian-managed setuptools/wheel
+  # have no RECORD file and so cannot be uninstalled/upgraded in place.
+  python -m pip install --require-hashes --quiet --ignore-installed \
+    -r "${PROJECT_DIR}/requirements/ci/ama-build.txt"
   rm -rf "${AMA_SRC}"
   git clone --depth 1 --branch "${AMA_REF}" \
     https://github.com/Steel-SecAdv-LLC/AMA-Cryptography.git "${AMA_SRC}"
@@ -73,7 +74,9 @@ else
     -DAMA_BUILD_TESTS=OFF \
     -DAMA_BUILD_EXAMPLES=OFF
   cmake --build "${AMA_SRC}/build" -j "$(nproc)"
-  ( cd "${AMA_SRC}" && AMA_NO_CYTHON=1 python -m pip install --no-build-isolation --ignore-installed . )
+  # Built into a wheel and installed hash-locked (a directory install cannot be
+  # hash-checked); AMA has no base runtime dependencies.
+  AMA_NO_CYTHON=1 bash "${PROJECT_DIR}/scripts/install_ama_wheel.sh" "${AMA_SRC}" "${AMA_REF#v}"
 fi
 
 # Persist the native library path for the rest of the session so AMA's .so
@@ -94,12 +97,21 @@ export LD_LIBRARY_PATH="${AMA_LIB}:${AMA_SRC}/build:${LD_LIBRARY_PATH:-}"
 # pytest-xdist/-timeout/-cov) plus the black/mypy/types-requests pins that
 # keep formatting and the type-ignore set byte-identical with CI. A bare
 # ``pytest`` install provably cannot run the suite in CI configuration.
-# flake8 and pydocstyle are not in [dev]; install them alongside, pydocstyle
-# at the CI pin (mirrors the code-quality lane). AMA was installed above, so
-# its cryptography>=48 is already present and this step won't try to
-# uninstall the Debian-pinned one.
+# flake8 and pydocstyle are not in [dev]; they come from the ci-lint group at
+# the CI pins (mirrors the code-quality lane). Everything is exported from
+# uv.lock with hashes and installed with --require-hashes, then the project
+# itself editable with --no-deps (OpenSSF Scorecard Pinned-Dependencies).
 echo "Installing Mercury [ml,dev] extras + test/lint tooling..."
-python -m pip install --quiet --ignore-installed -e "${PROJECT_DIR}[ml,dev]" \
-  flake8 "pydocstyle==6.3.0"
+# pip.txt floors pip (CVE-2026-6357) and provides the setuptools/wheel the
+# --no-build-isolation editable install below builds with.
+python -m pip install --require-hashes --quiet --ignore-installed \
+  -r "${PROJECT_DIR}/requirements/ci/pip.txt"
+python -m pip install --require-hashes --quiet -r "${PROJECT_DIR}/requirements/ci/uv.txt"
+SETUP_REQS="$(mktemp)"
+( cd "${PROJECT_DIR}" && python -m uv export --frozen --quiet --no-emit-project --no-header \
+    --no-emit-package ama-cryptography --extra ml --extra dev --group ci-lint -o "${SETUP_REQS}" )
+python -m pip install --require-hashes --quiet --ignore-installed -r "${SETUP_REQS}"
+rm -f "${SETUP_REQS}"
+python -m pip install --no-deps --no-build-isolation --quiet -e "${PROJECT_DIR}"
 
 echo "Mercury environment ready: AMA primary PQC backend live; [ml,dev] + tooling installed."

@@ -66,14 +66,17 @@ jobs:
         run: |
           # Floor pip to >=26.1 to close CVE-2026-6357 (pip arbitrary
           # code execution via malicious wheel).
-          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # [ml] is required here: the hazard detect_live round-trip smokes
           # (tests/test_live_wiring_network.py) importorskip torch, so
           # without the ML stack the five detector round-trips silently
           # skip every week and live-wiring drift goes unwatched.
           # ``api`` supplies httpx and fastapi, which tests/test_data_source_credential_redaction.py
           # and the data-source tests import at module level. Without it collection fails.
-          pip install --no-cache-dir -e ".[compliance,dev,ml,api]"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra compliance --extra dev --extra ml --extra api -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       # Prove the injected data-source secrets DELIVER real data (not merely
       # exist). Import-light (requests only, no engine/AMA), so it runs before

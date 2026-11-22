@@ -111,6 +111,38 @@ PIP_UPGRADE_RE = re.compile(
     r"(?:python3?\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
 
+# The floor is also met by installing the hash-locked requirements/ci/pip.txt
+# (OpenSSF Scorecard Pinned-Dependencies: an install must name exact, hashed
+# artifacts, so the ``--upgrade "pip>=26.1"`` range became that file). It
+# counts only while the file itself pins pip at or above 26.1 --
+# ``pip_floor_file_pins_floor`` reads it, and check_pinned_installs.py fails
+# on the same condition -- so lowering the pin re-opens every job's finding
+# instead of silently passing them.
+PIP_FLOOR_FILE = Path(__file__).resolve().parents[1] / "requirements" / "ci" / "pip.txt"
+PIP_FLOOR_FILE_RE = re.compile(
+    r"pip\s+install\s+--require-hashes\b[^\n]*requirements/ci/pip\.txt\b"
+)
+
+
+def pip_floor_file_pins_floor(path: Path = PIP_FLOOR_FILE) -> bool:
+    """Whether ``path`` pins ``pip==X`` with X >= 26.1."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    match = re.search(r"^pip==(\d+)\.(\d+)", text, re.MULTILINE)
+    if match is None:
+        return False
+    return (int(match.group(1)), int(match.group(2))) >= (26, 1)
+
+
+def is_pip_floor(line: str) -> bool:
+    """Whether ``line`` applies the CVE-2026-6357 pip floor."""
+    if PIP_UPGRADE_RE.search(line):
+        return True
+    return bool(PIP_FLOOR_FILE_RE.search(line)) and pip_floor_file_pins_floor()
+
+
 # A job that runs ``pip install`` against the ambient interpreter must first
 # pin that interpreter with ``actions/setup-python`` (any org/fork of the
 # action counts). Without it the job installs into whatever Python the runner
@@ -440,7 +472,7 @@ def _check_pip_cve_2026_6357(path: Path, text: str) -> list[str]:
         if heredoc_match:
             heredoc_delim = heredoc_match.group("delim")
             continue
-        if PIP_UPGRADE_RE.search(scan):
+        if is_pip_floor(scan):
             pip_floored = True
             continue
         # Documentation-emission lines that *write* the string

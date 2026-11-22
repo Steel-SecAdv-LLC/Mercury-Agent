@@ -62,12 +62,14 @@ jobs:
           # code execution via malicious wheel).  Every ``pip install``
           # step in every workflow upgrades pip first so a runner image
           # that ships an older pip cannot install a poisoned wheel.
-          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # PINNED exactly (not just range-bounded) so the formatter is
           # byte-identical locally and in CI — same parity rationale as the
           # mypy/pydocstyle pins.  Bump in lockstep with pyproject [dev] and
           # the Code Quality job in ci.yml.
-          pip install "black==26.10.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-lint -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
 
       - name: Check formatting with Black
         run: black --check src/ tests/ benchmarks/ scripts/ examples/

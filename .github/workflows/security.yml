@@ -73,14 +73,14 @@ jobs:
       # created below, the scope of every scan below is exactly
       # Mercury's declared deps + their transitives.
       run: |
-        pip install --upgrade "pip>=26.1"
+        python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
         # ``click>=8.2`` re-pinned at the runner level: ``safety``'s
         # bundled ``typer>=0.20`` uses PEP 695 ``click.Choice[...]``
         # subscripting and crashes with ``TypeError: type 'Choice'
         # is not subscriptable`` against the older click that ships
         # with the GHA hosted Python image.  See ``ci.yml`` for the
         # full rationale.
-        pip install safety bandit pip-audit "click>=8.2"
+        python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/audit.txt"
 
     - name: Create isolated Mercury install (audit target)
       # Install Mercury into a dedicated venv so the audits scan
@@ -91,10 +91,19 @@ jobs:
       # they are not.  This is the architectural remediation that
       # replaces every prior ``--ignore-vuln`` flag.
       run: |
+        python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
         python -m venv "${RUNNER_TEMP}/mercury-audit-env"
-        "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --upgrade "pip>=26.1"
-        "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir -e ".[api]" \
-          --upgrade "click>=8.2" "typer>=0.20"
+        audit_py="${RUNNER_TEMP}/mercury-audit-env/bin/python"
+        "${audit_py}" -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+        # The [api] closure, hash-locked from uv.lock; the lock's click
+        # (8.5.0) and typer (0.27.3) satisfy the click>=8.2 / typer>=0.20
+        # re-pin, so no resolver can downgrade them.
+        uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra api -o "${RUNNER_TEMP}/audit-requirements.txt"
+        "${audit_py}" -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/audit-requirements.txt"
+        # The project itself is not installed: Safety reads only PyPI
+        # packages and pip-audit runs with --skip-editable, so an editable
+        # Mercury added nothing either audit read, and this job never
+        # imports the engine (which would need the AMA backend).
         "${RUNNER_TEMP}/mercury-audit-env/bin/pip" list --format=freeze \
           > "${RUNNER_TEMP}/mercury-audit-env/requirements.txt"
         {

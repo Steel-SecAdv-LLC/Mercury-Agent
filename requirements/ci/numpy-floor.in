@@ -1,0 +1,3 @@
+# The declared numpy floor, installed on purpose over the lock to type-check
+# against the oldest supported stubs.
+numpy==2.4.0

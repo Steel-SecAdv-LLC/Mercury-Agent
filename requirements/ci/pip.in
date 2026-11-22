@@ -1,0 +1,6 @@
+# Bootstrap for every CI lane: the pip floor (CVE-2026-6357, >= 26.1) and the
+# build backend that `pip install --no-deps --no-build-isolation -e .` builds
+# the project with (pyproject [build-system]: setuptools>=82.0.1, wheel).
+pip>=26.1
+setuptools==84.2.1
+wheel==0.48.0

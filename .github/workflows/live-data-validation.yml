@@ -36,8 +36,11 @@ jobs:
       - name: Install Mercury Agent with the ml extra (loaders + torch import path)
         run: |
           # Floor pip to >=26.1 (CVE-2026-6357).
-          python -m pip install --upgrade "pip>=26.1"
-          pip install --no-cache-dir -e ".[ml]"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra ml -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       # AMA Cryptography is Mercury's mandatory PQC backend: importing
       # omni_mercury_engine runs the fail-closed PQC production gate, so even a

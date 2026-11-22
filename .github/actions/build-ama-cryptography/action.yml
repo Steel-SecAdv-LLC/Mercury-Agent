@@ -44,12 +44,16 @@ runs:
           # tag matches this interpreter. pip when the interpreter has one;
           # uv's pip front end for an environment ``uv sync`` created, which
           # ships no pip.
+          # Hash-locked to the wheels of the archive fetch_ama_prebuilt.sh just
+          # verified against the release SHA256SUMS (scripts/ama_wheel_requirement.py).
+          python "${GITHUB_WORKSPACE}/scripts/ama_wheel_requirement.py" \
+            "${AMA_REF#v}" "$1" "${RUNNER_TEMP}/ama-wheel.txt" || return 1
           if python -m pip --version >/dev/null 2>&1; then
-            python -m pip install --no-index --find-links "$1" --force-reinstall --no-deps \
-              "ama-cryptography==${AMA_REF#v}"
+            python -m pip install --require-hashes --no-index --find-links "$1" \
+              --force-reinstall --no-deps -r "${RUNNER_TEMP}/ama-wheel.txt"
           else
-            uv pip install --python "$(command -v python)" --no-index --find-links "$1" \
-              --reinstall --no-deps "ama-cryptography==${AMA_REF#v}"
+            uv pip install --require-hashes --no-config --python "$(command -v python)" --no-index \
+              --find-links "$1" --reinstall --no-deps -r "${RUNNER_TEMP}/ama-wheel.txt"
           fi
         }
         if prebuilt_dir="$(bash "${GITHUB_WORKSPACE}/scripts/fetch_ama_prebuilt.sh" /tmp/ama-prebuilt)"; then
@@ -194,17 +198,14 @@ runs:
       # are intentionally absent here.
       shell: bash
       run: |
+        # The floors are hash-locked in requirements/ci/ama-build.txt.
         if python -m pip --version >/dev/null 2>&1; then
-          python -m pip install --upgrade \
-            "setuptools>=84.0.0" \
-            "wheel>=0.48.0" \
-            "cmake>=4.4.4"
+          python -m pip install --require-hashes \
+            -r "${GITHUB_WORKSPACE}/requirements/ci/ama-build.txt"
         else
           # An environment ``uv sync`` created ships no pip.
-          uv pip install --python "$(command -v python)" --upgrade \
-            "setuptools>=84.0.0" \
-            "wheel>=0.48.0" \
-            "cmake>=4.4.4"
+          uv pip install --require-hashes --no-config --python "$(command -v python)" \
+            -r "${GITHUB_WORKSPACE}/requirements/ci/ama-build.txt"
         fi
 
     - name: Build AMA Cryptography native C library
@@ -244,15 +245,16 @@ runs:
       # native C library; the Python API loads the .so via ctypes/cffi at runtime).
       # LD_LIBRARY_PATH is exported to GITHUB_ENV so the freshly built .so is on
       # the loader search path for every subsequent step in the calling job.
+      # scripts/install_ama_wheel.sh builds the wheel and installs exactly that
+      # file with --require-hashes (a directory install cannot be hash-checked),
+      # with pip, or with uv in an environment ``uv sync`` created.
       shell: bash
+      env:
+        AMA_REF: ${{ inputs.ama-ref }}
       run: |
         cd /tmp/ama-cryptography
-        if python -m pip --version >/dev/null 2>&1; then
-          AMA_NO_CYTHON=1 python -m pip install --no-build-isolation .
-        else
-          # An environment ``uv sync`` created ships no pip.
-          AMA_NO_CYTHON=1 uv pip install --python "$(command -v python)" --no-build-isolation .
-        fi
+        AMA_NO_CYTHON=1 bash "${GITHUB_WORKSPACE}/scripts/install_ama_wheel.sh" \
+          /tmp/ama-cryptography "${AMA_REF#v}"
         export AMA_LD_LIBRARY_PATH="/tmp/ama-cryptography/build/lib:/tmp/ama-cryptography/build:${LD_LIBRARY_PATH:-}"
         export LD_LIBRARY_PATH="$AMA_LD_LIBRARY_PATH"
         {

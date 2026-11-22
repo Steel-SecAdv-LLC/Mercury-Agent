@@ -70,11 +70,11 @@ jobs:
 
       - name: Install the GCN Kafka client
         run: |
-          pip install --upgrade "pip>=26.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # gcn-kafka pulls confluent-kafka (librdkafka), which is what carries
           # the SASL_SSL/OAUTHBEARER OIDC handshake GCN requires. The engine
           # itself is not needed: the script is stdlib + this one client.
-          pip install gcn-kafka
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/gcn.txt"
 
       - name: Connect and record
         env:

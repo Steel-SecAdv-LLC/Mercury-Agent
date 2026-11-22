@@ -53,7 +53,7 @@ jobs:
 
       - name: Install package and test tools
         run: |
-          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # Hosted runners have no GPU, so the default CUDA torch build is ~5 GB of
           # unused nvidia-* wheels -- the oversized install, not the test logic, is what
           # was failing this lane. The CPU wheel is ~10x smaller and satisfies the [ml]
@@ -64,14 +64,22 @@ jobs:
           # handshake from hosted runners (SSLV3_ALERT_HANDSHAKE_FAILURE). Retry the
           # CPU index with backoff, then fall back to the default PyPI index (larger
           # build, still CPU-usable) so an upstream CDN outage cannot fail this lane.
+          # Both paths are hash-locked: the CPU build from
+          # requirements/ci/torch-cpu.txt; the fallback is uv.lock's PyPI torch.
           for attempt in 1 2 3; do
-            pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision && break
+            python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/torch-cpu.txt" && break
             echo "::warning::PyTorch CPU index attempt ${attempt} failed (CDN); retrying"
             sleep $((attempt * 20))
           done
-          python -c "import torch" 2>/dev/null || pip install --no-cache-dir torch torchvision
-          pip install --no-cache-dir -e ".[ml]"
-          pip install pytest pytest-asyncio
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          # With the CPU build in place, prune torch/torchvision (and the CUDA
+          # stack only they pull in) from the export so it is kept; without it,
+          # the export carries uv.lock's PyPI torch (larger, still CPU-usable).
+          prune=()
+          if python -c "import torch" 2>/dev/null; then prune=(--prune torch --prune torchvision); fi
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra ml --group ci-test "${prune[@]}" -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       # AMA Cryptography is Mercury's mandatory PQC backend: importing
       # omni_mercury_engine runs _enforce_pqc_production_gate(), which fails

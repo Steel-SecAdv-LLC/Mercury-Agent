@@ -47,8 +47,10 @@ jobs:
 
       - name: Install the replay's dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          python -m pip install "packaging>=24.0" "PyYAML>=6.0"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-yaml -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
 
       - name: Replay
         run: python scripts/simulate_dependabot_uv.py

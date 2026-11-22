@@ -99,29 +99,37 @@ if [[ -n "${AMA_COMMIT}" && ! "${AMA_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 
 # Install into the active interpreter: pip when it has one, otherwise uv's pip
-# front end (an environment ``uv sync`` created ships no pip).
-py_install() {
+# front end (an environment ``uv sync`` created ships no pip). Every install
+# below states exactly what it installs and is pinned: hash-locked files, or
+# the local AMA tree with --no-deps (OpenSSF Scorecard Pinned-Dependencies).
+installer() {
   if python -m pip --version >/dev/null 2>&1; then
-    python -m pip install "$@"
+    echo pip
   elif command -v uv >/dev/null 2>&1; then
-    uv pip install --python "$(command -v python)" "$@"
+    echo uv
   else
     echo "ERROR: neither pip nor uv can install into $(command -v python)" >&2
     exit 1
   fi
 }
+INSTALLER="$(installer)"
+AMA_BUILD_FLOORS="${SCRIPT_DIR}/../requirements/ci/ama-build.txt"
 
 # Install the ama_cryptography wheel in $1 that matches this interpreter
 # (``--no-index --find-links`` lets the installer pick by tag; AMA tags each
 # wheel for the Python that built it). Fails when no wheel fits.
 install_prebuilt_wheel() {
-  local version="${AMA_REF#v}"
-  if python -m pip --version >/dev/null 2>&1; then
-    python -m pip install --no-index --find-links "$1" --force-reinstall --no-deps \
-      "ama-cryptography==${version}"
+  local version="${AMA_REF#v}" req
+  # Hash-locked to the wheels of the archive fetch_ama_prebuilt.sh just verified
+  # against the release SHA256SUMS.
+  req="$(mktemp)"
+  python "${SCRIPT_DIR}/ama_wheel_requirement.py" "${version}" "$1" "${req}" || return 1
+  if [[ "${INSTALLER}" == pip ]]; then
+    python -m pip install --require-hashes --no-index --find-links "$1" \
+      --force-reinstall --no-deps -r "${req}"
   else
-    uv pip install --python "$(command -v python)" --no-index --find-links "$1" \
-      --reinstall --no-deps "ama-cryptography==${version}"
+    uv pip install --require-hashes --no-config --python "$(command -v python)" --no-index \
+      --find-links "$1" --reinstall --no-deps -r "${req}"
   fi
 }
 
@@ -217,13 +225,17 @@ fi
 # _check_cmake_version reads. AMA_NO_CYTHON short-circuits the Cython/numpy
 # floor, so those are intentionally absent.
 #
-# These floors must stay in lockstep with the same three in
-# .github/actions/build-ama-cryptography/action.yml: that composite action is
-# what CI builds with, this script is what the Dockerfile and the session setup
-# build with, and a floor raised in only one of them yields an image that fails
-# AMA's preflight on exactly the lanes CI does not cover.
-py_install --upgrade \
-  "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
+# The floors are one hash-locked file, requirements/ci/ama-build.txt, read here
+# and by .github/actions/build-ama-cryptography/action.yml alike: that composite
+# action is what CI builds with, this script is what the Dockerfile and the
+# session setup build with, so a floor can no longer be raised in one and not
+# the other (which yielded an image that failed AMA's preflight on exactly the
+# lanes CI does not cover).
+if [[ "${INSTALLER}" == pip ]]; then
+  python -m pip install --require-hashes -r "${AMA_BUILD_FLOORS}"
+else
+  uv pip install --require-hashes --no-config --python "$(command -v python)" -r "${AMA_BUILD_FLOORS}"
+fi
 
 cmake -S "${AMA_BUILD_DIR}" -B "${AMA_BUILD_DIR}/build" \
   -DCMAKE_BUILD_TYPE=Release \
@@ -242,8 +254,10 @@ cmake --build "${AMA_BUILD_DIR}/build" -j "${JOBS}"
 # isolated (AMA has no runtime deps); --force-reinstall guarantees the installed
 # Python package is the one built from this exact checkout (ABI-matched to the
 # .so co-located below) even if a future change pre-installs it.
+# install_ama_wheel.sh builds the wheel and installs that exact file with
+# --require-hashes: a directory install cannot be hash-checked.
 export AMA_NO_CYTHON=1
-( cd "${AMA_BUILD_DIR}" && py_install --no-build-isolation --force-reinstall --no-deps . )
+bash "${SCRIPT_DIR}/install_ama_wheel.sh" "${AMA_BUILD_DIR}" "${AMA_REF#v}"
 
 if ! colocate_native_library "${AMA_BUILD_DIR}/build"; then
   echo "ERROR: AMA build produced no libama_cryptography shared library under ${AMA_BUILD_DIR}/build" >&2
