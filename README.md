@@ -126,12 +126,12 @@ A multi-panel visual summary appears in the [Current Benchmarks and Visual Proof
 
 | Metric | Current | Previous | Δ |
 |---|---|---|---|
-| Mean ROC-AUC | 0.8616 | 0.8616 | +0.0000 |
+| Mean ROC-AUC | 0.8619 | 0.8616 | +0.0003 |
 | Median ROC-AUC | 0.9038 | 0.9038 | +0.0000 |
-| Mean Oracle F1 | 0.6492 | 0.6492 | +0.0000 |
+| Mean Oracle F1 | 0.6489 | 0.6492 | -0.0003 |
 | Datasets (successful / total) | 67 / 76 | 67 / 76 | +0.0000 |
-| Run timestamp (UTC) | 2026-11-20T17:24:43.663147+00:00 | 2026-11-20T05:55:51.492733+00:00 | — |
-| Commit | `18ab64c` | `f733327` | — |
+| Run timestamp (UTC) | 2026-11-22T02:19:00.182383+00:00 | 2026-11-20T17:24:43.663147+00:00 | — |
+| Commit | `06a96dd` | `18ab64c` | — |
 
 Regression gates: ROC-AUC must stay ≥ 0.75 and Mean Oracle F1 ≥ 0.55 (the coarse floors set in `.github/workflows/benchmark.yml`, held a deliberate margin below the current headline AUC/F1 so they do not flap on normal load-availability variance). Fine-grained, tight regression protection is the deterministic per-dataset guard (`anomaly_regression_guard.py`), not these coarse floors. CI fails the workflow if either drops below threshold.
 <!-- BENCHMARK:END -->
@@ -286,16 +286,16 @@ governed self-improvement rollout.
 <!-- BENCHMARK-HEADLINE:START -->
 | Component | Weight | Method | Mean AUC | Median AUC |
 |-----------|--------|--------|----------|------------|
-| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7639 | 0.7723 |
-| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6009 | 0.5720 |
+| ResonanceScore | 40% | FFT harmonic spectral profiles | 0.7641 | 0.7723 |
+| KinematicScore | 30% | Physics jerk/curvature via `np.diff` | 0.6010 | 0.5720 |
 | InfoGeometryScore | 30% | Fisher-information Mahalanobis OOD | 0.8269 | 0.8582 |
-| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8616** | **0.9038** |
+| **Ensemble** | **100%** | **Weighted combination + kNN density stream** | **0.8619** | **0.9038** |
 
 | Aggregate (55 genuine-label datasets of 67 successful) | Value |
 |--------------------------------------------------------|-------|
-| Mean AUC / Median AUC | 0.8616 / 0.9038 |
-| Std AUC | 0.1426 |
-| Mean / Median Oracle F1 | 0.6492 / 0.7168 |
+| Mean AUC / Median AUC | 0.8619 / 0.9038 |
+| Std AUC | 0.1423 |
+| Mean / Median Oracle F1 | 0.6489 / 0.7168 |
 <!-- BENCHMARK-HEADLINE:END -->
 
 *Oracle F1 is an upper bound (best of a multi-strategy threshold sweep), not
@@ -310,12 +310,12 @@ against other detectors.
 | Domain | Datasets | Mean AUC | Mean oracle F1 |
 |--------|----------|----------|----------------|
 | ADBench | 47 | 0.8571 | 0.6441 |
-| Time series (SMD, NAB) | 2 | 0.7738 | 0.4690 |
+| Time series (SMD, NAB) | 2 | 0.7810 | 0.4618 |
 | Academic (CWRU_Bearing) | 1 | 1.0000 | 1.0000 |
 | General (ADRepository) | 1 | 0.9116 | 0.6162 |
 | Industrial (BATADAL) | 1 | 0.8976 | 0.5548 |
 | Maritime (DTU_AIS_Abnormal) | 1 | 0.8750 | 0.6250 |
-| Medical (MIT-BIH) | 1 | 0.8982 | 0.7408 |
+| Medical (MIT-BIH) | 1 | 0.8986 | 0.7411 |
 | Security (NSL-KDD) | 1 | 0.9741 | 0.9544 |
 
 *Generated from `benchmarks/mercury_benchmark_results.json` by
