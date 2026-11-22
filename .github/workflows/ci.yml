@@ -156,7 +156,7 @@ jobs:
           # The tools are exact pins, not project dependencies, so they go
           # into a uv environment directly (no lockfile entry to drift).
           uv venv .venv --python "${{ matrix.python-version }}"
-          uv pip install "black==26.10.1" flake8==7.5.0 mypy==2.4.1 ruff==0.17.3 pydocstyle==6.3.0
+          uv pip install "black==26.10.1" flake8==7.5.0 mypy==2.4.1 ruff==0.17.5 pydocstyle==6.3.0
           # Every later step in the job runs the project's environment.
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
