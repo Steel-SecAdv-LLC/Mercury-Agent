@@ -70,9 +70,10 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 # distinct files each must still be pinned in.  The floor is what turns a
 # single-surface pin (which can drift unnoticed) into a failure rather than a
 # silently-accepted state, and stops a "delete every pin" edit from passing
-# vacuously.  Current reality: black=4 surfaces, mypy=3, types-requests=2,
-# pydocstyle=2, ruff=3, flake8=3 -- the floor of 2 leaves intentional slack
-# while still catching any collapse to a lone, drift-prone surface.
+# vacuously.  Current reality: black=4 surfaces, mypy=4, types-requests=2,
+# pydocstyle=4, ruff=3, flake8=3 (uv.lock counted: CI installs these from it)
+# -- the floor of 2 leaves intentional slack while still catching any
+# collapse to a lone, drift-prone surface.
 TRACKED_TOOLS: dict[str, int] = {
     "black": 2,
     "mypy": 2,
@@ -116,6 +117,15 @@ _REQ_SURFACES: tuple[str, ...] = (
     "scripts/run_ci_gates.sh",
 )
 _PRECOMMIT_SURFACE = ".pre-commit-config.yaml"
+# The version CI actually installs. The lanes install these tools from
+# uv.lock (``uv export`` of the pyproject ``ci-lint``/``ci-types`` groups,
+# then ``pip install --require-hashes``) instead of inline ``tool==X``
+# strings, so the lock is a surface like any other: a pin bumped in
+# pyproject.toml without re-locking now fails here instead of running the
+# old version in CI.
+_LOCK_SURFACE = "uv.lock"
+_LOCK_NAME_RE = re.compile(r'^name = "(?P<name>[^"]+)"\s*$')
+_LOCK_VERSION_RE = re.compile(r'^version = "(?P<ver>[^"]+)"\s*$')
 
 
 class Occurrence(NamedTuple):
@@ -167,12 +177,35 @@ def _scan_precommit(path: Path, rel: str) -> list[Occurrence]:
     return out
 
 
+def _scan_lock(path: Path, rel: str) -> list[Occurrence]:
+    """Collect the locked version of each tracked tool from ``uv.lock``."""
+    if not path.exists():
+        return []
+    out: list[Occurrence] = []
+    current: str | None = None
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        name_match = _LOCK_NAME_RE.match(line)
+        if name_match:
+            name = name_match.group("name")
+            current = name if name in TRACKED_TOOLS else None
+            continue
+        if current is not None:
+            version_match = _LOCK_VERSION_RE.match(line)
+            if version_match:
+                out.append(
+                    Occurrence(current, _normalize(version_match.group("ver")), f"{rel}:{lineno}")
+                )
+                current = None
+    return out
+
+
 def collect_occurrences(root: Path) -> list[Occurrence]:
     """Gather every exact tracked-tool pin across all parity surfaces under ``root``."""
     occurrences: list[Occurrence] = []
     for rel in _REQ_SURFACES:
         occurrences.extend(_scan_requirements(root / rel, rel))
     occurrences.extend(_scan_precommit(root / _PRECOMMIT_SURFACE, _PRECOMMIT_SURFACE))
+    occurrences.extend(_scan_lock(root / _LOCK_SURFACE, _LOCK_SURFACE))
     return occurrences
 
 
@@ -206,7 +239,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description=(
             "Assert that exactly-pinned dev tools (black, mypy, types-requests, "
             "pydocstyle, ruff, flake8) carry identical versions across pyproject.toml, "
-            "the CI/format workflows, and .pre-commit-config.yaml."
+            "the CI/format workflows, .pre-commit-config.yaml and uv.lock."
         ),
     )
     parser.add_argument(
@@ -231,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {error}", file=sys.stderr)
         print(
             "\nThese tools are pinned exactly for byte-identical behaviour local<->CI.\n"
-            "Bump every surface together: pyproject.toml, .github/workflows/ci.yml,\n"
+            "Bump every surface together (then `uv lock`): pyproject.toml, .github/workflows/ci.yml,\n"
             ".github/workflows/format.yml, and .pre-commit-config.yaml.",
             file=sys.stderr,
         )

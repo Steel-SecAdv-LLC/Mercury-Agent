@@ -167,9 +167,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[all,dev]"
-          pip install pytest pytest-cov
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra all --extra dev --group ci-test -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography

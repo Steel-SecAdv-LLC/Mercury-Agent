@@ -108,9 +108,8 @@ jobs:
         run: |
           set -euo pipefail
           for py in ${PYTHONS}; do
-            "${py}" -m pip install --upgrade "pip>=26.1"
-            "${py}" -m pip install --upgrade \
-              "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
+            "${py}" -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+            "${py}" -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/ama-build.txt"
           done
 
       - name: Clone AMA Cryptography at the pinned tag
@@ -166,8 +165,10 @@ jobs:
             rm -rf proof
             "${py}" -m venv proof
             if [ -x proof/bin/python ]; then venv_py=proof/bin/python; else venv_py=proof/Scripts/python.exe; fi
-            "${venv_py}" -m pip install --upgrade "pip>=26.1"
-            "${venv_py}" -m pip install --no-index --find-links unpack --no-deps "ama-cryptography==${AMA_REF#v}"
+            "${venv_py}" -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+            "${venv_py}" scripts/ama_wheel_requirement.py "${AMA_REF#v}" unpack "${RUNNER_TEMP}/ama-wheel.txt"
+            "${venv_py}" -m pip install --require-hashes --no-index --find-links unpack \
+              --no-deps -r "${RUNNER_TEMP}/ama-wheel.txt"
             "${venv_py}" - <<'PY'
           import sys
 

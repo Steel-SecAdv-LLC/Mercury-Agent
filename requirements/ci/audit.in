@@ -1,0 +1,6 @@
+# Audit tools, installed in the runner's Python and never in Mercury's
+# environment. click>=8.2: safety's bundled typer needs PEP 695 click.Choice.
+safety
+bandit
+pip-audit
+click>=8.2

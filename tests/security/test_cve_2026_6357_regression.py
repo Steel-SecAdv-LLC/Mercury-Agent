@@ -7,14 +7,19 @@ versions earlier than 26.1.  We mitigate it project-wide by:
 
 1. Pinning ``pip>=26.1`` in every CI workflow, in the Dockerfile stage
    that performs installs (the builder), and in every devcontainer /
-   dev-tooling script that installs from PyPI.
+   dev-tooling script that installs from PyPI. Since OpenSSF Scorecard's
+   Pinned-Dependencies remediation the floor is the hash-locked
+   ``requirements/ci/pip.txt`` (``pip==26.3`` with its sha256 digests,
+   installed with ``--require-hashes``) rather than an ``--upgrade
+   "pip>=26.1"`` range; either form satisfies the guard, and the file form
+   only while the file itself pins pip at or above 26.1.
 2. Shipping the runtime container image with NO pip at all — both the
    venv's and the base image's copies are removed once the last install
    has run, which closes this CVE (and pip's vendored-dependency SBOM
    findings) by elimination rather than by upgrade.
 3. Failing the ``Workflow Hardening`` CI job if any workflow YAML adds
-   a ``pip install`` step that is not preceded by ``pip install
-   --upgrade "pip>=26.1"`` earlier in the same job.
+   a ``pip install`` step that is not preceded by the pip floor earlier
+   in the same job.
 
 This test file is the *gate on the gate*: it directly exercises the
 hardening checker (``scripts/check_workflow_hardening.py``) and the
@@ -55,9 +60,42 @@ DOCKERFILE = REPO_ROOT / "Dockerfile"
 # that single-line ``run: pip install ...`` steps are detected even
 # though the line begins with ``run:`` rather than ``pip``.
 LOCAL_PIP_INSTALL_RE = re.compile(r"(?<![\w-])(?:python\s+-m\s+)?pip\s+install\b")
-LOCAL_PIP_UPGRADE_RE = re.compile(
+_LOCAL_PIP_RANGE_RE = re.compile(
     r"(?:python\s+-m\s+)?pip\s+install\b[^\n]*?--upgrade\b[^\n]*['\"]pip>=26(?:\.\d+)*['\"]"
 )
+_LOCAL_PIP_FILE_RE = re.compile(
+    r"pip\s+install\s+--require-hashes\b[^\n]*requirements/ci/pip\.txt\b"
+)
+PIP_FLOOR_FILE = REPO_ROOT / "requirements" / "ci" / "pip.txt"
+
+
+def _pip_file_pins_floor() -> bool:
+    """Independent read of requirements/ci/pip.txt: ``pip==X`` with X >= 26.1, hashed."""
+    text = PIP_FLOOR_FILE.read_text(encoding="utf-8")
+    match = re.search(
+        r"^pip==(\d+)\.(\d+)(?:\.\d+)?\s*\\\n\s+--hash=sha256:[0-9a-f]{64}", text, re.M
+    )
+    if match is None:
+        return False
+    return (int(match.group(1)), int(match.group(2))) >= (26, 1)
+
+
+class _FloorRe:
+    """``LOCAL_PIP_UPGRADE_RE``: the range form, or the hash-locked file form while it holds."""
+
+    def search(self, text: str) -> bool:
+        return bool(_LOCAL_PIP_RANGE_RE.search(text)) or (
+            bool(_LOCAL_PIP_FILE_RE.search(text)) and _pip_file_pins_floor()
+        )
+
+    def findall(self, text: str) -> list[str]:
+        found = _LOCAL_PIP_RANGE_RE.findall(text)
+        if _pip_file_pins_floor():
+            found += _LOCAL_PIP_FILE_RE.findall(text)
+        return found
+
+
+LOCAL_PIP_UPGRADE_RE = _FloorRe()
 
 
 def _iter_workflow_files() -> list[Path]:
@@ -96,9 +134,16 @@ class TestWorkflowInventory:
             if not LOCAL_PIP_UPGRADE_RE.search(text):
                 offenders.append(workflow.name)
         assert not offenders, (
-            "Workflows that run ``pip install`` MUST also run "
-            f"``pip install --upgrade 'pip>=26.1'`` (CVE-2026-6357). "
-            f"Offenders: {offenders}"
+            "Workflows that run ``pip install`` MUST also floor pip "
+            "(``pip install --require-hashes -r requirements/ci/pip.txt``, "
+            f"pip>=26.1; CVE-2026-6357). Offenders: {offenders}"
+        )
+
+    def test_the_hash_locked_floor_file_pins_pip_at_or_above_26_1(self) -> None:
+        """The file form of the floor counts only while the file holds the floor."""
+        assert _pip_file_pins_floor(), (
+            f"{PIP_FLOOR_FILE.relative_to(REPO_ROOT)} must pin pip==X (X >= 26.1) with a "
+            "--hash; regenerate it with bash scripts/lock_ci_requirements.sh"
         )
 
     def test_dockerfile_pins_pip_where_installs_happen(self) -> None:

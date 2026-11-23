@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform != 'darwin' and sys_platform != 'emscripten'",
@@ -3554,6 +3554,56 @@ vlm = [
     { name = "transformers" },
 ]
 
+[package.dev-dependencies]
+ci-lint = [
+    { name = "black" },
+    { name = "flake8" },
+    { name = "mypy" },
+    { name = "pydocstyle" },
+    { name = "ruff" },
+]
+ci-locust = [
+    { name = "locust" },
+]
+ci-perf = [
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "sympy" },
+    { name = "torch" },
+]
+ci-sklearn = [
+    { name = "scikit-learn" },
+]
+ci-sympy = [
+    { name = "sympy" },
+]
+ci-test = [
+    { name = "hypothesis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-benchmark" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "pytest-timeout" },
+    { name = "pytest-xdist" },
+]
+ci-types = [
+    { name = "mypy" },
+    { name = "types-requests" },
+]
+ci-web = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "uvicorn" },
+]
+ci-yaml = [
+    { name = "packaging" },
+    { name = "pyyaml" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "accelerate", marker = "extra == 'llm'", specifier = ">=1.13.0" },
@@ -3639,6 +3689,48 @@ requires-dist = [
     { name = "wfdb", marker = "extra == 'medical'", specifier = ">=4.3.1" },
 ]
 provides-extras = ["ml", "performance", "visual", "vlm", "foundation", "medical", "compliance", "face", "api", "sota", "llm", "drift", "benchmark-comparison", "fairness", "pqc", "streaming", "optimization", "benchmark", "dev", "loadtest", "domains", "gui", "explainability", "all", "test"]
+
+[package.metadata.requires-dev]
+ci-lint = [
+    { name = "black", specifier = "==26.10.1" },
+    { name = "flake8", specifier = "==7.5.0" },
+    { name = "mypy", specifier = "==2.4.1" },
+    { name = "pydocstyle", specifier = "==6.3.0" },
+    { name = "ruff", specifier = "==0.17.5" },
+]
+ci-locust = [{ name = "locust", specifier = ">=2.31.0" }]
+ci-perf = [
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "sympy" },
+    { name = "torch" },
+]
+ci-sklearn = [{ name = "scikit-learn" }]
+ci-sympy = [{ name = "sympy" }]
+ci-test = [
+    { name = "hypothesis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-benchmark" },
+    { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "pytest-timeout" },
+    { name = "pytest-xdist" },
+]
+ci-types = [
+    { name = "mypy", specifier = "==2.4.1" },
+    { name = "types-requests", specifier = "==2.33.0.20261030" },
+]
+ci-web = [
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "uvicorn" },
+]
+ci-yaml = [
+    { name = "packaging", specifier = ">=24.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [[package]]
 name = "metpy"
@@ -5313,6 +5405,15 @@ wheels = [
 ]
 
 [[package]]
+name = "py-cpuinfo2"
+version = "10.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/97/a8b1ddada14c8280a047c0746f95cb05d94a31b1a331cea22bcdc2b2a82d/py_cpuinfo2-10.1.1.tar.gz", hash = "sha256:7861133863663f16e06eca63b12904ef100b5760415e92372dac0162799a4771", size = 100840, upload-time = "2026-03-25T21:49:40.797Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/23/0a/ba69d2dde1ae12ef1d389ea5a216384c5ff6ef7a1e7a48d1e9b6686f6790/py_cpuinfo2-10.1.1-py3-none-any.whl", hash = "sha256:adc53396bfb206e6498d078ec2ab407f85799ecd819584ac36a8f80a2d4d762d", size = 23791, upload-time = "2026-03-25T21:49:39.574Z" },
+]
+
+[[package]]
 name = "pycodestyle"
 version = "2.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5469,6 +5570,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9a/4f/51ef440ee346d4388a2c4a3ac4b271fcc7b1d3ff68be8da2ed2be4d488b0/pydantic_core-2.50.4-pp311-pypy311_pp80-macosx_11_0_arm64.whl", hash = "sha256:4eda7e3fdef382b7d4492745988a5baaf6953923a337f8b9dde5f76fa8afde20", size = 2085634, upload-time = "2026-11-05T09:15:21.953Z" },
     { url = "https://files.pythonhosted.org/packages/4b/5f/c9ed62b96beb9050db221d29e81856b6e28f277db601f8b0c3a08f8cf913/pydantic_core-2.50.4-pp311-pypy311_pp80-manylinux_2_28_x86_64.whl", hash = "sha256:474f7e598c7902165662a5d5160d3fce31037890a2975a9871ebf7c05862300b", size = 2277804, upload-time = "2026-11-05T09:15:23.836Z" },
     { url = "https://files.pythonhosted.org/packages/63/bd/b912a5e251ef10ed7be5e543a2bfbeebb0c79bf6302bee786f8dc3bf4341/pydantic_core-2.50.4-pp311-pypy311_pp80-win_amd64.whl", hash = "sha256:3e0b395648c6cb871bceb2906907f255dc876ec425f2d5b024e129985cea8519", size = 2333539, upload-time = "2026-11-05T09:15:25.354Z" },
+]
+
+[[package]]
+name = "pydocstyle"
+version = "6.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "snowballstemmer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/5c/d5385ca59fd065e3c6a5fe19f9bc9d5ea7f2509fa8c9c22fb6b2031dd953/pydocstyle-6.3.0.tar.gz", hash = "sha256:7ce43f0c0ac87b07494eb9c0b462c0b73e6ff276807f204d6b53edc72b7e44e1", size = 36796, upload-time = "2023-01-17T20:29:19.838Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/ea/99ddefac41971acad68f14114f38261c1f27dac0b3ec529824ebc739bdaa/pydocstyle-6.3.0-py3-none-any.whl", hash = "sha256:118762d452a49d6b05e194ef344a55822987a462831ade91ec5c06fd2169d019", size = 38038, upload-time = "2023-01-17T20:29:18.094Z" },
 ]
 
 [[package]]
@@ -5687,6 +5800,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/2c/de/80724f9b5b9eca1a654179cae6edc51aaa0a355a9834a736e2a188b91780/pytest_asyncio-1.5.0.tar.gz", hash = "sha256:92c8fa83ca419fd0d4bd6a34df6520dae435841d3733c319343249492adf37f7", size = 146227, upload-time = "2026-11-12T16:35:49.845Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/27/2d/e600d8f47597a803641704aba367c7266cd621f86561ec36da9888f160ec/pytest_asyncio-1.5.0-py3-none-any.whl", hash = "sha256:557f255ee03cc84f84a8d5f438bc9c6e0f714bf86970ae743c7ecb5a38d7e07d", size = 17215, upload-time = "2026-11-12T16:35:48.446Z" },
+]
+
+[[package]]
+name = "pytest-benchmark"
+version = "5.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "py-cpuinfo2" },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/d1/1bc61155de46f25473a06476ad1b3a94f96d40d49cfa98f82c1184117808/pytest_benchmark-5.3.1.tar.gz", hash = "sha256:c1ee70a58f9bfb1ac955cc634247a340b0df7bcb949071cfca396f16c6fc3516", size = 385467, upload-time = "2026-11-01T03:32:10.048Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/75/919ac85ad3f762e45aa369d2f68d40390e316474b6bb8434aeb6e3c8bf8b/pytest_benchmark-5.3.1-py3-none-any.whl", hash = "sha256:d7732a9952b1c4a4a32277adc693739126eab37afc3a711847f53805ccadc020", size = 49142, upload-time = "2026-11-01T03:32:08.359Z" },
 ]
 
 [[package]]
@@ -6560,6 +6686,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/87/a6771e1546d97e7e041b6ae58d80074f81b7d5121207425c964ddf5cfdbd/sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc", size = 20372, upload-time = "2024-02-25T23:20:04.057Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/44/75a9c9421471a6c4805dbf2356f7c181a29c1879239abab1ea2cc8f38b40/sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2", size = 10235, upload-time = "2024-02-25T23:20:01.196Z" },
+]
+
+[[package]]
+name = "snowballstemmer"
+version = "3.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/f8/0a71edf031f03c40db17503cb8ca78a69a171254e568e7db241b0ab57ea1/snowballstemmer-3.1.1.tar.gz", hash = "sha256:e07bbc54a0d798fe6010a12398422e62a8bfbba95c394fd0956ef58cb4d3e260", size = 123314, upload-time = "2026-06-03T00:56:40.194Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/07/2ebca9b11fb9be7340a818d8d6f63feaebb146be2c4afbd6061701d6df6e/snowballstemmer-3.1.1-py3-none-any.whl", hash = "sha256:7e207fa178741da09cdee59d3ecec3827ad5f92b1fc5c9ff3755b639f71f5752", size = 104164, upload-time = "2026-06-03T00:56:38.614Z" },
 ]
 
 [[package]]

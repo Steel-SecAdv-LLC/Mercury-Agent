@@ -1,0 +1,2 @@
+# Semgrep runs in its own venv, isolated from Mercury and the audit tools.
+semgrep==1.186.0

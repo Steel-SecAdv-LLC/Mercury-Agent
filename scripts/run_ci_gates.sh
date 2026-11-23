@@ -106,6 +106,9 @@ run_gate "Dependabot uv replay (ci.yml: simulate_dependabot_uv; needs PyPI)" \
 run_gate "workflow hardening checks (ci.yml: check_workflow_hardening)" \
   python scripts/check_workflow_hardening.py
 
+run_gate "pinned installs (ci.yml: check_pinned_installs)" \
+  python scripts/check_pinned_installs.py
+
 run_gate "suppression hygiene (ci.yml: check_suppression_hygiene)" \
   python scripts/check_suppression_hygiene.py
 

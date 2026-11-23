@@ -106,44 +106,59 @@ def test_ama_ref_lockstep_with_pyproject_pqc_pin() -> None:
     )
 
 
-def test_pydocstyle_pin_matches_ci_code_quality_lane() -> None:
-    script_pin = re.search(r"pydocstyle==([\d.]+)", _script_text())
-    assert script_pin is not None, "script must pin pydocstyle (CI does)"
+def test_lint_tooling_comes_from_the_ci_lint_group_like_the_code_quality_lane() -> None:
+    """The script and CI install pydocstyle/flake8 from one place.
 
+    Both export the pyproject ``ci-lint`` dependency group from uv.lock with
+    hashes, so the pins cannot diverge (scripts/check_pinned_tool_versions.py
+    holds the group's pins equal to the lock and the other surfaces).
+    """
+    assert re.search(
+        r"uv export\b[^\n]*\\\n[^\n]*--group ci-lint", _script_text()
+    ), "script must install the ci-lint group from uv.lock"
     ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    ci_pin = re.search(r"pydocstyle==([\d.]+)", ci)
-    assert ci_pin is not None
-    assert script_pin.group(1) == ci_pin.group(1), (
-        f"script pins pydocstyle=={script_pin.group(1)} but ci.yml pins "
-        f"=={ci_pin.group(1)} — bump them in lockstep"
-    )
+    assert "--only-group ci-lint" in ci, "code-quality lane must install the ci-lint group"
+    pyproject = (REPO / "pyproject.toml").read_text(encoding="utf-8")
+    group = re.search(r"^ci-lint = \[(?P<body>[^\]]*)\]", pyproject, re.MULTILINE)
+    assert group is not None and re.search(r'"pydocstyle==[\d.]+"', group.group("body"))
 
 
-def _build_floors(text: str) -> dict[str, str]:
-    """Return the ``setuptools``/``wheel``/``cmake`` floors an install line names."""
-    return dict(re.findall(r"(setuptools|wheel|cmake)>=([0-9][0-9.]*)", text))
+# AMA v5.0.0's setup.py preflight floors (PYSEC-2025-49 + GHSA-cx63-2mw6-8hw5,
+# GHSA-8rrh-rw8j-w5fx, and the cmake shim its _check_cmake_version reads).
+_AMA_FLOORS = {"setuptools": (84, 0, 0), "wheel": (0, 48, 0), "cmake": (4, 4, 4)}
+_AMA_BUILD_FILE = "requirements/ci/ama-build.txt"
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in re.findall(r"\d+", text)[:3])
 
 
 def test_ama_build_floors_match_the_other_build_paths() -> None:
     """AMA's setup.py preflight rejects older build tools, so the session
     bootstrap, ``build_ama_native.sh`` (Dockerfile) and the CI composite
-    action must all name the same floors. The bootstrap fell behind
+    action must all install the same floors. The bootstrap once fell behind
     (setuptools 83 / wheel 0.47 / cmake 4.4.0 against AMA v5.0.0's
-    84 / 0.48 / 4.4.4), so a fresh container failed at its first AMA build."""
-    others = {
-        "scripts/build_ama_native.sh": REPO / "scripts" / "build_ama_native.sh",
-        "build-ama-cryptography action": REPO
-        / ".github"
-        / "actions"
-        / "build-ama-cryptography"
-        / "action.yml",
+    84 / 0.48 / 4.4.4), so a fresh container failed at its first AMA build.
+    All three now install one hash-locked file, which must meet the floors."""
+    paths = {
+        "session setup": _script_text(),
+        "scripts/build_ama_native.sh": (REPO / "scripts" / "build_ama_native.sh").read_text(
+            encoding="utf-8"
+        ),
+        "build-ama-cryptography action": (
+            REPO / ".github" / "actions" / "build-ama-cryptography" / "action.yml"
+        ).read_text(encoding="utf-8"),
     }
-    session = _build_floors(_script_text())
-    assert set(session) == {"setuptools", "wheel", "cmake"}
-    for label, path in others.items():
-        install = [
-            line
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if "pip install" in line or line.strip().startswith('"')
-        ]
-        assert _build_floors("\n".join(install)) == session, label
+    for label, text in paths.items():
+        assert "requirements/ci/ama-build.txt" in text, label
+        assert re.search(r"install --require-hashes\b", text), label
+    pins = dict(
+        re.findall(
+            r"^(setuptools|wheel|cmake)==([0-9][0-9.]*)",
+            (REPO / _AMA_BUILD_FILE).read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+    )
+    assert set(pins) == set(_AMA_FLOORS), pins
+    for name, floor in _AMA_FLOORS.items():
+        assert _version(pins[name]) >= floor, (name, pins[name])

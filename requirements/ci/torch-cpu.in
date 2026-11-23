@@ -1,0 +1,14 @@
+# uv-compile-args: --index-url https://pypi.org/simple --extra-index-url https://download.pytorch.org/whl/cpu --emit-index-url --python-platform x86_64-manylinux_2_28 --python-version 3.12 --no-emit-package setuptools
+# Compiled for the verifiers lane's interpreter (Python 3.12 on x86_64 Linux,
+# .github/workflows/verifiers.yml): for one platform uv emits hashes only for
+# the wheels that interpreter can install, so a file compiled for another
+# Python fails --require-hashes on the first wheel it downloads.
+# setuptools is left out: the CPU index's newest is 78.1.0 (CVE-2025-47273,
+# CVE-2026-59890), torch needs only >=77.0.3, and requirements/ci/pip.txt has
+# already installed 84.2.1 by the time this file is.
+# The CPU-only torch build for lanes that need torch on CPU but not the CUDA
+# stack (~10x smaller). The CPU index publishes behind PyPI: its newest build
+# is what the verifiers lane has always installed (2.14.0+cpu while uv.lock's
+# PyPI torch is 2.15.0); bump these when it publishes the locked release.
+torch==2.14.0+cpu
+torchvision==0.29.0+cpu

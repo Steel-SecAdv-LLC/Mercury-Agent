@@ -1,0 +1,4 @@
+# AMA Cryptography's setup.py preflight floors for a --no-build-isolation build.
+setuptools==84.2.1
+wheel==0.48.0
+cmake>=4.4.4

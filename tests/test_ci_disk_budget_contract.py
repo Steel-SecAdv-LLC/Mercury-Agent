@@ -67,6 +67,72 @@ def torch_extras() -> frozenset[str]:
     return frozenset(name for name in extras if "torch" in closure(name, frozenset()))
 
 
+@lru_cache(maxsize=1)
+def torch_groups() -> frozenset[str]:
+    """PEP 735 dependency groups of this project that contain torch."""
+    pyproject = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    groups: dict[str, list[Any]] = pyproject.get("dependency-groups", {})
+    return frozenset(
+        name
+        for name, entries in groups.items()
+        if any(
+            isinstance(entry, str)
+            and re.split(r"[<>=!~;\[ ]", entry, maxsplit=1)[0].lower() == "torch"
+            for entry in entries
+        )
+    )
+
+
+def _option_values(words: list[str], *names: str) -> list[str]:
+    values: list[str] = []
+    for i, word in enumerate(words):
+        for name in names:
+            if word == name and i + 1 < len(words):
+                values.append(words[i + 1])
+            elif word.startswith(name + "="):
+                values.append(word.split("=", 1)[1])
+    return values
+
+
+def _words(line: str) -> list[str]:
+    try:
+        return shlex.split(line, posix=True)
+    except ValueError:
+        return line.split()
+
+
+def export_is_heavy(line: str) -> bool:
+    """Whether a ``uv export`` selects a torch-bearing set (CI installs its output).
+
+    ``--only-group`` exports just those groups; otherwise the export is the
+    project's dependencies plus each ``--extra``/``--group``. ``--prune torch``
+    drops torch and everything only it needs.
+    """
+    words = _words(line)
+    if "torch" in _option_values(words, "--prune"):
+        return False
+    only = _option_values(words, "--only-group")
+    if only:
+        return any("${{" in g or g in torch_groups() for g in only)
+    if "--all-extras" in words or "--all-groups" in words:
+        return True
+    if any(_heavy_extras(extra) for extra in _option_values(words, "--extra")):
+        return True
+    return any("${{" in g or g in torch_groups() for g in _option_values(words, "--group"))
+
+
+def generated_requirements(line: str) -> tuple[str, bool] | None:
+    """``(path, heavy)`` for a line that writes a requirements file CI then installs."""
+    if re.search(r"\buv\s+export\b", line):
+        outputs = _option_values(_words(line), "-o", "--output-file")
+        return (outputs[-1], export_is_heavy(line)) if outputs else None
+    if "ama_wheel_requirement.py" in line:
+        # Writes one hash-locked ama-cryptography wheel requirement.
+        words = [w for w in _words(line) if not w.startswith("-")]
+        return (words[-1], False) if words else None
+    return None
+
+
 def _logical_lines(script: str) -> list[str]:
     """Shell lines with backslash continuations joined."""
     return re.sub(r"\\\n\s*", " ", script).splitlines()
@@ -78,7 +144,12 @@ def _heavy_extras(group: str) -> bool:
     return "${{" in group or bool({e.strip() for e in group.split(",")} & torch_extras())
 
 
-def _requirements_file_is_heavy(path: str) -> bool:
+def _requirements_file_is_heavy(path: str, generated: dict[str, bool] | None = None) -> bool:
+    if generated and path in generated:
+        return generated[path]
+    for prefix in ("${GITHUB_WORKSPACE}/", "$GITHUB_WORKSPACE/", "./"):
+        if path.startswith(prefix):
+            path = path[len(prefix) :]
     file = REPO / path
     if not file.is_file():
         return True  # generated at run time: cannot be shown to be light
@@ -86,7 +157,9 @@ def _requirements_file_is_heavy(path: str) -> bool:
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
-        if re.match(r"(?i)torch(?![\w-])", line):
+        # A ``+cpu`` local version exists only on the CPU index, so a file
+        # pinning it cannot resolve the CUDA build (requirements/ci/torch-cpu.txt).
+        if re.match(r"(?i)torch(?![\w-])", line) and not re.search(r"==[^\s;]*\+cpu\b", line):
             return True
         for group in re.findall(rf"(?:^|{re.escape(PROJECT)}|\.)\[([^\]]+)\]", line):
             if _heavy_extras(group):
@@ -94,8 +167,12 @@ def _requirements_file_is_heavy(path: str) -> bool:
     return False
 
 
-def is_heavy_install(line: str) -> bool:
-    """Whether one shell line installs a torch-bearing environment."""
+def is_heavy_install(line: str, generated: dict[str, bool] | None = None) -> bool:
+    """Whether one shell line installs a torch-bearing environment.
+
+    ``generated`` maps requirements files written earlier in the job (by
+    ``uv export`` or ``ama_wheel_requirement.py``) to whether they are heavy.
+    """
     pip = re.search(r"\bpip3?[\"']?\s+install\b(.*)", line)
     if pip:
         args = pip.group(1)
@@ -103,7 +180,7 @@ def is_heavy_install(line: str) -> bool:
             if _heavy_extras(group):
                 return True
         for req_file in re.findall(r"(?:-r|--requirement)[=\s]+[\"']?([^\s\"']+)", args):
-            if _requirements_file_is_heavy(req_file):
+            if _requirements_file_is_heavy(req_file, generated):
                 return True
         torch_named = re.search(r"(?<![\w-])torch(?![\w-])", args) is not None
         # Only a CPU *primary* index keeps torch light: with --extra-index-url
@@ -150,12 +227,21 @@ def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
     return list(job.get("steps") or [])
 
 
+def _classified_lines(job: dict[str, Any]) -> list[tuple[int, str, bool]]:
+    """``(step index, line, heavy)`` for every run line, in job order."""
+    generated: dict[str, bool] = {}
+    out: list[tuple[int, str, bool]] = []
+    for i, step in enumerate(_steps(job)):
+        for line in _logical_lines(str(step.get("run") or "")):
+            written = generated_requirements(line)
+            if written:
+                generated[written[0]] = written[1]
+            out.append((i, line, is_heavy_install(line, generated)))
+    return out
+
+
 def _heavy_indices(job: dict[str, Any]) -> list[int]:
-    return [
-        i
-        for i, step in enumerate(_steps(job))
-        if any(is_heavy_install(line) for line in _logical_lines(str(step.get("run") or "")))
-    ]
+    return sorted({i for i, _, heavy in _classified_lines(job) if heavy})
 
 
 HEAVY_JOBS = [(w, n, j) for w, n, j in _jobs() if _heavy_indices(j)]
@@ -196,6 +282,60 @@ def test_torch_extras_are_derived_from_pyproject() -> None:
 )
 def test_heavy_install_classifier(line: str, heavy: bool) -> None:
     assert is_heavy_install(line) is heavy
+
+
+_EXPORT = (
+    "uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography"
+)
+
+
+@pytest.mark.parametrize(
+    ("selectors", "heavy"),
+    [
+        # CI installs every lane from uv.lock this way (Scorecard
+        # Pinned-Dependencies); the classifier must see through the file.
+        ("--extra api", True),
+        ("--extra ml --group ci-test", True),
+        ("--extra ml --group ci-test --prune torch --prune torchvision", False),
+        ("--only-group ci-perf", True),
+        ("--only-group ci-lint", False),
+        ("--only-group ci-yaml", False),
+        ("--extra dev --group ci-test", False),
+        ("", False),
+        ("--all-extras", True),
+    ],
+)
+def test_a_uv_export_is_classified_by_what_it_selects(selectors: str, heavy: bool) -> None:
+    line = f'{_EXPORT} {selectors} -o "${{RUNNER_TEMP}}/ci-requirements.txt"'
+    path, is_heavy = generated_requirements(line) or ("", None)
+    assert path == "${RUNNER_TEMP}/ci-requirements.txt"
+    assert is_heavy is heavy
+
+
+def test_an_install_of_an_exported_file_inherits_its_weight() -> None:
+    job = {
+        "steps": [
+            {"uses": "actions/checkout@sha"},
+            {
+                "run": f'{_EXPORT} --only-group ci-lint -o "$RUNNER_TEMP/a.txt"\n'
+                'pip install --require-hashes -r "$RUNNER_TEMP/a.txt"\n'
+                f'{_EXPORT} --extra ml -o "$RUNNER_TEMP/b.txt"\n'
+                'pip install --require-hashes -r "$RUNNER_TEMP/b.txt"\n'
+            },
+        ]
+    }
+    heavy = [line for _, line, h in _classified_lines(job) if h]
+    assert heavy == ['pip install --require-hashes -r "$RUNNER_TEMP/b.txt"']
+
+
+def test_the_committed_ci_requirement_files_are_classified() -> None:
+    assert not is_heavy_install(
+        'pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"'
+    )
+    # +cpu pins exist only on the CPU index: no CUDA build can resolve.
+    assert not is_heavy_install(
+        'pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/torch-cpu.txt"'
+    )
 
 
 def test_a_requirements_file_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -249,16 +389,15 @@ def test_heavy_job_runs_the_disk_guard_before_installing(
 def test_heavy_install_does_not_target_tmp(job: tuple[str, str, dict[str, Any]]) -> None:
     workflow, name, body = job
     venvs_in_tmp: set[str] = set()
-    for step in _steps(body):
-        for line in _logical_lines(str(step.get("run") or "")):
-            for target in _VENV_RE.findall(line):
-                if target.startswith("/tmp/"):
-                    venvs_in_tmp.add(target.rstrip("/"))
-            if is_heavy_install(line):
-                assert not heavy_install_writes_tmp(line, venvs_in_tmp), (
-                    f"{workflow}::{name}: {line.strip()!r} builds a torch environment under "
-                    "/tmp, which can be a quota-limited tmpfs; use $RUNNER_TEMP"
-                )
+    for _, line, heavy in _classified_lines(body):
+        for target in _VENV_RE.findall(line):
+            if target.startswith("/tmp/"):
+                venvs_in_tmp.add(target.rstrip("/"))
+        if heavy:
+            assert not heavy_install_writes_tmp(line, venvs_in_tmp), (
+                f"{workflow}::{name}: {line.strip()!r} builds a torch environment under "
+                "/tmp, which can be a quota-limited tmpfs; use $RUNNER_TEMP"
+            )
 
 
 def test_the_pre_fix_dependency_scan_fails_both_rules() -> None:

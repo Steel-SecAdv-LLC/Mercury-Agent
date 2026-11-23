@@ -153,10 +153,12 @@ jobs:
           # the exact drift class the ruff incident demonstrated.  All six
           # lint/format/type pins are cross-checked by
           # scripts/check_pinned_tool_versions.py in Workflow Hardening.
-          # The tools are exact pins, not project dependencies, so they go
-          # into a uv environment directly (no lockfile entry to drift).
+          # The exact pins live in pyproject's ``ci-lint`` dependency group, so
+          # uv.lock carries them with hashes; the venv gets exactly that group,
+          # hash-verified (OpenSSF Scorecard Pinned-Dependencies).
           uv venv .venv --python "${{ matrix.python-version }}"
-          uv pip install "black==26.10.1" flake8==7.5.0 mypy==2.4.1 ruff==0.17.5 pydocstyle==6.3.0
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-lint -o "${RUNNER_TEMP}/ci-requirements.txt"
+          uv pip install --require-hashes --no-config -r "${RUNNER_TEMP}/ci-requirements.txt"
           # Every later step in the job runs the project's environment.
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
@@ -404,12 +406,14 @@ jobs:
 
       - name: Install workflow security linters
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install "zizmor==1.24.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/zizmor.txt"
           # packaging: version and requirement parsing for the uv.lock
           # downgrade gate and the Dependabot replay below.
-          pip install "packaging>=24.0"
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-yaml -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
+          go install github.com/rhysd/actionlint/cmd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca  # v1.7.12
 
       - name: Install package for λ drift gate import
         # The Lyapunov λ drift gate
@@ -421,7 +425,10 @@ jobs:
         # the gate has both LAMBDA_CONVERGENCE and LAMBDA_DECAY in
         # scope.  An editable install is fine for the workflow-hardening
         # lane; it does not need [ml]/[api] extras.
-        run: pip install -e .
+        run: |
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
@@ -498,6 +505,15 @@ jobs:
 
       - name: Run repository workflow hardening checks
         run: python scripts/check_workflow_hardening.py
+
+      - name: Run pinned-install gate (OpenSSF Scorecard Pinned-Dependencies)
+        # Every pip / uv pip / npm / go install in every workflow, composite
+        # action, shell script and Dockerfile must name exact, verified
+        # artifacts: --require-hashes against uv.lock or requirements/ci,
+        # a --no-deps editable install of the checkout, npm ci, or a go
+        # module at a commit. Scorecard filed one alert per install that did
+        # not; this keeps the class from returning.
+        run: python scripts/check_pinned_installs.py
 
       - name: Run suppression hygiene checks
         run: python scripts/check_suppression_hygiene.py
@@ -680,7 +696,8 @@ jobs:
           # ``py.typed``, so installing it lets mypy resolve the decorator
           # signatures; without it the [[tool.mypy.overrides]] boundary turns
           # them into ``Any`` and the strict lane flags [untyped-decorator].
-          uv pip install mypy==2.4.1 types-requests==2.33.0.20261030
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-types -o "${RUNNER_TEMP}/ci-requirements.txt"
+          uv pip install --require-hashes --no-config -r "${RUNNER_TEMP}/ci-requirements.txt"
           # Every later step in the job runs the project's environment.
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
@@ -863,7 +880,7 @@ jobs:
         # errors that 2.4.0 fixes).  Pinning the exact floor and re-running the
         # gate below stops the declared minimum from silently drifting away
         # from what actually type-checks.
-        run: uv pip install "numpy==2.4.0"
+        run: uv pip install --require-hashes --no-config -r "${GITHUB_WORKSPACE}/requirements/ci/numpy-floor.txt"
 
       - name: Run MyPy at the numpy floor (src + tests)
         run: |
@@ -939,10 +956,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Upgrade pip
-        # Pin upgrade target liberally — if the runner already ships a
-        # newer pip, ``--upgrade`` is a no-op.  Failure here means a
-        # genuine network / index issue and should fail the job.
-        run: python -m pip install --upgrade "pip>=26.1"
+        # Hash-locked pip >= 26.1 (CVE-2026-6357 floor; requirements/ci/pip.txt).
+        # Failure here means a genuine network / index issue and should fail
+        # the job.
+        run: python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
@@ -971,7 +988,7 @@ jobs:
         # raises ``TypeError: type 'Choice' is not subscriptable``
         # the moment ``safety`` imports ``typer``, breaking the
         # Safety dep-CVE gate before any vulnerability check runs.
-        run: pip install bandit safety pip-audit "click>=8.2"
+        run: python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/audit.txt"
 
       - name: Install Semgrep (isolated venv)
         # Semgrep is heavier (~76MB manylinux wheel including
@@ -991,11 +1008,12 @@ jobs:
         # safety 3.7.0 ``Requires-Dist: click>=8.0.2`` + typer 0.25.1.
         run: |
           python -m venv /tmp/semgrep-env
-          /tmp/semgrep-env/bin/pip install --upgrade "pip>=26.1"
+          /tmp/semgrep-env/bin/python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # Pinned: the ruleset behaviour this gate was verified against
           # (0 true findings over src/ at this version); an unpinned semgrep
-          # can change what "blocking" means between runs.
-          /tmp/semgrep-env/bin/pip install "semgrep==1.186.0"
+          # can change what "blocking" means between runs. Hash-locked with
+          # its whole closure in requirements/ci/semgrep.txt.
+          /tmp/semgrep-env/bin/python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/semgrep.txt"
           # Expose semgrep on PATH for the scan step below without
           # contaminating the runner's site-packages.
           ln -sf /tmp/semgrep-env/bin/semgrep /usr/local/bin/semgrep
@@ -1020,15 +1038,24 @@ jobs:
         # breaks typer's import.  Diagnosed on PR #148 (commits
         # 6cc4bbd / 1952eb7 / 63ae1dc); fixed in commit ae7ad84.
         run: |
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
           python -m venv "${RUNNER_TEMP}/mercury-audit-env"
-          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --upgrade "pip>=26.1"
+          audit_py="${RUNNER_TEMP}/mercury-audit-env/bin/python"
+          "${audit_py}" -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          # The [api] closure, hash-locked from uv.lock. The lock's click
+          # (8.5.0) and typer (0.27.3) already satisfy the click>=8.2 /
+          # typer>=0.20 re-pin above, so no resolver can downgrade them.
           # --no-cache-dir: the wheels are installed once and never reused,
           # and pip's cache would hold a second copy of the torch stack.
-          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir -e ".[api]" \
-            --upgrade "click>=8.2" "typer>=0.20"
-          "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir --upgrade \
-            "setuptools>=84.0.0" "wheel>=0.48.0" "cmake>=4.4.4"
-          AMA_NO_CYTHON=1 "${RUNNER_TEMP}/mercury-audit-env/bin/pip" install --no-cache-dir --no-build-isolation /tmp/ama-cryptography
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra api -o "${RUNNER_TEMP}/audit-requirements.txt"
+          "${audit_py}" -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/audit-requirements.txt"
+          "${audit_py}" -m pip install --no-deps --no-build-isolation -e .
+          "${audit_py}" -m pip install --require-hashes --no-cache-dir \
+            -r "${GITHUB_WORKSPACE}/requirements/ci/ama-build.txt"
+          # The same AMA the composite above built, as a hash-locked wheel.
+          ama_version="$(python -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "ama-cryptography"))')"
+          PATH="${RUNNER_TEMP}/mercury-audit-env/bin:${PATH}" AMA_NO_CYTHON=1 \
+            bash scripts/install_ama_wheel.sh /tmp/ama-cryptography "${ama_version}"
           "${RUNNER_TEMP}/mercury-audit-env/bin/pip" list --format=freeze \
             > "${RUNNER_TEMP}/mercury-audit-env/requirements.txt"
           {
@@ -1212,7 +1239,8 @@ jobs:
           # [dev] carries pytest, pytest-cov and pytest-asyncio; all of it
           # comes from uv.lock. sympy is a test-only import with no extra.
           uv sync --locked --extra ml --extra dev --extra api
-          uv pip install sympy
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-sympy -o "${RUNNER_TEMP}/ci-requirements.txt"
+          uv pip install --require-hashes --no-config -r "${RUNNER_TEMP}/ci-requirements.txt"
           # Every later step in the job runs the project's environment.
           echo "${GITHUB_WORKSPACE}/.venv/bin" >> "${GITHUB_PATH}"
           echo "VIRTUAL_ENV=${GITHUB_WORKSPACE}/.venv" >> "${GITHUB_ENV}"
@@ -1400,12 +1428,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # The cognitive stack exercises torch, sklearn, sympy, NetworkX
           # graph reasoning, and the Three-R mechanism, so [ml] extras are
           # required.  [dev] pulls in pytest plugins.
-          pip install -e ".[ml,dev]"
-          pip install pytest pytest-cov pytest-asyncio pytest-timeout sympy
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra ml --extra dev --group ci-sympy --group ci-test -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # AMA takes a backseat to none: the cognitive/ethics stack imports the
@@ -1799,9 +1829,11 @@ jobs:
         # without PyTorch.  ``[api]`` supplies fastapi/uvicorn; matches the
         # engine-exercising ``core-tests`` lane's ``.[ml,dev,api]``.
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install -e ".[ml,api,dev]"
-          pip install pytest pytest-asyncio httpx fastapi uvicorn
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra ml --extra api --extra dev --group ci-test --group ci-web -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # AMA takes a backseat to none: integration imports the API/package
@@ -1877,8 +1909,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install --no-cache-dir numpy scipy torch scikit-learn sympy
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-perf -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/ci-requirements.txt"
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
@@ -1946,9 +1980,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install -e .
-          pip install pytest pytest-benchmark
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --group ci-test -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Build + install AMA Cryptography (native PQC backend)
         uses: ./.github/actions/build-ama-cryptography
@@ -2231,8 +2267,8 @@ jobs:
         # the autodoc-typehints extension would only crash with
         # ``Unknown event name: autodoc-process-signature``.
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          pip install sphinx sphinx-rtd-theme myst-parser
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/docs.txt"
 
       - name: Build documentation
         # Blocking — Sphinx is the source-of-truth render of the narrative
@@ -2413,8 +2449,10 @@ jobs:
         # not raised pip to >= 26.1 (CVE-2026-6357 regression guard), and it
         # caught this step when it was added without one.
         run: |
-          python -m pip install --upgrade "pip>=26.1"
-          python -m pip install "pyyaml>=6.0"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --only-group ci-yaml -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/ci-requirements.txt"
 
       - name: Assert the rendered manifests carry the required configuration
         run: |

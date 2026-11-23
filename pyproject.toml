@@ -504,6 +504,43 @@ Changelog = "https://github.com/Steel-SecAdv-LLC/Mercury-Agent/blob/main/CHANGEL
 # =============================================================================
 # uv lock configuration
 # =============================================================================
+[dependency-groups]
+# CI tool sets, locked in uv.lock with hashes beside the project. A CI lane
+# installs ``uv export --frozen --no-emit-project [--extra ...] --group ...``
+# with ``pip install --require-hashes``, then the project itself with
+# ``pip install --no-deps --no-build-isolation -e .``: every byte a lane
+# installs is pinned and hash-verified (OpenSSF Scorecard Pinned-Dependencies),
+# and Dependabot's uv updates reach CI with no second file to keep in step.
+# Groups are not published metadata (PEP 735): nothing here changes what a
+# user installing the package receives.
+ci-test = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-timeout",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-xdist",
+    "pytest-benchmark",
+    "hypothesis",
+]
+ci-lint = [
+    "black==26.10.1",
+    "flake8==7.5.0",
+    "mypy==2.4.1",
+    "ruff==0.17.5",
+    "pydocstyle==6.3.0",
+]
+ci-types = [
+    "mypy==2.4.1",
+    "types-requests==2.33.0.20261030",
+]
+ci-perf = ["numpy", "scipy", "torch", "scikit-learn", "sympy"]
+ci-sklearn = ["scikit-learn"]
+ci-sympy = ["sympy"]
+ci-web = ["httpx", "fastapi", "uvicorn"]
+ci-locust = ["locust>=2.31.0"]
+ci-yaml = ["packaging>=24.0", "pyyaml>=6.0"]
+
 [tool.uv]
 # The universal lock covers the platforms the declared stack ships wheels
 # for. macOS on Intel (darwin x86_64) is not one of them: torch publishes no

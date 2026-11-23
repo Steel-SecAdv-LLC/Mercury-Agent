@@ -71,7 +71,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade "pip>=26.1"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
           # The verify-real-pqc job exercises the security suite end-to-end,
           # which includes ``tests/security/test_jwt_auth.py`` and
           # ``tests/security/test_audit_improvements.py``. Both reach the
@@ -80,7 +80,10 @@ jobs:
           # collection error on those files, so install the ``[api]`` extra
           # alongside ``[dev]`` to satisfy the ``api/auth.py`` runtime
           # contract under CI.
-          pip install --no-cache-dir -e ".[dev,api]"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --extra dev --extra api -o "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --require-hashes --no-cache-dir -r "${RUNNER_TEMP}/ci-requirements.txt"
+          python -m pip install --no-deps --no-build-isolation -e .
 
       - name: Build + install AMA Cryptography (native PQC backend)
         # FIPS 204/205 KAT pinning: the byte-exact NIST ACVP reproduction in

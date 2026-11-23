@@ -53,7 +53,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 # what AMA v5.0.0's own preflight demands — the same floor
 # scripts/build_ama_native.sh and .github/actions/build-ama-cryptography already
 # declare — so all three build paths now state one number instead of three.
-RUN pip install --no-cache-dir --upgrade "pip>=26.1" "setuptools>=84.0.0" "wheel>=0.48.0"
+#
+# Every install in this stage is hash-locked (OpenSSF Scorecard
+# Pinned-Dependencies): requirements/ci/pip.txt pins pip 26.3, setuptools and
+# wheel at or above those floors with their sha256 digests, and
+# ``--require-hashes`` refuses any file that is not one of them. The pins are
+# regenerated with scripts/lock_ci_requirements.sh.
+COPY requirements/ci/ /app/requirements/ci/
+RUN pip install --require-hashes --no-cache-dir -r /app/requirements/ci/pip.txt
 
 # Set working directory for build
 WORKDIR /app
@@ -84,7 +91,7 @@ ENV AMA_NO_CYTHON=1
 # venv is copied into the runtime image. AMA (the [pqc] extra) is
 # intentionally NOT installed here; the native build below is its sole
 # installer.
-RUN pip install --no-cache-dir "uv==0.11.32"
+RUN pip install --require-hashes --no-cache-dir -r /app/requirements/ci/uv.txt
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1
@@ -115,10 +122,12 @@ RUN uv sync --locked --inexact --extra all --no-editable --no-dev
 # the one scripts/build_ama_native.sh applies a few lines below are now the same
 # number rather than two that happen to converge.
 #
-# --upgrade-strategy only-if-needed keeps this from disturbing the resolved set
-# beyond these two packages.
-RUN pip install --no-cache-dir --upgrade --upgrade-strategy only-if-needed \
-        "setuptools>=84.0.0" "msgpack>=1.2.1" && \
+# requirements/ci/image-floors.txt pins exactly the versions uv.lock resolves
+# (setuptools 84.2.1, msgpack 1.2.4; tests/scripts/test_ci_requirements_locked.py
+# holds them equal), hash-locked, so re-applying them cannot move any other
+# package of the resolved set and cannot install a file the lock did not name.
+# The assertion below keeps proving the floors themselves.
+RUN pip install --require-hashes --no-cache-dir -r /app/requirements/ci/image-floors.txt && \
     python -c "import msgpack, setuptools; \
 from packaging.version import Version; \
 assert Version(setuptools.__version__) >= Version('84.0.0'), setuptools.__version__; \
@@ -141,7 +150,8 @@ print('supply-chain floors held:', setuptools.__version__, msgpack.version)"
 # tests/security/test_pqc_gate_real_ama.py.
 ARG AMA_REF=v5.0.0
 ARG AMA_COMMIT=702e253a137f98ffe452d2f6e614fcc175112598
-COPY scripts/build_ama_native.sh scripts/fetch_ama_prebuilt.sh /app/scripts/
+COPY scripts/build_ama_native.sh scripts/fetch_ama_prebuilt.sh \
+     scripts/install_ama_wheel.sh scripts/ama_wheel_requirement.py /app/scripts/
 RUN AMA_REF="${AMA_REF}" AMA_COMMIT="${AMA_COMMIT}" bash /app/scripts/build_ama_native.sh
 
 # Remove unused sample dataset fetchers before the virtualenv is copied into the

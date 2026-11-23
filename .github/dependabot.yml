@@ -252,3 +252,35 @@ updates:
     commit-message:
       prefix: "deps(browser-test)"
       include: "scope"
+
+  # The hash-locked CI tool sets (requirements/ci/*.txt, compiled from the
+  # *.in beside them by scripts/lock_ci_requirements.sh). Every workflow,
+  # the Dockerfile and the AMA build install from these with
+  # ``--require-hashes`` (OpenSSF Scorecard Pinned-Dependencies), so without
+  # this entry their pins -- pip, uv, setuptools, the auditors, semgrep --
+  # would never receive a security release. Dependabot rewrites the version
+  # and the hashes together. torch/torchvision are ignored: torch-cpu.txt
+  # pins the newest builds the PyTorch CPU index carries, which trail PyPI,
+  # and a PyPI bump would pull the CUDA wheel; regenerate that file with the
+  # script instead.
+  - package-ecosystem: "pip"
+    directory: "/requirements/ci"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps(ci-tools)"
+      include: "scope"
+    ignore:
+      - dependency-name: "torch"
+      - dependency-name: "torchvision"
+    groups:
+      ci-tools:
+        patterns:
+          - "*"
