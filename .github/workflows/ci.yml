@@ -128,7 +128,7 @@ jobs:
         # uv version is pinned to the one the Dockerfile installs.
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: "0.11.32"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -395,7 +395,7 @@ jobs:
         # uv version is pinned to the one the Dockerfile installs.
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: "0.11.32"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -669,7 +669,7 @@ jobs:
         # uv version is pinned to the one the Dockerfile installs.
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: "0.11.32"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -988,7 +988,10 @@ jobs:
         # raises ``TypeError: type 'Choice' is not subscriptable``
         # the moment ``safety`` imports ``typer``, breaking the
         # Safety dep-CVE gate before any vulnerability check runs.
-        run: python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/audit.txt"
+        # --no-deps: audit.txt is the complete hash-locked closure, and it
+        # overrides safety's filelock<4 pin (requirements/ci/audit.overrides),
+        # which pip's resolver would otherwise refuse.
+        run: python -m pip install --require-hashes --no-deps -r "${GITHUB_WORKSPACE}/requirements/ci/audit.txt"
 
       - name: Install Semgrep (isolated venv)
         # Semgrep is heavier (~76MB manylinux wheel including
@@ -1013,7 +1016,10 @@ jobs:
           # (0 true findings over src/ at this version); an unpinned semgrep
           # can change what "blocking" means between runs. Hash-locked with
           # its whole closure in requirements/ci/semgrep.txt.
-          /tmp/semgrep-env/bin/python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/semgrep.txt"
+          # --no-deps: semgrep.txt is the complete hash-locked closure, and it
+          # overrides semgrep's mcp/opentelemetry/wcmatch pins
+          # (requirements/ci/semgrep.overrides), which pip would refuse.
+          /tmp/semgrep-env/bin/python -m pip install --require-hashes --no-deps -r "${GITHUB_WORKSPACE}/requirements/ci/semgrep.txt"
           # Expose semgrep on PATH for the scan step below without
           # contaminating the runner's site-packages.
           ln -sf /tmp/semgrep-env/bin/semgrep /usr/local/bin/semgrep
@@ -1224,7 +1230,7 @@ jobs:
         # uv version is pinned to the one the Dockerfile installs.
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: "0.11.32"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -1593,7 +1599,7 @@ jobs:
         # uv version is pinned to the one the Dockerfile installs.
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          version: "0.11.32"
+          version: "0.13.9"
           enable-cache: true
           cache-dependency-glob: uv.lock
 

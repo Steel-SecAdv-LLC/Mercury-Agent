@@ -4,3 +4,4 @@ safety
 bandit
 pip-audit
 click>=8.2
+# uv-compile-args: --override requirements/ci/audit.overrides

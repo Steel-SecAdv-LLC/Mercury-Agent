@@ -153,3 +153,80 @@ def test_a_single_platform_file_is_compiled_for_its_lanes_interpreter() -> None:
     lane_version = re.search(r'python-version: "([\d.]+)"', lane)
     assert lane_version is not None
     assert compiled_for.group(1) == lane_version.group(1)
+
+
+#: Published advisories against CI tool pins and the first fixed release.
+#: Each entry was a Dependabot alert on ``main`` after #415 (2026-11-23); the
+#: pinned version must stay at or above the fix. ``set`` is the lock file stem.
+_ADVISORY_FLOORS: dict[str, tuple[str, str, str]] = {
+    "uv": ("uv", "0.13.4", "GHSA-hq85-5cpj-mr62"),
+    "mcp": ("semgrep", "1.30.0", "GHSA-84m7-p3x7-pcfv and four more"),
+    "opentelemetry-api": ("semgrep", "1.45.2", "GHSA-xcq7-p3pf-p88h, GHSA-mf5v-w3w3-f6cg"),
+    "wcmatch": ("semgrep", "11.2", "GHSA-53pm-wgxf-c6qf"),
+    "filelock": ("audit", "4.2.1", "GHSA-v4x8-3wr5-3wq8 and twelve more"),
+}
+
+
+@pytest.mark.parametrize("package", sorted(_ADVISORY_FLOORS))
+def test_ci_tool_pins_stay_at_or_above_their_advisory_fix(package: str) -> None:
+    from packaging.version import Version
+
+    stem, floor, advisory = _ADVISORY_FLOORS[package]
+    pinned = _pins(_REQ / f"{stem}.txt").get(package)
+    assert pinned is not None, f"{package} missing from {stem}.txt"
+    assert Version(pinned) >= Version(
+        floor
+    ), f"{stem}.txt pins {package}=={pinned}, below {floor} ({advisory})"
+
+
+def _override_specs(path: Path) -> list[str]:
+    lines = (line.split("#", 1)[0].strip() for line in path.read_text().splitlines())
+    return [line for line in lines if line]
+
+
+def test_every_override_file_is_compiled_in_and_its_specifiers_hold() -> None:
+    """An override only protects a lock compiled with it, at a version it admits."""
+    from packaging.requirements import Requirement
+
+    overrides = sorted(_REQ.glob("*.overrides"))
+    assert {p.stem for p in overrides} >= {"semgrep", "audit"}
+    for path in overrides:
+        spec = (_REQ / f"{path.stem}.in").read_text()
+        args = re.search(r"^# uv-compile-args: (.*)$", spec, re.MULTILINE)
+        assert args and f"--override requirements/ci/{path.name}" in args.group(1), path.name
+        pins = _pins(_REQ / f"{path.stem}.txt")
+        for line in _override_specs(path):
+            req = Requirement(line)
+            name = req.name.lower()
+            assert name in pins, (path.name, name)
+            assert req.specifier.contains(pins[name], prereleases=True), (
+                path.name,
+                line,
+                pins[name],
+            )
+
+
+def test_overridden_sets_install_without_pips_resolver() -> None:
+    """pip's resolver rejects an overridden pin; the closure is already complete and hashed."""
+    surfaces = [*(_REPO / ".github" / "workflows").glob("*.yml"), _REPO / "Dockerfile"]
+    surfaces += [*(_REPO / "scripts").glob("*.sh")]
+    stems = {p.stem for p in _REQ.glob("*.overrides")}
+    seen = 0
+    for surface in surfaces:
+        for line in surface.read_text(encoding="utf-8").splitlines():
+            if line.lstrip().startswith("#"):
+                continue
+            for stem in stems:
+                if f"requirements/ci/{stem}.txt" in line and "install" in line:
+                    seen += 1
+                    assert "--no-deps" in line, (surface.name, line.strip())
+    assert seen >= 3  # ci.yml audit + semgrep, security.yml audit
+
+
+def test_the_security_lane_audits_every_ci_lock() -> None:
+    """A vulnerable tool pin fails the pull request, not a Dependabot alert after merge."""
+    workflow = (_REPO / ".github" / "workflows" / "security.yml").read_text(encoding="utf-8")
+    step = re.search(r"for lock in requirements/ci/\*\.txt; do\n(.*?)\n\s*done", workflow, re.S)
+    assert step is not None
+    assert 'pip-audit -r "${lock}"' in step.group(1)
+    assert "--ignore-vuln" not in step.group(1)

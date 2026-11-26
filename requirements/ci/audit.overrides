@@ -1,0 +1,9 @@
+# Overrides applied by scripts/lock_ci_requirements.sh (uv pip compile --override).
+# safety (3.8.1, the newest release) requires filelock<4.0, and every filelock
+# 3.x carries the advisories fixed in 4.2.1: GHSA-v4x8-3wr5-3wq8,
+# -9vhv-jxww-xfm5, -567q-5qvw-pf92, -m462-7rxw-wvpg, -j8f7-rjxc-mr56,
+# -8mx5-7m5m-r77g, -69hj-f68j-2879, -9c4x-gm8v-wgc4, -rfpc-qcw5-3pc4,
+# -cwqr-hh33-gh44, -fq56-3cx3-fjxp, -9j6q-wvj5-jgjg, -6627-m3xw-93mp.
+# tests/scripts/test_ci_requirements_locked.py keeps the floor in force and the
+# Security lanes prove safety still runs. Remove once safety accepts filelock 4.
+filelock>=4.2.1
