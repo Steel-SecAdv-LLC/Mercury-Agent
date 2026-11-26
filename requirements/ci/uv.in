@@ -1,2 +1,2 @@
 # The installer that exports uv.lock (hash-locked) for each lane.
-uv==0.11.32
+uv==0.13.9

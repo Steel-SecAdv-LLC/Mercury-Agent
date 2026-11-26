@@ -540,6 +540,10 @@ ci-sympy = ["sympy"]
 ci-web = ["httpx", "fastapi", "uvicorn"]
 ci-locust = ["locust>=2.31.0"]
 ci-yaml = ["packaging>=24.0", "pyyaml>=6.0"]
+# Atheris: the coverage-guided fuzzing engine for tests/fuzz/atheris_cap_parser.py
+# (.github/workflows/fuzz.yml).
+# It ships wheels only for CPython >= 3.12 on Linux x86_64, the fuzz lane's platform.
+ci-fuzz = ["atheris==3.1.0; python_version >= '3.12' and sys_platform == 'linux' and platform_machine == 'x86_64'"]
 
 [tool.uv]
 # The universal lock covers the platforms the declared stack ships wheels
@@ -564,7 +568,7 @@ ci-yaml = ["packaging>=24.0", "pyyaml>=6.0"]
 # Emscripten (Pyodide) is excluded for the same reason. Nothing in the stack
 # targets it, but ``sys_platform != 'darwin'`` alone admits it, and httpx2
 # carries an emscripten-only dependency (httpx2-jsfetch), so the lock grew an
-# emscripten fork. torch ships no emscripten wheel. uv 0.11.32, which writes
+# emscripten fork. torch ships no emscripten wheel. uv 0.11.32, which wrote
 # this lock, tolerated that fork; Dependabot's bundled uv (0.13.7 on
 # 2026-11-09) does not, and all seven of that week's updates failed with
 # "No solution found when resolving dependencies for split (markers:
@@ -800,6 +804,10 @@ module = [
     # PyOD (optional [benchmark] extra) ships no py.typed marker; only the
     # lazy imports inside comparison/pyod_integration.py touch it.
     "pyod.*",
+    # Atheris (ci-fuzz group, Linux x86_64 only) ships no py.typed marker; only
+    # the fuzz harness tests/fuzz/atheris_cap_parser.py imports it.
+    "atheris",
+    "atheris.*",
     "stumpy.*",
     "nixtla.*",
     "chronos.*",

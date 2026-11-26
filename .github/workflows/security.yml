@@ -80,7 +80,10 @@ jobs:
         # is not subscriptable`` against the older click that ships
         # with the GHA hosted Python image.  See ``ci.yml`` for the
         # full rationale.
-        python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/audit.txt"
+        # --no-deps: audit.txt is the complete hash-locked closure, and it
+        # overrides safety's filelock<4 pin (requirements/ci/audit.overrides),
+        # which pip's resolver would otherwise refuse.
+        python -m pip install --require-hashes --no-deps -r "${GITHUB_WORKSPACE}/requirements/ci/audit.txt"
 
     - name: Create isolated Mercury install (audit target)
       # Install Mercury into a dedicated venv so the audits scan
@@ -141,6 +144,27 @@ jobs:
           --path "${RUNNER_TEMP}/mercury-audit-env/lib/python3.12/site-packages" \
           --skip-editable \
           --format json --output pip-audit-report.json
+
+    - name: Run pip-audit over the hash-locked CI tool sets
+      # requirements/ci/*.txt pin every tool the lanes, the Dockerfile and
+      # the AMA build install (pip, uv, the auditors, Semgrep, Sphinx, ...).
+      # Dependabot only reports on the default branch, so a vulnerable pin
+      # used to surface as alerts after the merge (44 after #415). This
+      # gate names it on the pull request. BLOCKING, no --ignore-vuln:
+      # fix the pin, or override a tool's stale transitive pin in
+      # requirements/ci/<set>.overrides and relock.
+      run: |
+        set -euo pipefail
+        fail=0
+        for lock in requirements/ci/*.txt; do
+          echo "::group::pip-audit ${lock}"
+          if ! pip-audit -r "${lock}" --no-deps --disable-pip --progress-spinner off; then
+            echo "::error file=${lock}::pip-audit: known vulnerability pinned in ${lock}"
+            fail=1
+          fi
+          echo "::endgroup::"
+        done
+        exit "${fail}"
 
     - name: Run Bandit security scan
       # Bandit scans application source for common security

@@ -1,0 +1,17 @@
+# Overrides for semgrep's exact pins, applied by scripts/lock_ci_requirements.sh
+# (uv pip compile --override). Every Semgrep release through 1.187.0 pins these
+# packages to versions with published advisories, and no release lifts them:
+#   mcp==1.29.0            GHSA-84m7-p3x7-pcfv, -5h93-6whr-6q8j, -w4fh-qvv9-3v23,
+#                          -rwrf-2pqf-9j8j, -qx49-fqc8-xw99 (fixed in 1.30.0)
+#   opentelemetry ~=1.37.0 GHSA-xcq7-p3pf-p88h, -mf5v-w3w3-f6cg (fixed in 1.45.2)
+#   wcmatch ~=8.3          GHSA-53pm-wgxf-c6qf (fixed in 11.2)
+# CI only runs `semgrep scan`; tests/scripts/test_ci_requirements_locked.py keeps
+# the floors below in force and the CI scan proves the overridden set works.
+# Remove an entry once a Semgrep release accepts the fixed version on its own.
+mcp>=1.30.0,<2
+opentelemetry-api>=1.45.2,<2
+opentelemetry-sdk>=1.45.2,<2
+opentelemetry-exporter-otlp-proto-http>=1.45.2,<2
+opentelemetry-instrumentation-requests>=0.58b0
+opentelemetry-instrumentation-threading>=0.58b0
+wcmatch>=11.2,<12

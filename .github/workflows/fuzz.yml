@@ -1,0 +1,90 @@
+name: Fuzz (Atheris)
+
+# Coverage-guided fuzzing of the parsers that read untrusted upstream input,
+# with Atheris (libFuzzer for CPython). The Hypothesis properties under
+# tests/fuzz/ pin each parser's error contract over a fixed input grammar;
+# this lane drives the same contract with coverage feedback, so inputs evolve
+# toward parser branches the grammar never reaches. A contract violation is a
+# crash: the job fails and uploads the reproducing input.
+#
+# Atheris comes from uv.lock (the ``ci-fuzz`` dependency group), installed
+# hash-verified like every other lane. It ships wheels only for CPython >= 3.12
+# on Linux x86_64, hence the pinned interpreter.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/omni_mercury_engine/watch/world.py"
+      - "src/omni_mercury_engine/alerting/cap_generator.py"
+      - "tests/fuzz/**"
+      - "tests/watch/data/*.cap.xml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/fuzz.yml"
+  schedule:
+    # Weekly, Wednesday 04:17 UTC: a longer run than a pull request gets.
+    - cron: "17 4 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  cap-parser:
+    name: Atheris CAP parser fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Seconds of fuzzing: short on a pull request, longer on the schedule.
+      FUZZ_SECONDS: ${{ github.event_name == 'pull_request' && '120' || '900' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Install the hash-locked fuzz environment
+        # Mercury's core dependencies plus the ci-fuzz group (Atheris), all
+        # from uv.lock with hashes. The harness imports the parsers from
+        # src/ via PYTHONPATH, so the engine (and AMA) is not installed.
+        run: |
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/pip.txt"
+          python -m pip install --require-hashes -r "${GITHUB_WORKSPACE}/requirements/ci/uv.txt"
+          uv export --frozen --quiet --no-emit-project --no-header --no-emit-package ama-cryptography --group ci-fuzz -o "${RUNNER_TEMP}/fuzz-requirements.txt"
+          python -m pip install --require-hashes -r "${RUNNER_TEMP}/fuzz-requirements.txt"
+
+      - name: Fuzz parse_cap and validate_cap_xml
+        env:
+          PYTHONPATH: src
+        run: |
+          set -euo pipefail
+          corpus="${RUNNER_TEMP}/cap-corpus"
+          mkdir -p "${corpus}"
+          cp tests/watch/data/*.cap.xml "${corpus}/"
+          python tests/fuzz/atheris_cap_parser.py "${corpus}" \
+            -dict=tests/fuzz/cap.dict \
+            -max_total_time="${FUZZ_SECONDS}" \
+            -rss_limit_mb=2048 \
+            -print_final_stats=1
+
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: atheris-cap-parser-crashes
+          path: |
+            crash-*
+            timeout-*
+            oom-*
+          if-no-files-found: ignore
+          retention-days: 30
