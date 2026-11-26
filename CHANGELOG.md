@@ -28,7 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet; everything below ships in 3.1.0.
+### Security
+- **The 44 Dependabot alerts on the hash-locked CI tool sets are closed (22 advisories, each reported for `requirements/ci/<set>.in` and `.txt`).** They opened when 3.1.0's pin-to-hash work put the CI tools under Dependabot. `uv` goes from 0.11.32 to 0.13.9 (GHSA-hq85-5cpj-mr62: bundled CA store) in `requirements/ci/uv.txt` and every `setup-uv` step. Semgrep (through 1.187.0) and safety (3.8.1) hard-pin vulnerable releases of `mcp`, `opentelemetry-*`, `wcmatch` and `filelock`, and no release lifts the pins, so `requirements/ci/semgrep.overrides` and `audit.overrides` override them at lock time (`mcp` 1.30.0, `opentelemetry-api` 1.45.2, `wcmatch` 11.2, `filelock` 4.3.1) and the two sets install with `--no-deps`. Verified equivalent: the CI Semgrep scan reports the same files, findings and warnings under both sets, and safety and pip-audit give identical results.
+- **A vulnerable CI tool pin now fails the pull request.** The Security workflow runs `pip-audit` over every `requirements/ci/*.txt`; Dependabot reports only on the default branch, which is why these alerts appeared after the merge. `tests/scripts/test_ci_requirements_locked.py` holds each fixed version as a floor.
+- **Coverage-guided fuzzing (OpenSSF Scorecard Fuzzing).** `tests/fuzz/atheris_cap_parser.py` fuzzes `parse_cap` and `validate_cap_xml`, which read untrusted upstream CAP XML, with Atheris, seeded from the real CAP alerts in `tests/watch/data` and a CAP/XML token dictionary. `.github/workflows/fuzz.yml` runs it for 2 minutes on pull requests that touch the parsers and 15 minutes weekly; Atheris is hash-locked in the `ci-fuzz` dependency group. It complements the Hypothesis properties in `tests/fuzz/`.
 
 ## [3.1.0] - 2026-11-22
 
